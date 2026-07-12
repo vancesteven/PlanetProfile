@@ -444,6 +444,12 @@ PARAMETER_PRESETS = {
     },
 
     'andrade_europa': {
+        # LEGACY (2026-07-12): 5D PPTest46 reference model (Titan-derived
+        # PureH2O structure). NOT the Europa campaign model — that is the v2
+        # 7D seawater config configs/europa_seawater_andrade_7D.json (sampled
+        # Tb/core, mass-conservation rho_sil, Mazarico-assumption k2/h2,
+        # |Ae_synodic| > 0.7 induction bound). Retired from the GUI preset
+        # radio; kept for provenance of the Variant A/B study.
         # Variant B reference structure: intermediate Fe-FeS core (xFeS=0.55, rhoCore≈5865 kg/m³).
         # Thin Ice Ih shell only; no HP ice phases for Europa's ~25 km shell.
         # k2 values are theoretical placeholders — Europa Clipper will constrain these.

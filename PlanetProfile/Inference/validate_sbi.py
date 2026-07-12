@@ -897,7 +897,11 @@ def _run_limits_check(
     for k, val in enumerate(sweep_values):
         x_obs = dict(fixed_obs)
         x_obs[sweep_obs] = float(val)
-        samples = runner.sample_posterior(x_obs, n_samples=int(n_samples), seed=int(seed) + k)
+        # Diagnostic sweep at possibly far-out-of-distribution x: skip
+        # sbi's prior-box rejection (NSF spline asserts there); the
+        # containment gate below measures any leakage honestly.
+        samples = runner.sample_posterior(x_obs, n_samples=int(n_samples), seed=int(seed) + k,
+                                          reject_outside_prior=False)
         median = float(np.median(samples[:, pidx]))
         medians.append(median)
         inside = np.all(
@@ -1002,7 +1006,11 @@ def _run_limits_anchor_check(
 
         x_obs = dict(fixed_obs)
         x_obs[sweep_obs] = float(val)
-        samples = runner.sample_posterior(x_obs, n_samples=int(n_samples), seed=int(seed) + k)
+        # Diagnostic sweep at possibly far-out-of-distribution x: skip
+        # sbi's prior-box rejection (NSF spline asserts there); the
+        # containment gate below measures any leakage honestly.
+        samples = runner.sample_posterior(x_obs, n_samples=int(n_samples), seed=int(seed) + k,
+                                          reject_outside_prior=False)
         f_median = float(np.median(samples[:, pidx]))
 
         inside = np.all(

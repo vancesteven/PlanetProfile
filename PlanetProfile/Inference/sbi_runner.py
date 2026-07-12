@@ -217,9 +217,13 @@ class SBIRunner:
         return self._mcmc_runner
 
     def _support_guard_active(self) -> bool:
-        """True when the config enforces the no-ocean phase-stability guard."""
+        """True when the config enforces a support cut: the no-ocean
+        phase-stability guard and/or one-sided induction bounds (ratified
+        2026-07-12; e.g. Europa's |Ae_synodic| > 0.7)."""
         phase_stability = self.config.sampler_settings.get('phase_stability', {}) or {}
-        return phase_stability.get('enforce') == 'no_ocean_Ih'
+        if phase_stability.get('enforce') == 'no_ocean_Ih':
+            return True
+        return bool(getattr(self.config, 'induction_bounds', {}) or {})
 
     # ------------------------------------------------------------------
     # Prior
@@ -576,7 +580,7 @@ class SBIRunner:
         x_obs: Dict[str, float],
         n_samples: int = 10000,
         seed: Optional[int] = None,
-        reject_outside_prior: bool = False,
+        reject_outside_prior: bool = True,
     ) -> np.ndarray:
         """Draw posterior samples conditioned on observed data.
 
@@ -588,9 +592,13 @@ class SBIRunner:
             n_samples: Number of posterior draws.
             seed: torch.manual_seed value for reproducible draws
                 (None = do not reseed).
-            reject_outside_prior: If True, sbi's DirectPosterior rejects
-                proposals outside the prior box (default False to avoid
-                acceptance-rate collapse on heavy-tailed x distributions).
+            reject_outside_prior: If True (default), sbi's DirectPosterior
+                rejects proposals outside the prior box — the public
+                contract: returned draws are valid posterior samples. Pass
+                False ONLY for diagnostic sweeps at far-out-of-distribution
+                x (e.g. validate_sbi's limits grid, where the NSF spline
+                asserts under rejection at heavy-tailed x and the gate's own
+                containment check measures the leakage honestly instead).
 
         Returns:
             (n_samples, D) numpy array in raw theta space,

@@ -68,29 +68,21 @@
       0.0024
     ],
     "Re_k2": [
-      0.2,
-      0.05
+      0.25,
+      0.06
     ],
     "Im_k2": [
       0.0,
-      0.05
+      0.06
     ],
     "Re_h2": [
-      1.12,
+      1.2,
       0.1
     ],
     "Im_h2": [
       0.0,
       0.1
-    ],
-    "Ae_synodic_real": [0.8577494222847589, 0.25878625723705995],
-    "Ae_synodic_imag": [-0.09154601187261956, 0.25878625723705995],
-    "Ae_synodic 2nd_real": [0.8655925403329775, 0.2600784930887147],
-    "Ae_synodic 2nd_imag": [-0.04810664519676613, 0.2600784930887147],
-    "Ae_true anomaly_real": [0.528090606138666, 0.19880923665870867],
-    "Ae_true anomaly_imag": [-0.40036012447888175, 0.19880923665870867],
-    "Ae_orbital_real": [0.5252917958319521, 0.19822248875943252],
-    "Ae_orbital_imag": [-0.40080921869015607, 0.19822248875943252]
+    ]
   },
   "sampler_settings": {
     "n_effective": 500,
@@ -108,14 +100,22 @@
   "planet_template_module": "PlanetProfile.Default.Europa.PPEuropa",
   "metadata": {
     "schema_version": "v2 (sampled Tb + sampled core + derived rho_sil)",
-    "description": "Phase C1 BodyConfig: Europa with seawater ocean and Andrade rheology. Ice shell is purely Ih across the sampled Tb range (HP ice pressures not reached at R_body=1561 km, even at the thickest-shell end). 7D problem. Observable expansion (C2-A): added Re_k2/Im_k2 (Mazarico 2023, k2\u22480.2\u00b10.05; Im_k2 default 0\u00b10.05), Re_h2/Im_h2 (Mazarico 2023, h2\u2248+1.12\u00b10.10; Im_h2 default 0\u00b10.10). Same values for all three bodies as placeholders pending body-specific updates. J2/C22 were specified earlier but DROPPED from this config: PP currently has no forward model for the static gravity coefficients \u2014 Planet.J2/C22 are observation inputs, not predictions. Future work: build a generalized gravity-coefficient forward model that produces J_n and C_nm/S_nm to arbitrary degree/order for bodies with high-resolution gravity (Mars, Moon, Enceladus). Magnetic induction wired (C2-B) but observable values not yet specified; add Ae_<label>_real / Ae_<label>_imag (or BiAmp_<label> / BiPhase_<label>_deg) keys to enable induction in the likelihood.",
+    "description": "Phase C1 BodyConfig: Europa with Seawater ocean and Andrade rheology, 7D (rheology + Tb_K + sampled core) with mass-conservation rho_sil. Observables (2026-07-12): CMR2 = 0.3547+/-0.0024 (Gomez Casajus et al. 2021); k2/h2 Mazarico et al. (2023) assumption values Re_k2 = 0.25+/-0.06, Im_k2 = 0+/-0.06, Re_h2 = 1.20+/-0.10, Im_h2 = 0+/-0.10 (see observables_provenance_2026_07_12); Galileo synodic induction as one-sided support bounds (see induction_bounds_rationale).",
     "ocean_composition": "Seawater (Constants.stdSeawater_ppt)",
     "primary_constraint": "CMR2 from Gomez Casajus et al. (2021)",
-    "k2_status": "PLACEHOLDER - Re(k2) and Im(k2) values are theoretical with wide error bars pending Europa Clipper / JUICE measurements. Update when published.",
-    "Tb_bounds_rationale": "Tb_K=[259.5, 271.0] K targets the geological-likely range D_iceIh=[~3, ~100] km. Lower bound: 259.5 K is the coldest Tb at which PP's MoI iteration converges with the default Europa template's R_core/rho_sil bounds (gives D_iceIh=98.3 km, D_ocean=0 km — the no-ocean limit). Going colder requires widening the template's silicate-density search. Upper bound: 271.0 K gives D_iceIh=2.65 km; above ~271.25 K PP raises 'No valid phase transition' (ice shell extinct). Probed via PlanetProfile.Inference.find_tb_bounds, 2026-05-23.",
+    "k2_status": "ASSUMPTION values per Mazarico et al. (2023) ocean-case expectations, not measurements (superseded the earlier generic placeholders; see observables_provenance_2026_07_12). Replace with measured values when Europa Clipper data land.",
+    "Tb_bounds_rationale": "Tb_K=[259.5, 271.0] K targets the geological-likely range D_iceIh=[~3, ~100] km. Lower bound: 259.5 K is the coldest Tb at which PP's MoI iteration converges with the default Europa template's R_core/rho_sil bounds (gives D_iceIh=98.3 km, D_ocean=0 km \u2014 the no-ocean limit). Going colder requires widening the template's silicate-density search. Upper bound: 271.0 K gives D_iceIh=2.65 km; above ~271.25 K PP raises 'No valid phase transition' (ice shell extinct). Probed via PlanetProfile.Inference.find_tb_bounds, 2026-05-23.",
     "core_bounds_rationale": "R_core in [0, 0.5 R_body] permits the no-core limit; rho_core in [5000, 8000] kg/m^3 brackets metallic Fe / Fe-S compositions. rho_sil is derived from M_total mass conservation given the cached ice+ocean profile and sampled core; samples with rho_sil outside [2200, 3500] kg/m^3 are rejected by the likelihood.",
     "stage2_dependencies": "Toolkit must (a) parse the derived_params block, (b) implement the rho_sil mass-conservation solver and rejection, (c) extend the structure cache to include M_ice_kg / M_ocean_kg / R_oceanbot_m / M_total_kg per Tb point, (d) recompute CMR2 from the sampled core + derived rho_sil + cached ice/ocean profile.",
     "stage3_dependencies": "Build Tb-grid structure cache for Europa with seawater ocean across the sampled Tb range.",
-    "induction_note": "Ae observables are exploratory placeholders computed from nominal PP forward model at median Tb. Not publication-quality. sigma=30%|Ae|. GSW built-in conductivity used for seawater."
+    "observables_provenance_2026_07_12": "CMR2: Gomez Casajus et al. (2021), unchanged. k2/h2: Mazarico et al. (2023, SSRv 219:30) ASSUMPTION values, not measurements (user directive 2026-07-12): Re_k2 = 0.25 (midpoint of the ocean-case expectation range 0.18-0.32) with sigma = 0.06 (GSWG requirement); Im_k2 = 0 +/- 0.06; Re_h2 = 1.20 (ocean-case nominal, range 0.8-1.3) with sigma = 0.10 (REASON accuracy); Im_h2 = 0 +/- 0.10. Diagonal Gaussians: cross-instrument measurement errors approximately independent; the physical k2-h2 correlation is enforced by the forward model.",
+    "induction_bounds_rationale": "Galileo synodic induction treated as one-sided support cuts, NOT Gaussian observables (user directive 2026-07-12): normalized amplitude |Ae_synodic| > 0.7 (literature point values 0.92/0.97 are over-interpretations) and |Im(Ae_synodic)| < 0.4 (modeling, Mahboub et al. 2026; < 0.2 favored by low-salinity ocean models - retained as the E6 sensitivity variant, not the default). The previous 8 computed-placeholder Ae Gaussian channels are removed. Because Ae depends only on Tb via the cached conductivity profile, each bound is exactly a Tb-support cut; enforced as hard rejection in the MCMC likelihood and as training-time support rejection in SBI dataset generation. NOTE: on the SBI side the bound is enforced at TRAINING time by row rejection (the ratified no-ocean-guard precedent); the trained flow is a smooth density estimator and may assign small nonzero density across the cut Tb region at sampling time \u2014 the SBI support equals the MCMC support in the learned/approximate sense, not as a hard truncation.",
+    "induction_bounds_tb_diagnostic_2026_07_12": "Authoring-time evaluation over the 36-pt Tb grid: |Ae_synodic| rises monotonically from 0.067 (Tb=259.5 K, near-frozen ocean) through the amp_min=0.7 threshold between Tb=261.0 (|Ae|=0.643) and 261.5 K (0.754), reaching 0.939 at 271.0 K; |Im Ae| peaks at 0.383 (Tb=261.0, inside the cut) and stays <= 0.31 in the surviving region, so im_abs_max=0.4 is currently non-binding. The bounds cut a SINGLE contiguous low-Tb interval: surviving support is Tb in [~261.5, 271.0] K (26/36 grid points). Physical reading: the induction constraint requires a present, conductive ocean. Cross-check available via prior truncation at Tb >= 261.5 K."
+  },
+  "induction_bounds": {
+    "synodic": {
+      "amp_min": 0.7,
+      "im_abs_max": 0.4
+    }
   }
 }

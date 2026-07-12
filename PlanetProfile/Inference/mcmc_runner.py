@@ -133,7 +133,11 @@ class MCMCRunner:
         induction_obs = [k for k in observables
                          if k.startswith('Ae_') or k.startswith('BiAmp_')
                          or k.startswith('BiPhase_')]
-        if not induction_obs:
+        # induction_bounds labels (support cuts, e.g. Europa's
+        # |Ae_synodic| > 0.7) need the Ae grid too, even with no Gaussian
+        # induction observable configured.
+        bound_labels = set(getattr(self.config, 'induction_bounds', {}) or {})
+        if not induction_obs and not bound_labels:
             return
 
         # Only applies to v2.1 grid format {'Tb_K_grid': ..., 'structures': [...]}
@@ -147,8 +151,8 @@ class MCMCRunner:
         n = len(structures)
         log.info(f"Pre-computing induction Ae for {n} grid points ...")
 
-        # Collect all requested frequency labels from observables.
-        requested_labels: set = set()
+        # Collect all requested frequency labels from observables + bounds.
+        requested_labels: set = set(bound_labels)
         for k in observables:
             if k.startswith('Ae_') and k.endswith('_real'):
                 requested_labels.add(k[len('Ae_'):-len('_real')])
@@ -475,11 +479,16 @@ class MCMCRunner:
             induction_keys_phase = [k for k in observables
                                     if k.startswith('BiPhase_')
                                     and k.endswith('_deg')]
+            # induction_bounds (ratified 2026-07-12): one-sided support cuts
+            # on Ae per label (amp_min: reject |Ae| < amp_min; im_abs_max:
+            # reject |Im Ae| > im_abs_max). Hard rejection, not chi^2 terms.
+            induction_bounds = getattr(self.config, 'induction_bounds', {}) or {}
             need_induction = bool(induction_keys_real or induction_keys_imag
-                                  or induction_keys_amp or induction_keys_phase)
+                                  or induction_keys_amp or induction_keys_phase
+                                  or induction_bounds)
             if need_induction:
                 # Collect all requested frequency labels.
-                requested_labels = set()
+                requested_labels = set(induction_bounds)
                 for k in induction_keys_real:
                     requested_labels.add(k[len('Ae_'):-len('_real')])
                 for k in induction_keys_imag:
@@ -519,6 +528,14 @@ class MCMCRunner:
                     if Ae is None or not np.isfinite(complex(Ae).real):
                         return -1e30
                     Ae = complex(Ae)
+                    bounds_spec = induction_bounds.get(label)
+                    if bounds_spec:
+                        amp_min = bounds_spec.get('amp_min')
+                        if amp_min is not None and abs(Ae) < float(amp_min):
+                            return -1e30
+                        im_abs_max = bounds_spec.get('im_abs_max')
+                        if im_abs_max is not None and abs(Ae.imag) > float(im_abs_max):
+                            return -1e30
                     re_key = f'Ae_{label}_real'
                     im_key = f'Ae_{label}_imag'
                     amp_key = f'BiAmp_{label}'
@@ -1423,6 +1440,35 @@ class MCMCRunner:
                 return abs(Ae)
             return float(np.degrees(np.angle(Ae)))
 
+        # induction_bounds support cuts (ratified 2026-07-12): reject rows
+        # violating the one-sided Ae constraints so the SBI training support
+        # matches the MCMC likelihood support exactly (same precedent as the
+        # no-ocean guard). Uses the same Tb-grid Ae lookup as the likelihood.
+        induction_bounds_cfg = (getattr(self.config, 'induction_bounds', {}) or {}
+                                if apply_support_guard else {})
+
+        def _check_induction_bounds(theta_dict) -> bool:
+            """True when the sample violates an induction bound (reject)."""
+            for label, spec in induction_bounds_cfg.items():
+                Tb_sample = theta_dict.get('Tb_K')
+                if (not self._ae_grid_cache or Tb_sample is None
+                        or 'Tb_K_grid' not in self.structure_data):
+                    return True  # bound configured but unevaluable -> reject
+                grid_Tb = np.asarray(self.structure_data['Tb_K_grid'])
+                Ae_dict = self._ae_grid_cache.get(
+                    int(np.argmin(np.abs(grid_Tb - Tb_sample))))
+                Ae = None if Ae_dict is None else Ae_dict.get(label)
+                if Ae is None:
+                    return True
+                Ae = complex(Ae)
+                amp_min = spec.get('amp_min')
+                if amp_min is not None and abs(Ae) < float(amp_min):
+                    return True
+                im_abs_max = spec.get('im_abs_max')
+                if im_abs_max is not None and abs(Ae.imag) > float(im_abs_max):
+                    return True
+            return False
+
         n_rejected_support = 0
         n_rejected_nonfinite = 0
 
@@ -1433,6 +1479,9 @@ class MCMCRunner:
             if apply_support_guard:
                 modified = apply_parameters(theta_dict, self.structure_data)
                 if _check_no_ocean(modified):
+                    n_rejected_support += 1
+                    continue
+                if induction_bounds_cfg and _check_induction_bounds(theta_dict):
                     n_rejected_support += 1
                     continue
 

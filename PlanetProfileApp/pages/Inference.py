@@ -355,22 +355,26 @@ def render_preset_selector(PARAMETER_PRESETS):
     """Render preset configuration selector."""
     st.markdown("#### 📋 Configuration Preset")
 
+    # NOTE (2026-07-12): the legacy 'andrade_europa' preset (5D PPTest46,
+    # pure-water reference structure) is retired from this radio — its
+    # parameter set cannot consume the seawater Tb-grid cache the Europa
+    # campaign uses, and its auto-gen path built a wrong PureH2O cache.
+    # Europa runs load configs/europa_seawater_andrade_7D.json via the
+    # "Load Config File" selector above.
     preset_options = {
         'andrade_titan': f"🪐 {PARAMETER_PRESETS['andrade_titan']['name']}",
         'andrade_titan_noocean_8D': f"🪐 {PARAMETER_PRESETS['andrade_titan_noocean_8D']['name']}",
         'maxwell_titan': f"🪐 {PARAMETER_PRESETS['maxwell_titan']['name']}",
-        'andrade_europa': f"🌊 {PARAMETER_PRESETS['andrade_europa']['name']}",
         'custom': "⚙️ Custom Parameter Selection"
     }
 
+    _preset_index = {name: i for i, name in enumerate(preset_options)}
     preset_choice = st.radio(
         "Select configuration:",
         options=list(preset_options.keys()),
         format_func=lambda x: preset_options[x],
-        index=0 if st.session_state.inference_preset == 'andrade_titan' else
-              (1 if st.session_state.inference_preset == 'andrade_titan_noocean_8D' else
-               (2 if st.session_state.inference_preset == 'maxwell_titan' else
-                (3 if st.session_state.inference_preset == 'andrade_europa' else 4))),
+        index=_preset_index.get(st.session_state.inference_preset,
+                                len(preset_options) - 1),
         key='preset_radio'
     )
 
@@ -402,9 +406,6 @@ def render_preset_selector(PARAMETER_PRESETS):
             st.session_state.inference_structure_cache_path = 'PlanetProfile/Test/mcmc_results/Titan/Test50_andrade_noocean_yao2014/titan_allice_yao2014_structure_grid.pkl'
         elif preset_choice == 'maxwell_titan':
             st.session_state.inference_structure_cache_path = 'titan_cache/titan_maxwell_grid_cache.pkl'
-        elif preset_choice == 'andrade_europa':
-            clath_suffix = 'clath' if st.session_state.inference_use_clathrate else 'noclath'
-            st.session_state.inference_structure_cache_path = f"europa_cache/europa_structure_{clath_suffix}.pkl"
 
         # Show preset description
         st.info(f"**Description:** {preset['description']}")
@@ -812,10 +813,14 @@ def render_structure_cache_input():
             if full_path.exists():
                 st.success(f"✅ Cache file found ({full_path.stat().st_size / 1024:.1f} KB)")
             else:
+                # NOTE: the andrade_europa entry (PPTest3 -> europa_cache/)
+                # was removed 2026-07-12: it silently built a PureH2O
+                # clathrate cache that mismatched the seawater Europa
+                # campaign and lacked induction fields. Europa uses the
+                # committed seawater grid via the config-file selector.
                 _auto_gen_map = {
                     'andrade_titan': ('PlanetProfile.Test.PPTest41', 'titan_cache/', False, '1-3 minutes'),
                     'maxwell_titan': ('PlanetProfile.Test.PPTest42', 'titan_cache/', True, '15-30 minutes'),
-                    'andrade_europa': ('PlanetProfile.Test.PPTest3', 'europa_cache/', False, '1-3 minutes'),
                 }
                 preset = st.session_state.inference_preset
                 gen_flag = f'_cache_gen_failed_{preset}'

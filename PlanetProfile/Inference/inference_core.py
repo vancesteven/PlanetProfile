@@ -101,6 +101,28 @@ class InferenceConfig:
     arrhenius_params: Dict[str, Any] = field(default_factory=dict)
     # Importable module path for the PP body template (e.g. 'PlanetProfile.Test.PPTest48'); used by plot_structure_wedge_pp.
     planet_template_module: Optional[str] = None
+    induction_bounds: Dict[str, Any] = field(default_factory=dict)
+    """
+    induction_bounds: One-sided constraints on the complex induction response
+    Ae per excitation label — support cuts, NOT Gaussian observables (they
+    never become SBI x-channels; the flow's training support and the MCMC
+    likelihood support both exclude the violating region).
+
+    Schema (ratified 2026-07-12, Europa campaign)::
+
+        induction_bounds = {
+            'synodic': {
+                'amp_min': 0.7,      # reject when |Ae| < amp_min
+                'im_abs_max': 0.4,   # reject when |Im(Ae)| > im_abs_max
+            },
+        }
+
+    Both keys optional per label. Enforced as a hard rejection (the -1e30
+    sentinel) in MCMCRunner's likelihood and as training-time support
+    rejection in generate_sbi_dataset (counted in n_rejected_support).
+    Because Ae depends only on Tb through the cached conductivity profile,
+    each bound is exactly a Tb-support cut.
+    """
 
     def __post_init__(self):
         """Validate configuration after initialization."""
@@ -190,6 +212,10 @@ class InferenceConfig:
             'random_state': self.random_state,
             'arrhenius_params': sorted((self.arrhenius_params or {}).items()),
         }
+        # Included ONLY when set so every pre-existing config hash (artifact
+        # provenance, cache reuse) is unchanged by the field's introduction.
+        if self.induction_bounds:
+            hash_data['induction_bounds'] = sorted(self.induction_bounds.items())
         hash_str = json.dumps(hash_data, sort_keys=True)
         return hashlib.md5(hash_str.encode()).hexdigest()[:16]
 

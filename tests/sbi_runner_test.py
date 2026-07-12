@@ -459,6 +459,64 @@ class SBIDatasetGenerationTests(unittest.TestCase):
             self.assertEqual(
                 runner.last_sbi_dataset_stats['n_rejected_nonfinite'], 10)
 
+    def test_induction_bounds_support_rejection(self):
+        """induction_bounds (ratified 2026-07-12): one-sided Ae support cuts
+        reject dataset rows under apply_support_guard and hard-reject in the
+        likelihood; both use the same Tb-grid Ae lookup."""
+        obs = {'Re_k2': [0.608, 0.048], 'Im_k2': [0.135, 0.035]}
+        with tempfile.TemporaryDirectory() as td:
+            runner = _build_mcmc_runner(Path(td), observables=obs)
+            # Isolate the induction bound: the fixture's high-Tb grid point
+            # is built to violate the no-ocean guard, which would otherwise
+            # reject the very rows this test needs to survive (Europa-like
+            # ocean-bearing configs carry no phase_stability block anyway).
+            runner.config.sampler_settings = dict(runner.config.sampler_settings)
+            runner.config.sampler_settings.pop('phase_stability', None)
+            runner.config.induction_bounds = {
+                'synodic': {'amp_min': 0.7, 'im_abs_max': 0.4}}
+            # Low-Tb grid point violates amp_min; high-Tb point passes both.
+            ae_low, ae_high = (0.10 - 0.05j), (0.90 - 0.05j)
+            runner._ae_grid_cache = {0: {'synodic': ae_low},
+                                     1: {'synodic': ae_high}}
+
+            with mock.patch(_FORWARD_MODEL_TARGET, side_effect=_stub_forward_model_basic):
+                # Rebuild the likelihood INSIDE the patch: the builder
+                # imports forward_model_k2_flexible at build time, so the
+                # closure must capture the stub.
+                runner.log_likelihood_fn = runner._make_flexible_log_likelihood(
+                    runner.config.observables, runner.structure_data,
+                    arrhenius_params=runner.arrhenius_params)
+                theta, x = runner.generate_sbi_dataset(
+                    n_samples=60, seed=21, imag_convention='abs',
+                    apply_support_guard=True, drop_nonfinite=True)
+            # Every surviving row must sit at the passing (high-Tb) grid point.
+            tb = theta[:, runner.param_names.index('Tb_K')]
+            self.assertGreater(len(theta), 0)
+            self.assertTrue(np.all(np.abs(tb - TB_HIGH) < np.abs(tb - TB_LOW)))
+            self.assertGreater(
+                runner.last_sbi_dataset_stats['n_rejected_support'], 0)
+
+            # Likelihood: hard reject at the violating grid point, finite at
+            # the passing one. theta order: [alpha, log10_zeta, eta_Ih,
+            # eta_III, eta_V, eta_VI, eta_sil, Tb_K].
+            base = [0.3, -1.0, 12.0, 12.0, 12.0, 12.0, 20.0, TB_LOW]
+            with mock.patch(_FORWARD_MODEL_TARGET, side_effect=_stub_forward_model_basic):
+                ll_low = runner.log_likelihood_fn(np.array(base))
+                base[-1] = TB_HIGH
+                ll_high = runner.log_likelihood_fn(np.array(base))
+            self.assertEqual(ll_low, -1e30)
+            self.assertTrue(np.isfinite(ll_high) and ll_high > -1e29)
+
+            # im_abs_max bites independently of amp_min.
+            runner._ae_grid_cache = {0: {'synodic': ae_low},
+                                     1: {'synodic': (0.9 - 0.6j)}}
+            with mock.patch(_FORWARD_MODEL_TARGET, side_effect=_stub_forward_model_basic):
+                runner.log_likelihood_fn = runner._make_flexible_log_likelihood(
+                    runner.config.observables, runner.structure_data,
+                    arrhenius_params=runner.arrhenius_params)
+                ll_high_im = runner.log_likelihood_fn(np.array(base))
+            self.assertEqual(ll_high_im, -1e30)
+
 
 @unittest.skipUnless(_HAVE_SBI, 'sbi/torch not installed')
 class InferFromArtifactTests(unittest.TestCase):
