@@ -528,7 +528,7 @@ class MgSO4Conduct:
             self.Pvals_MPa, self.Tvals_K, self.sigma_Sm = LarionovKryukov1984(self.w_ppt,
                                                                               rhoType=rhoType, scalingType=scalingType)
         elif self.type == 'Pan2020':
-            self.Pvals_MPa, self.Tvals_K, self.sigma_Sm = Panetal2020()
+            self.Pvals_MPa, self.Tvals_K, self.sigma_Sm = Panetal2020(self.w_ppt)
         else:
             raise ValueError(f'No MgSO4 conductivity model is specified for Ocean.electrical = "{self.type}"')
 
@@ -604,3 +604,105 @@ def LarionovKryukov1984(w_ppt, rhoType='Millero', scalingType='Vance2018'):
     sigmaExtrap_Sm = np.array([interp1d(TLK_K[:3], sigmaPextrap_Sm[:,iP], kind='linear', fill_value='extrapolate')(Textrap_K) for iP in range(nPs)])
 
     return Pextrap_MPa, Textrap_K, sigmaExtrap_Sm * Vance2018scaling
+
+
+def Panetal2020(wOcean_ppt):
+    """ Calculate electrical conductivity of aqueous MgSO4 using the empirical
+        regression from Pan, Yong & Secco (2020), calibrated at 10 wt% MgSO4.
+
+        Reference: "Electrical Conductivity of Aqueous Magnesium Sulfate at High
+        Pressure and Low Temperature with Application to Ganymede's Subsurface
+        Ocean", Pan Y., Yong W., Secco R.A. (2020).
+
+        The model is hardcoded to 10 wt% (100 ppt) MgSO4. A warning is emitted
+        if wOcean_ppt differs materially from 100 ppt.
+
+        CAVEAT (density extrapolation): the densities feeding G0 and c_M come from
+        the EOS2_MgSO4_planetary_smaller_20121116 lookup table, which only spans
+        P <= 800 MPa and T >= 253.15 K. The returned grid extends to P = 1390 MPa
+        and T = 245 K (the Pan et al. domain, incl. the Ganymede deep-ocean regime),
+        so roughly half the (P,T) grid relies on linear extrapolation of density.
+        The MATLAB reference used cubic-spline (interp3) extrapolation instead, so
+        sigma in the deep/cold region (P > 800 MPa or T < 253.15 K) will differ
+        from the MATLAB values by the linear-vs-spline discrepancy and is NOT
+        table-backed. The table-supported subregion (P <= 800 MPa, T >= 253.15 K)
+        matches Pan et al. (2020) Fig. 5 closely.
+
+        Args:
+            wOcean_ppt (float): Ocean salinity in ppt by mass (for calibration check only).
+        Returns:
+            P_MPa (float, shape nP): Pressure grid in MPa (strictly increasing).
+            T_K (float, shape nT): Temperature grid in K (strictly increasing).
+            sigma_Sm (float, shape nP x nT): Conductivity in S/m on the P x T grid.
+    """
+    # Calibration check — Pan et al. 2020 is only valid at 10 wt% = 100 ppt
+    W_PAN_PPT = 100.0
+    if abs(wOcean_ppt - W_PAN_PPT) > 1.0:
+        log.warning(
+            f'Pan et al. (2020) conductivity model is calibrated only at 10 wt% '
+            f'(100 ppt) MgSO4; requested wOcean_ppt={wOcean_ppt:.1f} ppt. '
+            f'Results will still use the 100-ppt parameterisation.'
+        )
+
+    # Fixed molality for 10 wt% MgSO4  (mo = 1000/W_MgSO4 / (1/(0.01*wo) - 1), wo=10)
+    W_MgSO4 = 120.3686  # g/mol  (24.3050 Mg + 96.0636 SO4)
+    wo = 10.0            # wt%
+    mo = 1000.0 / W_MgSO4 / (1.0 / (0.01 * wo) - 1.0)  # ≈ 0.9231 mol/kg
+
+    # Evaluation grids — match MATLAB default (EVAL=1) ranges so the output
+    # covers the full domain documented in Pan et al. (2020) Fig. 5.
+    P_MPa = np.arange(0.1, 1400.1, 10.0)   # shape (140,)
+    T_K   = np.arange(245.0, 296.0, 1.0)   # shape (51,)
+    nP = P_MPa.size
+    nT = T_K.size
+
+    # Load the MgSO4 density lookup table (same table used everywhere else in this file)
+    fn_props = MgSO4propsLookup()
+    w_sol_ppt = W_PAN_PPT   # 100 ppt  — solution density
+    w_wat_ppt = 0.0          # pure water density (w=0 is an EXACT table grid node)
+
+    # The real extrapolation risk is in P and T, not w: the density table only
+    # spans P <= 800 MPa and T >= 253.15 K, while the output grid extends beyond
+    # both edges (fill_value=None => linear extrapolation). Warn once so the
+    # deep/cold sigma tail is not mistaken for table-backed data (see docstring).
+    P_tbl_max = fn_props.Pmax
+    T_tbl_min = fn_props.Tmin
+    if P_MPa.max() > P_tbl_max or T_K.min() < T_tbl_min:
+        n_extrap = int(np.count_nonzero(
+            (P_MPa[:, None] > P_tbl_max) | (T_K[None, :] < T_tbl_min)))
+        log.warning(
+            'Panetal2020: MgSO4 density table spans only P <= %.0f MPa and '
+            'T >= %.2f K; %d/%d output grid cells (deep/cold) rely on LINEAR '
+            'extrapolation and are not table-backed (MATLAB used spline). '
+            'Trust the P <= %.0f MPa, T >= %.2f K subregion.',
+            P_tbl_max, T_tbl_min, n_extrap, P_MPa.size * T_K.size,
+            P_tbl_max, T_tbl_min)
+
+    # Build (nP*nT,) eval-point arrays for the two concentrations
+    # fn_evalPts returns rows [w, P, T] — one row per (w, P, T) combination
+    evalPts_sol = fn_props.fn_evalPts(P_MPa, T_K, w_sol_ppt)  # shape (nP*nT, 3)
+    evalPts_wat = fn_props.fn_evalPts(P_MPa, T_K, w_wat_ppt)
+
+    rho_kgm3  = fn_props.fn_rho_kgm3(evalPts_sol).reshape(nP, nT)   # solution
+    rho0_kgm3 = fn_props.fn_rho_kgm3(evalPts_wat).reshape(nP, nT)   # pure water
+
+    # Molarity: c_M = mo * rho0 / rho  (mol/L when mo is mol/kg and rho ratio is kg/L / kg/L)
+    # Both rho values are in kg/m³; the ratio is dimensionless, giving mol/kg * (kg/m³)/(kg/m³)
+    # → c_M in mol/kg, which equals mol/L at dilute limit; MATLAB uses the same ratio.
+    c_M = mo * rho0_kgm3 / rho_kgm3   # shape (nP, nT)
+
+    # G0 uses the 10 wt% solution density in g/mL (= kg/m³ / 1000)
+    rho_gmL = rho_kgm3 / 1000.0   # shape (nP, nT)
+    G0 = 1918.37 - 100.51 * rho_gmL - 825071.0 / T_K + 95550686.0 / T_K**2
+
+    # Conductivity regression (Pan et al. 2020 Eq.)
+    logsig = (
+        -3.1605
+        + 940.931 / T_K
+        + 0.8986 * np.log10(c_M)
+        + 2.0 * np.log10(G0)
+        - np.log10(5.0 * G0 + 2695.0 * c_M**0.5)
+    )
+    sigma_Sm = 10.0 ** logsig   # shape (nP, nT)
+
+    return P_MPa, T_K, sigma_Sm

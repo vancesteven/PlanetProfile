@@ -825,3 +825,64 @@ flagged here for the C-B phase.
   by the Vance2018 default) — confirmed. Item 3 is implementable against the MATLAB reference
   in the same self-validating spirit as the NaCl work (validate against the .m output, keep
   Vance2018 default). Deferred pending user go-ahead on opus 4.8 (or the actual PDF surfacing).
+
+---
+
+## ADDENDUM 2026-07-13 (Machine B) — Europa "Galileo run" 1M gates + MgSO4 Pan2020
+
+### MgSO4 Pan et al. (2020) conductivity: **verified** (Item 3 closed)
+`Panetal2020(wOcean_ppt)` implemented in `PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py`
+(dispatch `MgSO4Conduct` line 531). Vance2018 (LarionovKryukov1984) **retained as default,
+byte-for-byte unchanged** — Pan2020 is opt-in via `Ocean.electrical='Pan2020'`.
+- Port of `Thermodynamics/MgSO4/getSigmaMgSO4_Pan.m` (10 wt% = 100 ppt): molality 0.9231,
+  `c_M = mo·ρ0/ρ`, `G0 = 1918.37 − 100.51·ρ_gmL − 825071/T + 95550686/T²`,
+  `logsig = −3.1605 + 940.931/T + 0.8986·log10(c_M) + 2·log10(G0) − log10(5·G0 + 2695·c_M^0.5)`.
+- Densities from the existing `MgSO4propsLookup` RGI (w=100 solution, w=0 pure water; w=0 is an
+  exact grid node). Returns (P[140], T[51], σ[140,51]) → RectBivariateSpline unchanged.
+- **scientific-reviewer: PASS WITH CONCERNS.** Regression reproduces MATLAB to 4 sig figs
+  (σ(10 MPa,270 K)=2.446 S/m, σ(800 MPa,255 K)=0.500 S/m; full grid 0.003–3.57 S/m vs Pan Fig 5
+  levels 0.17–3.3). CONCERN addressed: density table only spans P≤800 MPa, T≥253.15 K, so
+  ~53% of the output grid (deep/cold Ganymede regime) is LINEAR extrapolation (MATLAB used
+  spline). Fixed by docstring caveat + a one-shot `log.warning` naming the table-backed
+  subregion (3780/7140 cells flagged). The w=0-extrapolation comment (moot) was corrected.
+- NOT committed as a Test/ regression (Test/ is permission-gated); reviewer's assert-values
+  test can be added outside Test/ on request.
+
+### Europa 1M "Galileo run" artifact: trained, gates run — **NOT deployed** (all 3 marginal FAIL)
+Artifact: `PlanetProfile/Inference/sbi_artifacts/europa_seawater_andrade_posterior_1m.pt`
+(nsf, seed 42, git 3d865dc1, config_hash a09396bcb0d0eff5, 831,750 sims kept / 1M requested,
+16.8% support+nonfinite rejection, 404 KB, 51 epochs / 48.6 min). Synodic-only induction as a
+one-sided support cut; x = [CMR2, Re_k2, Im_k2, Re_h2, Im_h2].
+
+| Gate | Verdict | Locus | Reading |
+|---|---|---|---|
+| SBC (n=1000, held-out 1236) | **FAIL** | α p=0.048, Tb_K p=0.028; other 5 pass (η_Ih 0.66, η_sil 0.86) | Both barely under 0.05 |
+| Crosscheck vs Test51 | **FAIL** | Tb_K shape only: D=0.090 > tol=0.057; Tb mean+σ PASS; α clean | Flow smooths Tb support edge — not a bias |
+| Limits (6 anchors, Im_k2 0.00–0.15) | **FAIL** | containment 0.9938 < 1.0 required; **anchor W1 all 6 PASS** | Physics discrimination sound; 0.62% prior-box leak |
+
+**Interpretation (coherent, expected, NOT tuned — stop-and-surface):** all three failures are
+flow-calibration slack, not science. Two loci:
+1. **Tb_K support edge.** The synodic `induction_bounds` (|Ae|≥0.7) carve a hard one-sided cut
+   (surviving Tb∈[~261.5,271.0]K, 26/36 grid pts). The flow smooths that sharp boundary → Tb
+   non-uniform in SBC and a Tb *shape* (not mean/σ) mismatch in crosscheck. α rides along via
+   the α–Tb correlation, just under threshold in SBC.
+2. **Prior-box containment 0.9938.** ~0.62% of flow draws leak just outside the box (same
+   `reject_outside_prior=False` 5–11% tails SBC warned on). Limits requires exact 1.0.
+
+**The scientifically meaningful check is clean:** the limits anchor W1 discrimination PASSES all
+six Im_k2 points (W1 0.024–0.077 vs tol ≈ 0.42; flow medians 12.90–13.07 track anchor medians
+12.91–13.07 within ~0.14 dex). Reviewer's rail-pileup worry (flag #2) is **disproven** —
+anchor_sigma ≈ 1.68–1.71 dex (healthy, not pathologically narrow). Reviewer flag #1 honored:
+`--anchor-results` + `--fixed-obs` passed explicitly (CMR2 0.3547, Re_k2 0.25, Re_h2 1.2,
+Im_h2 0.0), no Titan-grid fallback.
+
+**Deployment: NO.** Per open-item-4 discipline (all gates green + user re-verify), the Galileo
+artifact is NOT swapped into any GUI slot — out of Machine B scope regardless. Reports at
+`/tmp/europa_gates/{sbc,crosscheck,limits}/*.json`.
+
+**Recommended next (Machine A / joint, not a Machine-B tune):** the containment + Tb-edge
+failures are the known cost of representing a hard support cut with a smooth flow. Options to
+weigh before re-training: (a) enforce `reject_outside_prior=True` at sample time for the
+deployed posterior (kills the 0.62% leak without retraining); (b) represent synodic induction as
+a soft (Gaussian) channel rather than a hard bound so the flow sees a smooth density; (c) accept
+Tb as the one under-calibrated dim and document the support-edge caveat. Not a Machine-B call.
