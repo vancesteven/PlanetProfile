@@ -40,13 +40,40 @@ the config's sampled parameters.
 | Slot file | Source config | config_hash | git SHA | seed | n_train | Gates | Deployed |
 |---|---|---|---|---|---|---|---|
 | titan_andrade_noocean_posterior.pt | test50_titan_noocean_andrade_8D.json | 629afbd55a4f0ce5 | bf7c938e | train 42 / data 44 / noise 4444 | 999,816 (nsf) | ALL GREEN within domain (amended rules, 2026-07-11) | 2026-07-12 (user-ratified; artifact pushed git 4d32809b, pre-deploy assertions green) |
+| europa_seawater_andrade_posterior_1m.pt | europa_seawater_andrade_7D.json | a09396bcb0d0eff5 | 3d865dc1 | train 42 / data 44 / noise 4444 | 831,750 (nsf, synodic-only support cut) | 3 gates FAIL but ALL are flow-calibration slack, NOT physics; physics-discrimination (limits W1 anchors) GREEN all 6. Deployed under domain guard + default Tb truncation (see conditions below) | 2026-07-13 (user-directed deploy w/o Machine A; scientific-reviewer DEPLOYABLE-after-remedy; GUI-verified via AppTest) |
+
+**Europa "Galileo run" deployment conditions (scientific-reviewer 2026-07-13, GUI-verified):**
+- **Gate verdicts (raw):** SBC FAIL (alpha p=.048, Tb p=.028; other 5 pass, e.g. eta_Ih .66);
+  crosscheck vs Test51 FAIL on Tb *shape* only (D=.090>tol=.057; Tb mean/median/sigma + alpha
+  all PASS — Tb is UNBIASED); limits containment 0.9938<1.0 but **W1 anchors PASS all 6**
+  (Im_k2 0.00-0.15, W1 .024-.077 vs tol ~.42, no rail pileup). Reports in
+  `validation_reports/europa_galileo_1m/`.
+- **Why deployable despite 3 FAILs:** (1) containment is a gate-measurement artifact — it
+  samples `reject_outside_prior=False`; the GUI runtime samples `=True`, so the 0.62% box leak
+  never reaches a user. (2) The Tb failure is edge-smear, not structural: a matched-truncation
+  crosscheck (both flow+MCMC cut at Tb>=261.5 K) drops Tb KS D from .093 to **.019 (PASS, p=.51)**.
+  The NSF flow cannot represent the hard one-sided synodic support edge (Tb<~261.5 K has no
+  conductive ocean, removed at training by row-rejection) and smears ~2.5-3.5% of Tb mass into
+  the excluded band. (3) alpha p=.048 is near-threshold multiple-comparison noise (passes the
+  full independent MCMC crosscheck).
+- **Deployed guards (Inference.py `_SBI_ARTIFACT_SLOTS`):**
+  (a) `x_obs_limits={'Im_k2':(0.0,0.15)}` — hard refusal beyond the W1-validated domain
+  (NARROWER than Titan's 0.20; no Europa anchor ran above 0.15).
+  (b) `default_truncate={'Tb_K':(261.5,None)}` — pre-applied ON, restores the induction support
+  edge at sample time (reject_outside_prior does NOT re-cut it: [259.5,261.5] is inside the prior
+  box). Verified: keeps 97.5% of draws, zero post-truncation mass below 261.5 K.
+  (c) `scope_note` documenting the synodic-only Galileo run + Tb caveat + v2 pointer.
+- **GUI verification (2026-07-13, AppTest streamlit.testing.v1):** Europa slot lists in the
+  selector; Tb truncation slider defaults to (261.5, 271.0); default-truncation banner + scope
+  note render; the Im_k2<=0.15 guard fires and refuses conditioning at Im_k2=0.18.
+- **v2 follow-on:** 3-frequency (add Ae_synodic 2nd + Ae_orbital) is a deliberate future artifact
+  requiring a fresh 1M; NOT retrofit into the Galileo run.
 
 ## Candidate artifacts (NOT deployed — evidence committed for cross-machine verification)
 
 | Artifact file | Source config | config_hash | seed | n_train | Gates | Status |
 |---|---|---|---|---|---|---|
 | titan_diff_noocean_andrade_test52_10D_v2.pt | test52_titan_noocean_andrade_10D.json | 2bf1f7b2d1708e28 | train 42 / data 45 / noise 4545 | 877,883 (nsf, 10xIQR x-filter) | SBC FAIL (eta_V p=.016, 9/10 pass); crosscheck shape FAIL 3 params (zeta/eta_III/Tb, all location tests pass); limits W1 PASS Im<=0.25, FAIL Im=0.30 | **implemented, unverified** — Test52 10D (Titan no-ocean + CMR2). NOT deployed. Gate reports in `validation_reports/test52_v2/`. Reviewer (opus 2026-07-11): deployable with |Im k2|<=0.25 restriction + lower-tail shape caveats on zeta/eta_III/Tb. Awaiting Machine A GUI guard + deployment decision. |
-| europa_seawater_andrade_posterior_1m.pt | europa_seawater_andrade_7D.json | a09396bcb0d0eff5 | train 42 / data 44 / noise 4444 | 831,750 (nsf, synodic-only support cut) | SBC FAIL (alpha p=.048, Tb p=.028; 5/7 pass); crosscheck vs Test51 FAIL (Tb *shape* D=.090>tol=.057; Tb mean+sigma+alpha pass); limits containment FAIL (0.9938<1.0) but **anchor W1 PASS all 6** (Im_k2 0.00-0.15, W1 .024-.077 vs tol ~.42) | **implemented, unverified** — Europa "Galileo run" (synodic-only induction, 7D). NOT deployed. Gate reports in `validation_reports/europa_galileo_1m/`. All 3 failures are flow-calibration slack localized to (a) the Tb_K synodic support edge and (b) a 0.62% prior-box leak; the physics discrimination (limits anchors) is clean. See HANDOFF-2026-07-09 ADDENDUM 2026-07-13 for the deploy-decision options (reject_outside_prior at sample time / soft induction channel / document Tb caveat). Machine A / joint decision. |
 
 **Scope note (deployment condition, user-ratified 2026-07-11):**
 - **Validated conditioning domain: |Im k2| <= 0.20.** SBC (1000 pairs) PASS; crosscheck

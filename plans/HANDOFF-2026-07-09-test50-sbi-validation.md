@@ -886,3 +886,32 @@ weigh before re-training: (a) enforce `reject_outside_prior=True` at sample time
 deployed posterior (kills the 0.62% leak without retraining); (b) represent synodic induction as
 a soft (Gaussian) channel rather than a hard bound so the flow sees a smooth density; (c) accept
 Tb as the one under-calibrated dim and document the support-edge caveat. Not a Machine-B call.
+
+---
+
+## ADDENDUM 2026-07-13b (Machine B) — Europa Galileo run DEPLOYED (user-directed, without Machine A)
+
+User directed deployment without waiting for Machine A. scientific-reviewer verdict:
+**DEPLOYABLE after a cheap remedy, no retrain** — all 3 gate FAILs are flow-calibration
+slack, physics discrimination (limits W1 anchors) is clean.
+
+**Decisive evidence — Tb failure is edge-smear, not structural:** matched-truncation
+crosscheck (flow + Test51 MCMC both cut at Tb>=261.5 K) drops the Tb KS D-stat from
+0.093 to **0.019 (PASS, p=0.51)**. The NSF flow cannot represent the hard one-sided
+synodic support edge (Tb<~261.5 K = no conductive ocean, removed at training) and smears
+~2.5-3.5% of Tb mass into the excluded band. `reject_outside_prior=True` (GUI default)
+does NOT re-cut it — [259.5,261.5] is inside the prior box — so a default Tb truncation
+is required and now ships ON.
+
+**Deployed (Inference.py `_SBI_ARTIFACT_SLOTS`):** Europa slot with
+`x_obs_limits={'Im_k2':(0.0,0.15)}` (hard guard, narrower than Titan's 0.20),
+`default_truncate={'Tb_K':(261.5,None)}` (pre-applied; keeps 97.5% of draws, zero excluded
+Tb mass), scope_note. Added a `default_truncate` mechanism to the slot registry +
+truncation-slider wiring (defaults ON, user-overridable).
+
+**GUI-verified (AppTest streamlit.testing.v1, per CLAUDE.md UI discipline):** slot lists;
+Tb slider defaults to (261.5,271.0); default-truncation banner + scope note render; the
+Im_k2<=0.15 guard fires and refuses at Im_k2=0.18. Status: **verified**.
+
+INDEX.md: Europa moved to Deployed table with full conditions. Titan slot untouched.
+Containment FAIL confirmed a gate-measurement artifact (rejection off in gate, on at runtime).

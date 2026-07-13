@@ -1050,6 +1050,36 @@ _SBI_ARTIFACT_SLOTS = {
                        'directional low-viscosity bias in the bimodal '
                        'regime above Im k2 ~ 0.18; see sbi_artifacts/INDEX.md.'),
     },
+    'europa_seawater_andrade_posterior_1m.pt': {
+        'label': 'Europa (Andrade, seawater) — Galileo run, synodic-only 7D',
+        'bodyname': 'Europa',
+        'cache_path': ('PlanetProfile/Test/mcmc_results/Europa/'
+                       'Test51_seawater/europa_seawater_structure_grid.pkl'),
+        'default_obs': {'CMR2': 0.3547, 'Re_k2': 0.25, 'Im_k2': 0.0,
+                        'Re_h2': 1.2, 'Im_h2': 0.0},
+        # Hard validated-domain guard (scientific-reviewer 2026-07-13): the W1
+        # anchor sweep validated conditioning only for |Im k2| <= 0.15
+        # (Europa-scaled). This is NARROWER than Titan's 0.20 — no anchor was
+        # run above 0.15. Refuse conditioning beyond it (use MCMC mode).
+        'x_obs_limits': {'Im_k2': (0.0, 0.15)},
+        # Default prior truncation, pre-applied ON (not just slider-available):
+        # the synodic induction support cut removes Tb < ~261.5 K (no conductive
+        # ocean below that). The NSF flow smooths that hard one-sided edge and
+        # leaks ~3.5% of Tb mass into the excluded [259.5, 261.5] K band.
+        # reject_outside_prior does NOT re-cut it (it is inside the prior box),
+        # so we restore the edge exactly at sample time. A matched-truncation
+        # crosscheck vs Test51 confirms this is edge-smear, not structural:
+        # Tb KS D drops 0.093 -> 0.019 (< tol 0.057, p=0.51) when both are cut
+        # at 261.5 K. See sbi_artifacts/INDEX.md + HANDOFF-2026-07-09 addendum.
+        'default_truncate': {'Tb_K': (261.5, None)},
+        'scope_note': ('Galileo synodic-only run. Validated conditioning '
+                       'domain: |Im k2| <= 0.15. Tb defaults to the '
+                       'induction-surviving support [261.5, 271.0] K (a '
+                       'present conductive ocean is required); a low-Tb '
+                       'marginal-shape caveat is documented in '
+                       'sbi_artifacts/INDEX.md. 3-frequency v2 is a future '
+                       'artifact.'),
+    },
 }
 
 
@@ -1110,12 +1140,25 @@ def render_amortized_config():
         'prior': [f"uniform [{lo:g}, {hi:g}]" for lo, hi in bounds.values()],
     })
     truncate_bounds = {}
-    with st.expander("✂️ Prior truncation (exact, within trained bounds)"):
+    # Slot-specified default truncations (pre-applied ON) — e.g. restoring a
+    # hard induction support edge the smooth flow cannot represent. None in a
+    # bound means "use the trained edge" (no truncation on that side).
+    default_trunc = slot.get('default_truncate') or {}
+    has_default_trunc = any(name in default_trunc for name in bounds)
+    with st.expander("✂️ Prior truncation (exact, within trained bounds)",
+                     expanded=has_default_trunc):
         st.caption("Narrowing a uniform prior post hoc is exact (sample "
                    "filtering). Widening requires retraining.")
+        if has_default_trunc:
+            st.info("⚙️ This artifact ships with a **default truncation** "
+                    "applied (validated-domain / support-edge correction). "
+                    "Reset a slider to the full trained range to override.")
         for name, (lo, hi) in bounds.items():
+            dlo, dhi = default_trunc.get(name, (None, None))
+            init = (float(dlo) if dlo is not None else lo,
+                    float(dhi) if dhi is not None else hi)
             sel = st.slider(name, min_value=lo, max_value=hi,
-                            value=(lo, hi), key=f'amort_trunc_{name}')
+                            value=init, key=f'amort_trunc_{name}')
             if sel != (lo, hi):
                 truncate_bounds[name] = (float(sel[0]), float(sel[1]))
 
