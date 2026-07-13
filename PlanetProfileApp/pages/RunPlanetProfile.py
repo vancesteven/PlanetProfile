@@ -301,7 +301,7 @@ config_path = os.path.join(parent_directory, "configPP.py") #path to configPP.py
 #st.write(config_path)
 
 # Import config
-from configPP import configAssign  # This brings in the current config state from the configPP.py file
+from UserConfigs.configPP import configAssign  # qualified: bare configPP only resolved when CWD held UserConfigs/ (2026-07-12 fix)  # This brings in the current config state from the configPP.py file
 # Call the function to get Params and ExploreParams
 Params, ExploreParams = configAssign() #configAssign creates the ParamsStruct and ExploreParamsStruct
 

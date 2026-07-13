@@ -73,10 +73,20 @@ parameter sweeps, and understanding model behavior.
 **Note**: Exploreograms can be computationally expensive. A 10×10 grid runs 100 models!
 """)
 
-# Check if planet is selected
+# Check if planet is selected — default to Europa when none chosen
+# (2026-07-12 user request: the exploreogram's flagship use case is the
+# Europa induction sweep, so it should be usable straight from the sidebar).
 if "Planet" not in st.session_state or st.session_state["Planet"] is None:
-    st.warning("⚠️ Please select a planet on the Main Settings page first!")
-    st.stop()
+    try:
+        from Utilities.PlanetLoader import load_planet_module
+        _europa_module = load_planet_module(parent_directory, 'Europa')
+        st.session_state["Planet"] = _europa_module.Planet
+        st.info("🌊 No planet selected — defaulting to **Europa**. "
+                "Choose a different body on the Main Settings page.")
+    except Exception as _exc:
+        st.warning(f"⚠️ Please select a planet on the Main Settings page first! "
+                   f"(Auto-defaulting to Europa failed: {_exc})")
+        st.stop()
 
 # Available exploration parameters (from ExploreParamsStruct)
 HYDRO_PARAMS = {
@@ -126,17 +136,37 @@ elif st.session_state['_last_planet_name'] != _current_planet_name:
     st.session_state['selected_excitations'] = []
     st.session_state['_last_planet_name'] = _current_planet_name
 
-# Initialize session state for exploreogram settings
+# Initialize session state for exploreogram settings.
+# Europa default preset (2026-07-12 user request): mean ocean conductivity
+# (driven by salinity) on x, ocean thickness (driven by ice-shell thickness)
+# on y, induced magnetic field on z with the synodic / synodic-2nd /
+# orbital excitations, log axes, Bx component. Other bodies keep the
+# generic salinity-vs-Tb default.
+_is_europa_default = (_current_planet_name == 'Europa')
 if 'explore_xName' not in st.session_state:
-    st.session_state.explore_xName = 'wOcean_ppt'
+    st.session_state.explore_xName = ('sigmaMean_Sm' if _is_europa_default
+                                      else 'wOcean_ppt')
 if 'explore_yName' not in st.session_state:
-    st.session_state.explore_yName = 'Tb_K'
+    st.session_state.explore_yName = ('D_km' if _is_europa_default else 'Tb_K')
+if _is_europa_default:
+    # Seed the keyed widgets only when absent so user choices persist.
+    st.session_state.setdefault('y_driver_select', 'zb_approximate_km')
+    st.session_state.setdefault('explore_zName_seed_done', False)
+    if not st.session_state['explore_zName_seed_done']:
+        st.session_state.setdefault('exploreogram_x_log', True)
+        st.session_state.setdefault('exploreogram_y_log', True)
+        st.session_state.setdefault('exploreogram_induct_component', 'Bx')
+        st.session_state.setdefault('selected_excitations',
+                                    ['synodic', 'synodic 2nd', 'orbital'])
+        # Salinity (x driver) min must be positive for the log axis.
+        st.session_state.setdefault('x_min', 1.0)
+        st.session_state['explore_zName_seed_done'] = True
 if 'explore_nx' not in st.session_state:
     st.session_state.explore_nx = 10
 if 'explore_ny' not in st.session_state:
     st.session_state.explore_ny = 10
 if 'explore_zName' not in st.session_state:
-    st.session_state.explore_zName = 'zb_km'
+    st.session_state.explore_zName = ('Amp_nT' if _is_europa_default else 'zb_km')
 if 'explore_running' not in st.session_state:
     st.session_state.explore_running = False
 if 'explore_results' not in st.session_state:
@@ -283,10 +313,14 @@ with col1:
         'Rcore_km': 'Core Radius (km)',
     }
 
+    _z_options = list(Z_VARIABLES.keys())
     z_param = st.selectbox(
         "Select color variable",
-        options=list(Z_VARIABLES.keys()),
-        index=0,
+        options=_z_options,
+        # Honor the session default (was hardcoded index=0, which stomped
+        # any seeded/persisted z selection on first render).
+        index=(_z_options.index(st.session_state.explore_zName)
+               if st.session_state.explore_zName in _z_options else 0),
         format_func=lambda x: Z_VARIABLES[x],
         key='z_param_select'
     )
@@ -582,7 +616,7 @@ with col2:
                     Planet.Exploration = Exploration
 
                     # Build full Params for plotting (including Induct for matplotlib inductograms)
-                    from configPP import configAssign
+                    from UserConfigs.configPP import configAssign  # qualified: bare configPP only resolved when CWD held UserConfigs/ (2026-07-12 fix)
                     from PlanetProfile.MagneticInduction.defaultConfigInduct import inductAssign
                     Params_cached, ExploreParams = configAssign()
                     Params_cached.Explore = ExploreParams
@@ -679,7 +713,7 @@ with col2:
                 from PlanetProfile.Gravity.defaultConfigGravity import gravityAssign
                 from PlanetProfile.MonteCarlo.defaultConfigMonteCarlo import montecarloAssign
                 from PlanetProfile.Plotting.defaultConfigPlots import plotAssign
-                from configPP import configAssign
+                from UserConfigs.configPP import configAssign  # qualified: bare configPP only resolved when CWD held UserConfigs/ (2026-07-12 fix)
 
                 # Get current planet and params
                 if _DEBUG_EXPLOREOGRAM:
