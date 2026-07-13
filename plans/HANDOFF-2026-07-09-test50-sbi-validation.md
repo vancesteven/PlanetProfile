@@ -752,3 +752,76 @@ values (Galileo/Clipper tidal constraints).** Induction (Ae) channels already re
 dataset (same pipeline as Test50/Test52) → train nsf seed 42 → held-out set → anchor MCMCs
 → three gates. No new infrastructure needed. Crosscheck reference:
 T25_europa_seawater_result.pkl (production) or test51 (whichever Machine A designates).
+
+## CALLISTO NaCl CACHE REBUILD + Ae KEEP/DROP — Machine B (2026-07-12)
+
+Machine B executed queue items 1-2 (Pan2021 conductivity phase). Item 3 (MgSO4 Pan2020)
+scoped below. Item 4 remains blocked on Machine A (C-B phase).
+
+### Item 1 — Callisto NaCl grid rebuilt with Pan2021 conductivity: **verified**
+- `build_phase_c1_cache --config callisto_nacl_andrade_8D.json --template
+  PlanetProfile.Default.Callisto.PPCallisto --n-grid 11 --force` → exit 0, 1328.9 s,
+  11 Tb points [250.0-254.9 K]. Cache overwritten IN PLACE (tracked Test/ file;
+  user-authorized this session; backup at /tmp/callisto_nacl_structure_grid.BACKUP.pkl;
+  also recoverable via git — prior commit bf545b5e).
+- **No `PhaseConv phase ID 7` (ice-VII) crash** — the pre-existing issue Machine A flagged
+  did NOT occur in this env. Porous-silicate build completed for all 11 points.
+- New conductivity confirmed active: ocean σ ≈ 1.4-6.0 S/m (vs old 1e-5 placeholder).
+  CMR² sane (~0.342). Pan2021 emits the documented envelope warning — Callisto ocean top
+  (P ~120-160 MPa) sits below the 212 MPa experimental floor, so the shallow ocean is
+  mildly EXTRAPOLATED (deeper column in-range). Small magnitude effect; does not affect
+  the keep/drop below (which keys on the Tb-derivative, not the absolute σ).
+
+### Item 2 — Ae keep/drop diagnostic: **verified → DROP all three Ae channels**
+Script committed: `PlanetProfile/Inference/ae_keepdrop_diagnostic.py` (reuses
+`forward_model_induction`, the same machinery as `mcmc_runner._precompute_ae_grid`).
+
+Result on the rebuilt cache (|Ae| across the 11-pt Tb grid):
+| channel | \|Ae\| range | span | 3σ (30%·mean\|Ae\|) | verdict |
+|---|---|---|---|---|
+| synodic | 0.8149→0.8528 (monotonic) | 0.0379 | 0.751 | **DROP** |
+| synodic 2nd | 0.824→0.860 | 0.0366 | 0.758 | **DROP** |
+| orbital | 0.727→0.768 | 0.0411 | 0.676 | **DROP** |
+
+Pre-registered rule (span > 3σ → KEEP): **DROP** for all three, robust under both the
+config-stored sigma and the refreshed (30%·new-|Ae|) sigma. Synodic — the pre-registered
+decision channel — is DROP under both.
+
+**Physical reading (scientific-reviewer verified, opus):** Pan2021 gives a strong
+conductive ocean (|Ae_synodic|~0.8, a proper induction response — the old "degenerate Ae"
+~0.02-0.15 was the wrong-conductivity artifact). But |Ae| is nearly FLAT across the narrow
+Tb=[250,254.9]K range, so induction does NOT discriminate Tb for Callisto NaCl 100 ppt —
+opposite to Europa, where |Ae| swept 0.07→0.94 and earned support bounds. Synodic/synodic-2nd
+flatness = strong-conductor plateau (skin depth ~ ocean thickness); orbital flatness =
+thin-ocean under-drive (skin depth >> ocean).
+
+**Correction to a prior claim:** the config's stored Ae sigmas are exactly 30%·(stored |Ae|)
+for all three channels — where stored |Ae| (synodic 0.149, synodic2nd 0.290, orbital 0.0038)
+is an EARLIER baseline, NOT the 1e-5 placeholder output. Any "orbital KEEP" under the stored
+sigma is a stale-BASELINE artifact.
+
+**RED FLAG (reviewer, for Machine A / before any Ae re-enable):** rebuilt |Ae_orbital|=0.73
+vs config-stored 0.0038 — a ~190× discrepancy. At the ~400 hr orbital period, skin depth
+(~250-490 km) >> ocean thickness (~19-59 km), so orbital |Ae| should be O(1e-2 to 1e-3),
+not 0.73. Does NOT change the DROP verdict (span fails 3σ regardless), but the orbital
+channel's MAGNITUDE is currently untrustworthy — likely the induction solver is being fed
+the deep 1e-8 S/m floor/core layers, or an amplitude-normalization path. Must be reconciled
+(check vs an analytic thin-shell limit) before Ae is ever re-enabled for Callisto.
+
+**Consequence for Callisto SBI config:** drop the 6 Ae Gaussian channels
+(Ae_synodic/synodic 2nd/orbital real+imag) from `callisto_nacl_andrade_8D.json` observables.
+Callisto's discriminating observables are CMR² + k2/h2 (once Machine A supplies real k2/h2
+in the C-B phase). This is a config edit = **Machine A's authoring task**, not Machine B's;
+flagged here for the C-B phase.
+
+### Item 3 — MgSO4 Pan et al. (2020) conductivity: scoped, PAPER-PDF GAP noted
+- The handoff says the paper is at `papers/pan2020*.pdf` — **it is NOT in the repo** (absent
+  from papers/, the alt working dir, and git history). HOWEVER the authors' full regression
+  is preserved in `Thermodynamics/MgSO4/getSigmaMgSO4_Pan.m` (S. Vance 2019), which documents
+  the paper's "12% average misfit" and reproduces its Fig. 5. The `getlogsig` regression:
+  `logsig = -3.1605 + 940.931/T + 0.8986·log10(c_M) + 2·log10(G0) − log10(5·G0 + 2695·c_M^0.5)`;
+  `G0 = 1918.37 − 100.51·ρ − 825071/T + 95550686/T²` (ρ at 10 wt%, molality 0.9231).
+- `MgSO4Props.py:531` calls `Panetal2020()` which is NEVER DEFINED (latent NameError, masked
+  by the Vance2018 default) — confirmed. Item 3 is implementable against the MATLAB reference
+  in the same self-validating spirit as the NaCl work (validate against the .m output, keep
+  Vance2018 default). Deferred pending user go-ahead on opus 4.8 (or the actual PDF surfacing).
