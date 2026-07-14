@@ -1,6 +1,0 @@
-streamlit
-pandas
-pdf2image
-Pillow
-plotly
-kaleido

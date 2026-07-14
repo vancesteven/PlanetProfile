@@ -1,10 +1,26 @@
+# Root config: read when serving from the repo root (Streamlit Cloud).
+# Mirrors PlanetProfileApp/.streamlit/config.toml (used for local runs
+# launched from the app directory) plus serving limits.
+
+[theme]
+primaryColor = "#1f77b4"
+backgroundColor = "#0e1117"
+secondaryBackgroundColor = "#262730"
+textColor = "#fafafa"
+font = "sans serif"
+
 [server]
+fileWatcherType = "auto"
+maxUploadSize = 200
 # Large matplotlib/plotly payloads (corner plots, exploreogram grids).
 maxMessageSize = 400
 
 [browser]
 gatherUsageStats = false
 
-[theme]
-base = "dark"
-primaryColor = "#4e79a7"
+[runner]
+fastReruns = true
+
+[client]
+showErrorDetails = true
+showSidebarNavigation = true
