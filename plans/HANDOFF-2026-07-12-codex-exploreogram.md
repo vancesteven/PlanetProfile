@@ -84,12 +84,18 @@ PlanetProfile/Thermodynamics/NaCl/NaClProps.py, now the NaCl default) — Europa
 default is Seawater (GSW, unchanged), so the jagged-plot repro is unaffected, but
 any NaCl exploreograms will differ from older runs by design.
 
-## Repo state snapshot (2026-07-12)
+## Repo state snapshot (updated 2026-07-13, commit 3c55b4a6)
 
-- Titan: 1M SBI artifact deployed, gates green within |Im k2| <= 0.20, GUI guard.
-- Europa: campaign configs/bounds pushed (8ddf3873); Machine B running reference
-  MCMC + training (do not touch configs/europa_seawater_andrade_7D.json).
-- Callisto: Pan-2021 NaCl conductivity landed (bf545b5e); Machine B queue: cache
-  rebuild, Ae diagnostic, MgSO4 Pan-2020 implementation.
+- Titan: 500k SBI artifact deployed, gates green within |Im k2| <= 0.20, GUI guard.
+  1M clean-gate redeploy blocked on ratification items 1+2 (Machine A).
+- Europa: **Galileo-run 1M SBI artifact DEPLOYED** (europa_seawater_andrade_posterior_1m.pt),
+  synodic-only induction, with a GUI domain guard (|Im k2|<=0.15) + default Tb>=261.5 K
+  truncation + scope note. GUI-verified via AppTest. Do not touch
+  configs/europa_seawater_andrade_7D.json. See HANDOFF-2026-07-09 ADDENDUM 2026-07-13b.
+- Callisto: Pan-2021 NaCl conductivity landed (bf545b5e); cache rebuild + Ae DROP diagnostic
+  DONE; C-B phase (config + real k2/h2 targets) is Machine A's next authoring task.
+- MgSO4: Pan et al. (2020) conductivity implemented (opt-in; Vance2018 still default) +
+  regression test (Test/TestMgSO4Conductivity.py). verified.
 - Known env quirk (Machine A): PPCallisto porous-silicate builds crash at
   PhaseConv phase ID 7 (ice VII pore fluid) — pre-existing, unrelated to the above.
+- Exploreogram jagged y-axis plots (item 4 above): still **not implemented**.

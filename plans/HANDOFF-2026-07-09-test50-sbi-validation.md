@@ -915,3 +915,52 @@ Im_k2<=0.15 guard fires and refuses at Im_k2=0.18. Status: **verified**.
 
 INDEX.md: Europa moved to Deployed table with full conditions. Titan slot untouched.
 Containment FAIL confirmed a gate-measurement artifact (rejection off in gate, on at runtime).
+
+---
+
+## MACHINE A PICKUP (state as of 2026-07-13, commit 3c55b4a6, pushed to origin/genai)
+
+This session (Machine B, directed by user) crossed the usual Machine-B/Machine-A boundary:
+the user directed Europa DEPLOYMENT without waiting for Machine A. The cross-machine state
+below reconciles what is now closed vs. what remains open for Machine A. **Pull origin/genai
+before starting — HEAD is 3c55b4a6.**
+
+### Commits pushed this session (all on origin/genai)
+- `0c608b69` — Europa Galileo-run 1M SBI gates + MgSO4 Pan2020 conductivity (artifact,
+  gate reports, anchor configs, MgSO4Props.py).
+- `e310fd97` — MgSO4 conductivity regression test (`PlanetProfile/Test/TestMgSO4Conductivity.py`,
+  user granted explicit Test/ permission).
+- `3c55b4a6` — Europa Galileo-run SBI slot deployed to GUI (Inference.py slot registry +
+  default_truncate mechanism + INDEX.md).
+
+### CLOSED this session (no Machine A action needed)
+- **MgSO4 Pan et al. (2020) conductivity** — implemented + reviewed + regression-tested.
+  Vance2018 remains the default, byte-for-byte unchanged. Opt-in via `Ocean.electrical='Pan2020'`.
+  Status: **verified**. (Was handoff Item 3 / open backlog.)
+- **Europa "Galileo run" GUI deployment** — the guard/truncation/scope-note that open item 4
+  + the 2026-07-13 addendum recommended as "Machine A / joint" is now IMPLEMENTED and
+  GUI-verified. Status: **verified**. Machine A does NOT need to build the Europa guard —
+  it exists (`_SBI_ARTIFACT_SLOTS['europa_seawater_andrade_posterior_1m.pt']`).
+
+### OPEN for Machine A (unchanged by this session)
+1. **Titan 1M ratification items 1 + 2** (handoff §"Open ratification items"): eta_Ih/eta_V KS
+   materiality-margin framework (bootstrap self-D floor + per-param margin) and the bimodal-regime
+   anchor statistic (median → Wasserstein/KS, or scope domain). These block a *clean-gate* Titan
+   1M redeploy; the 500k provisional Titan slot stays deployed meanwhile with its |Im k2|<=0.20 guard.
+2. **Test52 10D Titan (differentiated + CMR2)** — candidate artifact
+   `titan_diff_noocean_andrade_test52_10D_v2.pt` awaits Machine A's GUI guard (|Im k2|<=0.25) +
+   deployment decision. Gate reports in `validation_reports/test52_v2/`. (INDEX.md Candidate row.)
+3. **Callisto C-B phase** — Machine A authors the Callisto SBI config (CMR² + real k2/h2 targets;
+   DROP all 6 Ae Gaussian channels per Item 2 DROP verdict). Then Machine B can train.
+   **Blocker flag for Machine A:** the Ae_orbital MAGNITUDE is untrustworthy (rebuilt |Ae_orbital|=0.73
+   vs config-stored 0.0038, ~190×) — must be reconciled against an analytic thin-shell limit BEFORE
+   Ae is ever re-enabled. Does not affect the DROP decision (Ae channels are dropped regardless).
+4. **Exploreogram jagged y-axis plots** — item (4) in `HANDOFF-2026-07-12-codex-exploreogram.md`,
+   status: not implemented. Ranked suspects + fix shape documented there; primary suspect is
+   pcolormesh over non-monotone derived y-axis coordinates at high salinity.
+
+### Europa v2 follow-on (deliberate future, NOT this artifact)
+3-frequency Europa (add Ae_synodic 2nd 5.62 hr + Ae_orbital 85.24 hr as bounds/channels) is a
+deliberate future artifact requiring a FRESH 1M dataset regen (changing the observable manifold).
+Do NOT retrofit into the Galileo run. The structure cache already carries all 11 excitation
+periods, so it is additive on the data-gen side.
