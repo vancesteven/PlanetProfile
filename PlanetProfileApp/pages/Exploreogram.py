@@ -1806,6 +1806,35 @@ with col2:
                                 # space (conductivity S/m) so the range and tick positions
                                 # are correct.  Then add a secondary axis for the driver
                                 # quantity (salinity ppt).
+                                # Tick hygiene helpers (2026-07-13, user-reported
+                                # overlapping numbers on both conductivity and
+                                # salinity axes):
+                                # (a) on log axes matplotlib auto-labels MINOR
+                                #     ticks when the span is < ~1 decade, stacking
+                                #     extra numbers under the custom majors;
+                                # (b) secondary salinity ticks mapped through
+                                #     sigma(w) cluster where the mapping
+                                #     compresses. Thin any ticks closer than 6%
+                                #     of the axis span (log-space when log).
+                                def _thin_ticks(_positions, _labels, _log_axis, _min_frac=0.06):
+                                    _p = np.asarray(_positions, dtype=float)
+                                    if _p.size == 0:
+                                        return _positions, _labels
+                                    _pt = np.log10(_p) if _log_axis else _p
+                                    _span = (np.nanmax(_pt) - np.nanmin(_pt)) or 1.0
+                                    _kp, _kl, _last = [], [], None
+                                    for _t, _pos, _lab in zip(_pt, _positions, _labels):
+                                        if _last is None or (_t - _last) >= _min_frac * _span:
+                                            _kp.append(_pos)
+                                            _kl.append(_lab)
+                                            _last = _t
+                                    return _kp, _kl
+
+                                def _kill_minor_labels(_axis_obj):
+                                    from matplotlib.ticker import NullLocator, NullFormatter
+                                    _axis_obj.set_minor_locator(NullLocator())
+                                    _axis_obj.set_minor_formatter(NullFormatter())
+
                                 if _show_sal_axis and hasattr(Exploration, 'base') and Exploration.base is not None:
                                     try:
                                         from matplotlib.ticker import MaxNLocator, LogLocator
@@ -1836,8 +1865,12 @@ with col2:
                                                                                 if _sig_min <= t <= _sig_max])
                                                     if len(_sig_ticks) == 0:
                                                         _sig_ticks = np.linspace(_sig_min, _sig_max, 5)
+                                                    _sig_ticks, _sig_lbls = _thin_ticks(
+                                                        _sig_ticks, [f'{t:.3g}' for t in _sig_ticks],
+                                                        _force_x_log)
                                                     ax.set_xticks(_sig_ticks)
-                                                    ax.set_xticklabels([f'{t:.3g}' for t in _sig_ticks])
+                                                    ax.set_xticklabels(_sig_lbls)
+                                                    _kill_minor_labels(ax.xaxis)
                                                     ax.set_xlabel('Mean Conductivity (S/m)')
                                                     # 3. Secondary axis: use sparse "nice" salinity values mapped
                                                     # to conductivity positions.  Driving from salinity → σ avoids
@@ -1860,9 +1893,14 @@ with col2:
                                                         _w_nice = _w_nice[_in_rng]
                                                         _sig_at_sal = _sig_at_sal[_in_rng]
                                                         if len(_w_nice) >= 2:
+                                                            _sig_at_sal, _w_lbls = _thin_ticks(
+                                                                _sig_at_sal,
+                                                                [f'{v:.3g}' for v in _w_nice],
+                                                                _force_x_log)
                                                             _secax = ax.secondary_xaxis('top')
                                                             _secax.set_xticks(_sig_at_sal)
-                                                            _secax.set_xticklabels([f'{v:.3g}' for v in _w_nice])
+                                                            _secax.set_xticklabels(_w_lbls)
+                                                            _kill_minor_labels(_secax.xaxis)
                                                             _secax.set_xlabel('Salinity (ppt)')
                                                             ax._pp_secax_x_attached = True
                                         if _y_derived_label == _SIG:
@@ -1889,14 +1927,19 @@ with col2:
                                                                                 if _sig_min <= t <= _sig_max])
                                                     if len(_sig_ticks) == 0:
                                                         _sig_ticks = np.linspace(_sig_min, _sig_max, 5)
+                                                    _sig_ticks, _sig_lbls_y = _thin_ticks(
+                                                        _sig_ticks, [f'{t:.3g}' for t in _sig_ticks],
+                                                        _force_y_log)
                                                     ax.set_yticks(_sig_ticks)
-                                                    ax.set_yticklabels([f'{t:.3g}' for t in _sig_ticks])
+                                                    ax.set_yticklabels(_sig_lbls_y)
+                                                    _kill_minor_labels(ax.yaxis)
                                                     ax.set_ylabel('Mean Conductivity (S/m)')
                                                     if _show_sal_axis and not getattr(ax, '_pp_secax_y_attached', False):
                                                         _sal_at_sig = np.interp(_sig_ticks, _ss, _ws)
                                                         _secay = ax.secondary_yaxis('right')
                                                         _secay.set_yticks(_sig_ticks)
                                                         _secay.set_yticklabels([f'{v:.3g}' for v in _sal_at_sig])
+                                                        _kill_minor_labels(_secay.yaxis)
                                                         _secay.set_ylabel('Salinity (ppt)')
                                                         ax._pp_secax_y_attached = True
                                     except Exception:
