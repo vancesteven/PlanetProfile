@@ -160,3 +160,19 @@ PlanetProfile is open source software. Please see the [LICENSE](https://github.c
 * The default settings include a recalculation of all parameters. It is recommended to recalculate all parameters whenever PlanetProfile is updated and any time a change in input parameters may affect layer thicknesses or other intermediate variables.
 
 Some calculations in Python use parallel computing with the multiprocessing builtin module. There are sometimes cross-platform compatibility issues that crop up. By default, multiprocessing is enabled; disable it by setting Params.DO_PARALLEL = False in UserConfigs/configPP.py.
+
+## Serving the GUI (Streamlit)
+
+Local (full functionality):
+```bash
+mamba activate PPcl   # or conda activate PP
+streamlit run PlanetProfileApp/PlanetProfileApp.py
+```
+
+Public demo (Streamlit Community Cloud, amortized inference only): the app is
+served from the slim `app-deploy` branch, rebuilt deliberately via
+`plans/scripts/build_deploy_branch.sh` after verifying `genai` — the public
+app never tracks dev pushes. Deployment details and the verification
+checklist: `plans/serve-gui-streamlit-cloud-plan.md`. Heavy compute (MCMC,
+exploreogram grids, full forward-model runs) is hidden when the app secret
+`PP_PUBLIC_MODE = "1"` is set.

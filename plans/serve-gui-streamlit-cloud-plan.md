@@ -13,8 +13,17 @@ Planet session object, exercised at Phase D click-through). Phase B
 `verified` (full AppTest page sweep with reaktoro import-blocked: 0
 failures; reaktoro made optional — conda-only, no pip wheel; pdf2image was
 missing locally, 3 pages were broken; mpmath unpinned, conda-only 1.4.x).
-Phase C in progress: build script works (205 MB, 406-file orphan snapshot);
-fresh-venv verification gate running.
+Phase C `verified` (205 MB / 406-file orphan snapshot; pip resolution of
+requirements.txt succeeds in a fresh venv; AppTest against the bare clone:
+all pages 0 exceptions, both artifact slots detected, Europa amortized run
+17 s under public caps, CMR2 median 0.3552, **peak RSS 0.95 GB** — well
+under Cloud's ~2.7 GB). Residual risk, macOS-unverifiable: Linux runtime
+of the pip TidalPy/torch wheels — the macOS pip wheels have the known
+libomp defect (memory: pp-env-libomp-fixes) and segfault, so the runtime
+check used the known-good conda env against the clone; manylinux wheels
+bundle libgomp and are expected clean. Confirmed at first Cloud build.
+`app-deploy` pushed to origin. Phase D awaits the user's share.streamlit.io
+connect (below).
 
 ## Constraints (measured 2026-07-14)
 
