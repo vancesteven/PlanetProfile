@@ -876,7 +876,15 @@ class SBIRunner:
                 return_heating=False, arrhenius_params=runner.arrhenius_params
             )
             k2_results.append((Re_k2, Im_k2))
-            cmr2_results.append(runner._get_cache_scalar(theta_dict, 'CMR2'))
+            # CMR2 must use the same dispatch as the likelihood/reporting fix
+            # (2026-07): _compute_model_cmr2 is core-sensitive for v2 configs
+            # (sampled core + mass-conservation rho_sil, e.g. Europa 7D) and
+            # falls back to the cache scalar for core-blind v1 configs. The
+            # previous _get_cache_scalar call here ignored the sampled core,
+            # displaying a CMR2 distribution systematically offset from the
+            # Gaussian the flow was conditioned on (user-reported 2026-07-13:
+            # Europa MoI 'far left of the Gaussian' in the GUI).
+            cmr2_results.append(runner._compute_model_cmr2(theta_dict))
             D_ocean_results.append(runner._get_cache_scalar(theta_dict, 'D_ocean_km'))
             D_iceIh_results.append(runner._get_cache_scalar(theta_dict, 'D_iceIh_km'))
             if (i + 1) % 100 == 0:

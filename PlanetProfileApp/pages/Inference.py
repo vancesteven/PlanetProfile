@@ -1536,7 +1536,7 @@ def render_results():
             plt.rcParams['text.usetex'] = False
             fig, ax = plt.subplots(figsize=(8, 6))
             if f_sil is not None and len(f_sil) == len(Re_arr):
-                sc = ax.scatter(Re_arr, Im_arr, c=f_sil, cmap='RdYlBu_r',
+                sc = ax.scatter(Re_arr, Im_arr, c=f_sil, cmap='viridis',
                                 s=pt_size, alpha=0.6, vmin=0, vmax=1)
                 plt.colorbar(sc, ax=ax, label='Silicate heating fraction')
             else:
@@ -1563,8 +1563,8 @@ def render_results():
             if f_sil is not None and len(f_sil) == len(Re_arr):
                 caption_bits.append(
                     "**Color** is the fraction of tidal heating dissipated "
-                    "in the silicate interior (blue = ice-dominated, red = "
-                    "rock-dominated dissipation).")
+                    "in the silicate interior (viridis: dark = ice-dominated, "
+                    "yellow = rock-dominated dissipation).")
             st.caption(" ".join(caption_bits))
         except Exception as e:
             st.warning(f"k₂ scatter unavailable: {e}")
