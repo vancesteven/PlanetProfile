@@ -2,7 +2,8 @@ import streamlit as st
 import os
 import importlib
 import sys
-import reaktoro as rkt
+# reaktoro was imported here but never used; it is conda-forge-only and
+# breaks pip-only deployments, so it is intentionally not imported.
 from functools import partial
 
 # --- Setting up Main Page ---

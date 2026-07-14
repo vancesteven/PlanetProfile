@@ -15,6 +15,9 @@ configPPmontecarlo.py
 /*.dat
 /*.png
 /*.txt
+# Streamlit Cloud deployment manifests must be tracked despite /*.txt
+!/requirements.txt
+!/packages.txt
 *pycache*
 *.mat
 !PlanetProfile/MagneticInduction/MoonMag/induced/

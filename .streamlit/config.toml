@@ -1,0 +1,10 @@
+[server]
+# Large matplotlib/plotly payloads (corner plots, exploreogram grids).
+maxMessageSize = 400
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "dark"
+primaryColor = "#4e79a7"

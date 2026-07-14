@@ -12,9 +12,17 @@ from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv, GetPhaseIndice
 from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
 from PlanetProfile.Utilities.defineStructs import Constants
 from typing import Optional, List
-import reaktoro as rkt
 import itertools
 import copy
+
+# reaktoro is conda-forge-only (no pip wheel). It is required ONLY for
+# CustomSolution species plots; guard the import so pip-only deployments
+# (Streamlit Cloud) can import the PlanetProfile.Plotting chain. Functions
+# that actually need it raise a clear error at call time.
+try:
+    import reaktoro as rkt
+except ImportError:
+    rkt = None
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')

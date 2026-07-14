@@ -1,9 +1,19 @@
-import reaktoro as rkt
+# reaktoro is conda-forge-only (no pip wheel); optional so pip-only
+# deployments can import this module. read_salt_db raises at call time.
+try:
+    import reaktoro as rkt
+except ImportError:
+    rkt = None
 import os
 import streamlit as st
 #database_folder = "PlanetProfile/PlanetProfile/Thermodynamics/Reaktoro/Databases"
 
 def read_salt_db(db_name):
+    if rkt is None:
+        raise ImportError(
+            "reaktoro is not installed (conda-forge-only package); "
+            "CustomSolution salt databases are unavailable in this "
+            "deployment. Install PlanetProfile via conda for this feature.")
     # Start from where SaltLoader.py is
     base_dir = os.path.dirname(os.path.abspath(__file__))
 
