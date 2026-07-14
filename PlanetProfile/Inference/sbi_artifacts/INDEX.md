@@ -89,6 +89,58 @@ artifacts only; any OTHER version pair still raises the loud RuntimeWarning
 | Artifact file | Source config | config_hash | seed | n_train | Gates | Status |
 |---|---|---|---|---|---|---|
 | titan_diff_noocean_andrade_test52_10D_v2.pt | test52_titan_noocean_andrade_10D.json | 2bf1f7b2d1708e28 | train 42 / data 45 / noise 4545 | 877,883 (nsf, 10xIQR x-filter) | SBC FAIL (eta_V p=.016, 9/10 pass); crosscheck shape FAIL 3 params (zeta/eta_III/Tb, all location tests pass); limits W1 PASS Im<=0.25, FAIL Im=0.30 | **implemented, unverified** — Test52 10D (Titan no-ocean + CMR2). NOT deployed. Gate reports in `validation_reports/test52_v2/`. Reviewer (opus 2026-07-11): deployable with |Im k2|<=0.25 restriction + lower-tail shape caveats on zeta/eta_III/Tb. Awaiting Machine A GUI guard + deployment decision. |
+| europa_seawater_andrade_clipper_v2.pt | europa_seawater_andrade_clipper_v2.json | 46be64069a40090f | train 42 / data 47 / noise 4747 | 831,566 (nsf, synodic \|Ae\|>0.7 support cut) | SBC PASS all 7 (min KS p .19); crosscheck PASS mean/median/sigma all 7, shape FAIL Tb_K only (D .119 vs .054); limits grid-walk W1 7/8 PASS + containment .989-.997 gate-artifact | **implemented, unverified** — Europa Clipper v2 3-frequency induction (synodic + synodic 2nd + orbital), 14 Bind_ channels sigma=1.5 nT. NOT deployed. Gate reports in `validation_reports/europa_clipper_v2_1m/`. Reviewer (opus 2026-07-14): COMMIT-AS-CANDIDATE (see scope note). Awaiting Machine A GUI slot + AppTest + user ratification. |
+
+**Europa Clipper v2 scope note (scientific-reviewer 2026-07-14, COMMIT-AS-CANDIDATE):**
+- **What v2 is:** the 3-frequency Clipper-era follow-on to the deployed synodic-only "Galileo run"
+  (`europa_seawater_andrade_posterior_1m.pt`). Adds 14 induction observables
+  `Bind_<label>_<comp>_<part>` for label in {synodic, synodic 2nd, orbital}, comp in {x,y,z}
+  (kept per pruning: synodic xyz, synodic-2nd xy, orbital xy), part in {real, imag}, each
+  sigma=1.5 nT (Kivelson et al. 2023). Bind = Ae*Be (unconjugated, complex per-component Be,
+  FT surface-field path); signed Im (not abs-folded). See config metadata for the full
+  convention + the surface-field-vs-g1 factor-of-2 assumption.
+- **Gate verdicts (raw):** SBC (1000 pairs) PASS all 7 params (min KS p .19; Tb_K p .32,
+  c2st .573). Crosscheck vs a fresh v2 reference MCMC (nautilus, r_hat 1.0, ESS 4259):
+  FAIL on Tb_K *shape* only (D .119 > tol .054); Tb_K mean/median/sigma PASS (dmean .020,
+  dmedian .010, sigma_ratio 1.184 -> SBI 18% WIDER = conservative), and all 6 other params
+  PASS fully. Limits grid-walk W1 (8 on-manifold anchors, Tb 261.5-271 K): 7/8 W1 PASS,
+  medians agree <=.04 K; containment .989-.997 < 1.0.
+- **Why committable despite 2 shape/containment FAILs:**
+  (1) The Tb_K crosscheck fail is NOT the v1 cold-edge smear: matched-truncation at Tb>=261.5 K
+  is a no-op (0.0000 sub-support mass on BOTH flow and MCMC). It is a genuine within-support
+  higher-moment defect — the reference Tb marginal is right-skewed/leptokurtic (skew +.70) and
+  the flow renders it near-Gaussian (skew +.20). Confirmed via a dual-reference MCMC:
+  MCMC(seed42)-vs-MCMC(seed7) Tb_K D=.035 ~ self-D floor .035 (both chains agree on the skew),
+  so the reference is stable and the D=.119 is a real FLOW shape defect. It is sub-resolution
+  (medians agree .01 K ~ .09 km ocean; tail mismatch ~1.3 km ~3.5% of ocean) and in the
+  conservative (wider) direction. SBC PASS confirms the flow is calibrated for Tb across the
+  prior; the fail is at a single pinned-Tb x_obs.
+  (2) The single grid-walk W1 miss (Tb=263.5, W1 .0442 vs tol .0344) is the SAME flow
+  shape-fidelity floor, not a discrimination failure: flow_median tracks anchor_median to
+  .003 K there. It trips only at 263.5 because that anchor has the smallest sigma_anchor (.138 K)
+  hence tightest .25*sigma tol. Disambiguated with W1: MCMC-vs-MCMC W1 at 263.5 = .0066 K
+  (reference noise floor) vs flow-vs-MCMC .0442 K -> a ~.038 K flow shape increment, constant
+  across mid-range anchors, sub-resolution. Report `limits_263p50_w1_disambiguation.json`.
+  (3) Containment .989-.997 is the SAME gate-measurement artifact as the deployed v1 (v1: .9938):
+  it samples `reject_outside_prior=False`; the GUI runtime samples `=True`, so the diffuse 0.72%
+  NSF-spline tail leak (spread across all params, Tb_K leak 0.00%, no single param >.25%) never
+  reaches a user.
+- **Anchor design correction (scientific review, superseded plan):** the plan's pre-registered
+  independent-per-frequency |Ae| sweep was REJECTED — Ae is a function of Tb ALONE, so the three
+  excitation frequencies cannot be moved independently, and off-manifold synodic targets rail the
+  reference MCMC against the hard |Ae_synodic|>0.7 cut. Replaced by single-Tb GRID-WALK anchors
+  (all frequencies co-vary from one physical Ae(Tb)) as the primary W1 gate. The plan's set was
+  still run as labeled EXTRAPOLATION PROBES and empirically confirms the rejection: off-manifold
+  synodic probes rail (synodic_0.70 W1 .61, 0.75 .24, 0.90 .24, corner .27), and the orbital/
+  synodic-2nd probe passes are INERT (synodic pins Tb; the reference barely moves) — NOT
+  independent flow-quality evidence.
+- **Carry-forward deploy conditions (Machine A, before any deploy — NOT done here):** runtime
+  `reject_outside_prior=True`; an x_obs domain guard set to the W1-validated |Ae| envelope
+  actually exercised by the grid-walk (synodic ~0.75-0.94; do not condition beyond it); Tb
+  default-truncation at the induction support edge (261.5 K), as in v1; an AppTest asserting
+  Bind inputs are NOT abs-folded (signed Im preserved end-to-end). Deploy gated on GUI slot +
+  AppTest + user ratification. Cross-version load: trained torch 2.8.0 / sbi 0.26.1; re-run the
+  crosscheck gate on Machine A before trusting draws (per the version-pair discipline above).
 
 **Scope note (deployment condition, user-ratified 2026-07-11):**
 - **Validated conditioning domain: |Im k2| <= 0.20.** SBC (1000 pairs) PASS; crosscheck

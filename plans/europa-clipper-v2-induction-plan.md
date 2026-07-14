@@ -301,6 +301,27 @@ definition. Fiducial script + results: `/tmp/compute_v2_fiducials.py`,
 
 ## Phase 3 — Machine B run recipe (intensive)
 
+**Phase 3 status: candidate committed — `implemented, unverified` (Machine B, 2026-07-14).**
+Artifact `sbi_artifacts/europa_seawater_andrade_clipper_v2.pt` (config_hash
+46be64069a40090f, git_sha f59f43b0, seed 42, n_train 831,566, nsf, sbi 0.26.1,
+torch 2.8.0). Reference MCMC (nautilus, r_hat 1.0, ESS 4259) at fiducial Tb 264.5 K.
+Gates (reports in `sbi_artifacts/validation_reports/europa_clipper_v2_1m/`):
+SBC PASS all 7 (min KS p .19); crosscheck PASS mean/median/sigma all 7, shape FAIL
+Tb_K only (D .119 vs .054) — a genuine flow shape defect (near-Gaussian flow vs
+skewed reference, confirmed by dual-reference MCMC D .035~floor .035; NOT the v1
+edge-smear, matched-truncation is a no-op), sub-resolution + conservative; limits
+grid-walk W1 7/8 PASS (medians agree <=.04 K over 261.5-271 K), 263.5 miss is the
+same shape floor (MCMC-vs-MCMC W1 .0066 vs flow .0442), containment .989-.997 = the
+v1 gate-measurement artifact. Reviewer (opus 2026-07-14): COMMIT-AS-CANDIDATE.
+**Anchor design amended AGAIN (this session):** the pre-registered independent-per-
+frequency sweep below (3.4) was REJECTED on review — Ae is a function of Tb ALONE, so
+frequencies cannot be moved independently and off-manifold synodic targets rail the
+reference MCMC. Replaced by single-Tb GRID-WALK anchors as the primary W1 gate; the
+plan set was run as EXTRAPOLATION PROBES and empirically confirmed the rejection.
+Scripts: `plans/scripts/phase3_*.py`. INDEX candidate row + scope note carry the
+Machine-A deploy conditions. NOT deployed — awaits Machine A GUI slot + AppTest + user
+ratification.
+
 Same structure cache as v1 (`Test51_seawater/europa_seawater_structure_grid
 .pkl`) — the Ae grid is derived per Tb from the same cache; no rebuild.
 Seeds: train 42 / data 47 / noise 4747 (fresh data+noise seeds — v1 used

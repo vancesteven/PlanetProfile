@@ -1,0 +1,8 @@
+{
+  "anchor": "Tb=263.5",
+  "sigma_anchor_K": 0.1376,
+  "w1_tol": 0.0344,
+  "mcmc_vs_mcmc_W1": 0.0066,
+  "flow_vs_mcmc_W1": 0.0442,
+  "interpretation": "MCMC-vs-MCMC W1 is the reference sampling noise floor at this anchor; flow-vs-MCMC W1 exceeds it by the flow shape-fidelity increment. The 263.5 gate trip is a shape floor (near-Gaussian flow vs skewed MCMC), caught here because 263.5 has the smallest sigma_anchor hence tightest 0.25sigma tol. Sub-resolution (medians agree 0.003K)."
+}
