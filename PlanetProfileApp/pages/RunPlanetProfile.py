@@ -456,7 +456,17 @@ with col_opt2:
     )
 
 # Just the run button - no need for separate save button since saving is automatic
-run_button = st.button("▶️ Run PlanetProfile", type="primary", use_container_width=True)
+# Public serving (PP_PUBLIC_MODE=1): a full PlanetProfile run is ~minutes of
+# CPU on a shared cloud host — hide it like MCMC/exploreogram.
+from Utilities.app_mode import public_mode as _pp_public_mode
+if _pp_public_mode():
+    st.info("🌐 **Public demo** — full PlanetProfile forward-model runs are "
+            "disabled here. Use the Bayesian Inference page (amortized mode) "
+            "for instant posteriors, or run the app locally from the "
+            "[PlanetProfile repository](https://github.com/vancesteven/PlanetProfile).")
+    run_button = False
+else:
+    run_button = st.button("▶️ Run PlanetProfile", type="primary", use_container_width=True)
 
 if run_button:
     start_time = time.time()
