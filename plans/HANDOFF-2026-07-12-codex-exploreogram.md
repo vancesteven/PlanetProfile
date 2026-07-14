@@ -43,7 +43,51 @@ scripted AppTest render (streamlit.testing.v1); user click-through pending
   zb_approximate_km / logs True/True / component Bx / excitations synodic +
   synodic 2nd + orbital).
 
-## REMAINING → codex: item (4), the jagged y-axis plots — status: not implemented
+## Item (4) jagged y-axis plots — status: implemented, unverified (Machine B verifies)
+
+Machine A implemented (2026-07-13, this commit), per the recon below:
+
+- **Fold-over guard** `_sort_grid_axes` in PlanetProfile/Plotting/ExplorationPlots.py,
+  applied in `PlotExploreOgram` right after the VALID/NaN masking: any grid row/column
+  whose (derived) axis coordinates are non-monotone is argsorted along that direction
+  with z + contour carried along. Rectilinear grids pass through untouched (CLI
+  behavior identical for normal axes). Mechanism VERIFIED visually on a synthetic
+  folded grid reproducing the reported artifact
+  (plans/scripts/foldover_mechanism_demo.py — before = jagged oscillatory bands
+  growing with salinity, after = clean).
+- **y-branch rectilinearization** in PlanetProfileApp/pages/Exploreogram.py: the
+  sigmaMean-as-Y substitution injected the RAW 2D array (the x-branch already used
+  the column-mean fix) — now mirrored with a per-row mean, eliminating the
+  non-rectilinear pcolormesh rows that produced the reported jagged y-axis at high
+  salinity.
+- **inductionData CWD fix** in PlanetProfile/MagneticInduction/MagneticInduction.py:
+  GetBexc resolved `<Body>/inductionData` relative to the CWD, AND an empty
+  auto-created PlanetProfileApp/Europa/inductionData shadowed the repo-root data —
+  fallback now keys on the Be1xyz FILE, not the directory. Verified: excitation
+  moments (11 Europa frequencies) load from the app CWD.
+
+### MACHINE B — final verification run (user directive: intensive runs on B)
+
+From repo root, latest genai:
+
+```bash
+mamba run -n PPcl python plans/scripts/exploreogram_jagged_verify.py
+```
+
+This drives the real Streamlit page (streamlit.testing AppTest) through a 5x5
+Europa exploreogram with the user's default preset (sigmaMean/salinity 1-100 ppt x,
+D_km/ice-thickness y, induction z, Bx, log axes), matplotlib path. ~25 Europa
+models, minutes on Machine B. Then:
+1. Locate the saved figure (script prints recent figure paths; also check
+   Europa/figures/).
+2. VISUALLY inspect: the y-axis must not show the jagged/oscillatory banding at
+   high salinity; cells must not overlap.
+3. Report verified / not-verified with the figure path via a handoff addendum.
+(If the AppTest route mis-behaves on PPcl, the equivalent manual route is the
+app's export-script feature or a direct ParPlanetExplore driver per the notes
+above.)
+
+## Superseded recon (for reference)
 
 Recon already done (ranked suspects, file:line):
 

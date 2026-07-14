@@ -6,7 +6,7 @@ from scipy.integrate import solve_ivp as ODEsolve
 from collections.abc import Iterable
 from glob import glob as FilesMatchingPattern
 from scipy.io import savemat, loadmat
-from PlanetProfile import _Test, _Defaults
+from PlanetProfile import _Test, _Defaults, _ROOT
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
 from PlanetProfile.MagneticInduction.Moments import Excitations
 from PlanetProfile.GetConfig import FigMisc, SigParams
@@ -680,6 +680,18 @@ def GetBexc(bodyname, era, model, excSelection, MPmodel=None, nprmMax=1, pMax=0)
         if nprmMax > 1:
             log.warning('n\'_max greater than 1 is not yet supported. Be only up to n=1 will be loaded.')
             nprmMax = 1
+
+        if not os.path.isfile(os.path.join(fPath, f'{fNames[0]}.txt')):
+            # CWD-independent fallback: the relative <Body>/inductionData
+            # path only resolves when the CWD is the repo/install root.
+            # Consumers importing PlanetProfile from elsewhere (e.g. the
+            # Streamlit app, CWD=PlanetProfileApp/) may even have an EMPTY
+            # auto-created <Body>/inductionData locally, so key on the FILE,
+            # not the directory. Same fix family as the SPICE-kernel and
+            # UserConfigs resolvers (2026-07-12).
+            _rootPath = os.path.join(os.path.dirname(_ROOT), fPath)
+            if os.path.isfile(os.path.join(_rootPath, f'{fNames[0]}.txt')):
+                fPath = _rootPath
 
         if os.path.isfile(os.path.join(fPath, f'{fNames[0]}.txt')):
             inpTexc_hr, inpBenm_nT, B0_nT, BeNames, Bexyz_nT = GetBenm(nprmMax, pMax, fpath=fPath,

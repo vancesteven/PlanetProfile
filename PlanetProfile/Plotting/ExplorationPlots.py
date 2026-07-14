@@ -262,6 +262,53 @@ def PlotExploreOgramDsigma(results_list, FigureFilesList, Params):
         plt.close()
 
 
+def _sort_grid_axes(x, y, z, contourData):
+    """Guard pcolormesh against folded quads from non-monotone axis
+    coordinates (2026-07-12).
+
+    When an axis carries a DERIVED model quantity (e.g. mean ocean
+    conductivity or ocean thickness), the per-cell coordinates are model
+    outputs that can be locally non-monotone along their own grid
+    direction (numerical wiggle at high salinity, layer-count
+    discretization). pcolormesh then draws overlapping/folded quads that
+    render as a jagged, oscillatory band. Sorting each row (y direction)
+    and column (x direction) by its coordinate — carrying z and the
+    contour field along — removes the fold-over without altering any
+    data values. Rectilinear (already monotone) grids pass through
+    untouched.
+    """
+    x = np.array(x, dtype=np.float64, copy=True)
+    y = np.array(y, dtype=np.float64, copy=True)
+    z = np.array(z, copy=True)
+    contourData = None if contourData is None else np.array(contourData, copy=True)
+
+    def _nonmonotone(vec):
+        v = vec[np.isfinite(vec)]
+        if v.size < 3:
+            return False
+        d = np.diff(v)
+        return not (np.all(d >= 0) or np.all(d <= 0))
+
+    # y varies along axis 1 (per row); x varies along axis 0 (per column).
+    for i in range(y.shape[0]):
+        if _nonmonotone(y[i, :]):
+            order = np.argsort(y[i, :], kind='stable')
+            y[i, :] = y[i, order]
+            x[i, :] = x[i, order]
+            z[i, :] = z[i, order]
+            if contourData is not None:
+                contourData[i, :] = contourData[i, order]
+    for j in range(x.shape[1]):
+        if _nonmonotone(x[:, j]):
+            order = np.argsort(x[:, j], kind='stable')
+            x[:, j] = x[order, j]
+            y[:, j] = y[order, j]
+            z[:, j] = z[order, j]
+            if contourData is not None:
+                contourData[:, j] = contourData[order, j]
+    return x, y, z, contourData
+
+
 def PlotExploreOgram(ExplorationList, FigureFilesList,Params, ax=None, subplot_mode=False):
     # Set up basic figure labels using first result
     first_result = ExplorationList[0]
@@ -336,7 +383,12 @@ def PlotExploreOgram(ExplorationList, FigureFilesList,Params, ax=None, subplot_m
         z[INVALID] = np.nan
         # Return data to original organization
         z = np.reshape(z, z_shape)
-                
+
+        # Fold-over guard: sort rows/columns whose (derived) axis coordinates
+        # are non-monotone so pcolormesh cannot draw overlapping quads
+        # (the jagged high-salinity y-axis artifact; see _sort_grid_axes).
+        x, y, z, contourData = _sort_grid_axes(x, y, z, contourData)
+
         if DO_SMOOTHING:
             smoothFactor = FigMisc.EXPLOREOGRAM_SMOOTHING_FACTOR
             x, y, [z, contourData] = smoothGrid(x, y, [z, contourData], smoothFactor)

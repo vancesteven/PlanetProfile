@@ -1708,7 +1708,18 @@ with col2:
                                 np.shape(_derived_y_arr) == np.shape(Exploration.yData)):
                             _orig_yData = Exploration.yData.copy()
                             _orig_yName = Exploration.yName
-                            Exploration.yData = np.asarray(_derived_y_arr, dtype=float)
+                            # Rectilinearize exactly like the x-branch above: the
+                            # raw 2D sigmaMean_Sm varies with BOTH axes, and
+                            # substituting it directly produced non-rectilinear
+                            # pcolormesh rows — the jagged/oscillatory y-axis
+                            # appearance reported at high salinity (2026-07-12).
+                            # Use one representative sigma per y row (mean over
+                            # the x direction), tiled to (nx, ny).
+                            _sig2d_raw_y = np.asarray(_derived_y_arr, dtype=float)
+                            _sig1d_rep_y = np.nanmean(_sig2d_raw_y, axis=0)
+                            _sig2d_rect_y = np.tile(_sig1d_rep_y[np.newaxis, :],
+                                                    (_sig2d_raw_y.shape[0], 1))
+                            Exploration.yData = _sig2d_rect_y
                             Exploration.yName = _SIG_SUBST
                             _ydata_substituted = True
 
