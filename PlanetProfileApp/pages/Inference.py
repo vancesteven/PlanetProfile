@@ -12,11 +12,17 @@ Date: 2026-04-29
 """
 import os
 import sys
+import warnings
 import streamlit as st
 import numpy as np
 from pathlib import Path
 import time
 import traceback
+
+# nflows (sbi dependency) still calls the deprecated torch.triangular_solve
+# internally; the warning is third-party noise, not actionable here.
+warnings.filterwarnings(
+    'ignore', message=r'torch\.triangular_solve is deprecated')
 
 # ============================================================
 # Path setup (critical for imports)
@@ -1049,6 +1055,10 @@ _SBI_ARTIFACT_SLOTS = {
                        '+ 8/9 W1 anchors green). Known limitation: '
                        'directional low-viscosity bias in the bimodal '
                        'regime above Im k2 ~ 0.18; see sbi_artifacts/INDEX.md.'),
+        # Cross-version sampling gate-validated on this machine (2026-07-13):
+        # crosscheck vs the Test50 production MCMC PASSES all 8 params under
+        # torch 2.8 (artifact trained on 2.11). See sbi_artifacts/INDEX.md.
+        'validated_version_pairs': (('torch', '2.11.0', '2.8.0'),),
     },
     'europa_seawater_andrade_posterior_1m.pt': {
         'label': 'Europa (Andrade, seawater) — Galileo run, synodic-only 7D',
@@ -1079,6 +1089,11 @@ _SBI_ARTIFACT_SLOTS = {
                        'marginal-shape caveat is documented in '
                        'sbi_artifacts/INDEX.md. 3-frequency v2 is a future '
                        'artifact.'),
+        # Cross-version sampling gate-validated on this machine (2026-07-13):
+        # Machine A (torch 2.8) crosscheck reproduces Machine B's (torch 2.11)
+        # committed report to 4 decimals on every per-parameter statistic.
+        # See sbi_artifacts/INDEX.md.
+        'validated_version_pairs': (('torch', '2.11.0', '2.8.0'),),
     },
 }
 
@@ -1088,15 +1103,45 @@ def _sbi_artifacts_dir():
 
 
 @st.cache_resource(show_spinner="Loading SBI artifact...")
-def _load_sbi_runner(artifact_path: str, _mtime: float):
+def _load_sbi_runner(artifact_path: str, _mtime: float, validated_pairs=()):
     """Load a pretrained artifact into a sampling-only SBIRunner, cached per
     (path, mtime) so a redeployed artifact invalidates the cache."""
     from PlanetProfile.Inference.sbi_runner import SBIRunner
-    return SBIRunner.load_artifact(artifact_path)
+    return SBIRunner.load_artifact(
+        artifact_path, validated_version_pairs=validated_pairs)
+
+
+def _stale_library_banner():
+    """Warn (loudly) if PlanetProfile library code changed on disk after this
+    server imported it — Streamlit hot-reloads page files but NOT library
+    modules, so results/signatures silently come from the old code."""
+    import PlanetProfile.Inference.sbi_runner as _sr
+    loaded_at = getattr(_sr, '_MODULE_LOADED_AT', None)
+    # The stamp and this page ship in the same commit: a module without it
+    # predates this page revision and is stale by construction.
+    if loaded_at is None:
+        st.error(
+            "⚠️ **Stale server:** the in-memory PlanetProfile library "
+            "predates this page's code. Library modules do not hot-reload — "
+            "stop and restart the Streamlit server, then rerun."
+        )
+        return
+    try:
+        src_mtime = Path(_sr.__file__).stat().st_mtime
+    except OSError:
+        return
+    if src_mtime > loaded_at:
+        st.error(
+            "⚠️ **Stale server:** `PlanetProfile/Inference/sbi_runner.py` "
+            "changed on disk after this Streamlit server started. Library "
+            "modules do not hot-reload — results below come from the OLD "
+            "code. Stop and restart the Streamlit server, then rerun."
+        )
 
 
 def render_amortized_config():
     """Amortized-mode configuration form. Returns a run-spec dict or None."""
+    _stale_library_banner()
     available = []
     for fname, slot in _SBI_ARTIFACT_SLOTS.items():
         p = _sbi_artifacts_dir() / fname
@@ -1115,7 +1160,8 @@ def render_amortized_config():
     slot = _SBI_ARTIFACT_SLOTS[fname]
     artifact_path = _sbi_artifacts_dir() / fname
 
-    runner = _load_sbi_runner(str(artifact_path), artifact_path.stat().st_mtime)
+    runner = _load_sbi_runner(str(artifact_path), artifact_path.stat().st_mtime,
+                              slot.get('validated_version_pairs', ()))
     meta = runner.artifact_meta
     bounds = {n: (float(lo), float(hi)) for n, (lo, hi)
               in zip(runner.param_names, meta['param_bounds'])}
@@ -1230,6 +1276,7 @@ def render_amortized_config():
         'n_reeval': int(n_reeval),
         'seed': int(seed),
         'cache_path': cache_path,
+        'validated_version_pairs': slot.get('validated_version_pairs', ()),
     }
 
 
@@ -1351,6 +1398,7 @@ def render_amortized_run_button(spec, InferenceConfig):
                 n_reeval=spec['n_reeval'],
                 truncate_bounds=spec['truncate_bounds'],
                 progress_callback=progress_callback,
+                validated_version_pairs=spec.get('validated_version_pairs', ()),
             )
 
         st.session_state.inference_results = result

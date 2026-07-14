@@ -50,6 +50,11 @@ from typing import Any, Callable, Dict, Optional, Tuple
 
 import numpy as np
 
+# Import-time stamp: lets long-running hosts (the Streamlit app) detect that
+# this module's source changed on disk after import and prompt a restart —
+# Streamlit hot-reloads page files but NOT imported library modules.
+_MODULE_LOADED_AT = time.time()
+
 log = logging.getLogger('PlanetProfile')
 
 # Artifact schema version. Bump on any backwards-incompatible change to
@@ -461,9 +466,19 @@ class SBIRunner:
         log.info(f"SBI artifact saved: {path}")
 
     @staticmethod
-    def _load_artifact_dict(path) -> Dict[str, Any]:
-        """torch.load an artifact dict with schema/version checks."""
+    def _load_artifact_dict(path, validated_version_pairs=None) -> Dict[str, Any]:
+        """torch.load an artifact dict with schema/version checks.
+
+        Args:
+            path: Artifact .pt path.
+            validated_version_pairs: Optional iterable of
+                ``(pkg_name, saved_version, installed_version)`` triples for
+                which cross-version sampling has been gate-validated on this
+                machine (see sbi_artifacts/INDEX.md). A matching mismatch is
+                logged at INFO instead of raising the loud RuntimeWarning.
+        """
         torch, sbi_pkg = _import_torch_sbi()
+        validated = {tuple(t) for t in (validated_version_pairs or ())}
 
         path = Path(path)
         if not path.exists():
@@ -486,6 +501,13 @@ class SBIRunner:
             ('torch', torch.__version__, artifact.get('torch_version')),
         ):
             if saved is not None and saved != installed:
+                if (pkg_name, saved, installed) in validated:
+                    log.info(
+                        f"SBI artifact {path.name}: {pkg_name} {saved} -> "
+                        f"{installed} mismatch is gate-validated on this "
+                        f"machine (see sbi_artifacts/INDEX.md)."
+                    )
+                    continue
                 msg = (
                     f"SBI artifact {path.name} was saved with {pkg_name} "
                     f"{saved} but {pkg_name} {installed} is installed. "
@@ -497,7 +519,7 @@ class SBIRunner:
         return artifact
 
     @classmethod
-    def load_artifact(cls, path) -> 'SBIRunner':
+    def load_artifact(cls, path, validated_version_pairs=None) -> 'SBIRunner':
         """Load a trained artifact for sampling only (no config, no cache).
 
         The returned object supports ``sample_posterior`` and exposes
@@ -512,7 +534,8 @@ class SBIRunner:
         Returns:
             SBIRunner instance in artifact-only mode.
         """
-        artifact = cls._load_artifact_dict(path)
+        artifact = cls._load_artifact_dict(
+            path, validated_version_pairs=validated_version_pairs)
 
         obj = cls.__new__(cls)  # bypass __init__ (no config available)
         obj.config = None
@@ -1001,6 +1024,7 @@ class SBIRunner:
         n_reeval: int = 500,
         truncate_bounds: Optional[Dict[str, Tuple[float, float]]] = None,
         progress_callback: Optional[Callable] = None,
+        validated_version_pairs=None,
     ):
         """Amortized inference from a pretrained artifact — NEVER trains.
 
@@ -1022,11 +1046,13 @@ class SBIRunner:
                 {param: (lo, hi)} sub-box of the trained prior
                 (see ``_condition_and_package``).
             progress_callback: Same contract as run().
+            validated_version_pairs: See ``_load_artifact_dict``.
 
         Returns:
             InferenceResult (metadata['mode'] = 'amortized').
         """
-        artifact = self._load_artifact_dict(artifact_path)
+        artifact = self._load_artifact_dict(
+            artifact_path, validated_version_pairs=validated_version_pairs)
 
         # Compatibility: the artifact must describe the same inference
         # problem the config poses. Values of observables are free; names,

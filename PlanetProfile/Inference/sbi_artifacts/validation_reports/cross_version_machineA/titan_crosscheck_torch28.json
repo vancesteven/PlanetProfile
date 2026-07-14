@@ -1,0 +1,345 @@
+{
+  "check": "crosscheck",
+  "gate": "per-param: |dmean| <= max(0.25*sigma_MCMC, MC-error); sigma_SBI/sigma_MCMC in [0.7,1.4]; shape (ratified 2026-07-10): D <= 1.5x matched-n self-D p99 AND |dmedian| <= 0.3 dex (log params) / 0.3*sigma_MCMC (linear); KS p reported informationally",
+  "verdict": "PASS",
+  "x_obs": {
+    "Re_k2": 0.608,
+    "Im_k2": 0.135
+  },
+  "results": {
+    "n_mcmc": 4198,
+    "ess_mcmc": 4198.0,
+    "n_sbi": 4198,
+    "per_parameter": [
+      {
+        "param": "alpha",
+        "mcmc_mean": 0.29919193520446286,
+        "sbi_mean": 0.2973140556686489,
+        "mcmc_std": 0.08126596149550509,
+        "sbi_std": 0.08566738406995908,
+        "mean_diff": 0.0018778795358139755,
+        "mean_tol": 0.020316490373876273,
+        "mc_error": 0.0012542596784815075,
+        "mean_pass": true,
+        "sigma_ratio": 1.05416071493472,
+        "sigma_ratio_bounds": [
+          0.7,
+          1.4
+        ],
+        "sigma_pass": true,
+        "ks_stat": 0.030728918532634587,
+        "ks_pval": 0.037966850036872876,
+        "ks_n": 4198,
+        "ks_alpha_informational": 0.01,
+        "d_floor_p99": 0.03269063460997739,
+        "d_tol": 0.04903595191496608,
+        "d_pass": true,
+        "median_diff": 0.001790632668670189,
+        "median_tol": 0.02437978844865153,
+        "median_pass": true,
+        "shape_pass": true,
+        "param_pass": true
+      },
+      {
+        "param": "log10_zeta",
+        "mcmc_mean": -1.4009810607930107,
+        "sbi_mean": -1.335344027474241,
+        "mcmc_std": 1.2905349095682266,
+        "sbi_std": 1.3795117625493263,
+        "mean_diff": 0.06563703331876969,
+        "mean_tol": 0.32263372739205665,
+        "mc_error": 0.019918128955303573,
+        "mean_pass": true,
+        "sigma_ratio": 1.068945715703939,
+        "sigma_ratio_bounds": [
+          0.7,
+          1.4
+        ],
+        "sigma_pass": true,
+        "ks_stat": 0.029299666507860887,
+        "ks_pval": 0.05443117272807519,
+        "ks_n": 4198,
+        "ks_alpha_informational": 0.01,
+        "d_floor_p99": 0.03236723179437993,
+        "d_tol": 0.0485508476915699,
+        "d_pass": true,
+        "median_diff": 0.018935792011105956,
+        "median_tol": 0.3,
+        "median_pass": true,
+        "shape_pass": true,
+        "param_pass": true
+      },
+      {
+        "param": "log10_eta_Ih",
+        "mcmc_mean": 12.842685673387813,
+        "sbi_mean": 12.772363770172788,
+        "mcmc_std": 1.6643891392872796,
+        "sbi_std": 1.7154040304857983,
+        "mean_diff": 0.0703219032150244,
+        "mean_tol": 0.4160972848218199,
+        "mc_error": 0.025688198949397063,
+        "mean_pass": true,
+        "sigma_ratio": 1.0306508195675708,
+        "sigma_ratio_bounds": [
+          0.7,
+          1.4
+        ],
+        "sigma_pass": true,
+        "ks_stat": 0.03763696998570748,
+        "ks_pval": 0.005225576677642154,
+        "ks_n": 4198,
+        "ks_alpha_informational": 0.01,
+        "d_floor_p99": 0.03437502427454752,
+        "d_tol": 0.05156253641182128,
+        "d_pass": true,
+        "median_diff": 0.03152440214539354,
+        "median_tol": 0.3,
+        "median_pass": true,
+        "shape_pass": true,
+        "param_pass": true
+      },
+      {
+        "param": "log10_eta_III",
+        "mcmc_mean": 12.652594270803174,
+        "sbi_mean": 12.714790102525686,
+        "mcmc_std": 1.6750374590232173,
+        "sbi_std": 1.7206173222345016,
+        "mean_diff": 0.062195831722512196,
+        "mean_tol": 0.41875936475580433,
+        "mc_error": 0.02585254522479435,
+        "mean_pass": true,
+        "sigma_ratio": 1.0272112500922002,
+        "sigma_ratio_bounds": [
+          0.7,
+          1.4
+        ],
+        "sigma_pass": true,
+        "ks_stat": 0.030967127203430204,
+        "ks_pval": 0.03569484525971702,
+        "ks_n": 4198,
+        "ks_alpha_informational": 0.01,
+        "d_floor_p99": 0.0320101411854911,
+        "d_tol": 0.04801521177823665,
+        "d_pass": true,
+        "median_diff": 0.03649520211699375,
+        "median_tol": 0.3,
+        "median_pass": true,
+        "shape_pass": true,
+        "param_pass": true
+      },
+      {
+        "param": "log10_eta_V",
+        "mcmc_mean": 12.043293978382017,
+        "sbi_mean": 12.165574217592324,
+        "mcmc_std": 1.6054927568174966,
+        "sbi_std": 1.655351273102472,
+        "mean_diff": 0.12228023921030662,
+        "mean_tol": 0.40137318920437415,
+        "mc_error": 0.024779191581726163,
+        "mean_pass": true,
+        "sigma_ratio": 1.0310549618322837,
+        "sigma_ratio_bounds": [
+          0.7,
+          1.4
+        ],
+        "sigma_pass": true,
+        "ks_stat": 0.04811815150071463,
+        "ks_pval": 0.00011984458275045865,
+        "ks_n": 4198,
+        "ks_alpha_informational": 0.01,
+        "d_floor_p99": 0.036399660651360875,
+        "d_tol": 0.05459949097704131,
+        "d_pass": true,
+        "median_diff": 0.08460687016986768,
+        "median_tol": 0.3,
+        "median_pass": true,
+        "shape_pass": true,
+        "param_pass": true
+      },
+      {
+        "param": "log10_eta_VI",
+        "mcmc_mean": 12.827637441540098,
+        "sbi_mean": 12.764888937896975,
+        "mcmc_std": 1.7088635072899652,
+        "sbi_std": 1.7548130700733635,
+        "mean_diff": 0.06274850364312279,
+        "mean_tol": 0.4272158768224913,
+        "mc_error": 0.026374616798705376,
+        "mean_pass": true,
+        "sigma_ratio": 1.0268889601699485,
+        "sigma_ratio_bounds": [
+          0.7,
+          1.4
+        ],
+        "sigma_pass": true,
+        "ks_stat": 0.033111005240590755,
+        "ks_pval": 0.020048990854527823,
+        "ks_n": 4198,
+        "ks_alpha_informational": 0.01,
+        "d_floor_p99": 0.03403140878297524,
+        "d_tol": 0.05104711317446286,
+        "d_pass": true,
+        "median_diff": 0.11962504703589971,
+        "median_tol": 0.3,
+        "median_pass": true,
+        "shape_pass": true,
+        "param_pass": true
+      },
+      {
+        "param": "log10_eta_sil",
+        "mcmc_mean": 19.700468844355907,
+        "sbi_mean": 19.68674399342748,
+        "mcmc_std": 1.106967339684571,
+        "sbi_std": 1.1269952323621284,
+        "mean_diff": 0.013724850928426235,
+        "mean_tol": 0.27674183492114274,
+        "mc_error": 0.017084945209675455,
+        "mean_pass": true,
+        "sigma_ratio": 1.0180925777659027,
+        "sigma_ratio_bounds": [
+          0.7,
+          1.4
+        ],
+        "sigma_pass": true,
+        "ks_stat": 0.021676989042401142,
+        "ks_pval": 0.2774627586269163,
+        "ks_n": 4198,
+        "ks_alpha_informational": 0.01,
+        "d_floor_p99": 0.03813458200586808,
+        "d_tol": 0.05720187300880211,
+        "d_pass": true,
+        "median_diff": 0.034524191979539154,
+        "median_tol": 0.3,
+        "median_pass": true,
+        "shape_pass": true,
+        "param_pass": true
+      },
+      {
+        "param": "Tb_K",
+        "mcmc_mean": 249.9788868514706,
+        "sbi_mean": 249.9874192592699,
+        "mcmc_std": 0.5370121902415715,
+        "sbi_std": 0.5629028733290825,
+        "mean_diff": 0.008532407799293651,
+        "mean_tol": 0.13425304756039289,
+        "mc_error": 0.008288251620702212,
+        "mean_pass": true,
+        "sigma_ratio": 1.048212468092883,
+        "sigma_ratio_bounds": [
+          0.7,
+          1.4
+        ],
+        "sigma_pass": true,
+        "ks_stat": 0.03263458789899952,
+        "ks_pval": 0.022867146835086102,
+        "ks_n": 4198,
+        "ks_alpha_informational": 0.01,
+        "d_floor_p99": 0.03133975409899214,
+        "d_tol": 0.047009631148488204,
+        "d_pass": true,
+        "median_diff": 0.0068455617623328635,
+        "median_tol": 0.16110365707247146,
+        "median_pass": true,
+        "shape_pass": true,
+        "param_pass": true
+      }
+    ],
+    "all_pass": true
+  },
+  "artifact": "PlanetProfile/Inference/sbi_artifacts/titan_andrade_noocean_posterior.pt",
+  "artifact_meta": {
+    "schema_version": 1,
+    "config_hash": "629afbd55a4f0ce5",
+    "bodyname": "Titan",
+    "git_sha": "bf7c938e",
+    "seed": 42,
+    "n_train_effective": 999816,
+    "sbi_version": "0.26.1",
+    "torch_version": "2.11.0",
+    "created_utc": "2026-07-10T17:31:04Z",
+    "density_estimator": "nsf",
+    "imag_convention": "abs",
+    "param_names": [
+      "alpha",
+      "log10_zeta",
+      "log10_eta_Ih",
+      "log10_eta_III",
+      "log10_eta_V",
+      "log10_eta_VI",
+      "log10_eta_sil",
+      "Tb_K"
+    ],
+    "param_bounds": [
+      [
+        0.15,
+        0.45
+      ],
+      [
+        -3.0,
+        2.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        18.0,
+        22.0
+      ],
+      [
+        249.0,
+        250.965
+      ]
+    ],
+    "obs_names": [
+      "Re_k2",
+      "Im_k2"
+    ],
+    "rejection_stats": {
+      "n_requested": 1000000,
+      "n_rejected_support": 0,
+      "n_rejected_nonfinite": 184,
+      "rejection_rate": 0.000184,
+      "imag_convention": "abs",
+      "seed": 44,
+      "obs_noise": {
+        "type": "gaussian_diagonal",
+        "sigma": {
+          "Re_k2": 0.048,
+          "Im_k2": 0.035
+        },
+        "noise_seed": 4444,
+        "refold_im": false
+      },
+      "apply_support_guard": true,
+      "n_kept": 999816
+    }
+  },
+  "mcmc_result": "PlanetProfile/Test/mcmc_results/Titan/Test50_andrade_noocean_yao2014/test50_titan_noocean_andrade_8D_result.pkl",
+  "mcmc_config_hash": "unavailable-legacy-pickle ('InferenceConfig' object has no attribute 'arrhenius_params')",
+  "mcmc_weighted": false,
+  "overlay_plot": "/private/tmp/claude-501/-Users-svance-ppgenai/9777aafb-f62d-4c15-985a-f9e7f3898c20/scratchpad/val_cc_titan_machineA/crosscheck_marginals.png",
+  "provenance": {
+    "seed": 42,
+    "timestamp_utc": "2026-07-14T05:38:36Z",
+    "git_sha": "cdf5844e",
+    "versions": {
+      "torch": "2.8.0",
+      "sbi": "0.26.1",
+      "scipy": "1.17.1",
+      "numpy": "2.4.3"
+    }
+  }
+}

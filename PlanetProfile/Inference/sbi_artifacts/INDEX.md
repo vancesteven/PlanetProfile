@@ -69,14 +69,20 @@ the config's sampled parameters.
 - **v2 follow-on:** 3-frequency (add Ae_synodic 2nd + Ae_orbital) is a deliberate future artifact
   requiring a fresh 1M; NOT retrofit into the Galileo run.
 
-**Cross-version sampling validation (2026-07-13, Machine A):** the Europa artifact
-was trained on torch 2.11 (Machine B) and loads on torch 2.8 (Machine A) with the
-loud version-mismatch warning by design. VALIDATED: re-running the crosscheck gate
-on Machine A reproduces Machine B's committed report to four decimal places on every
-per-parameter statistic (D, dmean, verdicts; Tb-only edge-smear fail included) —
-flow deserialization is bit-consistent across these torch versions at the gate seed.
-The warning stays (correct default caution for future version pairs); for this
-artifact/version pair the results are trustworthy.
+**Cross-version sampling validation (2026-07-13, Machine A):** both deployed
+artifacts were trained on torch 2.11 (Machine B) and load on torch 2.8 (Machine A)
+with the loud version-mismatch warning by design. VALIDATED for the pair
+torch 2.11.0 -> 2.8.0:
+- Europa: re-running the crosscheck gate on Machine A reproduces Machine B's
+  committed report to four decimal places on every per-parameter statistic
+  (D, dmean, verdicts; Tb-only edge-smear fail included) — flow deserialization
+  is bit-consistent across these torch versions at the gate seed.
+- Titan: crosscheck gate vs the Test50 production MCMC PASSES all 8 parameters
+  on Machine A (max D 0.048, all location tests green).
+Reports: `validation_reports/cross_version_machineA/`. The GUI slot registry marks
+this pair `validated_version_pairs`, demoting the load warning to INFO for these
+artifacts only; any OTHER version pair still raises the loud RuntimeWarning
+(correct default caution — re-run the crosscheck gate before trusting draws).
 
 ## Candidate artifacts (NOT deployed — evidence committed for cross-machine verification)
 
