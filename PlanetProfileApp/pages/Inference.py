@@ -1041,6 +1041,8 @@ _SBI_ARTIFACT_SLOTS = {
     'titan_andrade_noocean_posterior.pt': {
         'label': 'Titan (Andrade, no ocean) — Test50 8D',
         'bodyname': 'Titan',
+        'config_path': ('PlanetProfile/Inference/configs/'
+                        'test50_titan_noocean_andrade_8D.json'),
         'cache_path': ('PlanetProfile/Test/mcmc_results/Titan/'
                        'Test50_andrade_noocean_yao2014/'
                        'titan_allice_yao2014_structure_grid.pkl'),
@@ -1063,6 +1065,11 @@ _SBI_ARTIFACT_SLOTS = {
     'europa_seawater_andrade_posterior_1m.pt': {
         'label': 'Europa (Andrade, seawater) — Galileo run, synodic-only 7D',
         'bodyname': 'Europa',
+        # Training config JSON: carries derived_params (mass-conservation
+        # rho_sil + core-sensitive CMR2 dispatch) and induction_bounds that
+        # a minimal reconstructed config would silently drop.
+        'config_path': ('PlanetProfile/Inference/configs/'
+                        'europa_seawater_andrade_7D.json'),
         'cache_path': ('PlanetProfile/Test/mcmc_results/Europa/'
                        'Test51_seawater/europa_seawater_structure_grid.pkl'),
         'default_obs': {'CMR2': 0.3547, 'Re_k2': 0.25, 'Im_k2': 0.0,
@@ -1276,6 +1283,7 @@ def render_amortized_config():
         'n_reeval': int(n_reeval),
         'seed': int(seed),
         'cache_path': cache_path,
+        'config_path': slot.get('config_path'),
         'validated_version_pairs': slot.get('validated_version_pairs', ()),
     }
 
@@ -1367,19 +1375,40 @@ def render_amortized_run_button(spec, InferenceConfig):
         return
 
     try:
+        import json as _json
         from PlanetProfile.Inference.sbi_runner import SBIRunner
 
-        config = InferenceConfig(
-            mode='sbi',
-            bodyname=spec['bodyname'],
-            param_space={n: {'prior_type': 'uniform', 'bounds': [lo, hi]}
-                         for n, (lo, hi) in spec['param_bounds'].items()},
-            observables={n: [spec['x_obs'][n], spec['obs_sigma'][n]]
-                         for n in spec['x_obs']},
-            sampler_settings={'n_reeval': spec['n_reeval']},
-            structure_cache_path=spec['cache_path'],
-            random_state=spec['seed'],
-        )
+        # Build the runner config from the TRAINING config JSON, not a
+        # minimal reconstruction: derivation blocks (derived_params
+        # mass-conservation) change how CMR2 is recomputed for the plots.
+        # A bare config here silently fell back to the core-blind v1 CMR2
+        # path and put Europa's posterior CMR2 ~3.6 sigma off. Only
+        # observable VALUES/sigmas + sampler settings are GUI-overridable.
+        config_path = spec.get('config_path')
+        if config_path:
+            cfg_dict = _json.loads(
+                (Path(parent_directory) / config_path).read_text())
+            cfg_dict['mode'] = 'sbi'
+            cfg_dict['observables'] = {
+                n: [spec['x_obs'][n], spec['obs_sigma'][n]]
+                for n in spec['x_obs']}
+            cfg_dict.setdefault('sampler_settings', {})['n_reeval'] = \
+                spec['n_reeval']
+            cfg_dict['structure_cache_path'] = spec['cache_path']
+            cfg_dict['random_state'] = spec['seed']
+            config = InferenceConfig.from_dict(cfg_dict)
+        else:
+            config = InferenceConfig(
+                mode='sbi',
+                bodyname=spec['bodyname'],
+                param_space={n: {'prior_type': 'uniform', 'bounds': [lo, hi]}
+                             for n, (lo, hi) in spec['param_bounds'].items()},
+                observables={n: [spec['x_obs'][n], spec['obs_sigma'][n]]
+                             for n in spec['x_obs']},
+                sampler_settings={'n_reeval': spec['n_reeval']},
+                structure_cache_path=spec['cache_path'],
+                random_state=spec['seed'],
+            )
         runner = SBIRunner(config)
 
         progress_placeholder = st.empty()
