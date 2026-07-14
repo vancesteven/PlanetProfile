@@ -173,13 +173,21 @@ config is frozen:
    artifact metadata. Kivelson 2023 not in papers/; check styczinski2023
    / vance2021magnetic (papers/) for PP's own convention, and the primary
    Kivelson reference for the "coefficient" definition + phase-sign.
-2. **Zimmer phase sign (MODERATE).** `Bind_*_imag` carries the opposite sign
-   to the Zimmer/Kivelson convention (real parts are convention-independent;
-   `conj` only flips Im). Harmless internally, but a user conditioning on
-   real Clipper-inverted Im coefficients would bias the posterior toward the
-   mirror-image phase. GUI must label the convention (`Bind = Ae·Be`, not
-   `conj`) and negate Im inputs pasted in the Zimmer convention. Document in
-   artifact metadata + GUI input labels (Machine A GUI task).
+2. **Phase-convention ingest (MODERATE) — CORRECTED 2026-07-14 (Phase-2
+   review).** The earlier "negate Im to convert from Zimmer" note was WRONG
+   for the complex per-component Be actually used. Because `Be` is complex,
+   `Ae·Be` and `conj(Ae)·Be` differ in BOTH real and imaginary parts, not by
+   a bare Im sign flip (verified at the fiducial: synodic-x `Ae·Be` =
+   91.82−157.77j vs `conj(Ae)·Be` = 126.64−131.47j; real parts differ ~35 nT).
+   The v2 convention is `Bind = Ae·Be` with complex Be, matching PP's FT
+   surface-field path (`MagneticInduction.py:982`, `Be1xyzFT·Ae1FT`) — NOT
+   the periodic display `Bi1xyz` (`:244`, `|Be|·conj(Ae)`), a third distinct
+   quantity. Harmless internally (self-consistent). GUI contract: label
+   `Bind = Ae·Be (unconjugated, complex Be, FT surface-field path)` and MUST
+   NOT implement a naive "negate Im" ingest recipe — mapping an externally
+   quoted coefficient requires that source's full complex definition
+   (amplitude + phase reference). Documented in config metadata
+   (`bind_convention_2026_07_14`); GUI input labels are a Machine A task.
 
 ### Phase-2 validation checks (from the review)
 
@@ -250,7 +258,27 @@ Note 'true anomaly' (84.63 hr) has |Bez| = 11.8 nT — a real Clipper-era
 signal. NOT included in v2 (user scoped synodic + synodic 2nd + orbital);
 flag for a possible v3 if the user wants it.
 
-## Phase 2 — config: `europa_seawater_andrade_clipper_v2.json`
+## Phase 2 — config: `europa_seawater_andrade_clipper_v2.json` — **VERIFIED (Machine B, 2026-07-14)**
+
+**Status: `verified`.** Config authored at
+`PlanetProfile/Inference/configs/europa_seawater_andrade_clipper_v2.json`. v1
+carry-over is byte-for-byte (params/priors/derived_params/induction_bounds + 5
+v1 observables), confirmed by scientific-reviewer (opus). 14 Bind channels
+added (7 kept components × Re/Im). Fiducial values computed via the PRODUCTION
+`MCMCRunner` Ae grid + Be loader at the v1 Test51 posterior weighted-median
+Tb = 264.52 K (nearest grid point 264.50 K). Pruning (pre-registered ≥3 nT SNR
+over Tb ≥ 261.5 K) KEPT synodic {x,y,z}, synodic-2nd {x,y}, orbital {x,y};
+DROPPED synodic-2nd-z (1.65 nT) and orbital-z (0.37 nT) — exactly the plan's
+provisional expectation. **Round-trip self-consistency VERIFIED:** conditioning
+the v2 likelihood on the exact fiducials minimizes the induction chi² at the
+generating grid Tb (264.5 K, chi²=3e-9) with a clean monotonic well.
+Scientific-reviewer verdict **RATIFY-WITH-EDITS** (2026-07-14); both edits
+(phase-convention text MODERATE, line-244 citation MINOR) were
+documentation-only in metadata and are incorporated — training was never
+blocked. Factor-of-2 handled as a documented, revisitable ASSUMPTION
+(surface-field `Ae·Be`); train/validate self-consistent under either
+definition. Fiducial script + results: `/tmp/compute_v2_fiducials.py`,
+`/tmp/v2_fiducials.json` (session-local, not committed — regenerable).
 
 - Copy `europa_seawater_andrade_7D.json` (params, priors, derived_params,
   induction_bounds, cache path, template module).
