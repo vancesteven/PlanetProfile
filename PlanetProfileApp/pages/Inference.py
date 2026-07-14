@@ -1167,6 +1167,19 @@ def render_amortized_config():
     slot = _SBI_ARTIFACT_SLOTS[fname]
     artifact_path = _sbi_artifacts_dir() / fname
 
+    # Reseed per-slot widget state when the artifact selection changes.
+    # Keyed widget values win over value= defaults on rerun, so without
+    # this the previous slot's inputs leak into the new slot wherever the
+    # observable names overlap (user-visible 2026-07-13: switching from
+    # Titan to Europa kept Titan's Re_k2=0.608 / Im_k2=0.135 and
+    # conditioned the Europa flow far outside its physical k2 range,
+    # producing a spurious silicate-dominated heating posterior).
+    if st.session_state.get('amort_active_slot') != fname:
+        st.session_state['amort_active_slot'] = fname
+        for k in list(st.session_state.keys()):
+            if k.startswith(('amort_obs_', 'amort_sigma_', 'amort_trunc_')):
+                del st.session_state[k]
+
     runner = _load_sbi_runner(str(artifact_path), artifact_path.stat().st_mtime,
                               slot.get('validated_version_pairs', ()))
     meta = runner.artifact_meta
