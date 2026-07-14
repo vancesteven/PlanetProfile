@@ -142,4 +142,52 @@ any NaCl exploreograms will differ from older runs by design.
   regression test (Test/TestMgSO4Conductivity.py). verified.
 - Known env quirk (Machine A): PPCallisto porous-silicate builds crash at
   PhaseConv phase ID 7 (ice VII pore fluid) — pre-existing, unrelated to the above.
-- Exploreogram jagged y-axis plots (item 4 above): still **not implemented**.
+- Exploreogram jagged y-axis plots (item 4 above): Machine A implemented (84fd8409);
+  Machine B verification below — mechanism **verified**, GUI end-to-end reproduction of the
+  original artifact **not reproduced at tested grid sizes** (guard correctly a no-op there).
+
+## ADDENDUM 2026-07-13 (Machine B) — item (4) verification run
+
+Ran the queued verification (Machine B, env PPcl, this checkout at
+`/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai`; the committed
+`plans/scripts/exploreogram_jagged_verify.py` and `foldover_mechanism_demo.py` hardcode
+Machine A's `/Users/svance/ppgenai` path, so I ran repo-root-retargeted copies from /tmp —
+same code, no source edits). Three findings, stated per the house-rule vocabulary:
+
+1. **Fold-over guard mechanism — verified.** Re-ran Machine A's synthetic demo
+   (24x24 grid, y = derived quantity with a wiggle growing toward high salinity). BEFORE:
+   14/24 non-monotone y-rows, `pcolormesh` "coordinates not monotonically increasing"
+   warning fires, and the render shows the reported jagged/oscillatory horizontal banding
+   growing with salinity. AFTER `_sort_grid_axes`: 0/24 non-monotone rows, warning silent,
+   bands gone, z multiset preserved. Artifact `/tmp/foldover_demo_machineB.png` (visually
+   inspected). This confirms the guard removes the fold-over and is value-preserving.
+
+2. **Real GUI pipeline — runs clean, but did NOT reproduce the original artifact.**
+   Drove the actual Streamlit page via AppTest through the user's default Europa preset
+   (x=sigmaMean_Sm salinity 1-100 ppt, y=D_km ice-thickness, induction z, Bx, log axes),
+   matplotlib path, at 5x5 (25 models, 1.9 min) AND 12x12 (144 models, 8.6 min) — both
+   ran with zero exceptions/errors, results stored, cache pkls written. Rendering the real
+   12x12 derived grid (y=D_km, z=synodic Re(Bi1x)) through `PlotExploreOgram` with the
+   guard bypassed vs applied produced **near-identical clean panels** — because the real
+   Europa D_km/sigmaMean derived axes are essentially monotone at these resolutions, so the
+   guard is (correctly) a no-op. Artifact `/tmp/foldover_dense_beforeafter.png`. A residual
+   `pcolormesh` monotonicity warning did fire on the raw 12x12 grid, so marginal
+   non-monotonicity exists, but not enough to render as the reported jaggedness.
+   **Status: the specific user-reported GUI artifact is `not reproduced` at 5x5/12x12.**
+   The original report (2026-07-12) did not record the grid size or salinity range that
+   produced it; a denser grid (e.g. 20x20+) and/or the NaCl (not Seawater) ocean at very
+   high salinity is the most likely trigger and is the recommended next repro attempt.
+
+3. **Net:** the guard is mechanistically sound and value-preserving (finding 1), it does
+   not perturb clean grids (finding 2), and the full Europa induction pipeline runs end-to-end
+   without error at two grid sizes. What remains unproven is the end-to-end GUI *reproduction
+   then removal* of the exact reported jaggedness — because I could not reproduce the input
+   condition that triggers it at the grid sizes I tested. Per house rules I am NOT labeling
+   item (4) `verified` end-to-end; the mechanism is `verified`, the GUI artifact repro is
+   `not reproduced`. To close it fully, the next repro should sweep grid density upward and/or
+   use a high-salinity NaCl ocean until the `pcolormesh` monotonicity warning + visible
+   banding appear in the real page, then confirm the guard clears them there.
+
+Scripts (session-local, regenerate from seeds): /tmp/exploreogram_jagged_verify_machineB.py,
+/tmp/explore_dense_verify.py, /tmp/foldover_dense_beforeafter.py, /tmp/foldover_demo_machineB.py.
+Cache pkls under output/exploreograms/cache/Europa_sigmaMean_Sm_1-100_D_km_5-30_{5x5,12x12}_*.pkl.
