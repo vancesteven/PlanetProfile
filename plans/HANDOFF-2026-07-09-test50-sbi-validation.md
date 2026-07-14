@@ -1001,3 +1001,30 @@ reconcile the Ae solver against an independent multilayer sigma(r) solution
 depth ~ ocean thickness makes a few tenths plausible). Channel set is
 provisional until Phase 0 (prune on |Ae|*|Be| >= 3 nT, not |Be|). Seeds:
 train 42 / data 47 / noise 4747. v1 Galileo slot stays deployed untouched.
+
+## ADDENDUM 2026-07-14 (Machine B) — Clipper v2 Phase 0 Ae reconciliation: VERIFIED, unblocked (n=1)
+
+Phase 0 (the hard blocker in `plans/europa-clipper-v2-induction-plan.md`) is
+**`verified`** for the n=1 dipole physics v2 uses (scientific-reviewer opus PASS,
+2026-07-14). Full table + method + caveats are in the plan file's Phase 0 section.
+Summary:
+- Production MoonMag Srivastava Ae solver (the exact `forward_model_induction`
+  path that fills the SBI cache) vs an INDEPENDENT from-scratch mpmath log-derivative
+  solver agree to **3.7e-14 amplitude / 0.0 deg phase** on all 9 (model x freq) points,
+  far inside the 5%/5deg gate. Independence confirmed non-tautological (sigma-sweep
+  co-variation to 1e-16; vacuum->0 / PEC->1 absolute-normalization anchors; a!=R
+  (a/R)^3 test, which is the real ionosphere-100km-above-surface geometry).
+- **|Ae_orbital| red flag DEBUNKED:** 0.22/0.82/0.90 (thin/mid/thick), rising with
+  ocean-thickness/skin-depth as required. The Callisto "O(1e-2)" anchor was physically
+  wrong for a seawater ocean; the 0.73 was not a solver bug. (Still DROP the Ae GUI
+  channels per the C-B DROP verdict — orthogonal reason.)
+- **v1 synodic support cut retro-validated:** synodic |Ae| in [0.754, 0.939], all > 0.7.
+- **Scope caveat (out-of-scope for v2):** validated at n=1 ONLY; the reference solver's
+  general-n rescaling is unresolved (diverges from production at n>=2). v2 is dipole-only
+  so this is safe; any future n>=2 induction work must add a quadrupole PEC anchor first.
+- Committed: `plans/scripts/phase0_ae_reconciliation.py` (+ `_results.json`).
+
+**Machine B next:** Phase 1 — add the `Bind_<label>_<comp>_real/imag` channel family
+to mcmc_runner (signed-Im, Ae*Be complex product in nT, per-channel convention metadata,
+pre-deploy-assertion update, unit tests). Small/non-intensive. Then Phase 2 config,
+then the Phase 3 1M campaign (seeds train 42 / data 47 / noise 4747).

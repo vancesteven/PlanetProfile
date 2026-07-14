@@ -56,7 +56,63 @@ channels in x) stays deployed untouched; v2 is a separate slot.
 - Same 7D parameter space and priors as v1 (alpha, log10_zeta, log10_eta_Ih,
   log10_eta_sil, Tb_K, R_core_km, rho_core_kgm3). Priors frozen at training.
 
-## Phase 0 — BLOCKER: Ae solver magnitude reconciliation
+## Phase 0 — BLOCKER: Ae solver magnitude reconciliation — **VERIFIED (Machine B, 2026-07-14); UNBLOCKED for n=1**
+
+**Status: `verified` for the n=1 dipole physics v2 uses** (scientific-reviewer
+opus PASS, 2026-07-14). Gate PASSES: production MoonMag Srivastava solver
+(`InducedAeList`/`AeResponse` — the exact path `forward_model_induction` uses to
+fill the SBI cache) vs an INDEPENDENT from-scratch mpmath (50-digit) log-derivative
+propagation solver agree to **worst 3.7e-14 relative amplitude and 0.0 deg phase**
+across all 9 (model x frequency) points — far inside the 5% / 5 deg acceptance.
+Script + results committed: `plans/scripts/phase0_ae_reconciliation.py`,
+`plans/scripts/phase0_ae_reconciliation_results.json`.
+
+3 models (valid conductive-ocean, Tb>=261.5, Test51_seawater cache idx 10/23/35):
+
+| model | Tb (K) | D_ocean (km) | freq | T (hr) | \|Ae\| prod | \|Ae\| indep | d-amp % | d-phase deg |
+|-------|--------|--------------|------|--------|-----------|------------|---------|-------------|
+| THIN  | 261.5  | 11.2  | synodic     | 11.23 | 0.7536 | 0.7536 | 0 | 0 |
+| THIN  | 261.5  | 11.2  | synodic 2nd | 5.62  | 0.8149 | 0.8149 | 0 | 0 |
+| THIN  | 261.5  | 11.2  | orbital     | 85.24 | 0.2245 | 0.2245 | 0 | 0 |
+| MID   | 268.0  | 67.9  | synodic     | 11.23 | 0.8969 | 0.8969 | 0 | 0 |
+| MID   | 268.0  | 67.9  | synodic 2nd | 5.62  | 0.9016 | 0.9016 | 0 | 0 |
+| MID   | 268.0  | 67.9  | orbital     | 85.24 | 0.8165 | 0.8165 | 0 | 0 |
+| THICK | 271.0  | 106.3 | synodic     | 11.23 | 0.9390 | 0.9390 | 0 | 0 |
+| THICK | 271.0  | 106.3 | synodic 2nd | 5.62  | 0.9535 | 0.9535 | 0 | 0 |
+| THICK | 271.0  | 106.3 | orbital     | 85.24 | 0.8961 | 0.8961 | 0 | 0 |
+
+Independence is genuine (not tautological): the two solvers share only the
+spherical-Bessel basis; production uses Srivastava beta/gamma/delta/epsilon transfer
+coefficients with a Lambda-recursion, the independent solver propagates the Riccati
+log-derivative L=P'/P and matches to the outer vacuum potential. Confirmed by
+(a) an ocean-sigma perturbation sweep (x0.5..x5) where |Ae| genuinely moves and both
+solvers still track to ~1e-16 — an input echo would not co-vary; (b) analytic anchors
+pinning ABSOLUTE normalization: vacuum -> Ae=0, PEC sphere filling body -> |Ae|=1;
+(c) a discriminating PEC-sphere-at-a!=R test giving exactly (a/R)^3 in both — this is
+the real geometry, since the cached models place the ionosphere boundary at
+r_out=1,660,800 m, 100 km ABOVE R_body=1,560,800 m (rscaling=1.064 != 1 IS exercised).
+
+**|Ae_orbital| red flag DEBUNKED.** Re-derived |Ae_orbital| = 0.22 (thin) / 0.82 (mid)
+/ 0.90 (thick), rising monotonically with ocean-thickness / skin-depth ratio (85-hr
+seawater skin depth ~162-183 km, comparable to the ocean thickness). This is the correct
+shielding limit; the Callisto "O(1e-2) expected" anchor has NO physical basis for a
+seawater ocean at these thicknesses. The 0.73 was not a solver bug — the expectation was
+wrong. (Ae may be re-enabled on the physics; still DROP the Ae GUI channels for other
+reasons per the C-B DROP verdict.)
+
+**v1 synodic support cut retro-validated:** synodic |Ae| spans 0.754-0.939 across the
+valid conductive Tb grid — all safely above the 0.7 cut.
+
+**Scope caveat (reviewer, MODERATE, out-of-scope for v2):** reconciliation is validated
+at **n=1 ONLY**. The two solvers use algebraically different degree-n surface rescaling
+exponents that coincide only at n=1 (production `rscaling^(n+2)`; independent
+`R^-(2n+1)`); they diverge 6.0% at n=2, 11.7% at n=3. Irrelevant to v2 (dipole only;
+`forward_model_induction` defaults nn=1, Bind=Ae*Be is dipole), but any future n>=2
+induction work MUST add an analytic n=2 (quadrupole PEC) anchor and resolve which
+exponent is the correct general-n reference-radius rescaling before use. Do NOT claim
+the reference solver is validated beyond the dipole.
+
+--- original task spec below (satisfied) ---
 
 The Callisto rebuild flagged |Ae_orbital| = 0.73 where O(1e-2) was expected.
 Until the solver magnitude is reconciled, no Ae-derived quantity may enter
