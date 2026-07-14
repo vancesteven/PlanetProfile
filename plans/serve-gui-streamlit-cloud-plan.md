@@ -3,7 +3,18 @@
 Author: Machine A, 2026-07-14. User decisions: target = **Streamlit Community
 Cloud** (share.streamlit.io, free public URL); heavy modes = **amortized-only
 public** (MCMC + exploreogram compute hidden from visitors). All phases are
-light work (Machine A). Status: `not implemented` throughout.
+light work (Machine A).
+
+**Status (2026-07-14):** Phase A `verified` (AppTest: public mode hides MCMC
+radio + Exploreogram/RunPlanetProfile run buttons, caps sliders, Europa run
+completes; torch build-suffix normalization unit-tested; RunPlanetProfile
+gate itself `implemented, unverified` — page early-stops without a real
+Planet session object, exercised at Phase D click-through). Phase B
+`verified` (full AppTest page sweep with reaktoro import-blocked: 0
+failures; reaktoro made optional — conda-only, no pip wheel; pdf2image was
+missing locally, 3 pages were broken; mpmath unpinned, conda-only 1.4.x).
+Phase C in progress: build script works (205 MB, 406-file orphan snapshot);
+fresh-venv verification gate running.
 
 ## Constraints (measured 2026-07-14)
 
