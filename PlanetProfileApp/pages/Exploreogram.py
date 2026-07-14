@@ -522,13 +522,25 @@ with col1:
             st.session_state.explore_running = False
             st.rerun()
 
-    # Run / Force Re-run buttons
-    col_run, col_force = st.columns([2, 1])
-    with col_run:
-        run_button = st.button("Run Exploreogram", type="primary", disabled=st.session_state.explore_running)
-    with col_force:
-        force_rerun = st.button("Force Re-run", disabled=st.session_state.explore_running,
-                                help="Ignore cache and recompute all models")
+    # Run / Force Re-run buttons. Public serving (PP_PUBLIC_MODE=1) hides
+    # them: an exploreogram grid runs the full forward model per cell —
+    # minutes-to-hours of compute a shared cloud host cannot serve.
+    from Utilities.app_mode import public_mode as _pp_public_mode
+    if _pp_public_mode():
+        st.info("🌐 **Public demo** — exploreogram grid runs are disabled "
+                "(each grid cell is a full PlanetProfile forward model). "
+                "Run the app locally from the "
+                "[PlanetProfile repository](https://github.com/vancesteven/PlanetProfile) "
+                "for this feature.")
+        run_button = False
+        force_rerun = False
+    else:
+        col_run, col_force = st.columns([2, 1])
+        with col_run:
+            run_button = st.button("Run Exploreogram", type="primary", disabled=st.session_state.explore_running)
+        with col_force:
+            force_rerun = st.button("Force Re-run", disabled=st.session_state.explore_running,
+                                    help="Ignore cache and recompute all models")
 
 # Cache utilities — computed once, at module level, from stable session-state
 # widget values set above.  Must be outside both column blocks so col2 can

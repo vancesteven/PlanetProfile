@@ -631,6 +631,28 @@ class SBIArtifactAndTrainingTests(unittest.TestCase):
             with self.assertWarns(RuntimeWarning):
                 SBIRunner.load_artifact(tampered_path)
 
+            # Local build suffixes are NOT a version mismatch: an artifact
+            # saved with '2.8.0' loading under '2.8.0+cpu' (cloud CPU wheel)
+            # must neither warn nor defeat validated_version_pairs.
+            raw2 = torch.load(artifact_path, map_location='cpu', weights_only=False)
+            raw2['torch_version'] = torch.__version__.split('+')[0] + '+fakebuild'
+            suffixed_path = Path(td) / 'suffixed.pt'
+            torch.save(raw2, suffixed_path)
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter('always')
+                SBIRunner.load_artifact(suffixed_path)
+            self.assertFalse(
+                any('misbehave' in str(x.message) for x in w),
+                'build-suffix-only difference must not raise the version warning')
+
+            # A genuinely different release still warns even with a suffix.
+            raw3 = torch.load(artifact_path, map_location='cpu', weights_only=False)
+            raw3['torch_version'] = '0.0.1+cpu'
+            diff_path = Path(td) / 'diffver.pt'
+            torch.save(raw3, diff_path)
+            with self.assertWarns(RuntimeWarning):
+                SBIRunner.load_artifact(diff_path)
+
     def test_tiny_train_and_sample_smoke(self):
         config = _make_toy_sbi_config()
         runner = SBIRunner(config)

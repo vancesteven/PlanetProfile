@@ -480,6 +480,12 @@ class SBIRunner:
         torch, sbi_pkg = _import_torch_sbi()
         validated = {tuple(t) for t in (validated_version_pairs or ())}
 
+        def _norm(v):
+            # Strip pip local build suffixes ('2.8.0+cpu' -> '2.8.0'): the
+            # CPU wheel on cloud hosts is the same release as the validated
+            # '2.8.0'; a genuinely different release still mismatches.
+            return v.split('+')[0] if isinstance(v, str) else v
+
         path = Path(path)
         if not path.exists():
             raise FileNotFoundError(f"SBI artifact not found: {path}")
@@ -500,8 +506,8 @@ class SBIRunner:
             ('sbi', sbi_pkg.__version__, artifact.get('sbi_version')),
             ('torch', torch.__version__, artifact.get('torch_version')),
         ):
-            if saved is not None and saved != installed:
-                if (pkg_name, saved, installed) in validated:
+            if saved is not None and _norm(saved) != _norm(installed):
+                if (pkg_name, _norm(saved), _norm(installed)) in validated:
                     log.info(
                         f"SBI artifact {path.name}: {pkg_name} {saved} -> "
                         f"{installed} mismatch is gate-validated on this "

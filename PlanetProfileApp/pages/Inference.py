@@ -24,6 +24,7 @@ import traceback
 warnings.filterwarnings(
     'ignore', message=r'torch\.triangular_solve is deprecated')
 
+
 # ============================================================
 # Path setup (critical for imports)
 # ============================================================
@@ -42,6 +43,9 @@ if parent_directory not in sys.path:
 # ============================================================
 from Utilities.get_planet import get_planet
 from Utilities.planet_sidebar import show_planet_status
+# Public-serving detection (shared with the Exploreogram page; lives in
+# Utilities because importing a pages/ module would execute the page).
+from Utilities.app_mode import public_mode
 from utils.mcmc_run_loader import (
     DEFAULT_RESULTS_ROOTS,
     scan_mcmc_results,
@@ -1250,12 +1254,21 @@ def render_amortized_config():
 
     # --- Sampler settings ---
     st.markdown("#### ⚙️ Sampling")
+    # Public serving caps: forward-model re-evaluation is the CPU cost
+    # (~100 evals is tens of seconds on a shared cloud vCPU); flow sampling
+    # is cheap but memory scales with draws.
+    if public_mode():
+        post_opts, post_default = [1000, 2000, 5000, 10000, 20000], 5000
+        reeval_opts, reeval_default = [100, 250], 100
+    else:
+        post_opts, post_default = [1000, 2000, 5000, 10000, 20000, 50000], 10000
+        reeval_opts, reeval_default = [100, 250, 500, 1000, 2000], 500
     n_post = st.select_slider("Posterior samples:",
-                              options=[1000, 2000, 5000, 10000, 20000, 50000],
-                              value=10000, key='amort_n_post')
+                              options=post_opts,
+                              value=post_default, key='amort_n_post')
     n_reeval = st.select_slider("Heating re-evaluation subset:",
-                                options=[100, 250, 500, 1000, 2000],
-                                value=500, key='amort_n_reeval')
+                                options=reeval_opts,
+                                value=reeval_default, key='amort_n_reeval')
     seed = st.number_input("Seed:", value=42, step=1, key='amort_seed')
 
     # --- Validated-domain guard (hard refusal, per deployment conditions) ---
@@ -2245,19 +2258,28 @@ def main():
     # --- Run mode (default) ---
     # Execution method: full MCMC sampling vs instant conditioning of a
     # pretrained (amortized) SBI artifact. The results pipeline is shared.
-    exec_mode = st.radio(
-        "Inference method",
-        options=['mcmc', 'amortized'],
-        format_func=lambda m: ("🧮 MCMC (pocomc — full sampling, free priors/σ)"
-                               if m == 'mcmc'
-                               else "⚡ Amortized (pretrained SBI — instant, frozen priors/σ)"),
-        horizontal=True,
-        key='inference_exec_mode',
-        help="Amortized mode conditions a pretrained neural posterior "
-             "estimator: instant, but priors and observation σ are fixed at "
-             "training time. MCMC samples the full likelihood with whatever "
-             "priors/σ you configure."
-    )
+    if public_mode():
+        # Public serving: amortized only. MCMC launches hour-scale compute
+        # on a shared host; hide it rather than cap it.
+        exec_mode = 'amortized'
+        st.info("🌐 **Public demo** — amortized (pretrained SBI) inference "
+                "only. Full MCMC sampling and free priors/σ are available "
+                "by running the app from the "
+                "[PlanetProfile repository](https://github.com/vancesteven/PlanetProfile).")
+    else:
+        exec_mode = st.radio(
+            "Inference method",
+            options=['mcmc', 'amortized'],
+            format_func=lambda m: ("🧮 MCMC (pocomc — full sampling, free priors/σ)"
+                                   if m == 'mcmc'
+                                   else "⚡ Amortized (pretrained SBI — instant, frozen priors/σ)"),
+            horizontal=True,
+            key='inference_exec_mode',
+            help="Amortized mode conditions a pretrained neural posterior "
+                 "estimator: instant, but priors and observation σ are fixed at "
+                 "training time. MCMC samples the full likelihood with whatever "
+                 "priors/σ you configure."
+        )
 
     # Config-file selector (body + variant) — sits above the run-configuration form.
     # Populates the same session-state keys that the form widgets read so fields
