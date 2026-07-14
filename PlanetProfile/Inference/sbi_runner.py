@@ -886,12 +886,14 @@ class SBIRunner:
         # physics, conventions, and guard behavior).
         runner = self._get_mcmc_runner()
         from .forward_models import forward_model_k2_flexible
+        from .mcmc_runner import _structure_R_body_km
 
         log.info(f"Recomputing k2/CMR2/thicknesses for {n_samples} posterior samples...")
         k2_results = []
         cmr2_results = []
         D_ocean_results = []
         D_iceIh_results = []
+        D_hsphere_results = []
         for i, theta in enumerate(samples):
             theta_dict = runner._expand_theta(theta)
             Re_k2, Im_k2, _, _, _ = forward_model_k2_flexible(
@@ -910,12 +912,14 @@ class SBIRunner:
             cmr2_results.append(runner._compute_model_cmr2(theta_dict))
             D_ocean_results.append(runner._get_cache_scalar(theta_dict, 'D_ocean_km'))
             D_iceIh_results.append(runner._get_cache_scalar(theta_dict, 'D_iceIh_km'))
+            D_hsphere_results.append(runner._get_cache_scalar(theta_dict, 'D_hsphere_km'))
             if (i + 1) % 100 == 0:
                 log.info(f"  {i+1}/{n_samples} samples recomputed")
         k2_results = np.array(k2_results)
         cmr2_results = np.array(cmr2_results)
         D_ocean_results = np.array(D_ocean_results)
         D_iceIh_results = np.array(D_iceIh_results)
+        D_hsphere_results = np.array(D_hsphere_results)
         _progress(3, n_samples)
 
         # Heating on a seeded subset (same pattern/settings as MCMCRunner.run).
@@ -966,6 +970,7 @@ class SBIRunner:
             cmr2_results=cmr2_results,
             D_ocean_results=D_ocean_results,
             D_iceIh_results=D_iceIh_results,
+            D_hsphere_results=D_hsphere_results,
             heating_results=heating_results,
             convergence_metrics=convergence_metrics,
             metadata={
@@ -983,6 +988,9 @@ class SBIRunner:
                 'rejection_stats': rejection_stats,
                 'x_obs': x_obs,
                 'imag_convention': self.imag_convention,
+                # Body radius (constant across the Tb grid) so the GUI can
+                # derive mantle thickness = R_body - D_hsphere - R_core.
+                'R_body_km': _structure_R_body_km(runner.structure_data),
                 # Amortized posterior density at each sample (NOT a likelihood).
                 'flow_log_prob': flow_log_prob,
                 'sbi_version': sbi_pkg.__version__,

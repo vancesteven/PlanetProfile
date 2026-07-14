@@ -22,6 +22,16 @@ from pathlib import Path
 log = logging.getLogger('PlanetProfile')
 
 
+def _structure_R_body_km(structure_data) -> Optional[float]:
+    """Body radius in km from a structure grid cache (constant across the
+    Tb grid), or None when the cache lacks it (older cache schemas)."""
+    try:
+        R_m = structure_data['structures'][0].get('R_body_m')
+        return float(R_m) / 1e3 if R_m is not None else None
+    except (KeyError, IndexError, TypeError):
+        return None
+
+
 class MCMCRunner:
     """
     MCMC sampler for interior structure inference using pocoMC.
@@ -1081,6 +1091,7 @@ class MCMCRunner:
         cmr2_results = []
         D_ocean_results = []
         D_iceIh_results = []
+        D_hsphere_results = []
         for i, theta in enumerate(samples):
             theta_dict = self._expand_theta(theta)
             Re_k2, Im_k2, _, _, _ = forward_model_k2_flexible(
@@ -1091,6 +1102,7 @@ class MCMCRunner:
             cmr2_results.append(self._compute_model_cmr2(theta_dict))
             D_ocean_results.append(self._get_cache_scalar(theta_dict, 'D_ocean_km'))
             D_iceIh_results.append(self._get_cache_scalar(theta_dict, 'D_iceIh_km'))
+            D_hsphere_results.append(self._get_cache_scalar(theta_dict, 'D_hsphere_km'))
             if (i + 1) % 100 == 0:
                 log.info(f"  {i+1}/{n_samples} samples recomputed")
 
@@ -1098,6 +1110,7 @@ class MCMCRunner:
         cmr2_results = np.array(cmr2_results)
         D_ocean_results = np.array(D_ocean_results)
         D_iceIh_results = np.array(D_iceIh_results)
+        D_hsphere_results = np.array(D_hsphere_results)
 
         # Recompute heating on subset — same dict-based approach
         n_reeval = min(self.n_reeval, n_samples)
@@ -1127,6 +1140,7 @@ class MCMCRunner:
             cmr2_results=cmr2_results,
             D_ocean_results=D_ocean_results,
             D_iceIh_results=D_iceIh_results,
+            D_hsphere_results=D_hsphere_results,
             heating_results=heating_results,
             convergence_metrics=convergence_metrics,
             metadata={
@@ -1134,6 +1148,9 @@ class MCMCRunner:
                 'n_iterations': len(samples) if samples is not None else 0,
                 'rheology': rheology,
                 'heating_indices': heating_indices,
+                # Body radius (constant across the Tb grid) so the GUI can
+                # derive mantle thickness = R_body - D_hsphere - R_core.
+                'R_body_km': _structure_R_body_km(self.structure_data),
                 # Audit / reproducibility fields
                 'git_sha': _git_sha,
                 'log_Z': _log_Z,

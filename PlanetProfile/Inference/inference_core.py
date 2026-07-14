@@ -248,6 +248,11 @@ class InferenceResult:
     cmr2_results: Optional[np.ndarray] = None
     D_ocean_results: Optional[np.ndarray] = None
     D_iceIh_results: Optional[np.ndarray] = None
+    # Total hydrosphere thickness (km) per sample: ice Ih + ocean + any HP
+    # ices, from the cache's D_hsphere_km. Lets the GUI derive the rock
+    # mantle thickness exactly (R_body - D_hsphere - R_core) even for
+    # bodies with HP-ice layers. None on results predating 2026-07.
+    D_hsphere_results: Optional[np.ndarray] = None
     heating_results: Optional[List[Dict[str, float]]] = None
     convergence_metrics: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)

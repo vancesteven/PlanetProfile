@@ -1466,6 +1466,15 @@ def render_results():
 
     st.markdown("### 📊 Inference Results")
 
+    def _phase_heating_total(h):
+        """Total heating over PHYSICAL phases only. compute_heating returns
+        per-phase keys ('Sil', 'Ih', 'VI', ...) PLUS *_W aggregate keys
+        (Silicate_W, HP_Ice_W, Ice_Ih_W) that duplicate them — summing all
+        values double-counts and halves every fraction (user-visible
+        2026-07-13: k2 scatter showed silicate fraction 0.2-0.7 while the
+        stacked-bar panel correctly showed ~1)."""
+        return sum(v for k, v in h.items() if not k.endswith('_W'))
+
     # Convergence metrics (mode-aware: MCMC diagnostics don't apply to an
     # amortized flow — its calibration is established by the SBC/crosscheck
     # validation gates at training time, not per-run statistics).
@@ -1574,6 +1583,83 @@ def render_results():
         except Exception as e:
             st.warning(f"Corner plot unavailable: {e}")
 
+    # Interior layer-thickness distributions (posterior structural summary)
+    with st.expander("🧅 Interior Layer Thicknesses", expanded=True):
+        try:
+            import matplotlib.pyplot as plt
+
+            layers = []  # (label, values_km, color)
+            D_ice = getattr(result, 'D_iceIh_results', None)
+            D_oc = getattr(result, 'D_ocean_results', None)
+            D_hs = getattr(result, 'D_hsphere_results', None)
+            R_body = (result.metadata or {}).get('R_body_km')
+            R_core = None
+            if 'R_core_km' in result.param_names:
+                R_core = result.samples[
+                    :, result.param_names.index('R_core_km')].astype(float)
+
+            if D_ice is not None and np.any(np.isfinite(D_ice)):
+                layers.append(('Ice Ih shell thickness',
+                               np.asarray(D_ice, float), '#AEE1F8'))
+            if D_oc is not None and np.any(np.isfinite(D_oc)):
+                layers.append(('Ocean thickness',
+                               np.asarray(D_oc, float), '#1E90FF'))
+            # Rock mantle thickness = R_body - hydrosphere - core radius.
+            # Uses the packaged total hydrosphere D_hsphere (includes HP
+            # ices) so the derivation is exact for HP-ice bodies too.
+            if (R_body is not None and R_core is not None
+                    and D_hs is not None and np.any(np.isfinite(D_hs))):
+                layers.append(('Rock mantle thickness',
+                               R_body - np.asarray(D_hs, float) - R_core,
+                               '#C8A96E'))
+            if R_core is not None:
+                layers.append(('Core radius', R_core, '#8B5A2B'))
+
+            if not layers:
+                st.info(
+                    "No layer-thickness data on this result. Thickness "
+                    "arrays are packaged by runs made after 2026-07; older "
+                    "saved results lack them. Mantle thickness additionally "
+                    "needs a sampled core (R_core_km) and a result carrying "
+                    "the hydrosphere thickness + body radius.")
+            else:
+                n_cols = 2
+                n_rows = (len(layers) + n_cols - 1) // n_cols
+                fig, axes = plt.subplots(n_rows, n_cols,
+                                         figsize=(10, 3.2 * n_rows))
+                axes = np.atleast_1d(axes).ravel()
+                for ax, (label, vals, color) in zip(axes, layers):
+                    v = vals[np.isfinite(vals)]
+                    ax.hist(v, bins=40, color=color, edgecolor='none',
+                            alpha=0.85)
+                    lo, med, hi = np.percentile(v, [16, 50, 84])
+                    ax.axvline(med, color='k', linewidth=1.2)
+                    ax.axvline(lo, color='k', linewidth=0.8, linestyle=':')
+                    ax.axvline(hi, color='k', linewidth=0.8, linestyle=':')
+                    ax.set_title(f"{label}\n"
+                                 f"{med:.1f} (+{hi - med:.1f} / "
+                                 f"-{med - lo:.1f}) km", fontsize=10)
+                    ax.set_xlabel('km')
+                    ax.set_ylabel('samples')
+                for ax in axes[len(layers):]:
+                    ax.axis('off')
+                fig.tight_layout()
+                st.pyplot(fig)
+                plt.close(fig)
+                bits = ["Median with 16–84% interval (dotted)."]
+                if any(lbl.startswith('Rock mantle') for lbl, _, _ in layers):
+                    bits.append(
+                        "Mantle thickness is derived per sample as "
+                        "R_body − hydrosphere thickness − core radius "
+                        "(hydrosphere includes any HP-ice layers).")
+                if R_core is None:
+                    bits.append(
+                        "No sampled core in this configuration, so core "
+                        "radius and mantle thickness are not shown.")
+                st.caption(" ".join(bits))
+        except Exception as e:
+            st.warning(f"Layer-thickness panel unavailable: {e}")
+
     # k2 scatter with error ellipse
     with st.expander("📡 k₂ Posterior Scatter", expanded=True):
         try:
@@ -1598,8 +1684,9 @@ def render_results():
 
             f_sil = []
             for h in heating_results:
-                total = sum(h.values()) if h else 1e-30
-                f_sil.append(h.get('Sil', 0) / total if total > 0 else 0)
+                total = _phase_heating_total(h) if h else 0.0
+                sil = h.get('Sil', 0.0) + h.get('Fe', 0.0)
+                f_sil.append(sil / total if total > 0 else 0.0)
             f_sil = np.array(f_sil) if f_sil else None
 
             # Scale point size by ocean thickness (Tb_K proxy) when available
@@ -1930,7 +2017,7 @@ def render_results():
                 for phase in phases_to_show:
                     fracs = []
                     for h in heating_results:
-                        total = sum(h.values()) if h else 1e-30
+                        total = _phase_heating_total(h) if h else 0.0
                         fracs.append(h.get(phase, 0) / total if total > 0 else 0)
                     heating_fracs[phase] = np.array(fracs)
 
