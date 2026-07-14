@@ -964,3 +964,40 @@ before starting — HEAD is 3c55b4a6.**
 deliberate future artifact requiring a FRESH 1M dataset regen (changing the observable manifold).
 Do NOT retrofit into the Galileo run. The structure cache already carries all 11 excitation
 periods, so it is additive on the data-gen side.
+
+## ADDENDUM 2026-07-13c (Machine A) — CMR2 display bugs fixed; cross-version validated; NEW Machine B assignment: Clipper v2
+
+Commits this session (origin/genai): `cdf5844e` (core-sensitive CMR2 in
+`_condition_and_package` + viridis k2 + INDEX cross-version note), `b3ee412f`
+(warning demotion for gate-validated version pairs + stale-server banner +
+Machine A gate reports), `abbb2272` (GUI amortized runner builds config from
+the training JSON — the GUI-side half of the CMR2 bug), plus this addendum +
+`plans/europa-clipper-v2-induction-plan.md`.
+
+### CLOSED (Machine A, verified)
+- **Europa posterior CMR2 ~3.6 sigma left of the observed Gaussian** — TWO
+  stacked bugs, both fixed and observed fixed in the running app (AppTest
+  Europa run: CMR2 median 0.3553, +0.23 sigma):
+  1. `sbi_runner._condition_and_package` used the core-blind cache scalar.
+  2. The GUI run button reconstructed a minimal InferenceConfig without
+     `derived_params`, so `_compute_model_cmr2` still fell back core-blind
+     even after fix 1. Slots now carry `config_path` (training JSON);
+     **any future slot MUST set config_path**.
+- **torch 2.11 -> 2.8 cross-version trust** — crosscheck gates re-run on
+  Machine A: Europa reproduces Machine B's report to 4 decimals on every
+  statistic; Titan passes all 8 params. Reports in
+  `validation_reports/cross_version_machineA/`. Slot registry
+  `validated_version_pairs` demotes the load warning to INFO for exactly
+  this pair; anything else still warns loudly.
+
+### NEW MACHINE B ASSIGNMENT (user-directed 2026-07-13): Europa Clipper v2
+`plans/europa-clipper-v2-induction-plan.md` — 3-frequency artifact trained on
+induced dipole coefficients Bind = Ae * Be in nT (Kivelson et al. 2023:
+sigma = 1.5 nT on Re and Im per component). Scientific review (opus):
+RATIFY-WITH-EDITS, all edits incorporated. **Phase 0 is a hard blocker**:
+reconcile the Ae solver against an independent multilayer sigma(r) solution
+(NOT a uniform shell) AND re-derive the expected |Ae_orbital| — the
+"O(1e-2)" anchor behind the 0.73 red flag is itself suspect (85 hr skin
+depth ~ ocean thickness makes a few tenths plausible). Channel set is
+provisional until Phase 0 (prune on |Ae|*|Be| >= 3 nT, not |Be|). Seeds:
+train 42 / data 47 / noise 4747. v1 Galileo slot stays deployed untouched.
