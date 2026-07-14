@@ -144,6 +144,10 @@ class SBIRunner:
         self.obs_names = list(config.observables.keys())
         # All shipped artifacts use |Im k2| (see module docstring).
         self.imag_convention = 'abs'
+        # Per-channel Im conventions; populated from obs_names below. Bind_
+        # measurement-space channels are 'signed', k2/h2 Im follow
+        # imag_convention. Recorded in the artifact by save_artifact.
+        self.channel_conventions = self._channel_conventions()
 
         # Lazily constructed on first use (loads the structure cache).
         self._mcmc_runner = None
@@ -175,6 +179,27 @@ class SBIRunner:
             pdef = PARAMETER_REGISTRY.get(name)
             units.append(pdef.units if (pdef is not None and pdef.units) else '')
         return units
+
+    def _channel_conventions(self) -> Dict[str, str]:
+        """Per-observable Im-part convention: 'abs' (folded) or 'signed'.
+
+        The GUI/pre-deploy contract historically assumed every artifact was
+        globally ``imag_convention='abs'``. Europa Clipper v2 introduced
+        signed-Im ``Bind_`` measurement-space channels alongside the
+        abs-folded ``Im_k2``/``Im_h2``. This map makes the per-channel
+        convention explicit so a consumer never abs-folds a Bind_ input.
+
+        Bind_ channels are always 'signed'. The k2/h2 imaginary channels
+        follow the runner's global ``imag_convention``. Purely-real or
+        magnitude channels (Re_k2, CMR2, ...) are omitted (no Im ambiguity).
+        """
+        conv: Dict[str, str] = {}
+        for name in self.obs_names:
+            if name.startswith('Bind_'):
+                conv[name] = 'signed'
+            elif name in ('Im_k2', 'abs_Im_k2', 'Im_h2', 'abs_Im_h2'):
+                conv[name] = self.imag_convention
+        return conv
 
     def _param_bounds(self):
         """(low, high) lists in param_names order; requires uniform priors."""
@@ -423,7 +448,8 @@ class SBIRunner:
         Schema (version 1) — dict written with torch.save:
             schema_version, posterior (DirectPosterior, pickled),
             prior_spec, param_names, param_labels, param_units,
-            param_bounds, obs_names, imag_convention, theta_norm, x_norm,
+            param_bounds, obs_names, imag_convention, channel_conventions,
+            theta_norm, x_norm,
             density_estimator, config_hash, bodyname, git_sha, seed,
             n_train_effective, rejection_stats, sbi_version, torch_version,
             created_utc.
@@ -447,6 +473,11 @@ class SBIRunner:
             'param_bounds': [[lo, hi] for lo, hi in zip(lows, highs)],
             'obs_names': list(self.obs_names),
             'imag_convention': self.imag_convention,
+            # Per-channel Im convention (additive, schema v1 compatible):
+            # 'signed' for Bind_ measurement-space channels, the global
+            # imag_convention for k2/h2 Im channels. Absent-key readers fall
+            # back to the global imag_convention (old artifacts, no Bind_).
+            'channel_conventions': self._channel_conventions(),
             'theta_norm': self._train_info.get('theta_norm'),
             'x_norm': self._train_info.get('x_norm'),
             'density_estimator': self._train_info.get('density_estimator'),
@@ -550,6 +581,9 @@ class SBIRunner:
         obj.param_units = list(artifact['param_units'])
         obj.obs_names = list(artifact['obs_names'])
         obj.imag_convention = artifact['imag_convention']
+        # Per-channel Im conventions (empty for pre-v2 artifacts). Consumers
+        # must NOT abs-fold a channel marked 'signed' (e.g. Bind_ family).
+        obj.channel_conventions = dict(artifact.get('channel_conventions') or {})
         obj._mcmc_runner = None
         obj._posterior = artifact['posterior']
         obj._train_info = {

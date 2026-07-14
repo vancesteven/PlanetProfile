@@ -22,6 +22,44 @@ from pathlib import Path
 log = logging.getLogger('PlanetProfile')
 
 
+# Max |period| mismatch (hr) allowed when mapping a canonical Bind_
+# excitation label to a Be1xyz file row by closest period. Europa's tightest
+# valid match ('orbital'->'adjusted orbital') is ~0.003 hr and its nearest
+# wrong neighbor is ~0.07 hr away, so 0.1 hr accepts every correct Europa
+# match while rejecting a cross-excitation mis-rank (scientific review
+# 2026-07-14, margin guard).
+BE_PERIOD_MATCH_TOL_HR = 0.1
+
+
+def _parse_bind_channel(name: str):
+    """Parse a Bind_ induction channel name into (label, comp, part).
+
+    Channel grammar: ``Bind_<label>_<comp>_<part>`` where comp is one of
+    {x, y, z} and part is one of {real, imag}. The excitation <label> may
+    itself contain underscores or spaces (e.g. 'synodic 2nd',
+    'adjusted orbital'), so the fixed ``_<comp>_<part>`` suffix is stripped
+    from the RIGHT rather than split from the left.
+
+    Returns (label, comp, part) or None when `name` is not a Bind_ channel
+    or its comp/part suffix is not recognized.
+    """
+    if not name.startswith('Bind_'):
+        return None
+    body = name[len('Bind_'):]
+    for part in ('real', 'imag'):
+        suffix = '_' + part
+        if not body.endswith(suffix):
+            continue
+        rest = body[:-len(suffix)]
+        for comp in ('x', 'y', 'z'):
+            comp_suffix = '_' + comp
+            if rest.endswith(comp_suffix):
+                label = rest[:-len(comp_suffix)]
+                if label:
+                    return label, comp, part
+    return None
+
+
 def _structure_R_body_km(structure_data) -> Optional[float]:
     """Body radius in km from a structure grid cache (constant across the
     Tb grid), or None when the cache lacks it (older cache schemas)."""
@@ -116,6 +154,13 @@ class MCMCRunner:
         self._ae_grid_cache: Dict[int, Optional[Dict[str, complex]]] = {}
         self._precompute_ae_grid(config.observables)
 
+        # Complex excitation field components Be_{x,y,z}(label) [nT], loaded
+        # from the MoonMag Be1xyz_<body>.txt file, for the Bind_ induction
+        # channel family (Europa Clipper v2). None when no Bind_ observable
+        # is configured or the file is unavailable. See _load_be_excitation.
+        self._be_excitation: Optional[Dict[str, Dict[str, complex]]] = \
+            self._load_be_excitation(config.observables)
+
         self.log_likelihood_fn = self._make_flexible_log_likelihood(
             config.observables,
             self.structure_data,
@@ -142,7 +187,7 @@ class MCMCRunner:
         """
         induction_obs = [k for k in observables
                          if k.startswith('Ae_') or k.startswith('BiAmp_')
-                         or k.startswith('BiPhase_')]
+                         or k.startswith('BiPhase_') or k.startswith('Bind_')]
         # induction_bounds labels (support cuts, e.g. Europa's
         # |Ae_synodic| > 0.7) need the Ae grid too, even with no Gaussian
         # induction observable configured.
@@ -172,6 +217,10 @@ class MCMCRunner:
                 requested_labels.add(k[len('BiAmp_'):])
             elif k.startswith('BiPhase_') and k.endswith('_deg'):
                 requested_labels.add(k[len('BiPhase_'):-len('_deg')])
+            else:
+                parsed = _parse_bind_channel(k)
+                if parsed is not None:
+                    requested_labels.add(parsed[0])
 
         for i, struct in enumerate(structures):
             Texc_hr_full = struct.get('Texc_hr') if isinstance(struct, dict) else None
@@ -188,6 +237,129 @@ class MCMCRunner:
             log.debug(f"  Grid point {i+1}/{n}: Ae computed")
 
         log.info("Induction Ae pre-computation complete.")
+
+    def _load_be_excitation(self, observables: Dict[str, Any]
+                            ) -> Optional[Dict[str, Dict[str, complex]]]:
+        """Load complex excitation field components Be_{x,y,z}(label) [nT].
+
+        Only invoked when at least one ``Bind_`` observable is configured.
+        Reads ``Be1xyz_<body>.txt`` from the MoonMag excitation directory
+        (the same canonical file the production induction path uses) and
+        maps each requested canonical excitation label to a file row by
+        CLOSEST PERIOD — identical to how PlanetProfile itself resolves
+        ``Excitations.Texc_hr`` labels against the file (MagneticInduction
+        .GetBexc, argmin over |inpTexc_hr - Texc_hr[label]|). This tolerates
+        the label-string drift between the cache's ``Texc_hr`` keys
+        ('orbital') and the file's row names ('adjusted orbital').
+
+        Returns {label: {'x': complex, 'y': complex, 'z': complex}} keyed by
+        the canonical labels requested in the observables, or None when no
+        Bind_ observable is present or the excitation file is unavailable.
+        The complex components use the SAME (unconjugated) Ae convention as
+        the MCMC likelihood: Bind = Ae * Be_comp (plain complex product),
+        NOT the Zimmer-2000 conjugate-phase plotting convention in
+        MagneticInduction.py (Be * conj(Ae)).
+        """
+        bind_labels: set = set()
+        for k in observables:
+            parsed = _parse_bind_channel(k)
+            if parsed is not None:
+                bind_labels.add(parsed[0])
+        if not bind_labels:
+            return None
+
+        bodyname = getattr(self.config, 'bodyname', None)
+        if not bodyname:
+            log.warning("Bind_ observables configured but config has no "
+                        "bodyname; cannot load excitation field. Bind "
+                        "channels will be NaN.")
+            return None
+
+        # The canonical single-file excitation table lives alongside the
+        # MoonMag solver used by forward_model_induction.
+        exc_dir = (Path(__file__).parent.parent / 'MagneticInduction'
+                   / 'MoonMag' / 'excitation')
+        exc_path = exc_dir / f'Be1xyz_{bodyname}.txt'
+        if not exc_path.is_file():
+            log.warning(f"Excitation file not found: {exc_path}. Bind "
+                        f"channels will be NaN.")
+            return None
+
+        # File columns (header row 0):
+        #   exc name, period(hr), B0x, B0y, B0z,
+        #   Bex_Re, Bex_Im, Bey_Re, Bey_Im, Bez_Re, Bez_Im
+        file_periods = []
+        file_comps = []
+        try:
+            with open(exc_path, 'r') as f:
+                header = f.readline()  # skip header
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    parts = line.split(',')
+                    if len(parts) < 11:
+                        continue
+                    period_hr = float(parts[1])
+                    bex = complex(float(parts[5]), float(parts[6]))
+                    bey = complex(float(parts[7]), float(parts[8]))
+                    bez = complex(float(parts[9]), float(parts[10]))
+                    file_periods.append(period_hr)
+                    file_comps.append({'x': bex, 'y': bey, 'z': bez})
+        except (OSError, ValueError) as e:
+            log.warning(f"Failed to parse excitation file {exc_path}: {e}. "
+                        f"Bind channels will be NaN.")
+            return None
+
+        if not file_periods:
+            log.warning(f"Excitation file {exc_path} had no data rows. "
+                        f"Bind channels will be NaN.")
+            return None
+        file_periods = np.asarray(file_periods)
+
+        # Canonical label -> period map (from PP's Excitations table, the
+        # same source forward_model_induction's freq_dict is derived from).
+        try:
+            from PlanetProfile.MagneticInduction.Moments import Excitations
+            label_periods = Excitations.Texc_hr.get(bodyname, {})
+        except Exception as e:
+            log.warning(f"Could not load Excitations.Texc_hr for {bodyname}: "
+                        f"{e}. Bind channels will be NaN.")
+            return None
+
+        be_excitation: Dict[str, Dict[str, complex]] = {}
+        for label in bind_labels:
+            target_hr = label_periods.get(label)
+            if target_hr is None:
+                log.warning(f"Bind_ label '{label}' not in "
+                            f"Excitations.Texc_hr[{bodyname}]; skipping "
+                            f"(channel will be NaN).")
+                continue
+            iClosest = int(np.argmin(np.abs(file_periods - target_hr)))
+            margin_hr = float(np.abs(file_periods[iClosest] - target_hr))
+            # Margin guard (scientific review 2026-07-14, LOW): the Europa
+            # excitation table packs five rows within 84.5-85.3 hr, so the
+            # 'orbital' -> 'adjusted orbital' match has only ~0.07 hr of
+            # separation to the next orbital-family row. A future body or a
+            # v3 that adds 'true anomaly' (~0.5 hr away) could silently
+            # mis-rank. Refuse a match beyond BE_PERIOD_MATCH_TOL_HR rather
+            # than bind to the wrong physical excitation. Ae is evaluated at
+            # the cache period and Be at the file period; the sub-tolerance
+            # mismatch (~0.025 hr for Europa) is physically negligible.
+            if margin_hr > BE_PERIOD_MATCH_TOL_HR:
+                log.warning(
+                    f"Bind_ label '{label}' ({target_hr:.4f} hr): nearest "
+                    f"excitation-file row is {file_periods[iClosest]:.4f} hr "
+                    f"(|dP|={margin_hr:.4f} hr > tol "
+                    f"{BE_PERIOD_MATCH_TOL_HR} hr); refusing an "
+                    f"ambiguous period match (channel will be NaN).")
+                continue
+            be_excitation[label] = file_comps[iClosest]
+            log.debug(f"Bind_ label '{label}' ({target_hr:.4f} hr) -> file "
+                      f"row period {file_periods[iClosest]:.4f} hr "
+                      f"(|dP|={margin_hr:.4f} hr), Be={be_excitation[label]}")
+
+        return be_excitation or None
 
     def _infer_rheology(self) -> str:
         """Infer rheology type from parameter space or sampler_settings."""
@@ -489,13 +661,18 @@ class MCMCRunner:
             induction_keys_phase = [k for k in observables
                                     if k.startswith('BiPhase_')
                                     and k.endswith('_deg')]
+            # Bind_<label>_<comp>_<part>: induced dipole coefficient as
+            # equivalent surface field, Bind_comp = Ae * Be_comp (nT, signed
+            # real/imag). Europa Clipper v2 measurement-space channels.
+            induction_keys_bind = [(k, p) for k in observables
+                                   if (p := _parse_bind_channel(k)) is not None]
             # induction_bounds (ratified 2026-07-12): one-sided support cuts
             # on Ae per label (amp_min: reject |Ae| < amp_min; im_abs_max:
             # reject |Im Ae| > im_abs_max). Hard rejection, not chi^2 terms.
             induction_bounds = getattr(self.config, 'induction_bounds', {}) or {}
             need_induction = bool(induction_keys_real or induction_keys_imag
                                   or induction_keys_amp or induction_keys_phase
-                                  or induction_bounds)
+                                  or induction_keys_bind or induction_bounds)
             if need_induction:
                 # Collect all requested frequency labels.
                 requested_labels = set(induction_bounds)
@@ -507,6 +684,8 @@ class MCMCRunner:
                     requested_labels.add(k[len('BiAmp_'):])
                 for k in induction_keys_phase:
                     requested_labels.add(k[len('BiPhase_'):-len('_deg')])
+                for _k, (lbl, _comp, _part) in induction_keys_bind:
+                    requested_labels.add(lbl)
 
                 # Fast path: look up pre-computed Ae from the grid cache
                 # (avoids ~1.5 s/call mpmath cost on every likelihood eval).
@@ -565,6 +744,23 @@ class MCMCRunner:
                         pred = float(np.degrees(np.angle(Ae)))
                         delta = ((pred - v + 180.0) % 360.0) - 180.0
                         chi2 += (delta / s) ** 2
+
+                # Bind_ channels: Bind_comp = Ae * Be_comp (nT, signed
+                # real/imag). Loop by observable key so labels with the same
+                # frequency but different components each contribute.
+                for _bkey, (blabel, bcomp, bpart) in induction_keys_bind:
+                    Ae = Ae_dict.get(blabel)
+                    if Ae is None or not np.isfinite(complex(Ae).real):
+                        return -1e30
+                    if not self._be_excitation:
+                        return -1e30
+                    Be_comp = self._be_excitation.get(blabel)
+                    if Be_comp is None:
+                        return -1e30
+                    Bind = complex(Ae) * Be_comp[bcomp]
+                    pred = Bind.real if bpart == 'real' else Bind.imag
+                    v, s = observables[_bkey]
+                    chi2 += ((pred - v) / s) ** 2
 
             return -0.5 * chi2
 
@@ -1435,6 +1631,22 @@ class MCMCRunner:
                 int(np.argmin(np.abs(grid_Tb - Tb_sample))))
             if Ae_dict is None:
                 return np.nan
+            # Bind_<label>_<comp>_<part>: induced dipole coefficient expressed
+            # as equivalent surface field, Bind_comp = Ae(label) * Be_comp
+            # (plain complex product, in nT). Signed real/imag — never
+            # abs-folded (that fold is hardcoded to Im_k2/Im_h2). Uses the
+            # SAME unconjugated Ae as the likelihood (Europa Clipper v2).
+            bind_parsed = _parse_bind_channel(name)
+            if bind_parsed is not None:
+                label, comp, part = bind_parsed
+                if not self._be_excitation:
+                    return np.nan
+                Be_comp = self._be_excitation.get(label)
+                Ae = Ae_dict.get(label)
+                if Be_comp is None or Ae is None:
+                    return np.nan
+                Bind = complex(Ae) * Be_comp[comp]
+                return Bind.real if part == 'real' else Bind.imag
             if name.startswith('Ae_') and name.endswith('_real'):
                 label, part = name[len('Ae_'):-len('_real')], 'real'
             elif name.startswith('Ae_') and name.endswith('_imag'):
@@ -1551,7 +1763,8 @@ class MCMCRunner:
                 elif name == 'Mtot_kg':
                     xi.append(self._get_cache_scalar(theta_dict, 'Mtot_kg'))
                 elif (name.startswith('Ae_') or name.startswith('BiAmp_')
-                        or name.startswith('BiPhase_')):
+                        or name.startswith('BiPhase_')
+                        or name.startswith('Bind_')):
                     xi.append(_induction_channel_value(name, theta_dict))
                 else:
                     xi.append(np.nan)
