@@ -169,10 +169,9 @@ mamba activate PPcl   # or conda activate PP
 streamlit run PlanetProfileApp/PlanetProfileApp.py
 ```
 
-Public demo (Streamlit Community Cloud, amortized inference only): the app is
-served from the slim `app-deploy` branch, rebuilt deliberately via
+Public demo (Hugging Face Docker Space, amortized inference only): served
+from an auto-generated snapshot, rebuilt deliberately via
 `plans/scripts/build_deploy_branch.sh` after verifying `genai` — the public
-app never tracks dev pushes. Deployment details and the verification
-checklist: `plans/serve-gui-streamlit-cloud-plan.md`. Heavy compute (MCMC,
-exploreogram grids, full forward-model runs) is hidden when the app secret
-`PP_PUBLIC_MODE = "1"` is set.
+app never tracks dev pushes. **Update/setup instructions: [DEPLOYING.md](DEPLOYING.md).**
+Heavy compute (MCMC, exploreogram grids, full forward-model runs) is hidden
+in public mode (`PP_PUBLIC_MODE=1`).

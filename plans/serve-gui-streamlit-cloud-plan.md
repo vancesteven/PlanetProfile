@@ -87,6 +87,19 @@ connect (below).
    `app-deploy` to a separate deploy repo (`PlanetProfileApp-deploy`) pushed
    by the same script; decide only after the first deploy attempt.
 
+## OUTCOME (2026-07-14): Community Cloud abandoned; pivoted to Hugging Face Docker Space
+
+Community Cloud deploys failed at the ACCOUNT level: form submits, spinner,
+then "You do not have access to this app or it does not exist"; app object
+never created (no Manage app / logs). Ruled out: repo visibility (public),
+branch presence, path spaces, platform outage (status green), clone size
+(dedicated 205 MB repo `PlanetProfileApp-deploy` failed identically).
+Suspected split-identity workspace (email-primary + linked GitHub).
+Pivot: HF retired its native streamlit SDK -> Docker Space. Dockerfile +
+HF frontmatter now generated into the snapshot by build_deploy_branch.sh;
+PP_PUBLIC_MODE baked into the image. Procedure: DEPLOYING.md (repo root).
+The section below is retained for the record.
+
 ## Phase D — deploy + cloud verification
 
 1. share.streamlit.io → New app → repo `vancesteven/PlanetProfile`, branch

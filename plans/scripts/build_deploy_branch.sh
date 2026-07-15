@@ -38,16 +38,58 @@ for f in \
   cp "$REPO_ROOT/$f" "$STAGE/$f"
 done
 
+# README with Hugging Face Spaces YAML frontmatter (harmless on GitHub).
+# HF retired the native streamlit SDK; this deploys as a Docker Space.
 cat > "$STAGE/README.md" <<EOF
+---
+title: PlanetProfile
+emoji: 🪐
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+short_description: Icy-moon interior structure + Bayesian inference GUI
+---
+
 # PlanetProfileApp — deployment snapshot
 
 Auto-generated serve-only snapshot of
 [PlanetProfile](https://github.com/vancesteven/PlanetProfile) genai
 commit ${SRC_SHA} (plans/scripts/build_deploy_branch.sh). Do not develop
-here — changes belong on the source branch.
+here — changes belong on the source branch. Update procedure:
+DEPLOYING.md in the source repo.
 
-Entrypoint: \`PlanetProfileApp/PlanetProfileApp.py\` · public mode via
-\`PP_PUBLIC_MODE=1\` in app secrets (amortized inference only).
+Entrypoint: \`PlanetProfileApp/PlanetProfileApp.py\` · public demo mode
+(\`PP_PUBLIC_MODE=1\`, baked into the Dockerfile): amortized inference
+only, heavy compute hidden.
+EOF
+
+# Dockerfile for Hugging Face Docker Space (uid-1000 non-root per HF).
+cat > "$STAGE/Dockerfile" <<'EOF'
+FROM python:3.11-slim
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends poppler-utils \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -u 1000 user
+USER user
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH
+
+WORKDIR /app
+COPY --chown=user:user requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+COPY --chown=user:user . /app
+
+# Public demo: amortized inference only (see PlanetProfileApp/Utilities/app_mode.py)
+ENV PP_PUBLIC_MODE=1
+
+EXPOSE 7860
+CMD ["streamlit", "run", "PlanetProfileApp/PlanetProfileApp.py", \
+     "--server.port=7860", "--server.address=0.0.0.0", "--server.headless=true"]
 EOF
 
 du -sh "$STAGE"
@@ -78,4 +120,13 @@ fi
 if [[ -n "${DEPLOY_REPO:-}" ]]; then
   git push -f "$DEPLOY_REPO" app-deploy:main
   echo "Pushed snapshot to ${DEPLOY_REPO} main (source ${SRC_SHA})"
+fi
+
+# Hugging Face Docker Space (primary serving target — see DEPLOYING.md).
+# HF_SPACE example: https://huggingface.co/spaces/<user>/planetprofile
+# Auth: run `git credential approve` once, or embed a write token:
+#   HF_SPACE=https://<user>:<hf_token>@huggingface.co/spaces/<user>/planetprofile
+if [[ -n "${HF_SPACE:-}" ]]; then
+  git push -f "$HF_SPACE" app-deploy:main
+  echo "Pushed snapshot to Hugging Face Space (source ${SRC_SHA})"
 fi
