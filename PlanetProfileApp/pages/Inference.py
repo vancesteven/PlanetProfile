@@ -1106,6 +1106,51 @@ _SBI_ARTIFACT_SLOTS = {
         # See sbi_artifacts/INDEX.md.
         'validated_version_pairs': (('torch', '2.11.0', '2.8.0'),),
     },
+    'europa_seawater_andrade_clipper_v2.pt': {
+        'label': 'Europa (Andrade, seawater) — Clipper v2, 3-frequency induction 7D',
+        'bodyname': 'Europa',
+        'config_path': ('PlanetProfile/Inference/configs/'
+                        'europa_seawater_andrade_clipper_v2.json'),
+        'cache_path': ('PlanetProfile/Test/mcmc_results/Europa/'
+                       'Test51_seawater/europa_seawater_structure_grid.pkl'),
+        # Fiducial conditioning values = the training config's central values
+        # (Bind channels in nT, sigma = 1.5 nT frozen; Kivelson et al. 2023).
+        'default_obs': {
+            'CMR2': 0.3547, 'Re_k2': 0.25, 'Im_k2': 0.0,
+            'Re_h2': 1.2, 'Im_h2': 0.0,
+            'Bind_synodic_x_real': 91.8248, 'Bind_synodic_x_imag': -157.7708,
+            'Bind_synodic_y_real': -59.4061, 'Bind_synodic_y_imag': -25.8874,
+            'Bind_synodic_z_real': -5.6378, 'Bind_synodic_z_imag': -12.4064,
+            'Bind_synodic 2nd_x_real': 14.7108, 'Bind_synodic 2nd_x_imag': 3.1779,
+            'Bind_synodic 2nd_y_real': 1.8788, 'Bind_synodic 2nd_y_imag': -9.8686,
+            'Bind_orbital_x_real': -0.3812, 'Bind_orbital_x_imag': 6.454,
+            'Bind_orbital_y_real': -2.2124, 'Bind_orbital_y_imag': -0.2825,
+        },
+        'x_obs_limits': {'Im_k2': (0.0, 0.15)},
+        # Machine B deploy condition (INDEX scope note 2026-07-14): the W1
+        # grid-walk validated conditioning only over the synodic |Ae|
+        # envelope its anchors exercised (~0.75-0.94). Guard on the implied
+        # |Ae| from the dominant-SNR synodic x channel (|Be_x| = 213.2 nT);
+        # additionally warn below the Galileo training support cut (0.7).
+        'derived_ae_guards': [{
+            'label': 'synodic', 'comp': 'x',
+            'Be_comp': (128.466302323619, -170.084146795136),
+            'ae_range': (0.75, 0.94),
+            'warn_support_below': 0.7,
+        }],
+        # Same induction support edge as v1: no conductive ocean below
+        # ~261.5 K; restore the hard edge at sample time.
+        'default_truncate': {'Tb_K': (261.5, None)},
+        'scope_note': ('Conditions on Europa Clipper-era magnetic induction '
+                       '(14 channels at three periods, ±1.5 nT) plus '
+                       'gravity/tidal observables. Induction inputs are '
+                       'accepted within the validated range (roughly '
+                       '160–200 nT synodic amplitude); outside it the run '
+                       'is refused — use MCMC mode. Technical validation '
+                       'details: sbi_artifacts/INDEX.md.'),
+        # Trained on torch 2.8.0 / sbi 0.26.1 — identical to this machine's
+        # runtime; no cross-version pair needed.
+    },
 }
 
 
@@ -1280,6 +1325,29 @@ def render_amortized_config():
         if val is not None and not (lo <= abs(val) <= hi):
             domain_violations.append(
                 f"{name} = {val:g} outside validated domain [{lo:g}, {hi:g}]")
+    # Derived-|Ae| guard (Clipper-era Bind channels): the W1 grid-walk
+    # validates conditioning only over the |Ae(label)| envelope its anchors
+    # exercised. |Ae| implied by the user's Bind inputs is |Bind| / |Be|
+    # per component (Bind = Ae * Be); the highest-SNR component is checked.
+    for g in (slot.get('derived_ae_guards') or []):
+        label, comp = g['label'], g['comp']
+        re_v = x_obs.get(f"Bind_{label}_{comp}_real")
+        im_v = x_obs.get(f"Bind_{label}_{comp}_imag")
+        if re_v is None or im_v is None:
+            continue
+        ae = abs(complex(re_v, im_v)) / abs(complex(*g['Be_comp']))
+        lo, hi = g['ae_range']
+        if not (lo <= ae <= hi):
+            domain_violations.append(
+                f"implied |Ae_{label}| = {ae:.3f} outside the "
+                f"grid-walk-validated envelope [{lo:g}, {hi:g}]")
+        warn_below = g.get('warn_support_below')
+        if warn_below is not None and ae < warn_below:
+            st.warning(
+                f"⚠️ Your {label} Bind inputs imply |Ae_{label}| = {ae:.3f} "
+                f"< {warn_below:g}, conflicting with the Galileo support cut "
+                f"baked into training (|Ae_synodic| > {warn_below:g}) — the "
+                f"flow cannot represent such models.")
     if domain_violations:
         st.error("🚫 **Outside validated conditioning domain** — this "
                  "artifact's gates only validate posteriors within its "
