@@ -127,6 +127,10 @@ fi
 # Auth: run `git credential approve` once, or embed a write token:
 #   HF_SPACE=https://<user>:<hf_token>@huggingface.co/spaces/<user>/planetprofile
 if [[ -n "${HF_SPACE:-}" ]]; then
-  git push -f "$HF_SPACE" app-deploy:main
+  # The snapshot pack is ~100 MB: git's default 1 MiB http.postBuffer makes
+  # a chunked POST that HF's git endpoint drops ("unable to rewind rpc post
+  # data" / "RPC failed; curl 6"). Buffer the whole pack and pin HTTP/1.1.
+  git -c http.postBuffer=536870912 -c http.version=HTTP/1.1 \
+    push -f "$HF_SPACE" app-deploy:main
   echo "Pushed snapshot to Hugging Face Space (source ${SRC_SHA})"
 fi
