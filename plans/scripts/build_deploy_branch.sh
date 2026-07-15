@@ -68,3 +68,14 @@ if [[ "${1:-}" != "--no-push" ]]; then
 else
   echo "Local app-deploy updated; skipped origin push (--no-push)"
 fi
+
+# Contingency C.3 (plan): Streamlit Cloud clones the ENTIRE repo pack
+# (~885 MB across all branches), which can kill provisioning silently.
+# Set DEPLOY_REPO to also push the snapshot as `main` of a dedicated
+# lightweight repo, e.g.:
+#   DEPLOY_REPO=https://github.com/vancesteven/PlanetProfileApp-deploy.git \
+#     plans/scripts/build_deploy_branch.sh
+if [[ -n "${DEPLOY_REPO:-}" ]]; then
+  git push -f "$DEPLOY_REPO" app-deploy:main
+  echo "Pushed snapshot to ${DEPLOY_REPO} main (source ${SRC_SHA})"
+fi
