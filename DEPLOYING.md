@@ -20,9 +20,13 @@ forward-model runs are hidden (see `PlanetProfileApp/Utilities/app_mode.py`).
      bash plans/scripts/build_deploy_branch.sh
    ```
 
-   The Space rebuilds automatically on push (~5–10 min). Git auth: either
-   cached HF credentials or embed a write token in the URL
-   (`https://<hf-user>:<hf_token>@huggingface.co/spaces/...`).
+   The Space rebuilds automatically on push (~5–10 min). Git auth: HF git
+   REQUIRES a user access token — account passwords are rejected. Create a
+   **Write** token at hf.co/settings/tokens and embed it in the URL:
+   `https://<hf-user>:hf_XXXX@huggingface.co/spaces/<hf-user>/planetprofile`.
+   The token can be revoked after the push; the Space keeps running.
+   Live Space: https://huggingface.co/spaces/vsteven/planetprofile
+   (app URL: https://vsteven-planetprofile.hf.space).
 
 The script also refreshes the `app-deploy` branch here and, with
 `DEPLOY_REPO=...`, the `PlanetProfileApp-deploy` GitHub mirror. The live
@@ -32,7 +36,11 @@ deliberate script run.
 ## First-time Space setup
 
 1. huggingface.co → New Space → name `planetprofile`, License of choice,
-   SDK **Docker** (blank template), CPU basic (free), Public.
+   SDK **Docker** (blank template), CPU basic, Public. NOTE (policy change
+   2026-07): compute Spaces (Docker/Gradio) require a PRO subscription;
+   only static Spaces are free. The Space can also be created without the
+   web UI: `HfApi(token=...).create_repo('<user>/planetprofile',
+   repo_type='space', space_sdk='docker')`.
 2. Push the snapshot (command above). The snapshot contains the
    `Dockerfile`, HF YAML frontmatter in `README.md`, and pinned
    `requirements.txt` — no other Space configuration needed.
