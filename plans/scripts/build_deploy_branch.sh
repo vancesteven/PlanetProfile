@@ -123,14 +123,29 @@ if [[ -n "${DEPLOY_REPO:-}" ]]; then
 fi
 
 # Hugging Face Docker Space (primary serving target — see DEPLOYING.md).
-# HF_SPACE example: https://huggingface.co/spaces/<user>/planetprofile
-# Auth: run `git credential approve` once, or embed a write token:
-#   HF_SPACE=https://<user>:<hf_token>@huggingface.co/spaces/<user>/planetprofile
-if [[ -n "${HF_SPACE:-}" ]]; then
-  # The snapshot pack is ~100 MB: git's default 1 MiB http.postBuffer makes
-  # a chunked POST that HF's git endpoint drops ("unable to rewind rpc post
-  # data" / "RPC failed; curl 6"). Buffer the whole pack and pin HTTP/1.1.
-  git -c http.postBuffer=536870912 -c http.version=HTTP/1.1 \
-    push -f "$HF_SPACE" app-deploy:main
-  echo "Pushed snapshot to Hugging Face Space (source ${SRC_SHA})"
+# Uploaded via huggingface_hub (NOT git push: HF's pre-receive hook rejects
+# files > 10 MiB without LFS, and the EOS tables are up to 43 MB;
+# upload_folder handles large files server-side with no local git-lfs).
+# Usage:
+#   HF_SPACE_ID=<user>/planetprofile HF_TOKEN=hf_xxx \
+#     plans/scripts/build_deploy_branch.sh
+if [[ -n "${HF_SPACE_ID:-}" ]]; then
+  : "${HF_TOKEN:?HF_TOKEN (write token from hf.co/settings/tokens) is required}"
+  PYBIN="${HF_PYTHON:-/opt/miniconda3/envs/PP/bin/python}"
+  STAGE="$STAGE" HF_SPACE_ID="$HF_SPACE_ID" HF_TOKEN="$HF_TOKEN" SRC_SHA="$SRC_SHA" \
+  "$PYBIN" - <<'PYEOF'
+import os
+from huggingface_hub import HfApi
+api = HfApi(token=os.environ['HF_TOKEN'])
+api.upload_folder(
+    folder_path=os.environ['STAGE'],
+    repo_id=os.environ['HF_SPACE_ID'],
+    repo_type='space',
+    commit_message=f"deploy snapshot from genai {os.environ['SRC_SHA']}",
+    delete_patterns=['**'],   # clean sync: remove files dropped upstream
+    ignore_patterns=['.git/*', '.git*'],
+)
+print(f"Uploaded snapshot to Space {os.environ['HF_SPACE_ID']} "
+      f"(source {os.environ['SRC_SHA']})")
+PYEOF
 fi

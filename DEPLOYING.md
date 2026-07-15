@@ -16,16 +16,17 @@ forward-model runs are hidden (see `PlanetProfileApp/Utilities/app_mode.py`).
 2. Rebuild + push the snapshot:
 
    ```bash
-   HF_SPACE=https://huggingface.co/spaces/<hf-user>/planetprofile \
+   HF_SPACE_ID=vsteven/planetprofile HF_TOKEN=hf_XXXX \
      bash plans/scripts/build_deploy_branch.sh
    ```
 
-   The Space rebuilds automatically on push (~5–10 min). Git auth: HF git
-   REQUIRES a user access token — account passwords are rejected. Create a
-   **Write** token at hf.co/settings/tokens and embed it in the URL:
-   `https://<hf-user>:hf_XXXX@huggingface.co/spaces/<hf-user>/planetprofile`.
-   The token can be revoked after the push; the Space keeps running.
-   Live Space: https://huggingface.co/spaces/vsteven/planetprofile
+   Upload goes through `huggingface_hub.upload_folder` — NOT git push: HF
+   rejects git pushes containing files > 10 MiB without LFS (the EOS
+   tables are up to 43 MB); the hub API handles large files server-side.
+   HF_TOKEN is a **Write** token from hf.co/settings/tokens (revocable
+   after the upload; the Space keeps running). The Space rebuilds
+   automatically (~5-10 min). Live Space:
+   https://huggingface.co/spaces/vsteven/planetprofile
    (app URL: https://vsteven-planetprofile.hf.space).
 
 The script also refreshes the `app-deploy` branch here and, with
