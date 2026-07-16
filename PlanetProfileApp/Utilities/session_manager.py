@@ -3,12 +3,75 @@ Session Management for PlanetProfileApp
 Handles saving, loading, and managing user sessions
 """
 
-import pickle
 import json
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 import streamlit as st
+
+
+# --- Import validation (security boundary) ---------------------------------
+# Session files can come from untrusted uploads on the public deployment.
+# Restoring arbitrary keys into st.session_state is an injection vector:
+# e.g. ChosenPlanet feeds os.path.join() on several pages (path traversal)
+# and template-module resolution. Only keys matching these patterns, with
+# scalar-ish values, are ever applied; everything else is dropped and
+# reported. Never unpickle session files.
+_ALLOWED_KEY_RE = re.compile(
+    r'^(ChosenPlanet|custom_planet_name'
+    r'|changed_[A-Za-z0-9_]+|custom_[A-Za-z0-9_]+'
+    r'|explore_[A-Za-z0-9_ ]+|amort_[A-Za-z0-9_ .()\-]+'
+    r'|inference_[A-Za-z0-9_]+|exc_[A-Za-z0-9_ ]+'
+    r'|[xy]_(?:min|max|param_select|driver_select)'
+    r'|z_param_select|n[xy]_input)$'
+)
+_MAX_STR = 500
+_MAX_COLLECTION = 300
+
+
+def _known_bodies():
+    default_dir = Path(__file__).parent.parent.parent / 'PlanetProfile' / 'Default'
+    try:
+        return {d.name for d in default_dir.iterdir() if d.is_dir()}
+    except OSError:
+        return set()
+
+
+def _scalar_ok(v):
+    return v is None or isinstance(v, bool) or (
+        isinstance(v, (int, float)) and abs(float(v)) < 1e30) or (
+        isinstance(v, str) and len(v) <= _MAX_STR)
+
+
+def validate_session_state(state):
+    """Filter an untrusted session-state dict down to safe entries.
+
+    Returns (clean_state, rejected_keys). Values may be scalars, flat lists
+    of scalars, or flat str->scalar dicts. ChosenPlanet must name a known
+    body. Anything else is rejected, never raised on.
+    """
+    clean, rejected = {}, []
+    if not isinstance(state, dict):
+        return {}, ['<state is not a dict>']
+    for key, value in state.items():
+        ok = (isinstance(key, str) and _ALLOWED_KEY_RE.match(key))
+        if ok:
+            if isinstance(value, list):
+                ok = len(value) <= _MAX_COLLECTION and all(_scalar_ok(v) for v in value)
+            elif isinstance(value, dict):
+                ok = (len(value) <= _MAX_COLLECTION and
+                      all(isinstance(k, str) and len(k) <= _MAX_STR and _scalar_ok(v)
+                          for k, v in value.items()))
+            else:
+                ok = _scalar_ok(value)
+        if ok and key == 'ChosenPlanet':
+            ok = value in _known_bodies()
+        if ok:
+            clean[key] = value
+        else:
+            rejected.append(str(key)[:80])
+    return clean, rejected
 
 
 class SessionManager:
@@ -105,17 +168,22 @@ class SessionManager:
 
     def apply_session(self, session_data):
         """
-        Apply loaded session data to current session state
+        Apply loaded session data to current session state.
 
-        Args:
-            session_data: Session data dict from load_session()
+        The state dict is treated as UNTRUSTED regardless of source (files
+        can be uploaded): only allowlisted keys with scalar-ish values are
+        applied (see validate_session_state); the rest are dropped.
+
+        Returns:
+            List of rejected key names (empty when everything applied).
         """
-        # Apply state
-        for key, value in session_data['state'].items():
+        clean, rejected = validate_session_state(session_data.get('state', {}))
+        for key, value in clean.items():
             st.session_state[key] = value
 
         # Set flag to reload Planet object on main settings page
         st.session_state['need_planet_reload'] = True
+        return rejected
 
     def list_sessions(self, sort_by='timestamp', ascending=False):
         """
@@ -195,23 +263,44 @@ class SessionManager:
         session_data = self.load_session(session_name)
         return json.dumps(session_data, indent=2)
 
+    _MAX_IMPORT_BYTES = 512 * 1024
+
+    def parse_uploaded_session(self, json_string):
+        """Parse an UNTRUSTED uploaded session file into validated data.
+
+        Size-capped JSON only (never pickle); the state dict is filtered
+        through validate_session_state. Returns (session_data, rejected).
+        """
+        if hasattr(json_string, 'read'):
+            raw = json_string.read()
+        else:
+            raw = json_string
+        if isinstance(raw, str):
+            raw = raw.encode()
+        if len(raw) > self._MAX_IMPORT_BYTES:
+            raise ValueError(
+                f"Session file too large ({len(raw)} bytes > "
+                f"{self._MAX_IMPORT_BYTES}) — not a valid configuration file.")
+        session_data = json.loads(raw)
+        if not isinstance(session_data, dict):
+            raise ValueError("Not a session file (top level is not an object).")
+        clean, rejected = validate_session_state(session_data.get('state', {}))
+        session_data['state'] = clean
+        session_data['name'] = str(session_data.get('name', 'imported'))[:80]
+        return session_data, rejected
+
     def import_session(self, json_string, session_name=None):
         """
-        Import session from JSON string
+        Import session from JSON string (validated) and save server-side.
 
         Args:
-            json_string: JSON string or file-like object
+            json_string: JSON string or file-like object (UNTRUSTED)
             session_name: Optional new name (uses original if None)
 
         Returns:
             Path to saved session file
         """
-        # Parse JSON
-        if hasattr(json_string, 'read'):
-            # It's a file-like object
-            session_data = json.load(json_string)
-        else:
-            session_data = json.loads(json_string)
+        session_data, _rejected = self.parse_uploaded_session(json_string)
 
         # Use new name if provided
         if session_name:
@@ -238,12 +327,67 @@ class SessionManager:
 
 # Streamlit UI components for session management
 
+def _current_session_json(name):
+    """Serialize the CURRENT session state to a downloadable JSON config
+    (no server-side write — safe for shared public deployments)."""
+    sm = SessionManager()
+    state = {}
+    for key, value in dict(st.session_state).items():
+        try:
+            json.dumps(value)
+            state[key] = value
+        except (TypeError, ValueError):
+            continue
+    clean, _ = validate_session_state(state)
+    return json.dumps({
+        'name': name,
+        'timestamp': datetime.now().isoformat(),
+        'metadata': {'planet': st.session_state.get('ChosenPlanet', 'Unknown')},
+        'state': clean,
+    }, indent=2)
+
+
 def show_session_manager_ui():
     """Show session manager UI in sidebar"""
+    from Utilities.app_mode import public_mode
     sm = SessionManager()
 
     st.sidebar.markdown("---")
     st.sidebar.subheader("💾 Session Management")
+
+    # Configuration as a FILE (download/upload): works everywhere, and is
+    # the ONLY mechanism offered publicly — the server-side sessions dir is
+    # shared by all visitors of the same container (cross-visitor leakage
+    # and planted-session risk), so it is hidden in public mode.
+    with st.sidebar.expander("Save / load configuration file"):
+        dl_name = st.text_input(
+            "Configuration name",
+            value=f"PPconfig_{datetime.now().strftime('%Y%m%d_%H%M')}",
+            key="config_download_name")
+        st.download_button(
+            "📥 Download current configuration",
+            data=_current_session_json(dl_name),
+            file_name=f"{SessionManager._sanitize_filename(dl_name)}.json",
+            mime="application/json")
+        uploaded_cfg = st.file_uploader(
+            "Load configuration (JSON)", type=['json'],
+            key="config_upload_file",
+            help="Only recognized settings are applied; anything else in "
+                 "the file is ignored.")
+        if uploaded_cfg is not None and st.button("📂 Apply configuration"):
+            try:
+                data, rejected = sm.parse_uploaded_session(uploaded_cfg)
+                sm.apply_session(data)
+                msg = f"✅ Applied: {data['name']}"
+                if rejected:
+                    msg += f" ({len(rejected)} unrecognized entries ignored)"
+                st.success(msg)
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Invalid configuration file: {e}")
+
+    if public_mode():
+        return  # no shared server-side sessions on the public deployment
 
     # Save current session
     with st.sidebar.expander("Save Current Session"):
@@ -335,6 +479,9 @@ def show_session_manager_ui():
 
 def show_recent_sessions():
     """Show quick access to recent sessions"""
+    from Utilities.app_mode import public_mode
+    if public_mode():
+        return  # server-side sessions are shared across visitors — hidden
     sm = SessionManager()
     recent = sm.get_recent_sessions(3)
 

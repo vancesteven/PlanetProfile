@@ -456,19 +456,29 @@ with col_opt2:
     )
 
 # Just the run button - no need for separate save button since saving is automatic
-# Public serving (PP_PUBLIC_MODE=1): a full PlanetProfile run is ~minutes of
-# CPU on a shared cloud host — hide it like MCMC/exploreogram.
+# Public serving (PP_PUBLIC_MODE=1): single forward-model runs ARE allowed
+# (1-3 min CPU, ~1 GB RAM — fits the shared container), but only one at a
+# time: a global lock keeps concurrent visitors from stacking CPU-bound
+# runs on the 2-vCPU host. MCMC/exploreogram grids stay disabled.
 from Utilities.app_mode import public_mode as _pp_public_mode
 if _pp_public_mode():
-    st.info("🌐 **Public demo** — full PlanetProfile forward-model runs are "
-            "disabled here. Use the Bayesian Inference page (amortized mode) "
-            "for instant posteriors, or run the app locally from the "
-            "[PlanetProfile repository](https://github.com/vancesteven/PlanetProfile).")
-    run_button = False
-else:
-    run_button = st.button("▶️ Run PlanetProfile", type="primary", use_container_width=True)
+    st.info("🌐 **Public demo** — you can run single PlanetProfile models "
+            "here (takes ~1–3 minutes on the shared server; one run at a "
+            "time). Results appear on the Outputs page for this session.")
+run_button = st.button("▶️ Run PlanetProfile", type="primary", use_container_width=True)
 
 if run_button:
+    # Shared-host serialization: only one forward model at a time in
+    # public mode (see Utilities/run_lock.py). Local runs are unaffected.
+    from Utilities.run_lock import acquire as _lock_acquire, release as _lock_release
+    _have_lock = True
+    if _pp_public_mode():
+        _have_lock = _lock_acquire('pp_run')
+        if not _have_lock:
+            st.warning("⏳ Another visitor's model is running right now "
+                       "(runs take ~1–3 minutes). Please try again shortly.")
+            st.stop()
+
     start_time = time.time()
 
     # Progress bar setup
@@ -641,6 +651,11 @@ if run_button:
         st.error(f"❌ Unexpected error: {str(e)}")
         output_str = ''.join(output_lines) if output_lines else str(e)
         result = type('obj', (object,), {'returncode': -1, 'stdout': output_str, 'stderr': str(e)})()
+
+    # All paths (success / error / timeout) fall through here — release the
+    # shared-host run lock. Abandoned sessions are covered by the lock TTL.
+    if _pp_public_mode() and _have_lock:
+        _lock_release('pp_run')
 
     st.markdown("---")
 

@@ -6,8 +6,14 @@ app + PlanetProfile package + serve-time data only (~205 MB; the full repo
 is ~3 GB and does not fit hosted serving).
 
 Public mode (`PP_PUBLIC_MODE=1`, baked into the Dockerfile) exposes
-amortized SBI inference only; MCMC, exploreogram grids, and full
-forward-model runs are hidden (see `PlanetProfileApp/Utilities/app_mode.py`).
+amortized SBI inference, single forward-model runs (one at a time via a
+global run lock), the precomputed demo library, and configuration
+save/load as files. MCMC and new exploreogram grids stay hidden (see
+`PlanetProfileApp/Utilities/app_mode.py`). The image is conda-based
+(miniforge) so reaktoro/CustomSolution compositions work. Server-side
+session storage is hidden publicly (shared container); uploaded
+configuration files are strictly validated (allowlisted keys, scalar
+values, size cap — see `session_manager.validate_session_state`).
 
 ## Updating the live app (the usual case)
 

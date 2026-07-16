@@ -78,25 +78,33 @@ only, heavy compute hidden.
 EOF
 
 # Dockerfile for Hugging Face Docker Space (uid-1000 non-root per HF).
+# Conda-based (miniforge) so reaktoro — conda-forge-only, no pip wheel —
+# ships in the image and CustomSolution ocean compositions work publicly.
 cat > "$STAGE/Dockerfile" <<'EOF'
-FROM python:3.11-slim
+FROM condaforge/miniforge3:latest
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends poppler-utils \
  && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -u 1000 user
-USER user
-ENV HOME=/home/user \
-    PATH=/home/user/.local/bin:$PATH
+
+# reaktoro from conda-forge (pip cannot install it); everything else from
+# the pinned pip requirements into the same env.
+RUN mamba install -y -n base python=3.11 reaktoro \
+ && mamba clean -afy
 
 WORKDIR /app
-COPY --chown=user:user requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir --user -r requirements.txt
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY --chown=user:user . /app
+USER user
+ENV HOME=/home/user
 
-# Public demo: amortized inference only (see PlanetProfileApp/Utilities/app_mode.py)
+# Public demo mode (see PlanetProfileApp/Utilities/app_mode.py):
+# amortized inference + single capped forward runs; MCMC and new
+# exploreogram grids stay disabled.
 ENV PP_PUBLIC_MODE=1
 
 EXPOSE 7860
