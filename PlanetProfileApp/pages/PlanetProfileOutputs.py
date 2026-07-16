@@ -111,16 +111,15 @@ if st.session_state.get('show_name_dialog', False):
 st.markdown("---")
 
 # ----- File Path management -----
-# Get the planet name from the session state
+# Get the planet name from the session state. Fresh sessions (e.g. a
+# public visitor browsing the shipped demo outputs) default to Europa —
+# same convention as the Exploreogram page — instead of stopping.
 Planet = st.session_state.get("Planet", None)
-if not Planet:
-    st.error("Please Select a Planet on the Planet Profile Main Settings Page")
-    st.stop()
-
-# Default to Europa when no planet was selected (fresh session, e.g. a
-# public visitor browsing the shipped demo outputs) — same convention as
-# the Exploreogram page.
 chosen_planet = st.session_state.get("ChosenPlanet", None) or 'Europa'
+if not Planet:
+    st.info("No planet selected — showing the Europa demo outputs. "
+            "Select a planet on the Main Settings page to browse your "
+            "own runs.")
 
 # Get the path to the current script's directory
 # /PlanetProfile/PlanetProfileApp/RunPlanetProfile.py
@@ -481,8 +480,16 @@ if view_mode == "📅 Chronological (Batches)" and outer_tabs:
                 with fig_tab:
                     pdf_path = figure_dict[label]
                     with st.spinner(f"Rendering: {label}..."):
-                        images = convert_from_path(pdf_path)
-                        st.image(images[0], use_container_width=True)
+                        try:
+                            images = convert_from_path(pdf_path)
+                            st.image(images[0], use_container_width=True)
+                        except Exception as _pdf_exc:
+                            st.warning(f"PDF preview unavailable ({_pdf_exc}); "
+                                       "download instead:")
+                            with open(pdf_path, 'rb') as _fpdf:
+                                st.download_button("⬇️ Download PDF", _fpdf,
+                                                   file_name=os.path.basename(pdf_path),
+                                                   key=f"dl_{pdf_path}")
                     st.caption(f"**{captions.get(label, label)}**")
 
 elif view_mode == "📁 By Figure Type":
@@ -516,8 +523,16 @@ elif view_mode == "📁 By Figure Type":
                 timestamp = datetime.fromtimestamp(mod_time).strftime('%Y-%m-%d %H:%M:%S')
                 with st.expander(f"Run {i+1}: {timestamp}", expanded=(i==len(type_groups[label])-1)):
                     with st.spinner(f"Rendering {label}..."):
-                        images = convert_from_path(filepath)
-                        st.image(images[0], use_container_width=True)
+                        try:
+                            images = convert_from_path(filepath)
+                            st.image(images[0], use_container_width=True)
+                        except Exception as _pdf_exc:
+                            st.warning(f"PDF preview unavailable ({_pdf_exc}); "
+                                       "download instead:")
+                            with open(filepath, 'rb') as _fpdf:
+                                st.download_button("⬇️ Download PDF", _fpdf,
+                                                   file_name=os.path.basename(filepath),
+                                                   key=f"dl_{filepath}_{mod_time}")
 
 elif view_mode == "🔍 Search":
     # Search functionality
@@ -551,8 +566,16 @@ elif view_mode == "🔍 Search":
                 with st.expander(f"{label} - {timestamp}", expanded=True):
                     st.caption(f"**{captions.get(label, label)}**")
                     with st.spinner(f"Rendering {label}..."):
-                        images = convert_from_path(filepath)
-                        st.image(images[0], use_container_width=True)
+                        try:
+                            images = convert_from_path(filepath)
+                            st.image(images[0], use_container_width=True)
+                        except Exception as _pdf_exc:
+                            st.warning(f"PDF preview unavailable ({_pdf_exc}); "
+                                       "download instead:")
+                            with open(filepath, 'rb') as _fpdf:
+                                st.download_button("⬇️ Download PDF", _fpdf,
+                                                   file_name=os.path.basename(filepath),
+                                                   key=f"dl_{filepath}_{mod_time}")
         else:
             st.warning(f"No figures found matching '{search_term}'")
     else:
@@ -634,10 +657,20 @@ for batch_idx, (batch_label, files) in enumerate(formatted_batches):
                 with open(file_path, "r", encoding="utf-8") as f:
                     lines = f.readlines()
 
-                header_lines = "".join(lines[1:4]).strip()
-                header_line = lines[4].strip()
+                # The file declares its own header length ("nHeadLines = N"
+                # on line 1); the Nth line is the column-name row. The old
+                # hardcoded [1:4]/[4]/[5:] slices broke on files with more
+                # header metadata (e.g. ocean speciation lines).
+                n_head = 5
+                if 'nHeadLines' in lines[0]:
+                    try:
+                        n_head = int(lines[0].split('=')[1])
+                    except (IndexError, ValueError):
+                        pass
+                header_lines = "".join(lines[1:n_head - 1]).strip()
+                header_line = lines[n_head - 1].strip()
                 column_names = re.split(r'\s{2,}|\t+', header_line)
-                data_lines = "".join(lines[5:])
+                data_lines = "".join(lines[n_head:])
 
                 try:
                     # Try parsing with flexible whitespace separator
@@ -650,7 +683,7 @@ for batch_idx, (batch_label, files) in enumerate(formatted_batches):
                     continue
 
                 st.subheader(f"Ocean File Header Info: {ocean_file}")
-                with st.expander("Show Ocean Header (Lines 2–4)"):
+                with st.expander("Show Ocean Header"):
                     st.code(header_lines)
 
                 if len(column_names) != df_ocean.shape[1]:
@@ -746,12 +779,26 @@ for batch_idx, (batch_label, files) in enumerate(formatted_batches):
                 with open(file_path, "r", encoding="utf-8") as f:
                     lines = f.readlines()
 
-                header_info = "".join(lines[:81]).strip()
-                data_str = "".join(lines[83:])
+                # Header length varies with body/config — the file declares
+                # it ("nHeadLines = N" near the top; the Nth line is the
+                # column-name row, data follows). The old hardcoded 81/83
+                # slice broke on any profile whose header differed.
+                n_head = None
+                for ln in lines[:10]:
+                    if 'nHeadLines' in ln:
+                        try:
+                            n_head = int(ln.split('=')[1])
+                        except (IndexError, ValueError):
+                            pass
+                        break
+                if n_head is None or not (0 < n_head < len(lines)):
+                    n_head = 83  # legacy fallback
+                header_info = "".join(lines[:n_head]).strip()
+                data_str = "".join(lines[n_head:])
                 df_profile = pd.read_csv(StringIO(data_str), sep=r'\s+', header=None, na_values=['nan'])
 
                 st.subheader(f"Profile File: {profile_file}")
-                with st.expander("Show Extended Profile Header (Lines 1–81)"):
+                with st.expander("Show Extended Profile Header"):
                     st.code(header_info)
 
                 if df_profile.shape[1] == len(profile_column_names):

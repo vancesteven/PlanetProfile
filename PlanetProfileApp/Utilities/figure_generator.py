@@ -33,8 +33,20 @@ def load_profile_data(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
 
-    # Profile files have header info in lines 1-81, data starts at line 83
-    data_str = "".join(lines[83:])
+    # Header length varies with body/config — the file declares it
+    # ("nHeadLines = N" near the top; line N is the column-name row,
+    # data follows). Hardcoded slices break on other configs.
+    n_head = None
+    for ln in lines[:10]:
+        if 'nHeadLines' in ln:
+            try:
+                n_head = int(ln.split('=')[1])
+            except (IndexError, ValueError):
+                pass
+            break
+    if n_head is None or not (0 < n_head < len(lines)):
+        n_head = 83  # legacy fallback
+    data_str = "".join(lines[n_head:])
     df = pd.read_csv(StringIO(data_str), sep=r'\s+', header=None, na_values=['nan'])
 
     # Standard column names for profile files
@@ -67,9 +79,18 @@ def load_ocean_data(file_path):
     with open(file_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
-    header_line = lines[4].strip()
+    # Self-declared header length ("nHeadLines = N" on line 1; line N is
+    # the column-name row) — hardcoded [4]/[5:] broke on files with more
+    # header metadata (e.g. ocean speciation lines).
+    n_head = 5
+    if 'nHeadLines' in lines[0]:
+        try:
+            n_head = int(lines[0].split('=')[1])
+        except (IndexError, ValueError):
+            pass
+    header_line = lines[n_head - 1].strip()
     column_names = re.split(r'\s{2,}|\t+', header_line)
-    data_lines = "".join(lines[5:])
+    data_lines = "".join(lines[n_head:])
 
     df = pd.read_csv(StringIO(data_lines), sep=r'\s+', header=None,
                      engine='python', on_bad_lines='warn')
