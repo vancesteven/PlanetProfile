@@ -137,6 +137,7 @@ if user_wants_ocean:
         selected_salt = st.selectbox("Choose a salt database:", reaktoro_supported_databases, index =0) #defaults to frezchem database
 
         # When selected, load the database
+        species = []
         if selected_salt:
             st.write(f"Loading species from `{selected_salt}.dat`...")
             try:
@@ -144,46 +145,51 @@ if user_wants_ocean:
                 st.success(f"Loaded {len(species)} aqueous species.")
             except Exception as e:
                 st.error(f"Failed to load database: {e}")
+                st.stop()
             st.markdown("---")
 
         # User selection for which concentration units they want for their salts
         st.markdown("### Salt Concentration Settings")
         species_concentration_unit = st.selectbox("Choose Salt Species Concentration Units", ("absolute mol/kg", "relative ratios"))
-
-        # User can pick how many salt species they want here
-        num_salts = st.number_input("Input number of salt species", min_value = 1)
         if species_concentration_unit == "relative ratios":
             Planet.Ocean.wOcean_ppt = st.number_input("Please input your desired parts per thousand (ppt) for you salts")
-
         else:
             Planet.Ocean.wOcean_ppt = None
-
-
-        num_salts_list = [int(digit) for digit in str(num_salts)]
-        salt_species_list = [] #initializing blank lists to be populated by chosen salts and concentrations
-        salt_conc_list = []
         st.markdown("---")
 
-        # Depending on how many salt species the user wants, they get an option to set each sepcies and their concentrations
-        for i in range(int(num_salts)):
-            st.write(f"Salt Species {i + 1}")
-            selected_species = st.selectbox(f"Select Salt Species {i + 1}", species, key=f"species_select_{i}")
-            concentration = st.number_input(f"Input Concentration of Salt {i + 1}", key=f"conc_input_{i}")
+        # Pick ANY number of ion species in one control, then set each
+        # concentration. (Replaces the old numeric 'number of salt species'
+        # stepper + per-slot dropdowns, which hid multi-ion selection.)
+        st.markdown("### Ion Species")
+        salt_species_list = st.multiselect(
+            "Select ion species (pick as many as you need)",
+            options=species,
+            key="custom_ocean_species",
+            help="All aqueous species from the selected Reaktoro database "
+                 "are available; add each ion you want in the solution.")
+        salt_conc_list = []
+        for sp in salt_species_list:
+            conc = st.number_input(
+                f"Concentration of {sp} ({species_concentration_unit})",
+                min_value=0.0, format="%.6f", key=f"conc_{selected_salt}_{sp}")
+            salt_conc_list.append(conc)
 
-            salt_species_list.append(selected_species)
-            salt_conc_list.append(concentration)
-            st.markdown("---")
-        # This creates a summary of the salt configuration and lets the user name their solution
-        if salt_species_list and salt_conc_list:
-            salt_string = ", ".join(f"{species}: {conc}" for species, conc in zip(salt_species_list, salt_conc_list)) # this is all to format the salts and concentrations properly for PP to use
+        # Summary + naming; the composition string only forms once at least
+        # one species is chosen and the solution has a name.
+        if salt_species_list:
+            salt_string = ", ".join(f"{sp}: {conc}" for sp, conc in zip(salt_species_list, salt_conc_list))
             st.markdown("### Salt Configuration")
             st.write(f"Selected salt concentration unit: `{species_concentration_unit}`")
             solution_name = st.text_input("Please name you custom ocean solution here (ex. MgSO4)") #user gets to pick how they want to name their ocean composition - this will get passed to Planet Profile
-
-        #This produces the custom ocean composition string in the format that Planet Profile needs
-        st.session_state["custom_ocean_comp"] = "CustomSolution" + solution_name + " = " + salt_string
-        #This gets passed to Planet.Ocean.comp
-        st.write(st.session_state["custom_ocean_comp"])
+            if solution_name.strip():
+                #This produces the custom ocean composition string in the format that Planet Profile needs
+                st.session_state["custom_ocean_comp"] = "CustomSolution" + solution_name.strip() + " = " + salt_string
+                #This gets passed to Planet.Ocean.comp
+                st.write(st.session_state["custom_ocean_comp"])
+            else:
+                st.info("Name the solution to finish the custom composition.")
+        else:
+            st.info("Select at least one ion species above.")
 
 # Actual reset button widget at the bottom of the page
 st.markdown("---")
