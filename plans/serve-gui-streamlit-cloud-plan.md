@@ -98,6 +98,13 @@ Suspected split-identity workspace (email-primary + linked GitHub).
 Pivot: HF retired its native streamlit SDK -> Docker Space. Dockerfile +
 HF frontmatter now generated into the snapshot by build_deploy_branch.sh;
 PP_PUBLIC_MODE baked into the image. Procedure: DEPLOYING.md (repo root).
+
+**DEPLOYED (2026-07-15): https://vsteven-planetprofile.hf.space** — Space
+vsteven/planetprofile, snapshot source 4efefa56, uploaded via
+huggingface_hub API (HF git rejects >10 MiB files without LFS; compute
+Spaces now require PRO). Server-side verified: build green, /_stcore/health
+ok, HTTP 200, PP_PUBLIC_MODE=1 confirmed in the live Dockerfile. UI
+click-through (Phase D.2 checklist) = user's browser; pending.
 The section below is retained for the record.
 
 ## Phase D — deploy + cloud verification
