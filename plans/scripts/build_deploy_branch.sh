@@ -26,6 +26,11 @@ echo "Staging deploy snapshot of ${SRC_SHA} in ${STAGE}"
     PlanetProfile PlanetProfileApp SPICE \
     requirements.txt packages.txt .streamlit LICENSE \
     "$STAGE"/
+  # App-side config defaults (GetConfig copies these into place on first
+  # touch; shipping them avoids a first-run write in a fresh container).
+  if [[ -d UserConfigs ]]; then
+    rsync -a --exclude='__pycache__' UserConfigs "$STAGE"/
+  fi
   # Demo library (user request 2026-07-15): precomputed exploreogram grids
   # (loaded read-only by the public app's demo-library selector) and
   # reference PlanetProfile run outputs (browsed by the Outputs page).
@@ -105,6 +110,10 @@ COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY --chown=1000 . /app
+# COPY --chown owns the contents, but the /app directory node itself is
+# root's (created by WORKDIR): the app must be able to create dirs in its
+# CWD (UserConfigs/, run outputs <Body>/, output/exploreograms/).
+RUN chown 1000 /app
 USER 1000
 ENV HOME=/home/appuser
 
