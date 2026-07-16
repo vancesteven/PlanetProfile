@@ -231,6 +231,10 @@ with col1:
             key='x_driver_select'
         )
         st.session_state['explore_x_driver'] = x_driver
+        if x_driver == 'wOcean_ppt':
+            st.caption("Salinity applies to the model's ocean composition "
+                       "(default: **Seawater**, GSW). Change composition on "
+                       "the Ocean Settings page.")
         x_range_default = INPUT_PARAMS[x_driver]['default_range']
         x_min = st.number_input(
             f"{INPUT_PARAMS[x_driver]['label']} - Min",
@@ -280,6 +284,10 @@ with col1:
             key='y_driver_select'
         )
         st.session_state['explore_y_driver'] = y_driver
+        if y_driver == 'wOcean_ppt':
+            st.caption("Salinity applies to the model's ocean composition "
+                       "(default: **Seawater**, GSW). Change composition on "
+                       "the Ocean Settings page.")
         y_range_default = INPUT_PARAMS[y_driver]['default_range']
         y_min = st.number_input(
             f"{INPUT_PARAMS[y_driver]['label']} - Min",

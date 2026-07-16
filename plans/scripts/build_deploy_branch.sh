@@ -24,6 +24,7 @@ echo "Staging deploy snapshot of ${SRC_SHA} in ${STAGE}"
   rsync -a --exclude='__pycache__' --exclude='*.pyc' \
     --exclude='PlanetProfile/Test' \
     PlanetProfile PlanetProfileApp SPICE \
+    PlanetProfileCLI.py \
     requirements.txt packages.txt .streamlit LICENSE \
     "$STAGE"/
   # App-side config defaults (GetConfig copies these into place on first

@@ -128,9 +128,10 @@ changes the hydrosphere structure, so the cache becomes 2D:
 GUI slot (config_path REQUIRED), derived-|Ae| guard recomputed for the
 validated envelope from the v3 grid-walk, Tb default truncation if the
 support edge persists, salinity posterior appears automatically in the
-parameter panels. AppTest + user ratification before any deploy; the
-public Space snapshot picks it up on the next deliberate redeploy
-(DEPLOYING.md).
+parameter panels. AppTest + user ratification before any deploy. User directive
+(2026-07-16): this work returns to the MAIN repo (artifact + gates +
+INDEX + slot on origin/genai) BEFORE any Hugging Face deployment — the
+public app only ever consumes the repo (DEPLOYING.md release discipline).
 
 ## Non-goals
 

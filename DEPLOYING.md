@@ -55,6 +55,14 @@ deliberate script run.
    then run the click-through checklist in
    `plans/serve-gui-streamlit-cloud-plan.md` Phase D.2.
 
+## Release discipline for inference artifacts
+
+New SBI/amortized artifacts (e.g. the Europa salinity campaign) deploy to
+the public app ONLY after they have landed on the main repository
+(origin/genai: artifact + gate reports + INDEX row + GUI slot, verified per
+CLAUDE.md) — never directly from a compute machine. The public app is a
+consumer of the repo, not a second source of truth.
+
 ## Demo library (precomputed results shipped with the app)
 
 Public visitors cannot compute, so the snapshot ships read-only demo data:
