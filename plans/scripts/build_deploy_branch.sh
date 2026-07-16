@@ -89,10 +89,12 @@ RUN apt-get update \
 
 RUN useradd -m -u 1000 user
 
-# reaktoro from conda-forge (pip cannot install it); everything else from
-# the pinned pip requirements into the same env.
-RUN mamba install -y -n base python=3.11 reaktoro \
+# reaktoro from conda-forge (pip cannot install it). A DEDICATED env —
+# never mutate miniforge's base (its pinned newer python makes a
+# python=3.11 downgrade unresolvable, failing the build).
+RUN mamba create -y -n pp python=3.11 reaktoro -c conda-forge \
  && mamba clean -afy
+ENV PATH=/opt/conda/envs/pp/bin:$PATH
 
 WORKDIR /app
 COPY requirements.txt /app/requirements.txt
