@@ -49,6 +49,23 @@ deliberate script run.
    then run the click-through checklist in
    `plans/serve-gui-streamlit-cloud-plan.md` Phase D.2.
 
+## Demo library (precomputed results shipped with the app)
+
+Public visitors cannot compute, so the snapshot ships read-only demo data:
+
+- **Exploreogram grids**: every `output/exploreograms/cache/*.pkl` with a
+  `.meta.json` sidecar appears in the page's "Precomputed grid library"
+  selector (public mode only). Generate on a dev machine by running the
+  grid in the local app (or headlessly via AppTest), then write the
+  sidecar (widgets dict + label) — see `save_to_cache(..., meta=...)` in
+  `PlanetProfileApp/Utilities/explore_cache.py`. Bigger grids: Machine B.
+- **Reference PlanetProfile runs**: `<Body>/` output dirs at repo root
+  (profile .txt + `figures/*.pdf`), browsed by the Outputs page (defaults
+  to Europa on fresh sessions). Generate with a normal local PP run.
+
+Both are picked up automatically by the snapshot script on the next
+deliberate redeploy.
+
 ## What's in / out of the snapshot
 
 In: `PlanetProfileApp/`, `PlanetProfile/` (minus `Test/**` except the two

@@ -527,13 +527,49 @@ with col1:
     # minutes-to-hours of compute a shared cloud host cannot serve.
     from Utilities.app_mode import public_mode as _pp_public_mode
     if _pp_public_mode():
-        st.info("🌐 **Public demo** — exploreogram grid runs are disabled "
+        st.info("🌐 **Public demo** — new exploreogram grids are disabled "
                 "(each grid cell is a full PlanetProfile forward model). "
-                "Run the app locally from the "
+                "Precomputed grids are available below; run the app locally "
+                "from the "
                 "[PlanetProfile repository](https://github.com/vancesteven/PlanetProfile) "
-                "for this feature.")
-        run_button = False
+                "to compute your own.")
         force_rerun = False
+        run_button = False
+        # Demo library: precomputed grids shipped with the deployment.
+        # Selecting one seeds the GUI to the cached configuration and
+        # reruns; the normal disk-cache path then loads it (no compute —
+        # the compute branch is hard-guarded below in public mode).
+        from Utilities.explore_cache import (list_cached_explorations as _lce,
+                                             load_cache_meta as _lcm)
+        _demo_cache_dir = os.path.join(parent_directory, 'output',
+                                       'exploreograms', 'cache')
+        _demo_entries = [(k, _lcm(_demo_cache_dir, k))
+                         for k, _, _ in _lce(_demo_cache_dir)]
+        _demo_entries = [(k, m) for k, m in _demo_entries if m]
+        if _demo_entries:
+            _labels = {m.get('label', k): (k, m) for k, m in _demo_entries}
+            _choice = st.selectbox("📂 Precomputed grid library:",
+                                   list(_labels.keys()),
+                                   key='explore_demo_choice')
+            if st.button("Load precomputed grid", type="primary"):
+                _k, _m = _labels[_choice]
+                # Seed widget/session state to match the cached run, then
+                # rerun so the cache key regenerates identically and the
+                # disk-cache branch loads it.
+                _w = _m['widgets']
+                for _key, _val in _w.items():
+                    st.session_state[_key] = _val
+                st.session_state['explore_xName'] = _w.get('x_param_select',
+                    st.session_state.get('explore_xName'))
+                st.session_state['explore_yName'] = _w.get('y_param_select',
+                    st.session_state.get('explore_yName'))
+                if 'z_param_select' in _w:
+                    st.session_state['explore_zName'] = _w['z_param_select']
+                st.session_state.explore_running = True
+                st.session_state.explore_force_rerun = False
+                st.rerun()
+        else:
+            st.caption("No precomputed grids shipped with this deployment.")
     else:
         col_run, col_force = st.columns([2, 1])
         with col_run:
@@ -662,6 +698,17 @@ with col2:
 
         # Reset force flag
         st.session_state.explore_force_rerun = False
+
+        # Public serving: computation is never allowed — reachable only if
+        # the demo-library selection failed to hit its disk cache.
+        from Utilities.app_mode import public_mode as _pp_public_mode2
+        if _pp_public_mode2():
+            st.session_state.explore_running = False
+            st.error("This configuration is not in the precomputed demo "
+                     "library, and new grids cannot be computed on the "
+                     "public server. Pick a library entry above, or run "
+                     "the app locally for arbitrary grids.")
+            st.stop()
 
         # --- FULL COMPUTATION (cache miss) ---
         # Estimate time

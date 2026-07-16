@@ -26,6 +26,18 @@ echo "Staging deploy snapshot of ${SRC_SHA} in ${STAGE}"
     PlanetProfile PlanetProfileApp SPICE \
     requirements.txt packages.txt .streamlit LICENSE \
     "$STAGE"/
+  # Demo library (user request 2026-07-15): precomputed exploreogram grids
+  # (loaded read-only by the public app's demo-library selector) and
+  # reference PlanetProfile run outputs (browsed by the Outputs page).
+  # Regenerate with plans/scripts (gen scripts documented in DEPLOYING.md).
+  if [[ -d output/exploreograms/cache ]]; then
+    rsync -a output/exploreograms/cache "$STAGE"/output/exploreograms/
+  fi
+  for body in Europa; do
+    if [[ -d "$body" ]]; then
+      rsync -a --exclude='inductionData' "$body" "$STAGE"/
+    fi
+  done
 )
 
 # Serve-time data from Test/: only the structure grids the

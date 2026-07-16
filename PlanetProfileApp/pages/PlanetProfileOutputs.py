@@ -117,7 +117,10 @@ if not Planet:
     st.error("Please Select a Planet on the Planet Profile Main Settings Page")
     st.stop()
 
-chosen_planet = st.session_state.get("ChosenPlanet", None)
+# Default to Europa when no planet was selected (fresh session, e.g. a
+# public visitor browsing the shipped demo outputs) — same convention as
+# the Exploreogram page.
+chosen_planet = st.session_state.get("ChosenPlanet", None) or 'Europa'
 
 # Get the path to the current script's directory
 # /PlanetProfile/PlanetProfileApp/RunPlanetProfile.py
