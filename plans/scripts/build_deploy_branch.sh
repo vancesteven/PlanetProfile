@@ -87,7 +87,11 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends poppler-utils \
  && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -m -u 1000 user
+# HF runs Spaces as uid 1000. Ubuntu-Noble bases (miniforge) already ship
+# an 'ubuntu' user at uid 1000 — creating another fails the build
+# ("UID 1000 is not unique"); ensure one exists and give it a writable HOME.
+RUN (id -u 1000 >/dev/null 2>&1 || useradd -m -u 1000 user) \
+ && mkdir -p /home/appuser && chown 1000 /home/appuser
 
 # reaktoro from conda-forge (pip cannot install it). A DEDICATED env —
 # never mutate miniforge's base (its pinned newer python makes a
@@ -100,9 +104,9 @@ WORKDIR /app
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY --chown=user:user . /app
-USER user
-ENV HOME=/home/user
+COPY --chown=1000 . /app
+USER 1000
+ENV HOME=/home/appuser
 
 # Public demo mode (see PlanetProfileApp/Utilities/app_mode.py):
 # amortized inference + single capped forward runs; MCMC and new
