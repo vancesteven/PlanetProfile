@@ -1028,3 +1028,13 @@ Summary:
 to mcmc_runner (signed-Im, Ae*Be complex product in nT, per-channel convention metadata,
 pre-deploy-assertion update, unit tests). Small/non-intensive. Then Phase 2 config,
 then the Phase 3 1M campaign (seeds train 42 / data 47 / noise 4747).
+
+## NOTE for Machine B (2026-07-16, Machine A) — v2 artifact nflows spline assertion
+A Machine A sampling check on `europa_seawater_andrade_clipper_v2.pt`
+(4000 draws at config-central x_obs, plus signed-Im flip probes at n=1000)
+died inside nflows rational_quadratic_spline inversion:
+`assert (discriminant >= 0).all()`. Intermittent — the GUI slot ran fine
+for the user at defaults (n=5000). Likely numerical edge of the NSF spline
+under some conditioning/draw combinations. Worth a guard (catch + resample
+or clamp) in sample_posterior before v2 ratification; belongs with the
+Europa SBI work now on Machine B.
