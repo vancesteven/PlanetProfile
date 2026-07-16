@@ -89,13 +89,15 @@ EOF
 cat > "$STAGE/Dockerfile" <<'EOF'
 FROM condaforge/miniforge3:latest
 
-# poppler: pdf2image previews. texlive set: PlanetProfile figure labels
-# use usetex with siunitx (\si) and mhchem (\ce) -> texlive-science;
-# cm-super + dvipng for matplotlib's usetex pipeline.
+# poppler: pdf2image previews. texlive set: the PlanetProfile usetex
+# preamble (UserConfigs/configPPplots.py) needs siunitx + mhchem
+# (texlive-science) AND the stix font + upgreek (texlive-fonts-extra —
+# no smaller Debian package carries stix.sty); cm-super + dvipng for
+# matplotlib's usetex pipeline.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends poppler-utils \
       texlive-latex-base texlive-latex-extra texlive-science \
-      texlive-fonts-recommended cm-super dvipng \
+      texlive-fonts-recommended texlive-fonts-extra cm-super dvipng \
  && rm -rf /var/lib/apt/lists/*
 
 # HF runs Spaces as uid 1000. Ubuntu-Noble bases (miniforge) already ship
