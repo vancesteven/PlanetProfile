@@ -38,3 +38,4 @@ PyYAML==6.0.3
 psutil==7.2.2
 sqlalchemy==2.0.49
 pdf2image
+PyALMA3==1.0.1
