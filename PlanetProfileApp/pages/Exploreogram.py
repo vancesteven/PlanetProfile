@@ -171,6 +171,25 @@ if 'explore_running' not in st.session_state:
     st.session_state.explore_running = False
 if 'explore_results' not in st.session_state:
     st.session_state.explore_results = None
+# Demo-library load (public mode): apply a pending widget seed stashed by
+# the 'Load precomputed grid' button — must happen HERE, before any of the
+# seeded widgets are instantiated (Streamlit forbids setting a widget key
+# after its widget exists in the same run). Then arm the run flag so the
+# normal disk-cache path picks the grid up.
+_demo_pending = st.session_state.pop('explore_demo_pending', None)
+if _demo_pending:
+    for _key, _val in _demo_pending.items():
+        st.session_state[_key] = _val
+    if 'x_param_select' in _demo_pending:
+        st.session_state['explore_xName'] = _demo_pending['x_param_select']
+    if 'y_param_select' in _demo_pending:
+        st.session_state['explore_yName'] = _demo_pending['y_param_select']
+    if 'z_param_select' in _demo_pending:
+        st.session_state['explore_zName'] = _demo_pending['z_param_select']
+    st.session_state['explore_nx'] = int(_demo_pending.get('nx_input', 10))
+    st.session_state['explore_ny'] = int(_demo_pending.get('ny_input', 10))
+    st.session_state.explore_running = True
+    st.session_state.explore_force_rerun = False
 if 'explore_start_time' not in st.session_state:
     st.session_state.explore_start_time = None
 if 'explore_error' not in st.session_state:
@@ -552,21 +571,11 @@ with col1:
                                    list(_labels.keys()),
                                    key='explore_demo_choice')
             if st.button("Load precomputed grid", type="primary"):
-                _k, _m = _labels[_choice]
-                # Seed widget/session state to match the cached run, then
-                # rerun so the cache key regenerates identically and the
-                # disk-cache branch loads it.
-                _w = _m['widgets']
-                for _key, _val in _w.items():
-                    st.session_state[_key] = _val
-                st.session_state['explore_xName'] = _w.get('x_param_select',
-                    st.session_state.get('explore_xName'))
-                st.session_state['explore_yName'] = _w.get('y_param_select',
-                    st.session_state.get('explore_yName'))
-                if 'z_param_select' in _w:
-                    st.session_state['explore_zName'] = _w['z_param_select']
-                st.session_state.explore_running = True
-                st.session_state.explore_force_rerun = False
+                # Widget keys cannot be modified after their widgets have
+                # been instantiated this run — stash the seed and apply it
+                # at the top of the NEXT run (see explore_demo_pending
+                # handler near the session-state init block).
+                st.session_state['explore_demo_pending'] = _labels[_choice][1]['widgets']
                 st.rerun()
         else:
             st.caption("No precomputed grids shipped with this deployment.")
