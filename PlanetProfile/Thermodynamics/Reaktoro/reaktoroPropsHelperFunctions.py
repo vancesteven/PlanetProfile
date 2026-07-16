@@ -1,5 +1,13 @@
 import copy
-import reaktoro as rkt
+# reaktoro is conda-forge-only (no pip wheel); optional so pip-only
+# deployments can import the module chain (Main -> SetupInit ->
+# CustomSolution -> reaktoroProps -> here). Any actual CustomSolution
+# use fails at call time with a NameError/ImportError upstream
+# (HydroEOS raises a clear message before reaching this module).
+try:
+    import reaktoro as rkt
+except ImportError:
+    rkt = None
 import numpy as np
 import logging
 import pandas as pd
@@ -199,7 +207,7 @@ def RelevantSolidSpecies(db, aqueous_species_list, solid_phases_to_consider, sol
     return solid_phases
 
 
-def ices_phases_amount_mol(props: rkt.ChemicalProps):
+def ices_phases_amount_mol(props: 'rkt.ChemicalProps'):
     '''
     Helper equilibirum constraint function to constrain the total amount of moles of all ices in the current state using its associated properties. Function is used in
     the ice constraint for rkt_p_freeze().

@@ -15,8 +15,16 @@ from PlanetProfile.Thermodynamics.MgSO4.MgSO4Props import MgSO4Props, MgSO4Phase
 from PlanetProfile.Thermodynamics.Seawater.SwProps import SwProps, SwPhase, SwSeismic, SwConduct
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
 from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv, MixedPhaseSeparator
-from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhaseLookup, RktPhaseOnDemand,  \
-    SpeciesParser, RktProps, RktSeismic, RktConduct, RktHydroSpecies, EOSLookupTableLoader
+# Reaktoro is conda-forge-only (no pip wheel) and is needed ONLY for
+# CustomSolution compositions. Guard the import so pip-only deployments
+# (public GUI Space) can use every other composition; CustomSolution
+# raises a clear error at use time instead of breaking this module.
+try:
+    from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhaseLookup, RktPhaseOnDemand,  \
+        SpeciesParser, RktProps, RktSeismic, RktConduct, RktHydroSpecies, EOSLookupTableLoader
+    REAKTORO_AVAILABLE = True
+except ImportError:
+    REAKTORO_AVAILABLE = False
 from PlanetProfile.Thermodynamics.Seafreeze.SeafreezeProps import IceSeaFreezeProps
 # Assign logger 
 log = logging.getLogger('PlanetProfile')
@@ -310,6 +318,11 @@ class OceanEOSStruct:
                     self.ufn_species = ReturnConstantSpecies(wOcean_ppt, Ocean_Speciation_Info['ppt_reference_g_kg'],
                         Ocean_Speciation_Info['pH'], Ocean_Speciation_Info['species'])
                 elif self.comp.startswith("CustomSolution"):
+                    if not REAKTORO_AVAILABLE:
+                        raise ImportError(
+                            'CustomSolution ocean compositions require the reaktoro package, '
+                            'which is conda-forge-only and not installed in this deployment. '
+                            'Install PlanetProfile via conda, or use Seawater/MgSO4/NaCl/PureH2O.')
                     # Parse out the species list and ratio into a format compatible with Reaktoro and create a CustomSolution EOS label
                     self.aqueous_species_string, self.speciation_ratio_mol_kg, self.ocean_solid_phases, self.EOS_lookup_label = SpeciesParser(self.comp, self.w_ppt)
                     Timing.setTime(time.time())
