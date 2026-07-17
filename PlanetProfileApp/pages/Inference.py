@@ -1600,6 +1600,27 @@ def render_results():
             col3.metric("R-hat", f"{rhat:.3f}" if rhat is not None else "N/A")
             st.caption(f"**Samples:** {metrics['n_samples']} | **Runtime:** {result.metadata['elapsed_time_s']/60:.1f} min")
 
+    # Observables the posterior was actually conditioned on — makes any
+    # widget/config mixup immediately visible (amortized runs record the
+    # exact x_obs; older results fall back to the config's central values).
+    with st.expander("🔭 Observables used in this run", expanded=False):
+        used = (result.metadata or {}).get('x_obs')
+        if used:
+            st.table({'observable': list(used.keys()),
+                      'conditioned value': [f"{v:.4g}" for v in used.values()]})
+            st.caption("Values the pretrained flow was conditioned on for "
+                       "this run (recorded at run time).")
+        else:
+            obs = getattr(result.config, 'observables', {}) or {}
+            if obs:
+                st.table({'observable': list(obs.keys()),
+                          'value': [f"{v[0]:.4g}" for v in obs.values()],
+                          'σ': [f"{v[1]:.4g}" for v in obs.values()]})
+                st.caption("From this run's configuration (run predates "
+                           "x_obs recording).")
+            else:
+                st.info("No observable record on this result.")
+
     # Summary statistics
     with st.expander("📋 Parameter Summary", expanded=True):
         st.markdown("**Posterior Statistics:**")
@@ -1760,8 +1781,18 @@ def render_results():
             import matplotlib.pyplot as plt
             from matplotlib.patches import Ellipse
 
-            Re_obs, Re_err = result.config.observables.get('Re_k2', (0.608, 0.048))
-            Im_obs, Im_err = result.config.observables.get('abs_Im_k2', (0.135, 0.035))
+            # Observed-ellipse values come ONLY from this run's config —
+            # never hardcoded fallbacks (the old defaults were Titan's k2
+            # and drew a Titan ellipse on every non-Titan run whose config
+            # keyed the imaginary channel 'Im_k2' instead of 'abs_Im_k2').
+            def _obs_channel(*aliases):
+                for a in aliases:
+                    if a in result.config.observables:
+                        v = result.config.observables[a]
+                        return float(v[0]), float(v[1])
+                return None, None
+            Re_obs, Re_err = _obs_channel('Re_k2')
+            Im_obs, Im_err = _obs_channel('Im_k2', 'abs_Im_k2')
 
             heating_results = result.heating_results or []
             eval_idx = result.metadata.get('heating_indices')
@@ -1800,19 +1831,30 @@ def render_results():
             else:
                 ax.scatter(Re_arr, Im_arr, s=pt_size, alpha=0.6, color='steelblue')
 
-            ax.add_patch(Ellipse((Re_obs, Im_obs), 2*Re_err, 2*Im_err,
-                                 fill=False, color='red', linewidth=2,
-                                 linestyle='--', label=r'1$\sigma$'))
-            ax.add_patch(Ellipse((Re_obs, Im_obs), 4*Re_err, 4*Im_err,
-                                 fill=False, color='red', linewidth=1,
-                                 linestyle=':', label=r'2$\sigma$'))
+            have_ellipse = Re_obs is not None and Im_obs is not None
+            if have_ellipse:
+                ax.add_patch(Ellipse((Re_obs, abs(Im_obs)), 2*Re_err, 2*Im_err,
+                                     fill=False, color='red', linewidth=2,
+                                     linestyle='--', label=r'1$\sigma$'))
+                ax.add_patch(Ellipse((Re_obs, abs(Im_obs)), 4*Re_err, 4*Im_err,
+                                     fill=False, color='red', linewidth=1,
+                                     linestyle=':', label=r'2$\sigma$'))
             ax.set_xlabel(r'Re$(k_2)$')
             ax.set_ylabel(r'$|$Im$(k_2)|$')
             ax.set_title(r'$k_2$ Posterior')
-            ax.legend()
+            if have_ellipse:
+                ax.legend()
             st.pyplot(fig)
             plt.close(fig)
-            caption_bits = ["Red ellipses: 1σ / 2σ observational constraint."]
+            caption_bits = []
+            if have_ellipse:
+                caption_bits.append(
+                    "Red ellipses: 1σ / 2σ observational constraint "
+                    "(this run's k₂ conditioning values).")
+            else:
+                caption_bits.append(
+                    "No k₂ observational constraint in this run's config — "
+                    "ellipse omitted.")
             if isinstance(pt_size, np.ndarray):
                 caption_bits.append(
                     "**Point size** scales with the sampled basal temperature "
