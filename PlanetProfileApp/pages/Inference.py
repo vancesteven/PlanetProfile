@@ -1229,6 +1229,42 @@ def render_amortized_config():
             if k.startswith(('amort_obs_', 'amort_sigma_', 'amort_trunc_')):
                 del st.session_state[k]
 
+    # Slot-specific induction documentation (numbers sourced from each
+    # training config; the generic model-assumptions expander stays
+    # slot-agnostic because it renders before slot selection).
+    with st.expander("🧲 How magnetic induction constrains this model"):
+        if 'clipper' in fname:
+            st.markdown(
+                "This model conditions on **Europa Clipper-era induction "
+                "measurements directly**: 14 channels "
+                "`Bind_<frequency>_<component>_<re|im>` — the induced dipole "
+                "coefficient expressed as equivalent surface field (nT), "
+                "computed as the complex product `Ae(frequency) × Be_component` "
+                "— at the synodic (11.23 h), 2nd synodic harmonic (5.62 h), "
+                "and orbital (85.2 h) periods, each with σ = 1.5 nT (Europa "
+                "Clipper magnetometer requirement, Kivelson et al. 2023). "
+                "Imaginary parts are **signed** (not folded). In addition, "
+                "the training set was cut to the Galileo-era support "
+                "`|Ae_synodic| > 0.7`, `|Im Ae| < 0.4` — models without a "
+                "conductive ocean are outside the flow's support. `Ae` "
+                "depends on the ocean state only through the ice basal "
+                "temperature T_b (fixed salinity in this artifact), so the "
+                "induction channels constrain T_b, hence ocean and ice "
+                "thickness.")
+        else:
+            st.markdown(
+                "This model does **not** condition on an induction "
+                "measurement channel. Instead, the Galileo-era synodic "
+                "induction constraint enters as a hard **support cut at "
+                "training time**: every training model satisfies "
+                "`|Ae_synodic| > 0.7` and `|Im Ae| < 0.4` (a present, "
+                "conductive ocean). Because `Ae` depends on the ocean state "
+                "only through the ice basal temperature T_b in this model "
+                "family, the cut removes T_b below ~261.5 K — which is why "
+                "the T_b truncation below defaults to the induction-"
+                "surviving range. The posterior Ae panel in the results "
+                "shows where your posterior lands inside that support.")
+
     runner = _load_sbi_runner(str(artifact_path), artifact_path.stat().st_mtime,
                               slot.get('validated_version_pairs', ()))
     meta = runner.artifact_meta
@@ -1868,6 +1904,123 @@ def render_results():
             st.caption(" ".join(caption_bits))
         except Exception as e:
             st.warning(f"k₂ scatter unavailable: {e}")
+
+    # Posterior induction response (complex plane) — only when the run
+    # carried induction (metadata packaged by both runners since 2026-07).
+    _ind_ae = (result.metadata or {}).get('induction_Ae')
+    if _ind_ae:
+        with st.expander("🧲 Induction Response (Ae) Posterior", expanded=True):
+            try:
+                import matplotlib.pyplot as plt
+
+                _be = (result.metadata or {}).get('Be_nT') or {}
+                unit_opts = ['Ae (dimensionless)']
+                if _be:
+                    unit_opts.append('Ae·|B| (nT, per component)')
+                unit = st.radio("Units", unit_opts, horizontal=True,
+                                key='ind_ae_units')
+                if not _be:
+                    st.caption("Ae·|B| (nT) view needs excitation moments, "
+                               "which this run's config does not carry "
+                               "(induction enters as a support bound only).")
+
+                labels = list(_ind_ae.keys())
+                if unit.startswith('Ae ('):
+                    # One complex-plane panel per excitation label.
+                    fig, axes = plt.subplots(1, len(labels),
+                                             figsize=(5 * len(labels), 4.6),
+                                             squeeze=False)
+                    for ax, lab in zip(axes[0], labels):
+                        re = np.asarray(_ind_ae[lab]['re'], float)
+                        im = np.asarray(_ind_ae[lab]['im'], float)
+                        ax.scatter(re, im, s=6, alpha=0.35, color='steelblue')
+                        th = np.linspace(0, 2 * np.pi, 200)
+                        ax.plot(np.cos(th), np.sin(th), color='0.6',
+                                linewidth=0.8, linestyle=':')
+                        ax.set_xlabel(r'Re$(A_e)$')
+                        ax.set_ylabel(r'Im$(A_e)$')
+                        ax.set_title(lab)
+                        ax.set_aspect('equal', adjustable='datalim')
+                    fig.suptitle('Posterior induction response '
+                                 '(dotted: $|A_e| = 1$)', fontsize=10)
+                    fig.tight_layout()
+                    st.pyplot(fig)
+                    plt.close(fig)
+                else:
+                    # Per-component induced surface field Bind = Ae * Be
+                    # (plain complex product, nT) — one row per label.
+                    obs = getattr(result.config, 'observables', {}) or {}
+                    for lab in labels:
+                        comps = _be.get(lab)
+                        if not comps:
+                            st.caption(f"{lab}: no excitation moments — skipped.")
+                            continue
+                        ae = (np.asarray(_ind_ae[lab]['re'], float)
+                              + 1j * np.asarray(_ind_ae[lab]['im'], float))
+                        cnames = list(comps.keys())
+                        fig, axes = plt.subplots(1, len(cnames),
+                                                 figsize=(4.4 * len(cnames), 4.2),
+                                                 squeeze=False)
+                        for ax, comp in zip(axes[0], cnames):
+                            be_c = complex(*comps[comp])
+                            bind = ae * be_c
+                            ax.scatter(bind.real, bind.imag, s=6, alpha=0.35,
+                                       color='steelblue')
+                            # Observed conditioning value + 1.5 nT circle
+                            ore = obs.get(f'Bind_{lab}_{comp}_real')
+                            oim = obs.get(f'Bind_{lab}_{comp}_imag')
+                            if ore is not None and oim is not None:
+                                ax.plot(ore[0], oim[0], 'r*', markersize=10)
+                                th = np.linspace(0, 2 * np.pi, 100)
+                                ax.plot(ore[0] + ore[1] * np.cos(th),
+                                        oim[0] + oim[1] * np.sin(th),
+                                        'r--', linewidth=0.9)
+                            ax.set_xlabel(fr'Re$(B_{{ind,{comp}}})$ (nT)')
+                            ax.set_ylabel(fr'Im$(B_{{ind,{comp}}})$ (nT)')
+                            ax.set_title(f'{lab} · {comp}')
+                            ax.set_aspect('equal', adjustable='datalim')
+                        fig.suptitle('Induced dipole coefficient as equivalent '
+                                     'surface field (red: conditioned value '
+                                     '± 1σ)', fontsize=10)
+                        fig.tight_layout()
+                        st.pyplot(fig)
+                        plt.close(fig)
+
+                # Optional 3D view: complex Ae vs Re(k2) reveals how the
+                # tidal and induction responses co-vary along the posterior.
+                if st.checkbox("3D view: (Re Ae, Im Ae) vs Re(k₂)",
+                               key='ind_ae_3d'):
+                    import plotly.graph_objects as go
+                    lab3 = labels[0] if len(labels) == 1 else st.selectbox(
+                        "Excitation", labels, key='ind_ae_3d_label')
+                    re = np.asarray(_ind_ae[lab3]['re'], float)
+                    im = np.asarray(_ind_ae[lab3]['im'], float)
+                    k2re = np.asarray(result.k2_results)[:, 0]
+                    n = min(len(re), len(k2re))
+                    color = None
+                    if 'Tb_K' in result.param_names:
+                        color = result.samples[:n,
+                            result.param_names.index('Tb_K')]
+                    fig3 = go.Figure(go.Scatter3d(
+                        x=re[:n], y=im[:n], z=k2re[:n], mode='markers',
+                        marker=dict(size=2.5, opacity=0.5, color=color,
+                                    colorscale='Viridis',
+                                    colorbar=dict(title='T_b (K)')
+                                    if color is not None else None)))
+                    fig3.update_layout(
+                        scene=dict(xaxis_title=f'Re Ae ({lab3})',
+                                   yaxis_title=f'Im Ae ({lab3})',
+                                   zaxis_title='Re k2'),
+                        height=550, margin=dict(l=0, r=0, t=10, b=0))
+                    st.plotly_chart(fig3, use_container_width=True)
+
+                st.caption(
+                    "Each point is one posterior sample's complex induction "
+                    "response, from the same per-T_b response grid the "
+                    "likelihood/support cut uses. Ae depends on the ocean "
+                    "state only through T_b in this model family.")
+            except Exception as e:
+                st.warning(f"Induction posterior panel unavailable: {e}")
 
     # C/MR² posterior
     with st.expander("⚖️ C/MR² Moment-of-Inertia Posterior", expanded=True):
