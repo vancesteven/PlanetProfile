@@ -5,6 +5,9 @@ from PlanetProfile.Utilities.defineStructs import Constants
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
+# Charged species already warned about (no lambda coefficients) — once per run.
+_warned_missing_lambda = set()
+
 def elecCondMcCleskey2012(P_MPa, T_C, ions):
     # Full data structure including all ions from the MATLAB data matrix
     data = {
@@ -45,6 +48,19 @@ def elecCondMcCleskey2012(P_MPa, T_C, ions):
         log.error("No ion data available. Assuming pure water")
         return np.zeros_like(T_C) + Constants.sigmaH2O_Sm
     for ion_name, ion_data in ions.items():
+        if ion_name not in data:
+            # A charged species without McCleskey lambda coefficients
+            # contributes NOTHING here even though its constituent ions
+            # were removed from the free pool by equilibrium speciation —
+            # sigma is biased LOW for such solutions (e.g. MgCl+ / CaCl+
+            # in chloride brines). Say so instead of silently dropping.
+            if ion_name not in _warned_missing_lambda:
+                _warned_missing_lambda.add(ion_name)
+                log.warning(
+                    f'McCleskey (2012) has no conductivity coefficients for '
+                    f'charged species {ion_name}; its contribution is '
+                    f'omitted and the total conductivity may be biased low.')
+            continue
         if ion_name in data:
             # Get relevant data
             mols = np.array(ion_data['mols'])
@@ -53,7 +69,12 @@ def elecCondMcCleskey2012(P_MPa, T_C, ions):
             Ad = np.array([data[ion_name]['A2'], data[ion_name]['A1'], data[ion_name]['A0']])
             l210 = np.array([data[ion_name]['lam2'], data[ion_name]['lam1'], data[ion_name]['lam0']])
 
-            # Ionic strength calculations
+            # Ionic strength calculations.
+            # KNOWN APPROXIMATION (pre-2026): per-ion I from that ion's own
+            # molality, not the TOTAL solution ionic strength McCleskey's
+            # lambda(I) expects. With equilibrium free-ion molalities
+            # (2026-07) I shrinks slightly, raising lambda — a physically
+            # correct partial offset to ion-pair removal, not a regression.
             I = 0.5 * mols * z**2
             I2 = np.sqrt(I)
 

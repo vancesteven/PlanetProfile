@@ -978,17 +978,98 @@ def ensureArray(var):
 
 
 class RktConduct():
-    def __init__(self, aqueous_species_list, speciation_ratio_mol_kg, ocean_solid_species, fn_species):
+    def __init__(self, aqueous_species_list, speciation_ratio_mol_kg, ocean_solid_species, fn_species,
+                 use_equilibrium_speciation=True):
         """
         Initialize the RKtConduct() object and parse the aqueous species list into a format compatible with elecCondMcClevskey2012()
+
+        use_equilibrium_speciation: when True (default), the McCleskey
+        conductivity model receives FREE-ION molalities from the Reaktoro
+        equilibrium state, so neutral complexes / ion pairs (e.g.
+        MgSO4(aq)) reduce the conducting ion population — the same way
+        McCleskey (2012) is applied with WATEQ4F speciation in terrestrial
+        settings. When False (or when the equilibrium solve fails, with a
+        logged warning), the NOMINAL input ratios are used, treating every
+        ion as fully dissociated (pre-2026-07 behavior).
         """
         # Convert H2O label to H2O(aq) label for compatability with Supcrt database
         db = rkt.SupcrtDatabase(CustomSolutionParams.SUPCRT_DATABASE)
         self.aqueous_species_list, self.speciation_ratio_mol_per_kg = species_convertor_compatible_with_supcrt(db, aqueous_species_list, speciation_ratio_mol_kg, Constants.PhreeqcToSupcrtNames)
         self.ocean_solid_phases = ocean_solid_species
         self.fn_species = fn_species
+        self.use_equilibrium_speciation = use_equilibrium_speciation
         # Get reference to dictionary that holds already calculated speciations in form of key (P_MPa, T_K)
         self.calculated_speciations = fn_species.calculated_speciations
+        if use_equilibrium_speciation:
+            # The shared fn_species system contains ONLY the input species,
+            # so equilibrium there cannot form ion pairs (nothing to pair
+            # into) and speciation would equal the nominal ratios. Build a
+            # conductivity-specific speciation function whose aqueous phase
+            # ALSO includes the 1:1 ion-pair complexes of the input ions
+            # that exist in the database (e.g. MgSO4(aq), MgCl+, NaSO4-):
+            # this is how McCleskey (2012) is applied with WATEQ4F
+            # speciation terrestrially. Restricting expansion to ion pairs
+            # of the INPUT ions deliberately avoids opening redox
+            # transformations (no O2(aq)/H2(aq)/sulfide added).
+            pairs = self._ion_pair_complexes(db, self.aqueous_species_list)
+            if pairs:
+                log.info(f'McCleskey speciation: adding ion-pair complexes '
+                         f'{sorted(pairs)} to the conductivity equilibrium.')
+                expanded = self.aqueous_species_list + ' ' + ' '.join(sorted(pairs))
+                # NOTE: SupcrtGenerator rebuilds the species string from the
+                # RATIO DICT keys (species_convertor_compatible_with_supcrt
+                # ignores the input string), so the complexes must enter the
+                # dict — at zero initial amount; equilibrium populates them.
+                expanded_ratio = dict(self.speciation_ratio_mol_per_kg)
+                for p in pairs:
+                    expanded_ratio.setdefault(p, 0.0)
+                self.fn_species_conduct = RktHydroSpecies(
+                    expanded, expanded_ratio, ocean_solid_species)
+            else:
+                self.fn_species_conduct = fn_species
+            self.calculated_speciations = self.fn_species_conduct.calculated_speciations
+
+    @staticmethod
+    def _ion_pair_complexes(db, aqueous_species_list):
+        """Names of database species that are 1:1 cation-anion complexes of
+        the input ions (element sums and charge sums match a cation+anion
+        pair). Returns a set of species names, excluding the inputs."""
+        def comp(sp):
+            return ({s: c for s, c in zip(sp.elements().symbols(),
+                                          sp.elements().coefficients())},
+                    sp.charge())
+
+        inputs = aqueous_species_list.split()
+        in_comps = {}
+        for name in inputs:
+            try:
+                in_comps[name] = comp(db.species(name))
+            except Exception:
+                continue
+        cations = {n: c for n, c in in_comps.items() if c[1] > 0}
+        anions = {n: c for n, c in in_comps.items() if c[1] < 0}
+        targets = {}
+        for cn, (ce, cq) in cations.items():
+            for an, (ae, aq) in anions.items():
+                elems = dict(ce)
+                for s, c in ae.items():
+                    elems[s] = elems.get(s, 0) + c
+                key = (frozenset(elems.items()), cq + aq)
+                targets[key] = (cn, an)
+        found = set()
+        for sp in db.species():
+            if sp.aggregateState() != rkt.AggregateState.Aqueous:
+                continue
+            name = sp.name()
+            if name in in_comps:
+                continue
+            try:
+                e, q = comp(sp)
+            except Exception:
+                continue
+            if (frozenset(e.items()), q) in targets:
+                found.add(name)
+        return found
 
     def __call__(self, P_MPa, T_K, grid=False):
         """
@@ -1018,15 +1099,24 @@ class RktConduct():
         # If we need grid then make P_MPa and T_K into a grid
         if grid:
             P_MPa, T_K = np.meshgrid(P_MPa, T_K, indexing='ij')
-        # Get speciation data
+        # Get speciation data. Equilibrium free-ion speciation is the
+        # default (user-directed 2026-07-16): ion pairing / neutral
+        # complexes remove ions from solution and MUST lower McCleskey
+        # conductivity. Falls back to nominal ratios if Reaktoro fails.
         key = (tuple(original_P_MPa.ravel()), tuple(original_T_K.ravel()))
-        CALC_SPECIATION = False
-        
-        if CALC_SPECIATION:
-            if key not in self.calculated_speciations:
-                self.calculated_speciations[key] = self.fn_species(original_P_MPa, original_T_K, grid=grid)
-            pH, speciation, species_names, affinity = self.calculated_speciations[key]
-        else:
+        speciation = None
+        if self.use_equilibrium_speciation:
+            try:
+                if key not in self.calculated_speciations:
+                    self.calculated_speciations[key] = self.fn_species_conduct(original_P_MPa, original_T_K, grid=grid)
+                pH, speciation, species_names, affinity = self.calculated_speciations[key]
+            except Exception as e:
+                log.warning(
+                    f'Equilibrium speciation for McCleskey conductivity failed '
+                    f'({e}); falling back to nominal input ratios (fully '
+                    f'dissociated ions).')
+                speciation = None
+        if speciation is None:
             # Use constant speciation ratios
             speciation = []
             species_names = []
