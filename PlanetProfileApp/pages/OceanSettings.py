@@ -157,39 +157,47 @@ if user_wants_ocean:
             Planet.Ocean.wOcean_ppt = None
         st.markdown("---")
 
-        # Pick ANY number of ion species in one control, then set each
-        # concentration. (Replaces the old numeric 'number of salt species'
-        # stepper + per-slot dropdowns, which hid multi-ion selection.)
-        st.markdown("### Ion Species")
-        salt_species_list = st.multiselect(
-            "Select ion species (pick as many as you need)",
-            options=species,
-            key="custom_ocean_species",
-            help="All aqueous species from the selected Reaktoro database "
-                 "are available; add each ion you want in the solution.")
-        salt_conc_list = []
-        for sp in salt_species_list:
-            conc = st.number_input(
-                f"Concentration of {sp} ({species_concentration_unit})",
-                min_value=0.0, format="%.6f", key=f"conc_{selected_salt}_{sp}")
-            salt_conc_list.append(conc)
+        # Ion species as a TABLE: one row per ion, concentration column.
+        # A null or 0 concentration means the ion is absent (dropped from
+        # the composition). Add rows with the + at the table's bottom.
+        import pandas as pd
+        from Utilities.custom_solution import build_custom_solution_comp
 
-        # Summary + naming; the composition string only forms once at least
-        # one species is chosen and the solution has a name.
-        if salt_species_list:
-            salt_string = ", ".join(f"{sp}: {conc}" for sp, conc in zip(salt_species_list, salt_conc_list))
-            st.markdown("### Salt Configuration")
-            st.write(f"Selected salt concentration unit: `{species_concentration_unit}`")
-            solution_name = st.text_input("Please name you custom ocean solution here (ex. MgSO4)") #user gets to pick how they want to name their ocean composition - this will get passed to Planet Profile
-            if solution_name.strip():
-                #This produces the custom ocean composition string in the format that Planet Profile needs
-                st.session_state["custom_ocean_comp"] = "CustomSolution" + solution_name.strip() + " = " + salt_string
-                #This gets passed to Planet.Ocean.comp
-                st.write(st.session_state["custom_ocean_comp"])
-            else:
-                st.info("Name the solution to finish the custom composition.")
+        st.markdown("### Ion Species")
+        st.caption("Add one row per ion. Concentration null or 0 = ion "
+                   "absent (row ignored).")
+        _seed = pd.DataFrame({'Species': pd.Series(dtype='str'),
+                              'Concentration': pd.Series(dtype='float')})
+        edited = st.data_editor(
+            _seed,
+            num_rows='dynamic',
+            key=f"custom_ocean_table_{selected_salt}",
+            column_config={
+                'Species': st.column_config.SelectboxColumn(
+                    'Species', options=species, required=False),
+                'Concentration': st.column_config.NumberColumn(
+                    f'Concentration ({species_concentration_unit})',
+                    min_value=0.0, format='%.6f'),
+            },
+            width='stretch')
+
+        st.markdown("### Salt Configuration")
+        st.write(f"Selected salt concentration unit: `{species_concentration_unit}`")
+        solution_name = st.text_input("Please name you custom ocean solution here (ex. MgSO4)") #user gets to pick how they want to name their ocean composition - this will get passed to Planet Profile
+
+        rows = list(zip(edited['Species'].tolist(),
+                        edited['Concentration'].tolist()))
+        comp, kept, warns = build_custom_solution_comp(solution_name, rows)
+        for w in warns:
+            st.warning(w)
+        if comp:
+            #This gets passed to Planet.Ocean.comp
+            st.session_state["custom_ocean_comp"] = comp
+            st.write(comp)
+        elif not kept:
+            st.info("Add at least one ion with a nonzero concentration.")
         else:
-            st.info("Select at least one ion species above.")
+            st.info("Name the solution to finish the custom composition.")
 
 # Actual reset button widget at the bottom of the page
 st.markdown("---")
