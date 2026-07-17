@@ -776,6 +776,49 @@ class MCMCRunner:
         theta_dict.update(self.fixed_params)
         return theta_dict
 
+    def _collect_posterior_Ae(self, samples: np.ndarray) -> Optional[Dict[str, Any]]:
+        """Per-sample complex induction response Ae for result metadata.
+
+        Maps each posterior sample's Tb_K to the precomputed Ae grid
+        (same nearest-node lookup the likelihood uses) and returns a
+        JSON-safe ``{label: {'re': [...], 'im': [...]}}`` with one entry
+        per sample per excitation label. Cheap: Ae is evaluated once per
+        UNIQUE grid node, then broadcast. Returns None when no Ae grid is
+        cached (config without induction observables/bounds) or Tb_K is
+        not a sampled parameter.
+        """
+        if (not self._ae_grid_cache or 'Tb_K' not in self.param_names
+                or 'Tb_K_grid' not in self.structure_data):
+            return None
+        grid_Tb = np.asarray(self.structure_data['Tb_K_grid'])
+        tb = np.asarray(samples)[:, self.param_names.index('Tb_K')].astype(float)
+        idx = np.argmin(np.abs(grid_Tb[None, :] - tb[:, None]), axis=1)
+        labels = sorted({lab for d in self._ae_grid_cache.values() if d
+                         for lab in d})
+        if not labels:
+            return None
+        out = {}
+        for lab in labels:
+            # complex Ae per unique node, NaN where the node has no entry
+            node_ae = {i: complex((self._ae_grid_cache.get(int(i)) or {})
+                                  .get(lab, complex(float('nan'), float('nan'))))
+                       for i in np.unique(idx)}
+            vals = [node_ae[int(i)] for i in idx]
+            out[lab] = {'re': [float(v.real) for v in vals],
+                        'im': [float(v.imag) for v in vals]}
+        return out
+
+    def _be_excitation_metadata(self) -> Optional[Dict[str, Any]]:
+        """JSON-safe excitation moments {label: {comp: [re, im]}} (nT) when
+        Bind_ observables loaded them; None otherwise (e.g. Ae-bound-only
+        configs, which never touch Be)."""
+        be = getattr(self, '_be_excitation', None)
+        if not be:
+            return None
+        return {lab: {comp: [float(v.real), float(v.imag)]
+                      for comp, v in comps.items()}
+                for lab, comps in be.items()}
+
     def _get_cache_scalar(self, theta_dict: Dict[str, float], key: str) -> float:
         """Extract scalar from interpolated structure for grid caches."""
         from .forward_models import apply_parameters
@@ -1347,6 +1390,11 @@ class MCMCRunner:
                 # Body radius (constant across the Tb grid) so the GUI can
                 # derive mantle thickness = R_body - D_hsphere - R_core.
                 'R_body_km': _structure_R_body_km(self.structure_data),
+                # Posterior induction response (complex Ae per excitation
+                # label per sample) + excitation moments, for the GUI's
+                # complex-plane plots. None when no induction in config.
+                'induction_Ae': self._collect_posterior_Ae(samples),
+                'Be_nT': self._be_excitation_metadata(),
                 # Audit / reproducibility fields
                 'git_sha': _git_sha,
                 'log_Z': _log_Z,

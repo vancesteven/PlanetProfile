@@ -459,6 +459,45 @@ class SBIDatasetGenerationTests(unittest.TestCase):
             self.assertEqual(
                 runner.last_sbi_dataset_stats['n_rejected_nonfinite'], 10)
 
+    def test_collect_posterior_ae_metadata(self):
+        """_collect_posterior_Ae: JSON-safe per-sample complex Ae per label,
+        nearest-grid lookup identical to the likelihood's; None without an
+        Ae cache. Feeds metadata['induction_Ae'] in BOTH runners."""
+        import json as _json
+        with tempfile.TemporaryDirectory() as td:
+            runner = _build_mcmc_runner(Path(td))
+            ae_low, ae_high = 0.90 - 0.20j, 0.80 - 0.30j
+            runner._ae_grid_cache = {0: {'synodic': ae_low},
+                                     1: {'synodic': ae_high}}
+            n = 25
+            rng = np.random.RandomState(3)
+            samples = np.column_stack([
+                rng.uniform(*runner.config.param_space[p]['bounds'], size=n)
+                for p in runner.param_names])
+            out = runner._collect_posterior_Ae(samples)
+            self.assertEqual(set(out), {'synodic'})
+            self.assertEqual(len(out['synodic']['re']), n)
+            tb = samples[:, runner.param_names.index('Tb_K')]
+            expected = np.where(
+                np.abs(tb - TB_LOW) <= np.abs(tb - TB_HIGH), ae_low, ae_high)
+            np.testing.assert_allclose(out['synodic']['re'], expected.real,
+                                       atol=1e-12)
+            np.testing.assert_allclose(out['synodic']['im'], expected.imag,
+                                       atol=1e-12)
+            # JSON-safe (saved-run round trip)
+            _json.dumps(out)
+
+            # Be metadata: None without Bind_ observables; JSON-safe when set.
+            self.assertIsNone(runner._be_excitation_metadata())
+            runner._be_excitation = {'synodic': {'x': 128.5 - 170.1j}}
+            be = runner._be_excitation_metadata()
+            self.assertEqual(be['synodic']['x'], [128.5, -170.1])
+            _json.dumps(be)
+
+            # No cache -> None
+            runner._ae_grid_cache = {}
+            self.assertIsNone(runner._collect_posterior_Ae(samples))
+
     def test_induction_bounds_support_rejection(self):
         """induction_bounds (ratified 2026-07-12): one-sided Ae support cuts
         reject dataset rows under apply_support_guard and hard-reject in the

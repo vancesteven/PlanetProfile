@@ -1031,6 +1031,11 @@ class SBIRunner:
                 # Body radius (constant across the Tb grid) so the GUI can
                 # derive mantle thickness = R_body - D_hsphere - R_core.
                 'R_body_km': _structure_R_body_km(runner.structure_data),
+                # Posterior induction response — identical schema to the
+                # MCMC path (runner symmetry): complex Ae per excitation
+                # label per sample + excitation moments.
+                'induction_Ae': runner._collect_posterior_Ae(samples),
+                'Be_nT': runner._be_excitation_metadata(),
                 # Amortized posterior density at each sample (NOT a likelihood).
                 'flow_log_prob': flow_log_prob,
                 'sbi_version': sbi_pkg.__version__,
