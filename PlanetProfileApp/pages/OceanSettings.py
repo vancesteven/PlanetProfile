@@ -164,14 +164,36 @@ if user_wants_ocean:
         from Utilities.custom_solution import build_custom_solution_comp
 
         st.markdown("### Ion Species")
+        # Published Europa ocean models seed the table; the table stays
+        # fully editable afterwards (concentration 0/null removes an ion).
+        from Utilities.europa_ocean_presets import EUROPA_OCEAN_PRESETS
+        preset_choice = st.selectbox(
+            "Start from a published Europa ocean model (optional):",
+            ['(blank table)'] + list(EUROPA_OCEAN_PRESETS.keys()),
+            key='custom_ocean_preset',
+            help="Literature predictions of Europa's ocean composition "
+                 "(mol/kg). Selecting one pre-fills the table below; edit "
+                 "freely afterwards.")
+        _preset_rows = EUROPA_OCEAN_PRESETS.get(preset_choice, {})
+        _missing = [sp for sp in _preset_rows if sp not in species]
+        if _missing:
+            st.warning(
+                f"Species not in the {selected_salt} database and skipped: "
+                f"{', '.join(_missing)}. (NH3 needs the frezchemNH3 "
+                f"database.)")
+        _rows = {sp: c for sp, c in _preset_rows.items() if sp in species}
         st.caption("Add one row per ion. Concentration null or 0 = ion "
                    "absent (row ignored).")
-        _seed = pd.DataFrame({'Species': pd.Series(dtype='str'),
-                              'Concentration': pd.Series(dtype='float')})
+        _seed = pd.DataFrame({
+            'Species': pd.Series(list(_rows.keys()), dtype='str'),
+            'Concentration': pd.Series(list(_rows.values()), dtype='float'),
+        })
         edited = st.data_editor(
             _seed,
             num_rows='dynamic',
-            key=f"custom_ocean_table_{selected_salt}",
+            # Preset in the key: choosing a different preset creates a fresh
+            # editor seeded from it; edits persist while the preset is fixed.
+            key=f"custom_ocean_table_{selected_salt}_{preset_choice}",
             column_config={
                 'Species': st.column_config.SelectboxColumn(
                     'Species', options=species, required=False),
