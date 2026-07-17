@@ -63,6 +63,17 @@ the public app ONLY after they have landed on the main repository
 CLAUDE.md) — never directly from a compute machine. The public app is a
 consumer of the repo, not a second source of truth.
 
+## Local development notes
+
+- PDF previews on the Outputs page need the poppler binaries
+  (`pdftoppm`): `conda install -n PP -c conda-forge poppler`. The HF
+  image installs poppler-utils via apt. Without it the app degrades to
+  download buttons.
+- The speciation-vs-depth figure (PlotHydrosphereSpecies) is produced
+  automatically by PlanetProfile for CustomSolution ocean compositions
+  (Params.PLOT_SPECIES_HYDROSPHERE, on by default) — Seawater/MgSO4/NaCl
+  runs do not produce it by design.
+
 ## Demo library (precomputed results shipped with the app)
 
 Public visitors cannot compute, so the snapshot ships read-only demo data:

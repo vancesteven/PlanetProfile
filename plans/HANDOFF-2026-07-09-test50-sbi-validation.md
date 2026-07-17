@@ -1038,3 +1038,28 @@ for the user at defaults (n=5000). Likely numerical edge of the NSF spline
 under some conditioning/draw combinations. Worth a guard (catch + resample
 or clamp) in sample_posterior before v2 ratification; belongs with the
 Europa SBI work now on Machine B.
+
+## ADDENDUM 2026-07-17 (Machine A) — app/science batch since 2026-07-16
+
+Commits on origin/genai (all verified per CLAUDE.md, AppTest/unit tests):
+- k2 ellipse bug (Titan values hardcoded as fallback — every non-Titan
+  amortized run drew a Titan ellipse); "Observables used in this run"
+  readout; posterior Ae complex-plane plots (metadata['induction_Ae'] /
+  ['Be_nT'] packaged by BOTH runners — symmetric schema, unit-tested);
+  slot-aware induction documentation; CustomSolution ion table
+  (st.data_editor) + published Europa ocean-model presets
+  (Utilities/europa_ocean_presets.py, from the user's literature table).
+- SCIENCE (opus-reviewed, APPROVE-WITH-EDITS landed): McCleskey
+  conductivity now uses Reaktoro equilibrium FREE-ION speciation with 1:1
+  ion-pair complexes added to the equilibrium system (MgSO4 at 0.1 mol/kg
+  275 K: 33% paired; sigma down accordingly). SCOPE: CustomSolution path
+  (RktConduct) ONLY — Seawater (GSW), MgSO4 (Vance2018/Pan2020), NaCl
+  (Pan2021) conductivities untouched, so the v3 salinity campaign inputs
+  are unaffected. Documentation figures + Mahboub et al. (2026) Table S2
+  data comparisons in plans/figures/mccleskey_speciation/ (speciation
+  fixes NaCl high-conc overshoot, halves MgSO4 mid-range error; known
+  per-ion ionic-strength approximation makes speciated sigma slightly
+  HIGH for Na2CO3/mixtures — flagged in sigmaElectricMcCleskey2012.py,
+  candidate future fix: total-I).
+- Known intermittent nflows spline assertion on Clipper v2 sampling (see
+  2026-07-16 note) still open on the Machine B side.
