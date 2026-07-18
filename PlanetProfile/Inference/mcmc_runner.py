@@ -1327,17 +1327,19 @@ class MCMCRunner:
         from .forward_models import forward_model_k2_flexible
 
         k2_results = []
+        h2_results = []
         cmr2_results = []
         D_ocean_results = []
         D_iceIh_results = []
         D_hsphere_results = []
         for i, theta in enumerate(samples):
             theta_dict = self._expand_theta(theta)
-            Re_k2, Im_k2, _, _, _ = forward_model_k2_flexible(
+            Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
                 theta_dict, self.structure_data,
                 return_heating=False, arrhenius_params=self.arrhenius_params
             )
             k2_results.append((Re_k2, Im_k2))
+            h2_results.append((Re_h2, Im_h2))
             cmr2_results.append(self._compute_model_cmr2(theta_dict))
             D_ocean_results.append(self._get_cache_scalar(theta_dict, 'D_ocean_km'))
             D_iceIh_results.append(self._get_cache_scalar(theta_dict, 'D_iceIh_km'))
@@ -1346,6 +1348,7 @@ class MCMCRunner:
                 log.info(f"  {i+1}/{n_samples} samples recomputed")
 
         k2_results = np.array(k2_results)
+        h2_results = np.array(h2_results)
         cmr2_results = np.array(cmr2_results)
         D_ocean_results = np.array(D_ocean_results)
         D_iceIh_results = np.array(D_iceIh_results)
@@ -1376,6 +1379,7 @@ class MCMCRunner:
             param_names=self.param_names,
             param_labels=self.param_labels,
             k2_results=k2_results,
+            h2_results=h2_results,
             cmr2_results=cmr2_results,
             D_ocean_results=D_ocean_results,
             D_iceIh_results=D_iceIh_results,

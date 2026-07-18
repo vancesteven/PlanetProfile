@@ -2023,14 +2023,18 @@ def render_results():
                 # sampled campaign lands). Replaces the earlier 3D view,
                 # which was trivial: Ae quantizes to a few nodes spanning
                 # a linear k2 range.
-                if st.checkbox("k₂ complex plane by model (connected)",
+                if st.checkbox("Complex-plane signals by model (connected)",
                                key='ind_k2_plane', value=True):
+                    # Every dimensionless complex signal of one interior
+                    # model — k2, h2, and Ae at each excitation frequency —
+                    # on a single Re-Im plane, connected per model node.
                     lab0 = labels[0]
-                    ae_c = (np.asarray(_ind_ae[lab0]['re'], float)
-                            + 1j * np.asarray(_ind_ae[lab0]['im'], float))
+                    ae0 = (np.asarray(_ind_ae[lab0]['re'], float)
+                           + 1j * np.asarray(_ind_ae[lab0]['im'], float))
                     k2 = np.asarray(result.k2_results, float)
-                    n = min(len(ae_c), len(k2))
-                    ae_c, k2 = ae_c[:n], k2[:n]
+                    h2 = getattr(result, 'h2_results', None)
+                    h2 = np.asarray(h2, float) if h2 is not None else None
+                    n = min(len(ae0), len(k2))
                     tb = (result.samples[:n,
                           result.param_names.index('Tb_K')]
                           if 'Tb_K' in result.param_names else None)
@@ -2043,59 +2047,93 @@ def render_results():
                            result.param_names.index(sal_col)]
                            if sal_col else None)
 
-                    # Group samples by Ae node (unique complex Ae = one
-                    # grid model), order nodes by Tb.
-                    _, inv = np.unique(np.round(ae_c, 12),
+                    # Group samples by Ae node (one grid model each),
+                    # ordered by Tb.
+                    _, inv = np.unique(np.round(ae0[:n], 12),
                                        return_inverse=True)
-                    nodes = []
+                    node_rows = []
                     for g in range(inv.max() + 1):
                         m = inv == g
-                        nodes.append((
-                            float(np.mean(tb[m])) if tb is not None else g,
-                            float(np.mean(k2[m, 0])),
-                            float(np.mean(k2[m, 1])),
-                            float(np.mean(d_oc[m])) if d_oc is not None else 20.0,
-                            float(np.mean(sal[m])) if sal is not None else 0.0,
-                            int(m.sum())))
-                    nodes.sort(key=lambda r: r[0])
-                    nd = np.array(nodes)
+                        sigs = [('k₂', complex(np.mean(k2[:n][m, 0]),
+                                               np.mean(k2[:n][m, 1])))]
+                        if h2 is not None and len(h2) >= n:
+                            sigs.append(('h₂', complex(np.mean(h2[:n][m, 0]),
+                                                       np.mean(h2[:n][m, 1]))))
+                        for lab in labels:
+                            a = (np.asarray(_ind_ae[lab]['re'], float)[:n]
+                                 + 1j * np.asarray(_ind_ae[lab]['im'],
+                                                   float)[:n])
+                            sigs.append((f'Ae {lab}', complex(np.mean(a[m]))))
+                        node_rows.append({
+                            'tb': float(np.mean(tb[m])) if tb is not None else g,
+                            'd': float(np.mean(d_oc[m])) if d_oc is not None else 20.0,
+                            'sal': float(np.mean(sal[m])) if sal is not None else None,
+                            'sigs': sigs,
+                        })
+                    node_rows.sort(key=lambda r: r['tb'])
 
-                    figk, axk = plt.subplots(figsize=(6.4, 5.2))
-                    # faint per-sample cloud behind the model curve
-                    axk.scatter(k2[:, 0], k2[:, 1], s=3, alpha=0.12,
-                                color='0.6', zorder=1)
-                    axk.plot(nd[:, 1], nd[:, 2], '-', color='0.3',
-                             linewidth=1.0, zorder=2)
-                    smin, smax = 20.0, 220.0
-                    dref = nd[:, 3]
-                    span = np.ptp(dref) if np.ptp(dref) > 0 else 1.0
-                    sizes = smin + (smax - smin) * (dref - dref.min()) / span
+                    sig_names = [nm for nm, _ in node_rows[0]['sigs']]
+                    markers = ['o', 's', '^', 'D', 'v', 'P'][:len(sig_names)]
+                    dvals = np.array([r['d'] for r in node_rows])
+                    span = np.ptp(dvals) if np.ptp(dvals) > 0 else 1.0
+                    sizes = 25 + 175 * (dvals - dvals.min()) / span
                     if sal is not None:
-                        sc = axk.scatter(nd[:, 1], nd[:, 2], s=sizes,
-                                         c=nd[:, 4], cmap='viridis',
-                                         edgecolor='k', linewidth=0.4,
-                                         zorder=3)
-                        figk.colorbar(sc, ax=axk,
-                                      label=f'{sal_col}')
+                        svals = np.array([r['sal'] for r in node_rows])
+                        cmap = plt.cm.viridis
+                        cnorm = plt.Normalize(svals.min(),
+                                              svals.max() or 1.0)
+                        colors_n = [cmap(cnorm(v)) for v in svals]
                     else:
-                        axk.scatter(nd[:, 1], nd[:, 2], s=sizes,
-                                    color='steelblue', edgecolor='k',
-                                    linewidth=0.4, zorder=3)
-                    axk.set_xlabel(r'Re$(k_2)$')
-                    axk.set_ylabel(r'Im$(k_2)$')
-                    axk.set_title(r'$k_2$ complex plane — model nodes '
-                                  r'along $T_b$')
+                        cmap_tb = plt.cm.plasma
+                        tvals = np.array([r['tb'] for r in node_rows])
+                        tspan = np.ptp(tvals) if np.ptp(tvals) > 0 else 1.0
+                        colors_n = [cmap_tb(0.15 + 0.7 * (v - tvals.min())
+                                            / tspan) for v in tvals]
+
+                    figk, axk = plt.subplots(figsize=(7.2, 5.6))
+                    # faint sample clouds for the rheology-spread signals
+                    axk.scatter(k2[:n, 0], k2[:n, 1], s=3, alpha=0.10,
+                                color='0.6', zorder=1)
+                    if h2 is not None and len(h2) >= n:
+                        axk.scatter(h2[:n, 0], h2[:n, 1], s=3, alpha=0.10,
+                                    color='0.75', zorder=1)
+                    for r_i, (row, col, sz) in enumerate(
+                            zip(node_rows, colors_n, sizes)):
+                        pts = np.array([[c.real, c.imag]
+                                        for _, c in row['sigs']])
+                        axk.plot(pts[:, 0], pts[:, 1], '-', color=col,
+                                 linewidth=0.9, alpha=0.75, zorder=2)
+                        for (nm, c), mk in zip(row['sigs'], markers):
+                            axk.scatter(c.real, c.imag, s=sz, marker=mk,
+                                        color=col, edgecolor='k',
+                                        linewidth=0.4, zorder=3)
+                    # signal-shape legend (marker per signal, neutral color)
+                    for nm, mk in zip(sig_names, markers):
+                        axk.scatter([], [], marker=mk, color='0.4',
+                                    edgecolor='k', linewidth=0.4, s=60,
+                                    label=nm)
+                    axk.legend(fontsize=8, loc='best',
+                               title='signal', title_fontsize=8)
+                    if sal is not None:
+                        figk.colorbar(plt.cm.ScalarMappable(
+                            norm=cnorm, cmap=cmap), ax=axk,
+                            label=sal_col)
+                    axk.set_xlabel('Re(signal)')
+                    axk.set_ylabel('Im(signal)')
+                    axk.set_title('Complex-plane response signals per '
+                                  'interior model')
                     st.pyplot(figk)
                     plt.close(figk)
-                    cap = ("Points: posterior mean k₂ per interior model "
-                           "(one Ae/T_b grid node each), connected in T_b "
-                           "order; marker size scales with ocean "
-                           "thickness. Grey cloud: individual samples "
-                           "(rheology spread within each model).")
-                    if sal is None:
-                        cap += (" Color by salinity activates once a "
-                                "salinity-sampled artifact is loaded "
-                                "(fixed-salinity model shown).")
+                    cap = ("Each connected path is one interior model "
+                           "(Ae/T_b grid node): its k₂, h₂, and induction "
+                           "response(s) Ae on a single complex plane. "
+                           "Marker shape = signal; marker size = ocean "
+                           "thickness; line/marker color = "
+                           + (f"{sal_col}." if sal is not None else
+                              "T_b (color by salinity activates with a "
+                              "salinity-sampled artifact). ")
+                           + " Grey clouds: per-sample k₂/h₂ rheology "
+                             "spread.")
                     st.caption(cap)
 
                 st.caption(

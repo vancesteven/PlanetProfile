@@ -245,6 +245,9 @@ class InferenceResult:
     param_names: List[str]
     param_labels: List[str]
     k2_results: Optional[np.ndarray] = None
+    # Complex h2 per evaluated sample (n_eval, 2) = [Re_h2, Im_h2 signed];
+    # None on results predating 2026-07-18.
+    h2_results: Optional[np.ndarray] = None
     cmr2_results: Optional[np.ndarray] = None
     D_ocean_results: Optional[np.ndarray] = None
     D_iceIh_results: Optional[np.ndarray] = None

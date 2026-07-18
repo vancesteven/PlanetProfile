@@ -1036,17 +1036,19 @@ class SBIRunner:
 
         log.info(f"Recomputing k2/CMR2/thicknesses for {n_samples} posterior samples...")
         k2_results = []
+        h2_results = []
         cmr2_results = []
         D_ocean_results = []
         D_iceIh_results = []
         D_hsphere_results = []
         for i, theta in enumerate(samples):
             theta_dict = runner._expand_theta(theta)
-            Re_k2, Im_k2, _, _, _ = forward_model_k2_flexible(
+            Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
                 theta_dict, runner.structure_data,
                 return_heating=False, arrhenius_params=runner.arrhenius_params
             )
             k2_results.append((Re_k2, Im_k2))
+            h2_results.append((Re_h2, Im_h2))
             # CMR2 must use the same dispatch as the likelihood/reporting fix
             # (2026-07): _compute_model_cmr2 is core-sensitive for v2 configs
             # (sampled core + mass-conservation rho_sil, e.g. Europa 7D) and
@@ -1062,6 +1064,7 @@ class SBIRunner:
             if (i + 1) % 100 == 0:
                 log.info(f"  {i+1}/{n_samples} samples recomputed")
         k2_results = np.array(k2_results)
+        h2_results = np.array(h2_results)
         cmr2_results = np.array(cmr2_results)
         D_ocean_results = np.array(D_ocean_results)
         D_iceIh_results = np.array(D_iceIh_results)
@@ -1113,6 +1116,7 @@ class SBIRunner:
             param_names=self.param_names,
             param_labels=self.param_labels,
             k2_results=k2_results,
+            h2_results=h2_results,
             cmr2_results=cmr2_results,
             D_ocean_results=D_ocean_results,
             D_iceIh_results=D_iceIh_results,
