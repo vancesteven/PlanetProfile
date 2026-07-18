@@ -671,7 +671,19 @@ class SBIRunner:
                 raise KeyError(
                     f"x_obs missing observable '{name}'; got keys {list(x_obs)}"
                 )
-            if name in _IM_K2_ALIASES and self.imag_convention == 'abs':
+            # Fold EVERY channel trained as 'abs' (defensive: a signed
+            # input must not condition the flow off its training manifold).
+            # channel_conventions covers Im_k2 AND Im_h2 (and any future
+            # abs channel); the alias check remains as fallback for
+            # artifacts predating channel_conventions (2026-07-17), which
+            # only had k2 aliases and a global imag_convention.
+            # (Gap surfaced by Machine B 2026-07-18: Im_h2 was trained
+            # folded but never folded here.)
+            conv = getattr(self, 'channel_conventions', None) or {}
+            _abs_fallback = _IM_K2_ALIASES + ('Im_h2', 'abs_Im_h2')
+            if conv.get(name) == 'abs' or (
+                    name not in conv and name in _abs_fallback
+                    and self.imag_convention == 'abs'):
                 val = abs(val)
             vec.append(val)
         return np.asarray(vec, dtype=np.float64)

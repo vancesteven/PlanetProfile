@@ -692,6 +692,28 @@ class SBIArtifactAndTrainingTests(unittest.TestCase):
             with self.assertWarns(RuntimeWarning):
                 SBIRunner.load_artifact(diff_path)
 
+    def test_abs_fold_covers_all_abs_channels(self):
+        """_x_obs_vector must fold EVERY 'abs'-convention channel (Im_k2 AND
+        Im_h2 — gap surfaced by Machine B 2026-07-18), and must NOT fold
+        signed Bind_ channels."""
+        config = _make_toy_sbi_config()
+        runner = SBIRunner(config)
+        runner.obs_names = ['Re_k2', 'Im_k2', 'Im_h2',
+                            'Bind_synodic_x_imag']
+        runner.imag_convention = 'abs'
+        runner.channel_conventions = {'Im_k2': 'abs', 'Im_h2': 'abs',
+                                      'Bind_synodic_x_imag': 'signed'}
+        x = {'Re_k2': 0.25, 'Im_k2': -0.1, 'Im_h2': -0.2,
+             'Bind_synodic_x_imag': -157.0}
+        vec = runner._x_obs_vector(x)
+        np.testing.assert_allclose(vec, [0.25, 0.1, 0.2, -157.0])
+
+        # Legacy artifact (no channel_conventions): k2 AND h2 aliases fold
+        # under the global convention; unknown channels untouched.
+        runner.channel_conventions = {}
+        vec2 = runner._x_obs_vector(x)
+        np.testing.assert_allclose(vec2, [0.25, 0.1, 0.2, -157.0])
+
     def test_tiny_train_and_sample_smoke(self):
         config = _make_toy_sbi_config()
         runner = SBIRunner(config)

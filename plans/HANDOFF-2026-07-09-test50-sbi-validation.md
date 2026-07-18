@@ -1284,3 +1284,15 @@ zip k₂[i], h₂[i], and Ae[label][i] with no realignment. Plot stays matplotli
 `st.pyplot` (established pattern in this expander). NOTE: `k2_results[:,1]` and
 `induction_Ae` Im are **signed** (do NOT abs-fold in this plot — the shape needs
 true sign).
+
+## ADDENDUM 2026-07-18b (Machine A) — Im_h2 fold gap FIXED
+_x_obs_vector now folds EVERY channel whose channel_conventions entry is
+'abs' (covers Im_h2 — Machine B's surfaced gap), with the legacy fallback
+extended to Im_h2/abs_Im_h2 aliases for pre-convention artifacts (Galileo
+v1 trained Im_h2 folded too). Bind_ signed channels untouched. Unit test
+covers both artifact generations (22/22 green). ONE-LINE ask for Machine
+B: rerun the Im_h2 +/-v probe from v2_sampling_check.py against the
+fixed code — expect byte-identical draws now (Machine A's on-artifact
+attempt used off-manifold x_obs and hit the reject-loop; killed per
+compute-split rule). v3 cloud-plot spec received; will absorb into the
+v3 plan — current per-Tb-node plot stays as the v2 interim.
