@@ -80,11 +80,10 @@ def lazy_import_inference():
 def initialize_session_state():
     """Initialize session state variables for inference tab."""
 
-    # Migrate stale session state: clear param_space if it contains old 'log10_zeta' key
-    if ('inference_param_space' in st.session_state and
-            'log10_zeta' in st.session_state.inference_param_space):
-        st.session_state.inference_param_space = {}
-        st.session_state.inference_selected_params = []
+    # (A stale-session migration used to wipe param_space whenever it
+    # contained 'log10_zeta'. Removed 2026-07-18: modern configs — Test50
+    # 8D, Europa 7D/Clipper — legitimately sample log10_zeta, and the
+    # migration silently emptied any loaded config that used it.)
 
     # Control flags
     if 'inference_running' not in st.session_state:
@@ -208,7 +207,7 @@ def render_config_file_selector():
       - ``inference_sampler_settings`` (merged with defaults)
       - ``inference_structure_cache_path``
 
-    NOTE: the existing ``render_preset_selector`` / ``render_observables_config`` /
+    NOTE: the existing ``render_observables_config`` /
     ``render_sampler_settings`` / ``render_structure_cache_input`` functions read
     these same keys, so they will pre-fill after a config is loaded.  The
     ``render_prior_config`` widget reads ``inference_param_space`` for bounds, so
@@ -339,14 +338,10 @@ def _apply_config_to_session_state(cfg):
     # silently overwrites the values we just loaded.
     st.session_state.inference_custom_mode = True
 
-    # Sync the preset radio WIDGET to 'custom'. The radio has key=
-    # 'preset_radio', and Streamlit keyed-widget state wins over index= on
-    # every rerun — without this, the radio keeps its old selection and its
-    # non-custom branch immediately overwrites the config we just loaded
-    # (params, observables, cache path). 'custom' is the one branch that
-    # writes nothing back. inference_preset (set above) still carries the
-    # matched preset for bodyname resolution in the run button.
-    st.session_state.preset_radio = 'custom'
+    # (The old preset radio and its widget-sync guard were removed
+    # 2026-07-18: presets were redundant with this loader. inference_preset
+    # (set above) still carries the matched preset key for bodyname
+    # resolution in the run button.)
 
     # Same widget-state-wins rule applies to the keyed form inputs: drop
     # their stored widget state so each re-initializes from the values we
@@ -360,70 +355,6 @@ def _apply_config_to_session_state(cfg):
 # ============================================================
 # UI Render Functions
 # ============================================================
-
-def render_preset_selector(PARAMETER_PRESETS):
-    """Render preset configuration selector."""
-    st.markdown("#### 📋 Configuration Preset")
-
-    # NOTE (2026-07-12): the legacy 'andrade_europa' preset (5D PPTest46,
-    # pure-water reference structure) is retired from this radio — its
-    # parameter set cannot consume the seawater Tb-grid cache the Europa
-    # campaign uses, and its auto-gen path built a wrong PureH2O cache.
-    # Europa runs load configs/europa_seawater_andrade_7D.json via the
-    # "Load Config File" selector above.
-    preset_options = {
-        'andrade_titan': f"🪐 {PARAMETER_PRESETS['andrade_titan']['name']}",
-        'andrade_titan_noocean_8D': f"🪐 {PARAMETER_PRESETS['andrade_titan_noocean_8D']['name']}",
-        'maxwell_titan': f"🪐 {PARAMETER_PRESETS['maxwell_titan']['name']}",
-        'custom': "⚙️ Custom Parameter Selection"
-    }
-
-    _preset_index = {name: i for i, name in enumerate(preset_options)}
-    preset_choice = st.radio(
-        "Select configuration:",
-        options=list(preset_options.keys()),
-        format_func=lambda x: preset_options[x],
-        index=_preset_index.get(st.session_state.inference_preset,
-                                len(preset_options) - 1),
-        key='preset_radio'
-    )
-
-    # Update session state
-    if preset_choice != 'custom':
-        st.session_state.inference_preset = preset_choice
-        st.session_state.inference_custom_mode = False
-
-        # Load preset parameters
-        preset = PARAMETER_PRESETS[preset_choice]
-        st.session_state.inference_selected_params = preset['parameters']
-
-        # Filter param_space to only keep parameters in the preset
-        # (prevents stale parameters from previous configurations)
-        if st.session_state.inference_param_space:
-            st.session_state.inference_param_space = {
-                k: v for k, v in st.session_state.inference_param_space.items()
-                if k in preset['parameters']
-            }
-
-        # Load preset observables
-        st.session_state.inference_observables = preset['observables']
-
-        # Auto-populate structure cache path based on preset
-        if preset_choice == 'andrade_titan':
-            clath_suffix = 'clath' if st.session_state.inference_use_clathrate else 'noclath'
-            st.session_state.inference_structure_cache_path = f"titan_cache/titan_structure_{clath_suffix}.pkl"
-        elif preset_choice == 'andrade_titan_noocean_8D':
-            st.session_state.inference_structure_cache_path = 'PlanetProfile/Test/mcmc_results/Titan/Test50_andrade_noocean_yao2014/titan_allice_yao2014_structure_grid.pkl'
-        elif preset_choice == 'maxwell_titan':
-            st.session_state.inference_structure_cache_path = 'titan_cache/titan_maxwell_grid_cache.pkl'
-
-        # Show preset description
-        st.info(f"**Description:** {preset['description']}")
-        st.caption(f"Rheology: {preset['rheology'].capitalize()} | Test: {preset['test_module']}")
-
-    else:
-        st.session_state.inference_custom_mode = True
-        st.info("**Custom mode:** Select parameters manually below.")
 
 
 def render_parameter_config(PARAMETER_REGISTRY, CATEGORY_LABELS, CATEGORY_ORDER, validate_parameter_combination):
@@ -2083,33 +2014,89 @@ def render_results():
                         st.pyplot(fig)
                         plt.close(fig)
 
-                # Optional 3D view: complex Ae vs Re(k2) reveals how the
-                # tidal and induction responses co-vary along the posterior.
-                if st.checkbox("3D view: (Re Ae, Im Ae) vs Re(k₂)",
-                               key='ind_ae_3d'):
-                    import plotly.graph_objects as go
-                    lab3 = labels[0] if len(labels) == 1 else st.selectbox(
-                        "Excitation", labels, key='ind_ae_3d_label')
-                    re = np.asarray(_ind_ae[lab3]['re'], float)
-                    im = np.asarray(_ind_ae[lab3]['im'], float)
-                    k2re = np.asarray(result.k2_results)[:, 0]
-                    n = min(len(re), len(k2re))
-                    color = None
-                    if 'Tb_K' in result.param_names:
-                        color = result.samples[:n,
-                            result.param_names.index('Tb_K')]
-                    fig3 = go.Figure(go.Scatter3d(
-                        x=re[:n], y=im[:n], z=k2re[:n], mode='markers',
-                        marker=dict(size=2.5, opacity=0.5, color=color,
-                                    colorscale='Viridis',
-                                    colorbar=dict(title='T_b (K)')
-                                    if color is not None else None)))
-                    fig3.update_layout(
-                        scene=dict(xaxis_title=f'Re Ae ({lab3})',
-                                   yaxis_title=f'Im Ae ({lab3})',
-                                   zaxis_title='Re k2'),
-                        height=550, margin=dict(l=0, r=0, t=10, b=0))
-                    st.plotly_chart(fig3, use_container_width=True)
+                # k2 on the complex plane, organized by the discrete model
+                # family: posterior samples quantize to the Ae/Tb grid
+                # nodes ("models"), so per-node mean k2 traces a curve —
+                # points connected by line segments, marker size scaling
+                # with ocean thickness and color with salinity (constant-
+                # color for fixed-salinity artifacts until the salinity-
+                # sampled campaign lands). Replaces the earlier 3D view,
+                # which was trivial: Ae quantizes to a few nodes spanning
+                # a linear k2 range.
+                if st.checkbox("k₂ complex plane by model (connected)",
+                               key='ind_k2_plane', value=True):
+                    lab0 = labels[0]
+                    ae_c = (np.asarray(_ind_ae[lab0]['re'], float)
+                            + 1j * np.asarray(_ind_ae[lab0]['im'], float))
+                    k2 = np.asarray(result.k2_results, float)
+                    n = min(len(ae_c), len(k2))
+                    ae_c, k2 = ae_c[:n], k2[:n]
+                    tb = (result.samples[:n,
+                          result.param_names.index('Tb_K')]
+                          if 'Tb_K' in result.param_names else None)
+                    d_oc = getattr(result, 'D_ocean_results', None)
+                    d_oc = (np.asarray(d_oc, float)[:n]
+                            if d_oc is not None else None)
+                    sal_col = next((p for p in result.param_names
+                                    if 'wOcean' in p), None)
+                    sal = (result.samples[:n,
+                           result.param_names.index(sal_col)]
+                           if sal_col else None)
+
+                    # Group samples by Ae node (unique complex Ae = one
+                    # grid model), order nodes by Tb.
+                    _, inv = np.unique(np.round(ae_c, 12),
+                                       return_inverse=True)
+                    nodes = []
+                    for g in range(inv.max() + 1):
+                        m = inv == g
+                        nodes.append((
+                            float(np.mean(tb[m])) if tb is not None else g,
+                            float(np.mean(k2[m, 0])),
+                            float(np.mean(k2[m, 1])),
+                            float(np.mean(d_oc[m])) if d_oc is not None else 20.0,
+                            float(np.mean(sal[m])) if sal is not None else 0.0,
+                            int(m.sum())))
+                    nodes.sort(key=lambda r: r[0])
+                    nd = np.array(nodes)
+
+                    figk, axk = plt.subplots(figsize=(6.4, 5.2))
+                    # faint per-sample cloud behind the model curve
+                    axk.scatter(k2[:, 0], k2[:, 1], s=3, alpha=0.12,
+                                color='0.6', zorder=1)
+                    axk.plot(nd[:, 1], nd[:, 2], '-', color='0.3',
+                             linewidth=1.0, zorder=2)
+                    smin, smax = 20.0, 220.0
+                    dref = nd[:, 3]
+                    span = np.ptp(dref) if np.ptp(dref) > 0 else 1.0
+                    sizes = smin + (smax - smin) * (dref - dref.min()) / span
+                    if sal is not None:
+                        sc = axk.scatter(nd[:, 1], nd[:, 2], s=sizes,
+                                         c=nd[:, 4], cmap='viridis',
+                                         edgecolor='k', linewidth=0.4,
+                                         zorder=3)
+                        figk.colorbar(sc, ax=axk,
+                                      label=f'{sal_col}')
+                    else:
+                        axk.scatter(nd[:, 1], nd[:, 2], s=sizes,
+                                    color='steelblue', edgecolor='k',
+                                    linewidth=0.4, zorder=3)
+                    axk.set_xlabel(r'Re$(k_2)$')
+                    axk.set_ylabel(r'Im$(k_2)$')
+                    axk.set_title(r'$k_2$ complex plane — model nodes '
+                                  r'along $T_b$')
+                    st.pyplot(figk)
+                    plt.close(figk)
+                    cap = ("Points: posterior mean k₂ per interior model "
+                           "(one Ae/T_b grid node each), connected in T_b "
+                           "order; marker size scales with ocean "
+                           "thickness. Grey cloud: individual samples "
+                           "(rheology spread within each model).")
+                    if sal is None:
+                        cap += (" Color by salinity activates once a "
+                                "salinity-sampled artifact is loaded "
+                                "(fixed-salinity model shown).")
+                    st.caption(cap)
 
                 st.caption(
                     "Each point is one posterior sample's complex induction "
@@ -2695,13 +2682,30 @@ def main():
             for key in ['inference_param_space', 'inference_selected_params', 'inference_preset',
                         'inference_custom_mode', 'inference_observables', 'inference_sampler_settings',
                         'inference_structure_cache_path', 'inference_use_clathrate', 'inference_results',
-                        'inference_cache_key', 'inference_error', 'inference_error_traceback']:
+                        'inference_cache_key', 'inference_error', 'inference_error_traceback',
+                        '_default_cfg_applied']:
                 if key in st.session_state:
                     del st.session_state[key]
             st.rerun()
 
-        # Preset selector
-        render_preset_selector(PARAMETER_PRESETS)
+        # The old configuration-preset radio was redundant with the config-
+        # file loader above (and historically stomped loaded configs). A
+        # fresh session instead auto-loads the Titan no-ocean 8D config as
+        # the worked example of how an MCMC run is set up; every other
+        # configuration comes from "Load config file".
+        if not st.session_state.get('_default_cfg_applied'):
+            try:
+                import json as _json
+                _default_cfg = _json.loads(
+                    (Path(parent_directory) / 'PlanetProfile' / 'Inference'
+                     / 'configs' / 'test50_titan_noocean_andrade_8D.json'
+                     ).read_text())
+                _apply_config_to_session_state(_default_cfg)
+                st.session_state['_default_cfg_applied'] = True
+                st.rerun()
+            except Exception as _e:
+                st.warning(f"Could not auto-load the default configuration: {_e}")
+                st.session_state['_default_cfg_applied'] = True
 
         st.markdown("---")
 

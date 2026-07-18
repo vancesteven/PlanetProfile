@@ -1,7 +1,7 @@
 # Europa Clipper v3: ocean salinity as an 8th sampled parameter (Machine B)
 
 Author: Machine A, 2026-07-14 (user-directed: "train for a range of
-salinities from 1 to 100 ppt", seawater composition retained). Machine B
+salinities from 0.1 to 100 ppt (range widened from 1 ppt, user 2026-07-18)", seawater composition retained). Machine B
 runs everything compute-intensive. Status: `not implemented`.
 
 ## Objective
@@ -11,9 +11,9 @@ known oversight: salinity drives ocean conductivity (hence all 14 Bind
 channels), density, and thicknesses, so v2 posteriors implicitly condition
 on one assumed ocean. v3 samples it:
 
-- New parameter `log10_wOcean_ppt`, prior uniform [0, 2] (= 1-100 ppt,
+- New parameter `log10_wOcean_ppt`, prior uniform [-1, 2] (= 0.1-100 ppt,
   log-uniform per scientific review: a 2-decade scale parameter with a
-  linear-uniform prior puts 90% of mass in 10-100 ppt and drags the
+  linear-uniform prior would put ~90% of mass in 10-100 ppt and drag the
   posterior high wherever the data are weak; Jeffreys-style log-uniform is
   the honest weak prior). Composition `Seawater` (GSW) throughout.
   Pre-register dual-space posterior reporting (w and log10 w) plus a
@@ -56,7 +56,7 @@ changes the hydrosphere structure, so the cache becomes 2D:
    so v1/v2 artifacts stay servable.
 3. Freezing point depends on salinity: at high w the valid-Tb window
    SHIFTS (~6-7 K lower freezing at 100 ppt; higher at 1 ppt), so a fixed
-   Tb box is mostly-invalid in one corner. Store failures as explicit
+   Tb box is mostly-invalid in one corner (range now reaches 0.1 ppt, nearly-fresh water: freezing point ~pure-ice; conductivity ~0.01 S/m -> the |Ae_synodic|>0.7 support cut will carve away much of the low-w plane; expect large rejected regions, report them). Store failures as explicit
    `None` entries (rejected at sampling, never silently skipped) AND
    report D_ocean/D_iceIh maps over (Tb, w) confirming the box still
    resolves the valid region at w = 1 and w = 100; widen the Tb box if
@@ -122,6 +122,15 @@ changes the hydrosphere structure, so the cache becomes 2D:
 7. Expect the Tb shape defect (right-skew vs near-Gaussian flow) to
    persist; report it the same way. Watch wOcean's SBC rank histogram for
    prior-dominance artifacts.
+
+## MCMC side (user 2026-07-18)
+
+The SAME sampled `log10_wOcean_ppt` (U[-1,2]) applies to Europa MCMC
+configs once the 2D (Tb, w) cache + lookup land (Phases 1-2) — author a
+`europa_seawater_andrade_mcmc_8D_salinity.json` alongside the SBI config
+and register the parameter in the GUI registry (done Machine A-side:
+parameter_registry log10_wOcean_ppt). Titan no-ocean configs are exempt
+(no ocean to salinize).
 
 ## Phase 4 — Machine A (after artifacts land)
 

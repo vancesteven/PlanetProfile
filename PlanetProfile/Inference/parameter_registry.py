@@ -57,6 +57,23 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
     # -------------------------------------------------------------------------
     # Rheology Parameters (Andrade)
     # -------------------------------------------------------------------------
+    'log10_wOcean_ppt': ParameterDef(
+        id='log10_wOcean_ppt',
+        label='Log₁₀(Ocean Salinity)',
+        latex_label=r'$\log_{10}(w_{ocean}/\mathrm{ppt})$',
+        description='Ocean salinity (log10 of parts per thousand). '
+                    'Drives ocean conductivity (all induction channels), '
+                    'density, freezing point, and layer thicknesses. '
+                    'Requires a salinity-resolved (2D Tb x w) structure '
+                    'cache; range 0.1-100 ppt (user 2026-07-18).',
+        category='ocean',
+        default_prior='uniform',
+        default_bounds=[-1.0, 2.0],
+        units='log10(ppt)',
+        requires_structure_rebuild=True,
+        rheology_constraint=None
+    ),
+
     'alpha': ParameterDef(
         id='alpha',
         label='Andrade Exponent',

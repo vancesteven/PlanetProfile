@@ -1128,3 +1128,20 @@ on v2 sampling) is fixed in `SBIRunner.sample_posterior`
   nflows spline assert`). Composes cleanly with Machine A's adaptive-truncation
   change in `_condition_and_package` (different method; the truncation loop's
   `sample_posterior` calls now inherit the guard).
+
+## ADDENDUM 2026-07-18 (Machine A) — salinity range widened; GUI batch
+- v3 salinity range now **0.1-100 ppt** (log10_wOcean_ppt U[-1, 2]) per
+  user; v3 plan updated in place. Low end reaches near-fresh water: the
+  |Ae_synodic|>0.7 support cut will carve away much of the low-w plane —
+  report rejected regions. MCMC side added to the plan (same sampled
+  parameter once the 2D cache lands; Titan no-ocean exempt). Machine A
+  registered log10_wOcean_ppt in parameter_registry (ocean category).
+- GUI: MCMC preset radio removed (redundant with Load-config-file; the
+  Titan no-ocean 8D config auto-loads as the worked example). Removing it
+  exposed a latent bug: an old session-migration wiped any param_space
+  containing log10_zeta — which every modern config uses — silently
+  emptying loaded configs. Removed.
+- Induction panel: 3D (Ae, Re k2) view replaced with a k2 complex-plane
+  model-family plot (per-Tb-node mean k2 connected by segments, marker
+  size = ocean thickness, color = salinity once a salinity-sampled
+  artifact exists — v3-ready).
