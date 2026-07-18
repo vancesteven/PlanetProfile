@@ -132,6 +132,18 @@ and register the parameter in the GUI registry (done Machine A-side:
 parameter_registry log10_wOcean_ppt). Titan no-ocean configs are exempt
 (no ocean to salinize).
 
+## Phase 3.5 — GUI: k2/h2/Ae complex-plane CLOUD plot (absorbed from
+Machine B's 2026-07-18 design spec; `not implemented`, Machine A)
+
+Replaces the interim per-Tb-node "k2 complex plane by model" panel once a
+salinity-sampled artifact exists. One connected path per posterior SAMPLE
+(full interior model: rheology + Tb + composition) linking that sample's
+dimensionless complex signals on a single Re-Im plane: k2, h2, Ae(synodic),
+Ae(synodic 2nd), Ae(orbital) — 5 signals for 3-frequency runs, 3 for
+Galileo. Color = salinity, alpha low (cloud form, user-confirmed). The
+current plot's "Ae depends only on Tb" statement is a v2 fixed-seawater
+limitation, NOT physics — must not survive into v3.
+
 ## Phase 4 — Machine A (after artifacts land)
 
 GUI slot (config_path REQUIRED), derived-|Ae| guard recomputed for the
