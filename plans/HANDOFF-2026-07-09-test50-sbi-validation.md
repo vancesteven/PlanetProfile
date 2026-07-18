@@ -1219,3 +1219,68 @@ Machine-B gate items for v2 are now done.** Remaining before deploy are
 Machine A's: GUI slot (config_path REQUIRED), AppTest, and USER RATIFICATION
 (the Tb_K shape disposition + this Im_h2 fix are the two things to weigh at
 ratification). v3 salinity stays blocked on that ratification.
+
+## ADDENDUM 2026-07-18 (Machine B) — DESIGN SPEC for v3: k2/h2/Ae complex-plane cloud plot (`not implemented`, deferred to v3)
+
+User reviewed Machine A's induction panel and wants the "k₂ complex plane by
+model (connected)" block (`PlanetProfileApp/pages/Inference.py` ~2026-2099)
+**replaced** by a different, physically-correct plot. Recorded here for the
+**Fable/Machine A v3 plan to absorb** (Fable plans on Machine A; Machine B
+executes). Status `not implemented`, deferred until a salinity-sampled v3
+artifact exists.
+
+**What Machine A's current plot gets wrong (user):** it connects *per-Tb-node
+mean k₂* in Tb order — i.e. one signal (k₂) across models, collapsed onto the Tb
+grid. That discards the composition axis. **Ae varies with COMPOSITION
+(ocean salinity/conductivity), not just Tb.** The code comment
+"Ae depends on the ocean state only through T_b in this model family"
+(Inference.py ~2103-2105) is a **v2 fixed-seawater artifact limitation, not
+physics** — do not carry it into v3.
+
+**The plot the user wants (a CLOUD — user-confirmed):**
+- **One connected path per posterior SAMPLE** (a full interior model: rheology
+  + Tb + composition), NOT per Tb node. Each path links that sample's
+  **dimensionless complex signals** on a **single Re–Im plane**:
+  **k₂, h₂, Ae(synodic), Ae(synodic 2nd), Ae(orbital)** — 5 signals for the
+  3-frequency Clipper v2/v3 run; 3 signals (k₂, h₂, Ae synodic) for the
+  single-frequency Galileo run.
+- All five are dimensionless and O(0.1–1.2) (nominal k₂ Re≈0.25, |Ae|≲1 with
+  |Ae_synodic|>0.7, h₂ Re≈1.2, all Im≈0 at the fiducial), so they legitimately
+  co-plot on one plane. Draw a faint unit circle for Ae reference.
+- Translucent connected paths, **subsample ~200** samples, **color by
+  `log10_wOcean_ppt` (salinity)**. The hypothesis (user): the *shapes* of these
+  paths discriminate models and give a visual sense of the **dimensionality of
+  the inversion space**. This is why it must be v3 — on v2 (fixed seawater) the
+  composition axis is dormant and the shapes only spread via Tb + rheology.
+
+**PREREQUISITE — code change that MUST land in the v3 forward-model/packaging
+work (else the plot silently drops h₂ → 4 signals):**
+`h2_results` is **not currently packaged**. Both runners compute `Re_h2, Im_h2`
+in `forward_model_k2_flexible` (returns the 5-tuple
+`(Re_k2, Im_k2, Re_h2, Im_h2, perPhase_W)`, `forward_models.py:679`) but
+**discard** them (`sbi_runner.py:1033`, `mcmc_runner.py:1336`). To carry h₂:
+1. Add optional field `h2_results: Optional[np.ndarray] = None` to
+   `InferenceResult` (`inference_core.py` ~247, same pattern as `k2_results` /
+   `D_ocean_results`; `__post_init__` needs no change unless a shape check is
+   wanted).
+2. Capture `(Re_h2, Im_h2)` in both recompute loops (unpack the currently-`_`
+   slots) and build an `(n,2)` array alongside `k2_results`.
+3. Pass `h2_results=...` at both `InferenceResult(...)` sites
+   (`sbi_runner.py:1103`, `mcmc_runner.py:1378`).
+Backward-compatible: all construction sites are all-keyword; pickle restores
+old results without the attr, so the GUI reads it via
+`getattr(result, 'h2_results', None)` (matching the existing
+`D_ocean_results`/`cmr2_results` convention). Because the v3 1M artifact's
+per-sample results are recomputed at inference time, **capturing h₂ in the v3
+packaging work makes v3 results carry it automatically** — no artifact retrain
+needed for h₂ specifically, but the packaging code must be in before the v3
+results are generated/served.
+
+**Alignment (verified this session):** `metadata['induction_Ae']`
+(`{label: {'re':[...], 'im':[...]}}`, per-sample) is index-aligned with
+`result.samples` and `result.k2_results` in both runners
+(`_collect_posterior_Ae`, `mcmc_runner.py:779-809`), so a per-sample path can
+zip k₂[i], h₂[i], and Ae[label][i] with no realignment. Plot stays matplotlib +
+`st.pyplot` (established pattern in this expander). NOTE: `k2_results[:,1]` and
+`induction_Ae` Im are **signed** (do NOT abs-fold in this plot — the shape needs
+true sign).
