@@ -1154,6 +1154,28 @@ _SBI_ARTIFACT_SLOTS = {
 }
 
 
+@st.cache_data
+def _europa_excitation_moments():
+    """Complex excitation moments Be_{x,y,z}(label) [nT] from the MoonMag
+    excitation table, keyed by the canonical config labels (the file's
+    'adjusted orbital' row serves the 'orbital' label). Used to derive the
+    covarying Bind vector components from a single Ae per frequency."""
+    import csv
+    path = (Path(parent_directory) / 'PlanetProfile' / 'MagneticInduction'
+            / 'MoonMag' / 'excitation' / 'Be1xyz_Europa.txt')
+    alias = {'adjusted orbital': 'orbital'}
+    out = {}
+    with open(path) as f:
+        for row in csv.DictReader(f):
+            name = alias.get(row['exc name'], row['exc name'])
+            out[name] = {
+                'x': complex(float(row['Bex_Re(nT)']), float(row['Bex_Im(nT)'])),
+                'y': complex(float(row['Bey_Re(nT)']), float(row['Bey_Im(nT)'])),
+                'z': complex(float(row['Bez_Re(nT)']), float(row['Bez_Im(nT)'])),
+            }
+    return out
+
+
 def _sbi_artifacts_dir():
     return Path(parent_directory) / 'PlanetProfile' / 'Inference' / 'sbi_artifacts'
 
@@ -1317,7 +1339,24 @@ def render_amortized_config():
     st.markdown("#### 🔭 Observables (condition the posterior)")
     x_obs = {}
     obs_sigma = {}
-    for name in runner.obs_names:
+
+    # Bind_ vector components COVARY: all components of one frequency are a
+    # single complex Ae(frequency) times fixed excitation moments Be_comp,
+    # so independent per-component inputs allow physically inconsistent
+    # combinations. Default entry is therefore the PHYSICAL parameters —
+    # complex Ae per frequency — and the components are derived on-manifold.
+    # Raw per-component entry stays available for inverting actual
+    # spacecraft measurement sets (where the components carry noise
+    # independently).
+    bind_names = [n for n in runner.obs_names if n.startswith('Bind_')]
+    scalar_names = [n for n in runner.obs_names if not n.startswith('Bind_')]
+    bind_raw = False
+    if bind_names:
+        bind_raw = st.checkbox(
+            "Enter raw Bind vector components (only for inverting actual "
+            "spacecraft measurements)", key='amort_bind_raw')
+
+    def _obs_input(name):
         c1, c2 = st.columns(2)
         default = slot.get('default_obs', {}).get(name, 0.0)
         with c1:
@@ -1332,6 +1371,64 @@ def render_amortized_config():
                 key=f'amort_sigma_{name}', disabled=True,
                 help="The flow was trained with this observation noise; "
                      "changing σ requires retraining (or MCMC mode).")
+
+    for name in scalar_names:
+        _obs_input(name)
+
+    if bind_names and bind_raw:
+        for name in bind_names:
+            _obs_input(name)
+    elif bind_names:
+        # Physical entry: one complex Ae per excitation frequency.
+        be = _europa_excitation_moments()
+        # label order as they appear in obs_names
+        labels, comps = [], {}
+        for n in bind_names:
+            lab, comp = n[len('Bind_'):].rsplit('_', 2)[0], n.rsplit('_', 2)[1]
+            if lab not in labels:
+                labels.append(lab)
+            comps.setdefault(lab, [])
+            if comp not in comps[lab]:
+                comps[lab].append(comp)
+        st.markdown("**Induction response Ae per frequency** (vector "
+                    "components are derived as Ae × Be and conditioned "
+                    "jointly):")
+        defaults_obs = slot.get('default_obs', {})
+        for lab in labels:
+            ref_comp = comps[lab][0]
+            be_ref = be.get(lab, {}).get(ref_comp)
+            d_re = defaults_obs.get(f'Bind_{lab}_{ref_comp}_real', 0.0)
+            d_im = defaults_obs.get(f'Bind_{lab}_{ref_comp}_imag', 0.0)
+            ae_default = (complex(d_re, d_im) / be_ref) if be_ref else 0j
+            c1, c2 = st.columns(2)
+            with c1:
+                ae_re = st.number_input(f"Re Ae ({lab}):",
+                                        value=float(ae_default.real),
+                                        format="%.4f",
+                                        key=f'amort_obs_ae_{lab}_re')
+            with c2:
+                ae_im = st.number_input(f"Im Ae ({lab}):",
+                                        value=float(ae_default.imag),
+                                        format="%.4f",
+                                        key=f'amort_obs_ae_{lab}_im')
+            ae = complex(ae_re, ae_im)
+            derived = []
+            for comp in comps[lab]:
+                be_c = be.get(lab, {}).get(comp)
+                if be_c is None:
+                    st.error(f"No excitation moment for {lab}/{comp} — "
+                             f"cannot derive Bind components.")
+                    return None
+                bind = ae * be_c
+                x_obs[f'Bind_{lab}_{comp}_real'] = float(bind.real)
+                x_obs[f'Bind_{lab}_{comp}_imag'] = float(bind.imag)
+                obs_sigma[f'Bind_{lab}_{comp}_real'] = float(
+                    train_sigma.get(f'Bind_{lab}_{comp}_real', float('nan')))
+                obs_sigma[f'Bind_{lab}_{comp}_imag'] = float(
+                    train_sigma.get(f'Bind_{lab}_{comp}_imag', float('nan')))
+                derived.append(f"{comp}: {bind.real:+.2f}{bind.imag:+.2f}i")
+            st.caption(f"{lab} components (nT, σ = 1.5 each): "
+                       + ";  ".join(derived))
 
     # --- Sampler settings ---
     st.markdown("#### ⚙️ Sampling")

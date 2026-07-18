@@ -875,12 +875,21 @@ class SBIRunner:
             self._validate_truncation(truncate_bounds)
             idx_map = {name: self.param_names.index(name)
                        for name in truncate_bounds}
+            # Rejection resampling with an ADAPTIVE budget: narrow multi-
+            # parameter truncations legitimately sit at sub-percent
+            # acceptance (fractions multiply across parameters), and flow
+            # draws are cheap — so grow the batch toward the measured
+            # acceptance instead of failing early. Hard failure only at
+            # true starvation (the truncated region carries essentially no
+            # posterior mass, where a rejection-based truncated posterior
+            # would be statistical noise).
             kept = []
+            n_kept = 0
             n_drawn = 0
             batch = int(n_posterior_samples)
-            max_draws = 10 * int(n_posterior_samples)
+            max_draws = max(300 * int(n_posterior_samples), 1_000_000)
             batch_seed = seed
-            while sum(len(k) for k in kept) < n_posterior_samples and n_drawn < max_draws:
+            while n_kept < n_posterior_samples and n_drawn < max_draws:
                 draw = self.sample_posterior(x_obs, n_samples=batch, seed=batch_seed)
                 n_drawn += len(draw)
                 mask = np.ones(len(draw), dtype=bool)
@@ -888,16 +897,29 @@ class SBIRunner:
                     col = draw[:, idx_map[name]]
                     mask &= (col >= lo) & (col <= hi)
                 kept.append(draw[mask])
+                n_kept += int(mask.sum())
                 batch_seed = (batch_seed or 0) + 1
+                # Scale the next batch to the observed acceptance (bounded).
+                acc = max(n_kept / max(n_drawn, 1), 1e-6)
+                need = n_posterior_samples - n_kept
+                batch = int(np.clip(1.5 * need / acc, n_posterior_samples,
+                                    500_000))
             samples = np.concatenate(kept, axis=0)
             kept_fraction = float(len(samples) / max(n_drawn, 1))
-            if kept_fraction < 0.01:
+            if len(samples) < min(200, n_posterior_samples):
                 raise RuntimeError(
-                    f"Prior truncation keeps only {kept_fraction:.2%} of "
-                    f"posterior draws ({truncate_bounds}) — the truncated "
-                    f"region carries almost no posterior mass. Widen the "
-                    f"truncation or use MCMC mode."
+                    f"Prior truncation keeps only {kept_fraction:.3%} of "
+                    f"posterior draws ({len(samples)} kept from {n_drawn}; "
+                    f"bounds {truncate_bounds}) — the truncated region "
+                    f"carries essentially no posterior mass. Widen the "
+                    f"truncation or use MCMC mode with tighter priors."
                 )
+            if kept_fraction < 0.01:
+                log.warning(
+                    f"Prior truncation acceptance is low "
+                    f"({kept_fraction:.3%}; {len(samples)} samples kept from "
+                    f"{n_drawn} draws). Results are valid but consider MCMC "
+                    f"mode with tighter priors for efficiency.")
             samples = samples[:n_posterior_samples]
         else:
             samples = self.sample_posterior(
