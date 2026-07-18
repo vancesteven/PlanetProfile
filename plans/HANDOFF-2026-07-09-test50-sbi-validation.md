@@ -1296,3 +1296,10 @@ fixed code — expect byte-identical draws now (Machine A's on-artifact
 attempt used off-manifold x_obs and hit the reject-loop; killed per
 compute-split rule). v3 cloud-plot spec received; will absorb into the
 v3 plan — current per-Tb-node plot stays as the v2 interim.
+
+## USER DECISIONS 2026-07-18 (via Machine A)
+1. Test/ permission GRANTED for the v3 reference MCMC pickle —
+   commit it under Test/mcmc_results/Europa/ (v3 plan updated).
+2. **Europa Clipper v2 RATIFIED** — INDEX row moved to Deployed. The GUI
+   slot was already live with full guards; no code change needed. v3 is
+   cleared to start (Phase 1: 2D Tb x salinity cache).

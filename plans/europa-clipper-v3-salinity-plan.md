@@ -97,9 +97,8 @@ changes the hydrosphere structure, so the cache becomes 2D:
    values blindly (the new grid's nearest node may differ slightly).
 3. Reference MCMC on the v3 config (nautilus, as v2). COMMIT the reference
    pickle — v2's lived in /tmp on Machine B and is unavailable to Machine
-   A. Target location Test/mcmc_results/Europa/ requires the user's Test/
-   permission (CLAUDE.md); USER SIGN-OFF PENDING — if not granted, commit
-   under PlanetProfile/Inference/sbi_artifacts/references/ instead.
+   A. Target location Test/mcmc_results/Europa/ — USER PERMISSION GRANTED
+   (2026-07-18); commit the reference pickle there.
 4. 1M dataset (support guard ON, drop_nonfinite) -> nsf train -> artifact.
 5. Gates (ratified rules): SBC (now 8 params), crosscheck, limits. Anchor
    design: (Tb, w) grid-walk, 4 Tb x 3 w on-manifold anchors PLUS at least
