@@ -1145,3 +1145,19 @@ on v2 sampling) is fixed in `SBIRunner.sample_posterior`
   model-family plot (per-Tb-node mean k2 connected by segments, marker
   size = ocean thickness, color = salinity once a salinity-sampled
   artifact exists — v3-ready).
+
+## MACHINE B QUEUE (2026-07-18): v2 same-version sampling check
+Machine A started (and killed, per compute-split rule) the Clipper v2
+sampling verification — the last item of the v2 ratification package. It
+is compute-heavy on A because SBIRunner(config) triggers the 3-frequency
+Ae grid precompute (mpmath, ~46 Tb nodes x 3 freqs). Machine B: run
+plans/scripts equivalent of scratchpad v2_sampling_check — draw 4000
+samples from europa_seawater_andrade_clipper_v2.pt at config-central
+x_obs (seed 42), compare per-parameter mean/sigma against the committed
+crosscheck_report.json flow stats (tolerance dmean<0.1 sigma_B, sigma
+ratio 0.9-1.1 — same-version torch 2.8, expect near-exact), plus the
+signed-Im semantics probe (flipping a Bind imag sign must move the
+posterior; flipping Im_k2 must not). The new spline resample guard
+should absorb the intermittent nflows assert that killed Machine A's
+first attempt. Commit the result to validation_reports/ and mark v2
+ready for user ratification.
