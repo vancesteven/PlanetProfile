@@ -1063,3 +1063,68 @@ Commits on origin/genai (all verified per CLAUDE.md, AppTest/unit tests):
   candidate future fix: total-I).
 - Known intermittent nflows spline assertion on Clipper v2 sampling (see
   2026-07-16 note) still open on the Machine B side.
+
+## ADDENDUM 2026-07-17 (Machine B) — pulled Machine A batch; state sync
+
+Pulled origin/genai to `d35157b7` (clean fast-forward from `4efefa56`, 22
+commits, no local commits rebased, no untracked collisions). Env + candidate
+artifact confirmed on Machine B:
+- PPcl env: sbi 0.26.1, torch 2.8.0 (matches the v2 candidate's recorded
+  training versions — cross-version trust already gate-validated by Machine A
+  in `validation_reports/cross_version_machineA/`).
+- Candidate artifact present: `PlanetProfile/Inference/sbi_artifacts/
+  europa_seawater_andrade_clipper_v2.pt` (446 KB, 2026-07-14) plus all 6 gate
+  reports in `.../validation_reports/europa_clipper_v2_1m/` (sbc,
+  crosscheck, crosscheck_matched_truncation, limits_joint,
+  limits_263p50_w1_disambiguation, tb_shape_disambiguation). No rebuild needed.
+
+Acknowledged from the pull:
+- **McCleskey speciation change is CustomSolution/RktConduct-only** — Seawater
+  (GSW), MgSO4, NaCl conductivities untouched. Confirmed **no impact on the v3
+  salinity campaign inputs** (v3 is Seawater/GSW throughout).
+- **v2 status = candidate, `implemented, unverified`**; awaits Machine A GUI
+  slot + AppTest + user ratification (Machine A's step, not Machine B's).
+- **v3 salinity** (`plans/europa-clipper-v3-salinity-plan.md`) remains
+  `not implemented`, blocked on v2 ratification and user go-ahead.
+
+**nflows spline-inversion resample guard — `verified` (Machine B, 2026-07-17).**
+Machine A's 2026-07-16 note (intermittent `assert (discriminant >= 0).all()`
+on v2 sampling) is fixed in `SBIRunner.sample_posterior`
+(`PlanetProfile/Inference/sbi_runner.py`).
+
+- **Mechanism (resample, not clamp — user-directed):** on the spline
+  AssertionError, retry `_posterior.sample` up to `_MAX_SPLINE_RESAMPLE=8`
+  times with fresh RNG (`base_seed + attempt*_SPLINE_RESEED_STRIDE`); the
+  conditioning `x_t` is built once and reused so only the noise draw z varies.
+  Detection via `_is_nflows_spline_assertion` (traceback frame filename
+  contains `rational_quadratic` — the assert carries no message); any other
+  AssertionError propagates. Persistent failure across all 8 independent draws
+  raises RuntimeError (does NOT return partial/biased draws — a systematic
+  failure must surface). **Scoped to `reject_outside_prior=True`** (the
+  public/GUI path); the diagnostic `reject_outside_prior=False` sweeps
+  (validate_sbi limits grid) are left unguarded so their containment check
+  measures off-manifold leakage honestly.
+- **Root cause:** discriminant `b²−4ac` is analytically ≥0 for a monotonic RQ
+  spline; negativity is pure float roundoff at a bin edge, platform/BLAS
+  dependent. On this M2 the discriminant bottoms at +1.09e-11 and never
+  crosses zero — so the crash does NOT reproduce naturally here (1,700+ sample
+  calls, 0 crashes; confirmed via the reproduction sweep).
+- **Verification:** 6 new unit tests in `tests/sbi_runner_test.py`
+  (`SBISplineResampleGuardTests`) force the assertion path via `mock.patch` on
+  `_posterior.sample` and cover: detector specificity, resample-then-succeed,
+  persistent→RuntimeError, non-spline-assert propagation, diagnostic path
+  unguarded, and clean-run reproducibility. Full file 21/21 pass. End-to-end
+  run against the real v2 artifact: same-seed draws byte-identical (guard
+  transparent on the clean path), all-finite, Tb median 264.53 K, 40-seed
+  sweep 0 crashes. Scientific-reviewer (opus) **PASS** — redraw is
+  statistically unbiased (failure is draw-dependent in noise space, not
+  conditioning-dependent; whole-batch discard of i.i.d. draws is unbiased).
+- **Caveat (honest):** the guard-fires-under-a-real-crash path is verified via
+  mock, not a live crash, because the assertion does not trip on this machine.
+  The retry *logic* is fully exercised; a live-crash statistical-equivalence
+  check would need a machine where the assert fires (reviewer's non-blocking
+  recommendation).
+- **Committed** to genai (`fix(inference): resample guard for intermittent
+  nflows spline assert`). Composes cleanly with Machine A's adaptive-truncation
+  change in `_condition_and_package` (different method; the truncation loop's
+  `sample_posterior` calls now inherit the guard).

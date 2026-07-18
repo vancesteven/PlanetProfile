@@ -713,5 +713,132 @@ class SBIArtifactAndTrainingTests(unittest.TestCase):
             self.assertTrue(np.all(samples[:, d] <= hi + 1e-4))
 
 
+def _make_spline_assertion(marker_ok=True):
+    """Return an AssertionError whose traceback frame filename does (or does
+    not) contain the nflows rational_quadratic marker, so the guard's
+    frame-filename detector can be exercised deterministically without a real
+    nsf flow (whose float-roundoff failure is platform dependent)."""
+    if marker_ok:
+        # Fabricate a traceback frame whose filename carries the marker the
+        # guard matches on (the real assert lives in .../splines/
+        # rational_quadratic.py and has no message text).
+        code = compile(
+            "def f():\n assert False\n",
+            '/fake/site-packages/nflows/transforms/splines/'
+            'rational_quadratic.py', 'exec')
+        ns = {}
+        exec(code, ns)
+        try:
+            ns['f']()
+        except AssertionError as e:
+            return e
+    else:
+        try:
+            assert False, 'some unrelated assertion'
+        except AssertionError as e:
+            return e
+
+
+@unittest.skipUnless(_HAVE_SBI, 'sbi/torch not installed')
+class SBISplineResampleGuardTests(unittest.TestCase):
+    """The nflows spline-inversion resample guard in sample_posterior.
+
+    The underlying `assert (discriminant >= 0).all()` fires only on a
+    floating-point knife-edge that is platform/BLAS dependent (it does not
+    reproduce naturally on every machine), so these tests drive the guard's
+    control flow deterministically by patching the posterior's .sample to
+    raise the marker assertion on the first N calls and succeed afterwards.
+    """
+
+    def _trained_toy_runner(self):
+        config = _make_toy_sbi_config()
+        runner = SBIRunner(config)
+        theta, x = _toy_train_pair(runner, n=200, seed=7)
+        runner.train(theta, x, seed=7, density_estimator='maf',
+                     max_num_epochs=40)
+        return runner
+
+    def test_detector_matches_only_spline_assert(self):
+        from PlanetProfile.Inference.sbi_runner import (
+            _is_nflows_spline_assertion)
+        self.assertTrue(
+            _is_nflows_spline_assertion(_make_spline_assertion(marker_ok=True)))
+        self.assertFalse(
+            _is_nflows_spline_assertion(_make_spline_assertion(marker_ok=False)))
+        self.assertFalse(_is_nflows_spline_assertion(ValueError('nope')))
+
+    def test_resamples_then_succeeds(self):
+        runner = self._trained_toy_runner()
+        real_sample = runner._posterior.sample
+        calls = {'n': 0}
+
+        def flaky(*args, **kwargs):
+            calls['n'] += 1
+            if calls['n'] <= 2:  # fail twice, then succeed
+                raise _make_spline_assertion(marker_ok=True)
+            return real_sample(*args, **kwargs)
+
+        with mock.patch.object(runner._posterior, 'sample', side_effect=flaky):
+            samples = runner.sample_posterior(
+                {'obs_a': 0.5, 'obs_b': 0.5}, n_samples=64, seed=3)
+        self.assertEqual(calls['n'], 3)  # 2 failed + 1 success
+        self.assertEqual(samples.shape, (64, 2))
+        self.assertTrue(np.all(np.isfinite(samples)))
+
+    def test_persistent_failure_raises_runtimeerror(self):
+        runner = self._trained_toy_runner()
+
+        def always_fail(*args, **kwargs):
+            raise _make_spline_assertion(marker_ok=True)
+
+        with mock.patch.object(runner._posterior, 'sample',
+                               side_effect=always_fail):
+            with self.assertRaisesRegex(RuntimeError, 'resample attempts'):
+                runner.sample_posterior(
+                    {'obs_a': 0.5, 'obs_b': 0.5}, n_samples=64, seed=3)
+
+    def test_non_spline_assertion_propagates(self):
+        runner = self._trained_toy_runner()
+
+        def wrong_assert(*args, **kwargs):
+            raise _make_spline_assertion(marker_ok=False)
+
+        with mock.patch.object(runner._posterior, 'sample',
+                               side_effect=wrong_assert):
+            with self.assertRaises(AssertionError):
+                runner.sample_posterior(
+                    {'obs_a': 0.5, 'obs_b': 0.5}, n_samples=64, seed=3)
+
+    def test_diagnostic_path_not_guarded(self):
+        """reject_outside_prior=False is the diagnostic sweep path; the guard
+        must NOT resample there — the assertion must propagate on the first
+        hit so validate_sbi's containment check measures leakage honestly."""
+        runner = self._trained_toy_runner()
+        calls = {'n': 0}
+
+        def fail_once(*args, **kwargs):
+            calls['n'] += 1
+            raise _make_spline_assertion(marker_ok=True)
+
+        with mock.patch.object(runner._posterior, 'sample',
+                               side_effect=fail_once):
+            with self.assertRaises(AssertionError):
+                runner.sample_posterior(
+                    {'obs_a': 0.5, 'obs_b': 0.5}, n_samples=64, seed=3,
+                    reject_outside_prior=False)
+        self.assertEqual(calls['n'], 1)  # no resample in the diagnostic path
+
+    def test_guard_preserves_valid_draw_statistics(self):
+        """A run that never trips the assert must be byte-identical to the
+        pre-guard behaviour: same seed -> same draws (the guard's reseed only
+        fires on attempt>0, which a clean run never reaches)."""
+        runner = self._trained_toy_runner()
+        a = runner.sample_posterior(
+            {'obs_a': 0.5, 'obs_b': 0.5}, n_samples=128, seed=5)
+        b = runner.sample_posterior(
+            {'obs_a': 0.5, 'obs_b': 0.5}, n_samples=128, seed=5)
+        np.testing.assert_array_equal(a, b)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -43,6 +43,7 @@ import logging
 import os
 import subprocess
 import time
+import traceback
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
@@ -67,6 +68,43 @@ SBI_ARTIFACTS_DIR = Path(__file__).parent / 'sbi_artifacts'
 # Observable-name aliases for the imaginary part of k2. With
 # imag_convention='abs' both names refer to the same |Im k2| column.
 _IM_K2_ALIASES = ('Im_k2', 'abs_Im_k2')
+
+# --- nflows neural-spline-flow sampling guard --------------------------------
+# The nsf (neural spline flow) posterior estimator inverts a monotonic
+# rational-quadratic spline when drawing samples. That inversion solves a
+# quadratic whose discriminant (b^2 - 4ac) is analytically non-negative, but
+# nflows guards it with a hard `assert (discriminant >= 0).all()`
+# (nflows/transforms/splines/rational_quadratic.py). For a draw that lands
+# essentially on a spline bin edge the *computed* discriminant can dip a hair
+# below zero from pure floating-point roundoff (platform/BLAS dependent), which
+# trips the assert and crashes the ENTIRE sample() call even though the rest of
+# the batch is fine. The failure is intermittent — it depends on the random
+# noise draw — so re-drawing with fresh RNG state almost always succeeds. See
+# plans/HANDOFF-2026-07-09-test50-sbi-validation.md (Machine A 2026-07-16 note).
+_SPLINE_ASSERT_MARKER = 'rational_quadratic'
+# Max resample attempts before giving up. A persistent failure across this many
+# independent noise draws is NOT roundoff — it signals the conditioning x sits
+# in a genuinely pathological region of the flow, which must surface, not hide.
+_MAX_SPLINE_RESAMPLE = 8
+# Odd stride added to the base seed per retry so each attempt draws genuinely
+# independent noise (a bare +1 would still walk nearby RNG states).
+_SPLINE_RESEED_STRIDE = 1_000_003
+
+
+def _is_nflows_spline_assertion(exc: BaseException) -> bool:
+    """True if exc is the nflows rational-quadratic-spline discriminant assert.
+
+    We match on the traceback frame filename rather than the (empty) message,
+    since `assert (discriminant >= 0).all()` carries no text. Any other
+    AssertionError must propagate unchanged — this guard is scoped to the one
+    known floating-point-roundoff spline failure, not assertions in general.
+    """
+    if not isinstance(exc, AssertionError):
+        return False
+    for frame in traceback.extract_tb(exc.__traceback__):
+        if _SPLINE_ASSERT_MARKER in (frame.filename or ''):
+            return True
+    return False
 
 
 def _import_torch_sbi():
@@ -673,15 +711,49 @@ class SBIRunner:
             raise RuntimeError(
                 "No trained posterior available. Call train()/run() or load_artifact() first."
             )
-        if seed is not None:
-            torch.manual_seed(seed)
 
+        # Conditioning vector is deterministic given x_obs — build it once, so
+        # every resample attempt reuses the identical x (retries perturb only
+        # the RNG, never the conditioning).
         x_vec = self._x_obs_vector(x_obs)
         x_t = torch.as_tensor(x_vec, dtype=torch.float32)
-        samples = self._posterior.sample(
-            (int(n_samples),), x=x_t, show_progress_bars=False,
-            reject_outside_prior=reject_outside_prior,
-        )
+
+        # nflows spline-inversion resample guard (see _is_nflows_spline_assertion).
+        # Scoped to the reject_outside_prior=True public/GUI contract path: the
+        # diagnostic reject_outside_prior=False sweeps (validate_sbi limits grid)
+        # deliberately drive x off-manifold and let the assert / containment
+        # measure leakage honestly, so we must NOT silently resample there.
+        guard_spline = bool(reject_outside_prior)
+        base_seed = seed if seed is not None else 0
+        for attempt in range(_MAX_SPLINE_RESAMPLE if guard_spline else 1):
+            if seed is not None or attempt > 0:
+                # Reseed on the caller's seed (reproducible) and, on retry, walk
+                # to an independent RNG state for a genuinely fresh noise draw.
+                torch.manual_seed(base_seed + attempt * _SPLINE_RESEED_STRIDE)
+            try:
+                samples = self._posterior.sample(
+                    (int(n_samples),), x=x_t, show_progress_bars=False,
+                    reject_outside_prior=reject_outside_prior,
+                )
+                break
+            except AssertionError as exc:
+                if not (guard_spline and _is_nflows_spline_assertion(exc)):
+                    raise
+                log.warning(
+                    "nflows spline-inversion discriminant assert on posterior "
+                    "sample (attempt %d/%d, n_samples=%d) — floating-point "
+                    "roundoff on a bin edge; resampling with fresh RNG.",
+                    attempt + 1, _MAX_SPLINE_RESAMPLE, int(n_samples),
+                )
+        else:
+            # Exhausted every independent noise draw — this is not roundoff.
+            raise RuntimeError(
+                f"nflows spline inversion asserted on all "
+                f"{_MAX_SPLINE_RESAMPLE} independent resample attempts at this "
+                f"conditioning x — the flow is failing systematically here, not "
+                f"from float roundoff. Do not silently accept these draws; "
+                f"inspect the conditioning values (x_obs={x_obs})."
+            )
         return samples.detach().cpu().numpy().astype(np.float64)
 
     # ------------------------------------------------------------------
