@@ -1161,3 +1161,61 @@ posterior; flipping Im_k2 must not). The new spline resample guard
 should absorb the intermittent nflows assert that killed Machine A's
 first attempt. Commit the result to validation_reports/ and mark v2
 ready for user ratification.
+
+## ADDENDUM 2026-07-18 (Machine B) — v2 sampling check DONE; one latent Im_h2 bug surfaced
+
+Ran the v2 same-version sampling check. Script committed at
+`plans/scripts/v2_sampling_check.py`; report at
+`sbi_artifacts/validation_reports/europa_clipper_v2_1m/v2_sampling_reproduction_report.json`.
+Sampling path is `SBIRunner.load_artifact` (pure sampling, NO config, NO Ae
+precompute) — this is why it is cheap on B and why A's `SBIRunner(config)`
+attempt was heavy; the compute-split framing was a red herring, the check
+itself is seconds once you skip the config build.
+
+**Overall verdict: PASS**, with the scoping the scientific-reviewer (opus)
+insisted on — read these two caveats before treating it as ratification:
+
+1. **What Check 1 actually proves (`verified`):** the artifact LOADS and SAMPLES
+   deterministically and reproduces the committed `sbi_mean`/`sbi_std` to Monte
+   Carlo precision on all 7 params (alpha mean matches to 7e-7; every dmean well
+   inside 0.1*sigma; sigma-ratios 0.996-1.005). The spline resample guard was
+   active on the reject=True path and **no assert fired** on this M2 (consistent
+   with the guard's known platform-dependence — the assert doesn't trip here).
+   This is a **load/determinism + fold-semantics integrity** test. It is
+   self-referential (reference stats came from the same artifact + same seed +
+   same reject=True path), so it CANNOT and does NOT re-validate the flow's
+   scientific fidelity. In particular it does **not** subsume the already-
+   dispositioned **Tb_K crosscheck shape FAIL** (v2 plan lines 309-315: genuine
+   near-Gaussian-vs-skewed flow shape defect, sub-resolution + conservative,
+   reviewed COMMIT-AS-CANDIDATE 2026-07-14). That disposition still stands on
+   its own; this PASS neither helps nor harms it.
+
+2. **Signed-Im semantics (`verified`):** flipping the SIGNED `Bind_synodic_x_imag`
+   (-157.77 -> +157.77) moves the posterior up to 20.7 sigma (Tb_K) — signed
+   channels carry information as designed (this is an off-manifold excursion, so
+   it only confirms "responds", not calibrated magnitude; probe uses
+   reject_outside_prior=False, matching validate_sbi's off-manifold convention
+   at lines 903/1012 — reject=True legitimately stalls at 0% acceptance far off
+   manifold, which is what burned 90 min on my first, wrongly-reject=True,
+   attempt). Conditioning on Im_k2 = +0.08 vs -0.08 gives BYTE-IDENTICAL draws —
+   the abs-fold in `_x_obs_vector` is correct for Im_k2.
+
+**NEW LATENT BUG for Machine A (found by the reviewer, confirmed empirically):**
+`_x_obs_vector` (sbi_runner.py:674) abs-folds ONLY the `_IM_K2_ALIASES`
+(`Im_k2`/`abs_Im_k2`). But `Im_h2` is marked `'abs'` in the artifact's
+`channel_conventions` and is folded to `|Im_h2|` during training
+(mcmc_runner.py:1803). So a SIGNED `Im_h2` passed at inference conditions the
+flow off-manifold. Probe: Im_h2 = +0.08 vs -0.08 gives NON-identical draws
+(0.068 sigma shift) where it should be identical. **Immaterial to the v2
+artifact as gated** (its x_obs has Im_h2 = 0.0, abs(0)=0), so it does NOT block
+v2 ratification — but it is a real train/sample convention mismatch on the
+public/GUI path v2 will deploy on. **Recommended fix (Machine A, GUI-side):**
+generalize `_x_obs_vector` to fold every channel whose `channel_conventions`
+value is `'abs'`, not just the Im_k2 aliases. Add an Im_h2 +v/-v identity
+assertion to the AppTest.
+
+**v2 status: the sampling check is `verified` (PASS, scoped as above). All
+Machine-B gate items for v2 are now done.** Remaining before deploy are
+Machine A's: GUI slot (config_path REQUIRED), AppTest, and USER RATIFICATION
+(the Tb_K shape disposition + this Im_h2 fix are the two things to weigh at
+ratification). v3 salinity stays blocked on that ratification.
