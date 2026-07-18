@@ -74,7 +74,7 @@ def configAssign():
     Params.PLOT_HYDRO_PHASE = False  # Whether to plot phase diagram
     Params.PLOT_PVT_HYDRO =   False  # Whether to plot hydrosphere PT property plots
     Params.PLOT_PVT_ISOTHERMAL_HYDRO = False # Whether to plot hydrosphere PT isothermal property plots
-    Params.PLOT_PVT_INNER =   False  # Whether to plot silicate/core PT property plots
+    Params.PLOT_PVT_INNER =   True  # Whether to plot silicate/core PT property plots (color property surfaces with the geotherm overlaid; requires interior EOS tables, i.e. CONSTANT_INNER_DENSITY = False; default on 2026-07-17)
     Params.PLOT_BDIP =        False  # Whether to plot induced dipole surface strength in complex plane
     Params.PLOT_BSURF =       True  # Whether to plot induced field surface map
     Params.PLOT_ASYM =        False  # Whether to plot asymmetric boundary shape(s) when induced fields are calculated from them

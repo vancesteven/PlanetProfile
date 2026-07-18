@@ -406,7 +406,13 @@ figure_types = {
     "Seismic" : "Seismic Properties",
     "Viscosity" : "Viscosity",
     "Porosity2axes": "Porosity with 2 axes",
-    "Porosity" : "Porosity"}
+    "Porosity" : "Porosity",
+    "OceanSpecies" : "Ocean Speciation vs Depth",
+    "InnerPTprops" : "Silicate & Core P-T Property Surfaces",
+    "IsoThermHydroPTprops" : "Hydrosphere Isothermal P-T Properties",
+    "HydroPTprops" : "Hydrosphere P-T Property Surfaces",
+    "ConvDiag" : "Convection Regime Diagram",
+    "HtidalProfile" : "Tidal Heating Profile"}
 
 
 # This does the actual parsing of the figure file names
@@ -427,6 +433,12 @@ for filename in pdf_files:
 
 #Below are descriptive captions for the figures, linked via dictionary to the titles for those figures
 captions = {
+    "Ocean Speciation vs Depth": "Aqueous species concentrations, solid precipitates, and pH as a function of ocean depth (CustomSolution compositions; Reaktoro equilibrium)",
+    "Silicate & Core P-T Property Surfaces": "Color surfaces of physical properties (density, seismic velocities, etc.) from the Perple_X/EOS tables for the silicate mantle and core, with the model geotherm overlaid",
+    "Hydrosphere P-T Property Surfaces": "Color surfaces of hydrosphere physical properties in P-T space with the geotherm overlaid",
+    "Hydrosphere Isothermal P-T Properties": "Hydrosphere property cuts at constant temperature",
+    "Convection Regime Diagram": "Ice shell convection regime diagnostics",
+    "Tidal Heating Profile": "Radial tidal heating profile",
     "Interior Wedge Diagram": "Shows an interior wedge diagram showing the calculations of the radii of each planet layer",
      "Gravity and Pressure": "Gravitational acceleration (g) and Pressure profiles as a function of radius",
     "Hydrosphere Properties": (
