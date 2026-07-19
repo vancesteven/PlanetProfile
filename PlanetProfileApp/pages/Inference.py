@@ -974,7 +974,7 @@ def render_run_button(InferenceConfig, MCMCRunner):
 # recompute needs (same cache the training config used).
 _SBI_ARTIFACT_SLOTS = {
     'titan_andrade_noocean_posterior.pt': {
-        'label': 'Titan (Andrade, no ocean) — Test50 8D',
+        'label': '1D · Cassini–Titan (Andrade, no ocean) — Test50 8D',
         'bodyname': 'Titan',
         'config_path': ('PlanetProfile/Inference/configs/'
                         'test50_titan_noocean_andrade_8D.json'),
@@ -998,7 +998,7 @@ _SBI_ARTIFACT_SLOTS = {
         'validated_version_pairs': (('torch', '2.11.0', '2.8.0'),),
     },
     'europa_seawater_andrade_posterior_1m.pt': {
-        'label': 'Europa (Andrade, seawater) — Galileo run, synodic-only 7D',
+        'label': '1D · Galileo–Europa (Andrade, seawater) — synodic-only 7D',
         'bodyname': 'Europa',
         # Training config JSON: carries derived_params (mass-conservation
         # rho_sil + core-sensitive CMR2 dispatch) and induction_bounds that
@@ -1041,7 +1041,7 @@ _SBI_ARTIFACT_SLOTS = {
         'validated_version_pairs': (('torch', '2.11.0', '2.8.0'),),
     },
     'europa_seawater_andrade_clipper_v2.pt': {
-        'label': 'Europa (Andrade, seawater) — Clipper v2, 3-frequency induction 7D',
+        'label': '1D · Clipper–Europa (Andrade, seawater) — v2, 3-frequency induction 7D',
         'bodyname': 'Europa',
         'config_path': ('PlanetProfile/Inference/configs/'
                         'europa_seawater_andrade_clipper_v2.json'),
@@ -1461,6 +1461,15 @@ def render_model_assumptions(exec_mode: str):
     """Model build-up + assumptions text, shared by both execution modes."""
     with st.expander("📖 Model build-up & assumptions"):
         st.markdown("""
+**All current models are 1D** — spherically symmetric radial interior
+structures (the "1D ·" tag on each pretrained model). Parameter counts
+like 7D/8D refer to the number of *sampled parameters*, not structure
+dimensionality. The roadmap targets one 1D model per mission–body pair
+(Galileo/JUICE Ganymede & Callisto, Cassini Enceladus, JUICE Europa;
+JUICE projections from Van Hoolst et al. 2024, SSRv 220:54). Laterally
+varying 3D models, with spacecraft trajectory/measurement-geometry
+visualization, are future work.
+
 **Forward model chain** (identical physics for MCMC and amortized modes):
 
 1. **Interior structure** — a precomputed PlanetProfile thermodynamic profile
