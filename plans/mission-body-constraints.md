@@ -96,16 +96,28 @@ Data (real, Park et al. 2024 Table 8 Case 2):
   **dC22_nh U[-1e-4, 1e-4]** (C22 near-hydrostatic; a wide common
   prior would destroy the C22 channel). Pre-register
   prior-sensitivity on both.
-- **Forced libration amplitude = 0.091° ± 0.009° (3σ → 1σ ≈ 0.003°)**
-  — REVISED DOWN from Thomas et al. 2016's 0.120° ± 0.014° (2σ).
+- **Forced libration amplitude = 0.092° ± 0.009° (3σ → 1σ ≈ 0.003°)**
+  (ERRATUM value, 2026-07-19 — originally published as 0.091°; Eq. 6
+  amplitude 0.092119°) — REVISED DOWN from Thomas et al. 2016's
+  0.120° ± 0.014° (2σ).
   With the merged Librations.py forward model (main → genai,
   2026-07-19) this is now a WIRABLE observable channel — the
   ocean/shell-decoupling constraint enters the likelihood instead of
   being a documented gap. New observable 'libration_deg' + runner
   channel (Machine A test runs).
 - Park interior context (their inference, for fiducial/crosscheck
-  only, NOT observables): mean shell 27–33 km, ocean 21–26 km, core
-  density 2270–2330 kg/m3, total conductive heat loss 18–28 GW.
+  only, NOT observables; ERRATUM values): mean shell 25–29 km
+  (preferred 27), ocean 26–30 km (preferred 28), core radius ~197 km,
+  core density 2290–2350 kg/m3 (preferred 2320), MoI 0.337
+  [0.335, 0.338], total conductive heat loss 20–30 GW.
+- **ERRATUM note (authoritative version of record):** the erratum
+  corrects the shape/topography model and everything derived from it
+  (libration 0.092°, interior ranges above, shape harmonics in
+  Table 8's shape-derived columns) but does NOT touch the measured
+  Case 2 gravity field — the C20/C22 observables above stand. It also
+  adds the coefficient rescaling C_nm(new) = (R_old/R_new)^n
+  C_nm(old), confirming this pipeline's degree-2 (R/R_ref)^2
+  reference-radius convention.
 - Out of 1D scope (documented): S22 = −275.31 ± 10.87 e-6 (significant
   lateral structure — needs a 3D/lateral model); C30 = 177.82 ± 33.42
   e-6 (degree-3 zonal; our forward model is degree-2 — J3 modeling is

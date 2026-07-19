@@ -55,7 +55,7 @@
       1.47e-05
     ],
     "libration_deg": [
-      0.091,
+      0.092,
       0.003
     ]
   },
@@ -80,6 +80,7 @@
       "C20,C22": 0.47
     },
     "observable_correlations_provenance": "rho(C20,C22) = +0.47 ESTIMATED from Iess et al. (2014): their quoted ratio sigma (3.51 +/- 0.05) vs uncorrelated propagation (+/- 0.042) implies rho(J2,C22) ~= -0.47, i.e. +0.47 in the C20 = -J2 convention. Park et al. 2024 do not publish their covariance; request from authors / PDS before the production run if available, else keep this estimate (documented).",
-    "libration_elasticity_2026_07_19": "RESOLVED: rigid-shell vs elastic (DP-ALMA y1, rigid=False) libration compared at the default structure: 0.11091 vs 0.11094 deg - 0.03% difference, ~0.01 sigma of the 0.003-deg measurement. The rigid three-layer channel is adequate at Cassini precision (Enceladus k2 ~ 0.013: negligible tidal softening). No elastic correction needed for production."
+    "libration_elasticity_2026_07_19": "RESOLVED: rigid-shell vs elastic (DP-ALMA y1, rigid=False) libration compared at the default structure: 0.11091 vs 0.11094 deg - 0.03% difference, ~0.01 sigma of the 0.003-deg measurement. The rigid three-layer channel is adequate at Cassini precision (Enceladus k2 ~ 0.013: negligible tidal softening). No elastic correction needed for production.",
+    "park2024_erratum_2026_07_19": "Park et al. 2024 ERRATUM applied (user-supplied, authoritative version of record): forced libration 0.091 -> 0.092 deg (Eq. 6 amplitude 0.092119 deg; 3-sigma 0.009 unchanged -> 1-sigma 0.003). The MEASURED Case 2 gravity field (C20 -5477.45 +/- 36.99 e-6, C22 1517.90 +/- 14.70 e-6) is NOT affected - the erratum corrects only shape/topography-derived quantities. Revised interior interpretation (context/crosscheck): shell 25-29 km, ocean 26-30 km, core radius ~197 km, core density 2290-2350 kg/m3, MoI 0.337 [0.335, 0.338], conductive heat loss 20-30 GW. The erratum also states the coefficient rescaling C_nm_new = (R_old/R_new)^n C_nm_old, confirming this pipeline degree-2 (R/R_ref)^2 convention. Note: the committed smoke MCMC result pkl was run pre-erratum at 0.091 (a 0.3-sigma shift in one observable - immaterial for the channel-exercise smoke; the production run uses 0.092)."
   }
 }

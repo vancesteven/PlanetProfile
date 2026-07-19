@@ -1544,3 +1544,19 @@ Machine B's Enceladus production queue now has NO blocking items
 beyond compute: dense Tb cache (+ salinity sensitivity if desired),
 8D nuisance config per constraints doc, reference MCMC + training +
 gates.
+
+## ADDENDUM 2026-07-19k (Machine A) — Park et al. 2024 ERRATUM applied
+User supplied the published erratum (authoritative version of record).
+Changes applied: libration observable 0.091 -> 0.092 deg (Eq. 6
+amplitude 0.092119; 3-sigma 0.009 unchanged); interior
+context/crosscheck values revised (shell 25-29 km pref. 27, ocean
+26-30 km pref. 28 - THICKER ocean than v1 - core R ~197 km, rho
+2290-2350 pref. 2320, MoI 0.337 [0.335, 0.338], heat loss 20-30 GW).
+The MEASURED Case 2 gravity field is NOT affected (erratum touches
+shape/topography-derived quantities only) - C20/C22 observables stand.
+Erratum's added rescaling note C_nm ~ (R_old/R_new)^n confirms our
+degree-2 (R/R_ref)^2 convention. Config + constraints doc updated;
+committed smoke result pkl ran pre-erratum at 0.091 (0.3-sigma shift,
+immaterial for the channel-exercise smoke); Machine B production uses
+0.092. papers/park2024global.pdf remains the v1 PDF - read values
+through the erratum notes in the config/constraints doc.
