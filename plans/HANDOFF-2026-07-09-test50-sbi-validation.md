@@ -1395,3 +1395,23 @@ C/MR2 posterior expander (MacCullagh relations per Mazarico et al. 2023
 Eq. 5 — C20 = -J2 = -[C-(A+B)/2]/MR^2, C22 = (B-A)/4MR^2; A<=B<=C axes
 explained; Radau-Darwin + Tricarico 3.324; GC21 provenance of the
 0.3547 +/- 0.0024 value; v4 forward-look). AppTest-verified rendering.
+
+## ADDENDUM 2026-07-19f (Machine A) — ALL Europa artifacts flagged: Titan k2 sigmas
+User finding: every Europa artifact trained with Titan-derived k2
+constraints (sigma 0.06 ~ Cassini-Titan scale) — but Europa has NO
+measured k2; the Galileo v1 artifact conditions on a fake measurement.
+Directive: re-run Galileo, then remove Clipper v2 in favor of v4.
+
+Machine B queue (order):
+1. **Galileo v1.1** (spec in europa-clipper-v4-geodesy-plan.md,
+   "Galileo v1.1 re-run" section): honest data = CMR2 (GC21) + synodic
+   support cut; k2/h2 retained as LABELED hypothetical-conditioning
+   channels (Re_k2 [0.23, 0.05], Im_k2 [0.004, 0.05], h2 unchanged)
+   unless the user overrides to drop them. Test51 1D cache unchanged.
+   Seeds train 44 / data 50 / noise 5050. Full gates + re-run
+   reference MCMC with the same corrected observables.
+2. **v4 geodesy** (blocked on Machine A runner C20/C22 channels — in
+   progress).
+INDEX rows v1 + v2 annotated RETIRING; GUI scope notes now carry the
+caveat loudly; slots stay live until replacements land (public-app
+continuity). Do NOT HF-deploy in the interim unless the user asks.

@@ -289,6 +289,47 @@ coefficients at the SAME reference radius, not R_body_m = 1560.8 km
 (a (1565/1560.8)^2 ~ 0.5% effect on C22 = 3x sigma(C22): load-bearing,
 document it).
 
+## Galileo v1.1 re-run + Europa slot retirement (user 2026-07-19)
+
+User finding: ALL Europa GUI artifacts trained with Titan-derived k2
+constraints — sigma(k2) = 0.06 is the Cassini-Titan scale
+(Titan: 0.608 +/- 0.048, 0.135 +/- 0.035), but Europa has NO measured
+k2 whatsoever; the Galileo v1 artifact conditions on a fake
+measurement (Re_k2 0.25 +/- 0.06). User directive: re-run Galileo,
+then remove Clipper v2 in favor of v4.
+
+**Galileo v1.1 spec (Machine B; reuses the Test51 1D cache unchanged):**
+- Honest Galileo-era data: CMR2 [0.3547, 0.0024] (GC21 MoI, relabeled
+  Galileo-derived as in v4) + the synodic |Ae| > 0.7 support cut.
+  Galileo measured neither k2 nor h2.
+- k2/h2 channels: RETAIN as HYPOTHETICAL-CONDITIONING channels with
+  theory-motivated widths — Re_k2 [0.23, 0.05] (spans the 0.2-0.3
+  ocean-consistent theory range), Im_k2 [0.004, 0.05], Re_h2
+  [1.2, 0.1], Im_h2 [0.0, 0.1] — labeled in config metadata and the
+  GUI scope note as "no Galileo-era measurement exists; these channels
+  express hypothetical tidal data for exploration, defaults at the
+  ocean-consistent theory point". Alternative (REJECTED, documented):
+  dropping k2/h2 entirely is the strictly-honest Galileo dataset but
+  leaves 7 params constrained by one observable + a support cut — the
+  posterior is prior-dominated and the GUI demo loses its purpose;
+  the wide-sigma retain keeps the tool useful with honest labeling.
+  USER may override to the drop-channels variant before B trains.
+- Everything else as v1 (7 params, Test51 cache, synodic-only).
+  Fresh seeds: train 44 / data 50 / noise 5050. Full gate suite
+  (SBC/crosscheck vs a re-run reference MCMC with the SAME corrected
+  observables/limits grid-walk).
+
+**Retirement schedule (user-ratified sequence):**
+1. Machine B trains Galileo v1.1 -> gates -> Machine A slot swap
+   (v1 slot replaced in place; v1 artifact -> INDEX retired row).
+2. v4 trains -> gates -> Machine A GUI -> user ratification ->
+   **Clipper v2 slot REMOVED** in the same commit that adds the v4
+   slot (v2 -> INDEX retired row; artifact retained for provenance).
+3. Until each replacement lands, the current v1/v2 slots stay live
+   (public-app continuity) — their scope notes already carry validity
+   caveats; do NOT deploy to HF between veto and replacement unless
+   the user asks.
+
 ## Future work (user 2026-07-19; out of v4 scope)
 
 Higher-degree gravity coefficients (l >= 3) within modeled error

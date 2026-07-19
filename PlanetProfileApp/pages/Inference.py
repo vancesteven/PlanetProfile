@@ -1029,8 +1029,11 @@ _SBI_ARTIFACT_SLOTS = {
                        'induction-surviving support [261.5, 271.0] K (a '
                        'present conductive ocean is required); a low-Tb '
                        'marginal-shape caveat is documented in '
-                       'sbi_artifacts/INDEX.md. 3-frequency v2 is a future '
-                       'artifact.'),
+                       'sbi_artifacts/INDEX.md. ⚠️ RETIRING: the k2/h2 '
+                       'conditioning sigmas are Titan-derived — Europa has '
+                       'no measured k2; treat tidal inputs as hypothetical. '
+                       'Replacement (Galileo v1.1, honest observable set) '
+                       'is in training.'),
         # Cross-version sampling gate-validated on this machine (2026-07-13):
         # Machine A (torch 2.8) crosscheck reproduces Machine B's (torch 2.11)
         # committed report to 4 decimals on every per-parameter statistic.
@@ -1078,7 +1081,11 @@ _SBI_ARTIFACT_SLOTS = {
                        'accepted within the validated range (roughly '
                        '160–200 nT synodic amplitude); outside it the run '
                        'is refused — use MCMC mode. Technical validation '
-                       'details: sbi_artifacts/INDEX.md.'),
+                       'details: sbi_artifacts/INDEX.md. ⚠️ RETIRING: the '
+                       'k2 sigmas are Titan-derived, not the Mazarico et '
+                       'al. (2023) Clipper projections — superseded by the '
+                       'v4 geodesy artifact (in preparation), which will '
+                       'replace this slot.'),
         # Trained on torch 2.8.0 / sbi 0.26.1 — identical to this machine's
         # runtime; no cross-version pair needed.
     },
