@@ -321,10 +321,11 @@ class MCMCRunner:
         sd = self.structure_data
         Tb_sample = theta_dict.get('Tb_K')
         if is_2d_cache(sd) and Tb_sample is not None:
-            from .forward_models import _apply_bottom_temperature_2d
+            from .forward_models import (_apply_bottom_temperature_2d,
+                                         UnservableSampleError)
             try:
                 return _apply_bottom_temperature_2d(theta_dict, sd)
-            except ValueError:
+            except UnservableSampleError:
                 return None  # all corners None → reject
         if (Tb_sample is not None and isinstance(sd, dict)
                 and 'Tb_K_grid' in sd and 'structures' in sd):
@@ -636,17 +637,27 @@ class MCMCRunner:
 
             # Run forward model — parameter hooks do the Tb interpolation so that
             # _check_no_ocean sees the fully-interpolated T(r) and P(r) profiles.
-            from .forward_models import apply_parameters
-            modified = apply_parameters(theta_dict, structure_data)
+            from .forward_models import apply_parameters, UnservableSampleError
+            try:
+                modified = apply_parameters(theta_dict, structure_data)
+            except UnservableSampleError:
+                # 2D (Tb × w) cache: the prior samples the full rectangular box,
+                # but the valid region is a tilted band — a draw in an unbuilt
+                # corner (all four bilinear corners None) is unservable. Hard
+                # reject, exactly like the induction support cut.
+                return -1e30
 
             # No-ocean safeguard (body-agnostic: assert solid-Ih stability everywhere)
             if _check_no_ocean(modified):
                 return -1e30
 
-            Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
-                theta_dict, structure_data,
-                return_heating=False, arrhenius_params=arrhenius_params
-            )
+            try:
+                Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
+                    theta_dict, structure_data,
+                    return_heating=False, arrhenius_params=arrhenius_params
+                )
+            except UnservableSampleError:
+                return -1e30
             if np.isnan(Re_k2):
                 return -1e30
             chi2 = 0.0
@@ -1735,7 +1746,8 @@ class MCMCRunner:
         theta_kept = []
         obs_names = list(self.config.observables.keys())
 
-        from .forward_models import apply_parameters, forward_model_k2_flexible
+        from .forward_models import (apply_parameters, forward_model_k2_flexible,
+                                      UnservableSampleError)
 
         # Support guard: identical logic to
         # MCMCRunner._make_flexible_log_likelihood's nested _check_no_ocean
@@ -1879,7 +1891,14 @@ class MCMCRunner:
             theta_dict = self._expand_theta(theta[i])
 
             if apply_support_guard:
-                modified = apply_parameters(theta_dict, self.structure_data)
+                try:
+                    modified = apply_parameters(theta_dict, self.structure_data)
+                except UnservableSampleError:
+                    # 2D cache: draw in an unbuilt tilted-band corner → the same
+                    # support-reject the MCMC likelihood applies. Keeps the SBI
+                    # training support == reference-MCMC support.
+                    n_rejected_support += 1
+                    continue
                 if _check_no_ocean(modified):
                     n_rejected_support += 1
                     continue
@@ -1903,10 +1922,20 @@ class MCMCRunner:
                     continue
 
             # Compute k2 (and h2 — same forward call returns both)
-            Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
-                theta_dict, self.structure_data,
-                return_heating=False, arrhenius_params=self.arrhenius_params
-            )
+            try:
+                Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
+                    theta_dict, self.structure_data,
+                    return_heating=False, arrhenius_params=self.arrhenius_params
+                )
+            except UnservableSampleError:
+                # Unservable corner reached without the support guard (or a
+                # config that samples w without induction bounds): drop the row
+                # if drop_nonfinite is on; otherwise inject NaN so it is caught
+                # by the caller's finiteness handling, never a hard crash.
+                if drop_nonfinite:
+                    n_rejected_nonfinite += 1
+                    continue
+                Re_k2 = Im_k2 = Re_h2 = Im_h2 = np.nan
 
             xi = []
             for name in obs_names:

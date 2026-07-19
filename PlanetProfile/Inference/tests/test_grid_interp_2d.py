@@ -187,6 +187,41 @@ def test_support_cut_is_2d_region_in_w():
     assert np.isfinite(ll_high) and ll_high > -1e29
 
 
+def test_unservable_sample_error_on_all_none_corner():
+    """Regression (2026-07-18): a draw in an unbuilt tilted-band corner (all 4
+    bilinear corners None) must raise the DEDICATED UnservableSampleError from
+    _apply_bottom_temperature_2d — a ValueError subclass the likelihood/dataset
+    catch to hard-reject, distinct from the rheology hooks' genuine ValueErrors.
+    The pocoMC prior samples the full rectangular box including the unbuilt
+    corners, so an uncaught raise here crashed the reference MCMC on sample ~0.
+    """
+    from PlanetProfile.Inference.forward_models import (
+        _apply_bottom_temperature_2d, UnservableSampleError)
+    # 2×2 cache with every structure None (fully unbuilt).
+    sd = {
+        'Tb_K_grid': np.array([260.0, 261.0]),
+        'wOcean_ppt_grid': np.array([0.1, 100.0]),
+        'structures': [None, None, None, None],
+    }
+    theta = {'Tb_K': 260.5, 'log10_wOcean_ppt': 0.0}  # w=1 ppt, interior
+    with pytest.raises(UnservableSampleError):
+        _apply_bottom_temperature_2d(theta, sd)
+    # It IS a ValueError subclass (so legacy `except ValueError` still catches),
+    # but the subclass lets rheology-config ValueErrors stay distinguishable.
+    assert issubclass(UnservableSampleError, ValueError)
+
+
+@_needs_fixture
+def test_likelihood_rejects_unbuilt_corner_not_crash():
+    """Regression (2026-07-18): the MCMC likelihood must return the -1e30 reject
+    sentinel for an unbuilt-corner sample, NOT propagate UnservableSampleError.
+    Uses the low-w corner of the fixture, which is unbuilt in the tilted band."""
+    r = _make_runner_on_3x4()
+    # log10_w = -1 -> w=0.1 ppt, the low-w edge that is None across the band.
+    ll = r.log_likelihood_fn(_theta(r, 260.0, -1.0))
+    assert ll <= -1e29  # graceful reject, no exception escaped
+
+
 @_needs_fixture
 def test_ae_monotone_in_salinity():
     """Shared interpolant: |Ae_synodic| increases with w at fixed Tb."""

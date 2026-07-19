@@ -23,6 +23,21 @@ from PlanetProfile.Inference.grid_interp_2d import (
 
 log = logging.getLogger('PlanetProfile')
 
+
+class UnservableSampleError(ValueError):
+    """A sample falls in an unbuilt region of the 2D (Tb × w) cache.
+
+    Raised by :func:`_apply_bottom_temperature_2d` when all four bilinear
+    corners are ``None`` (the tilted valid band leaves two opposite corners
+    unbuilt). This is NOT a configuration error — the prior samples the full
+    rectangular box including the unbuilt corners, so the likelihood and the
+    SBI dataset generator must catch this SPECIFIC subclass and treat it as a
+    hard reject (``-1e30`` / support-reject), exactly like the induction
+    support cut. A dedicated subclass (rather than a bare ``ValueError``)
+    keeps the genuine ``ValueError``s raised by the rheology hooks
+    (misconfigured Andrade params, etc.) surfacing as real errors.
+    """
+
 # Eager TidalPy import (was lazy inside forward_model_k2_flexible — that
 # triggered a numba "no locator available" RuntimeError when pocoMC's eval
 # loop hit the first sample, because partial_melt.melting_models's
@@ -458,7 +473,7 @@ def _apply_bottom_temperature_2d(
     valid = [structs[c] is not None for c in corners]
     resolved = _resolve_none_corners(corners, weights, valid)
     if resolved is None:
-        raise ValueError(
+        raise UnservableSampleError(
             f"2D cache: all bilinear corners are None at "
             f"(Tb={theta_dict.get('Tb_K')}, w={w_ppt:.4g} ppt); "
             "sample sits in an unbuilt corner — reject."

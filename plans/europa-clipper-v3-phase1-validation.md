@@ -149,3 +149,36 @@ Status: Phase 2 `verified` end-to-end on the production cache (likelihood
 finite where |Ae_syn|>0.7, rejected below; CMR2 mass-conservation derives
 through the bilinear hydrosphere; None-corner → hard reject). C4 remains for
 Phase-3 gates.
+
+## Phase-3 pre-training gates (Machine B, 2026-07-18) — `verified`
+Run through the production shared interpolant; Ae grid disk-cached
+(`/tmp/v3_ae_grid.pkl`, 1488 nodes) so downstream runs skip the ~32-min
+precompute. Scripts: `/tmp/v3_c4_edge_gate2.py`, `/tmp/v3_worstcase_wprobe.py`;
+results `/tmp/v3_c4_edge_result.json`, `/tmp/v3_worstcase_wprobe.json`.
+
+- **C4 (transition-cell jump < σ): PASS (0.000σ).** The only phase-set
+  transition on the GSW path is ocean onset (no-ocean → ocean; HP ice
+  impossible, basal P < 200 MPa). On EVERY w-column the onset cell's lower Tb
+  node is None (reject region), and the |Ae_synodic|>0.7 support edge sits
+  ABOVE ocean onset everywhere — so no accepted sample ever bilinearly blends
+  across the discontinuity. Worst in-support jump 0.000σ. C4 now `verified`
+  (was deferred from Phase 2).
+- **edge, Tb-discretization: PASS (0.0851 K < 0.125 K).** Exact-seawater
+  regular 0.125 K column vs the v2 transition-refined cache — the plan's
+  pre-registered gate.
+- **edge, w-interpolation: 0.285 K at seawater; worst-case-over-supported-w
+  0.099 K (w=7.94 ppt).** Reviewer GO-WITH-CONDITIONS. An interpolate-then-
+  threshold |Ae|-curvature artifact of the 16-node log-w grid, biasing the
+  support edge HIGH (conservative truncation). The worst-case probe (steepest
+  supported cell) is < the 0.45 K composition-systematic edge-equivalent →
+  **Option A** (keep the 16-column grid) stands. Documented as
+  `salinity_w_interp_caveat_2026_07_18` in the config metadata (reducible
+  discretization systematic, subdominant to the 18.5% composition systematic,
+  present identically in reference-MCMC + SBI so it does NOT break the 2D
+  degeneracy gate).
+
+Fiducial Bind central values recomputed from the 2D cache at (Tb=266,
+w=35.16504): `/tmp/v3_fiducial_bind.json`, |Ae_synodic|=0.874. (Computed at
+Tb=266 vs v2's Tb=264.52 conditioning point; the current config Bind values
+remain the ratified v2 conditioning — train/validate are self-consistent under
+either, since fiducials and runtime use the same code.)
