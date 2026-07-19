@@ -2,7 +2,15 @@
 
 Author: Machine A, 2026-07-14 (user-directed: "train for a range of
 salinities from 0.1 to 100 ppt (range widened from 1 ppt, user 2026-07-18)", seawater composition retained). Machine B
-runs everything compute-intensive. Status: `not implemented`.
+runs everything compute-intensive.
+
+Status 2026-07-19: Phases 1–3 `verified` (Machine B, commits bfc7f3f1 →
+f228810f; gates in validation_reports/europa_clipper_v3_1m/, artifact
+RATIFIABLE). Phase 3.5 cloud plot `verified` (Machine A, AppTest + PNG
+against the committed reference pickle). Phase 4 GUI slot: render
+`verified` (AppTest); sampling `implemented, unverified` — blocked on
+committing the 21 MB 2D cache (Machine B holds it; see handoff
+2026-07-19b). User ratification pending.
 
 ## Objective
 

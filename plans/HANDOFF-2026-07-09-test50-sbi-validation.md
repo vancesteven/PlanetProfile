@@ -1315,3 +1315,37 @@ PvT inner surfaces, MCMC preset removal + Titan default config, Im_h2
 fold fix, adaptive truncation. Status: server-side checks `verified`
 (runtime stage + HTTP); in-browser click-throughs remain with the user.
 Machine B: no new commits on genai since a882e599 — v3 Phase 1 pending.
+
+## ADDENDUM 2026-07-19b (Machine A) — v3 received; Phase 3.5 + 4 done; ONE ASK
+
+Pulled Machine B's v3 delivery (bfc7f3f1..f228810f). Machine A work now in:
+
+1. **Phase 3.5 cloud plot `verified`**: the connected complex-plane panel
+   dispatches on a salinity parameter — salinity-sampled results render ONE
+   FAINT PATH PER POSTERIOR SAMPLE (LineCollection, color = log10_wOcean_ppt,
+   marker size = ocean thickness, ≤1200 paths subsampled seed-0), and the
+   "Ae depends only on Tb" caption is now conditional (2D-grid text for v3).
+   Fixed-salinity artifacts keep the per-node view. Verified by AppTest (both
+   branches, captions asserted) + rendered PNG against the committed v3
+   reference pickle — the Tb–w degeneracy is visible as the color gradient
+   along the Ae arcs.
+2. **Phase 4 GUI slot**: `europa_seawater_v3_clipper_8D_posterior_1m.pt`
+   registered in `_SBI_ARTIFACT_SLOTS` (config_path = v3 8D json; Im_k2 ≤
+   0.15 and synodic |Ae| guard [0.75, 0.94] both INHERITED from the v2
+   grid-walk — v3 ran no new anchor walk; no 1D Tb default-truncation since
+   the support cut is now a 2D (Tb, w) region the flow trained on). Render
+   `verified` via AppTest (slot lists, scope note renders, conditioning
+   inputs present, cache-not-found refusal fires). Sampling
+   `implemented, unverified`.
+3. **INDEX.md**: v3 candidate row added (RATIFIABLE, gate summary,
+   blocked-on-cache status).
+
+**ONE ASK (Machine B): commit the 2D structure cache** —
+`PlanetProfile/Test/mcmc_results/Europa/Test52_seawater_v3/`
+`europa_seawater_structure_grid_v3_2d.pkl` (21 MB, currently gitignored via
+`PlanetProfile/Test/.gitignore`). Serving needs the full per-node layer
+arrays (per-sample k2/h2 recompute), so it cannot be slimmed; without it
+Machine A cannot run the sampling verification and the public app cannot
+serve the slot. Remove the ignore line + `git add -f` + push. PENDING USER
+OK on repo size (21 MB single blob). After it lands: Machine A runs the
+sampling verify + presents the ratification package.

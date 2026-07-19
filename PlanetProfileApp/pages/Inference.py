@@ -1082,6 +1082,62 @@ _SBI_ARTIFACT_SLOTS = {
         # Trained on torch 2.8.0 / sbi 0.26.1 — identical to this machine's
         # runtime; no cross-version pair needed.
     },
+    'europa_seawater_v3_clipper_8D_posterior_1m.pt': {
+        'label': ('Europa (Andrade, seawater) — Clipper v3, 8D sampled '
+                  'salinity 0.1–100 ppt'),
+        'bodyname': 'Europa',
+        'config_path': ('PlanetProfile/Inference/configs/'
+                        'europa_seawater_andrade_clipper_v3_8D.json'),
+        # 2D (Tb x log10 w) structure cache, schema v3.0 — built on Machine B
+        # (build_tbw_grid_cache); until it is committed the run button
+        # refuses with the cache-not-found error below.
+        'cache_path': ('PlanetProfile/Test/mcmc_results/Europa/'
+                       'Test52_seawater_v3/'
+                       'europa_seawater_structure_grid_v3_2d.pkl'),
+        # Same 19 observables and fiducial conditioning values as v2 (the
+        # v3 config copies them; salinity is a sampled PARAMETER, not an
+        # observable).
+        'default_obs': {
+            'CMR2': 0.3547, 'Re_k2': 0.25, 'Im_k2': 0.0,
+            'Re_h2': 1.2, 'Im_h2': 0.0,
+            'Bind_synodic_x_real': 91.8248, 'Bind_synodic_x_imag': -157.7708,
+            'Bind_synodic_y_real': -59.4061, 'Bind_synodic_y_imag': -25.8874,
+            'Bind_synodic_z_real': -5.6378, 'Bind_synodic_z_imag': -12.4064,
+            'Bind_synodic 2nd_x_real': 14.7108, 'Bind_synodic 2nd_x_imag': 3.1779,
+            'Bind_synodic 2nd_y_real': 1.8788, 'Bind_synodic 2nd_y_imag': -9.8686,
+            'Bind_orbital_x_real': -0.3812, 'Bind_orbital_x_imag': 6.454,
+            'Bind_orbital_y_real': -2.2124, 'Bind_orbital_y_imag': -0.2825,
+        },
+        # Inherited from the v2 anchor sweep — v3's Phase-3 gates validated
+        # the fiducial (2D degeneracy gate + crosscheck) and global
+        # calibration (SBC), but ran no new Im_k2 anchor walk; keep the
+        # v2 envelope until a v3 grid-walk widens it.
+        'x_obs_limits': {'Im_k2': (0.0, 0.15)},
+        # Ae guard likewise inherited from the v2 grid-walk envelope
+        # (synodic |Ae| 0.75-0.94); the v3 training support cut is the same
+        # |Ae_synodic| > 0.7. Recompute from a v3 grid-walk when run
+        # (plan Phase 4 note).
+        'derived_ae_guards': [{
+            'label': 'synodic', 'comp': 'x',
+            'Be_comp': (128.466302323619, -170.084146795136),
+            'ae_range': (0.75, 0.94),
+            'warn_support_below': 0.7,
+        }],
+        # Induction support edge: with sampled salinity the |Ae_synodic|>0.7
+        # cut carves a 2D (Tb, w) region rather than a single Tb edge, so no
+        # 1D Tb truncation is pre-applied — the flow was trained on the full
+        # surviving 2D support and reject_outside_prior handles the box.
+        'scope_note': ('Clipper v3: ocean salinity is SAMPLED '
+                       '(log10 w, 0.1–100 ppt, Jeffreys prior) — posteriors '
+                       'expose the strong Tb–salinity degeneracy '
+                       '(corr ≈ −0.99): both raise ocean conductance, which '
+                       'is what induction actually constrains. Salinity is '
+                       'weakly identified; its posterior is prior-shape '
+                       'sensitive. GSW extrapolation caveat above 42 ppt '
+                       'and gate details: sbi_artifacts/INDEX.md.'),
+        # Trained on torch 2.8.0 / sbi 0.26.1 (Machine B, 2026-07-19) —
+        # same major runtime as this machine; no cross-version pair needed.
+    },
 }
 
 
@@ -2047,100 +2103,163 @@ def render_results():
                            result.param_names.index(sal_col)]
                            if sal_col else None)
 
-                    # Group samples by Ae node (one grid model each),
-                    # ordered by Tb.
-                    _, inv = np.unique(np.round(ae0[:n], 12),
-                                       return_inverse=True)
-                    node_rows = []
-                    for g in range(inv.max() + 1):
-                        m = inv == g
-                        sigs = [('k₂', complex(np.mean(k2[:n][m, 0]),
-                                               np.mean(k2[:n][m, 1])))]
-                        if h2 is not None and len(h2) >= n:
-                            sigs.append(('h₂', complex(np.mean(h2[:n][m, 0]),
-                                                       np.mean(h2[:n][m, 1]))))
-                        for lab in labels:
-                            a = (np.asarray(_ind_ae[lab]['re'], float)[:n]
-                                 + 1j * np.asarray(_ind_ae[lab]['im'],
-                                                   float)[:n])
-                            sigs.append((f'Ae {lab}', complex(np.mean(a[m]))))
-                        node_rows.append({
-                            'tb': float(np.mean(tb[m])) if tb is not None else g,
-                            'd': float(np.mean(d_oc[m])) if d_oc is not None else 20.0,
-                            'sal': float(np.mean(sal[m])) if sal is not None else None,
-                            'sigs': sigs,
-                        })
-                    node_rows.sort(key=lambda r: r['tb'])
-
-                    sig_names = [nm for nm, _ in node_rows[0]['sigs']]
+                    # Per-sample signal arrays shared by both branches:
+                    # k₂, h₂, then Ae at each excitation frequency.
+                    sig_list = [('k₂', k2[:n, 0] + 1j * k2[:n, 1])]
+                    if h2 is not None and len(h2) >= n:
+                        sig_list.append(('h₂', h2[:n, 0] + 1j * h2[:n, 1]))
+                    for lab in labels:
+                        sig_list.append((f'Ae {lab}',
+                                         np.asarray(_ind_ae[lab]['re'],
+                                                    float)[:n]
+                                         + 1j * np.asarray(_ind_ae[lab]['im'],
+                                                           float)[:n]))
+                    sig_names = [nm for nm, _ in sig_list]
                     markers = ['o', 's', '^', 'D', 'v', 'P'][:len(sig_names)]
-                    dvals = np.array([r['d'] for r in node_rows])
-                    span = np.ptp(dvals) if np.ptp(dvals) > 0 else 1.0
-                    sizes = 25 + 175 * (dvals - dvals.min()) / span
+
                     if sal is not None:
-                        svals = np.array([r['sal'] for r in node_rows])
+                        # Salinity-sampled artifact (v3+): one faint path
+                        # per posterior SAMPLE — the full interior model
+                        # (rheology + Tb + salinity) sets every signal, so
+                        # the cloud shows the joint spread and the Tb–w
+                        # degeneracy as a color gradient along the Ae arcs.
+                        from matplotlib.collections import LineCollection
+                        n_show = min(n, 1200)
+                        idx = (np.random.default_rng(0).choice(
+                                   n, n_show, replace=False)
+                               if n > n_show else np.arange(n))
+                        S = np.array([arr for _, arr in sig_list])
                         cmap = plt.cm.viridis
-                        cnorm = plt.Normalize(svals.min(),
-                                              svals.max() or 1.0)
-                        colors_n = [cmap(cnorm(v)) for v in svals]
+                        cnorm = plt.Normalize(np.nanmin(sal), np.nanmax(sal)
+                                              or 1.0)
+                        if d_oc is not None:
+                            dspan = np.ptp(d_oc[np.isfinite(d_oc)])
+                            dspan = dspan if dspan > 0 else 1.0
+                            szs = 4 + 26 * (d_oc[idx]
+                                            - np.nanmin(d_oc)) / dspan
+                        else:
+                            szs = np.full(n_show, 8.0)
+
+                        figk, axk = plt.subplots(figsize=(7.2, 5.6))
+                        paths = np.stack([S[:, idx].real, S[:, idx].imag],
+                                         axis=-1).transpose(1, 0, 2)
+                        axk.add_collection(LineCollection(
+                            paths,
+                            colors=cmap(cnorm(sal[idx])),
+                            linewidths=0.5, alpha=0.12, zorder=1))
+                        for (nm, arr), mk in zip(sig_list, markers):
+                            axk.scatter(arr[idx].real, arr[idx].imag,
+                                        s=szs, marker=mk, c=sal[idx],
+                                        cmap=cmap, norm=cnorm, alpha=0.45,
+                                        linewidths=0, zorder=2)
+                        axk.autoscale_view()
+                        for nm, mk in zip(sig_names, markers):
+                            axk.scatter([], [], marker=mk, color='0.4',
+                                        edgecolor='k', linewidth=0.4, s=60,
+                                        label=nm)
+                        axk.legend(fontsize=8, loc='best',
+                                   title='signal', title_fontsize=8)
+                        figk.colorbar(plt.cm.ScalarMappable(
+                            norm=cnorm, cmap=cmap), ax=axk, label=sal_col)
+                        axk.set_xlabel('Re(signal)')
+                        axk.set_ylabel('Im(signal)')
+                        axk.set_title('Complex-plane response signals per '
+                                      'posterior sample')
+                        st.pyplot(figk)
+                        plt.close(figk)
+                        st.caption(
+                            f"One faint path per posterior sample "
+                            f"({n_show} of {n} shown) linking its k₂, h₂, "
+                            "and induction response Ae at each excitation "
+                            "frequency. Marker shape = signal; marker "
+                            f"size = ocean thickness; color = {sal_col}. "
+                            "Ae varies with both T_b and ocean salinity "
+                            "through the 2D structure grid; the color "
+                            "gradient along the Ae arcs traces the "
+                            "T_b–salinity degeneracy ridge.")
                     else:
+                        # Fixed-salinity artifacts (v1/v2): samples
+                        # quantize to the Ae/Tb grid nodes, so per-sample
+                        # paths collapse onto a few curves — group by node
+                        # (mean signals per node), ordered by Tb.
+                        _, inv = np.unique(np.round(ae0[:n], 12),
+                                           return_inverse=True)
+                        node_rows = []
+                        for g in range(inv.max() + 1):
+                            m = inv == g
+                            sigs = [(nm, complex(np.mean(arr[m])))
+                                    for nm, arr in sig_list]
+                            node_rows.append({
+                                'tb': (float(np.mean(tb[m]))
+                                       if tb is not None else g),
+                                'd': (float(np.mean(d_oc[m]))
+                                      if d_oc is not None else 20.0),
+                                'sigs': sigs,
+                            })
+                        node_rows.sort(key=lambda r: r['tb'])
+
+                        dvals = np.array([r['d'] for r in node_rows])
+                        span = np.ptp(dvals) if np.ptp(dvals) > 0 else 1.0
+                        sizes = 25 + 175 * (dvals - dvals.min()) / span
                         cmap_tb = plt.cm.plasma
                         tvals = np.array([r['tb'] for r in node_rows])
                         tspan = np.ptp(tvals) if np.ptp(tvals) > 0 else 1.0
                         colors_n = [cmap_tb(0.15 + 0.7 * (v - tvals.min())
                                             / tspan) for v in tvals]
 
-                    figk, axk = plt.subplots(figsize=(7.2, 5.6))
-                    # faint sample clouds for the rheology-spread signals
-                    axk.scatter(k2[:n, 0], k2[:n, 1], s=3, alpha=0.10,
-                                color='0.6', zorder=1)
-                    if h2 is not None and len(h2) >= n:
-                        axk.scatter(h2[:n, 0], h2[:n, 1], s=3, alpha=0.10,
-                                    color='0.75', zorder=1)
-                    for r_i, (row, col, sz) in enumerate(
-                            zip(node_rows, colors_n, sizes)):
-                        pts = np.array([[c.real, c.imag]
-                                        for _, c in row['sigs']])
-                        axk.plot(pts[:, 0], pts[:, 1], '-', color=col,
-                                 linewidth=0.9, alpha=0.75, zorder=2)
-                        for (nm, c), mk in zip(row['sigs'], markers):
-                            axk.scatter(c.real, c.imag, s=sz, marker=mk,
-                                        color=col, edgecolor='k',
-                                        linewidth=0.4, zorder=3)
-                    # signal-shape legend (marker per signal, neutral color)
-                    for nm, mk in zip(sig_names, markers):
-                        axk.scatter([], [], marker=mk, color='0.4',
-                                    edgecolor='k', linewidth=0.4, s=60,
-                                    label=nm)
-                    axk.legend(fontsize=8, loc='best',
-                               title='signal', title_fontsize=8)
-                    if sal is not None:
-                        figk.colorbar(plt.cm.ScalarMappable(
-                            norm=cnorm, cmap=cmap), ax=axk,
-                            label=sal_col)
-                    axk.set_xlabel('Re(signal)')
-                    axk.set_ylabel('Im(signal)')
-                    axk.set_title('Complex-plane response signals per '
-                                  'interior model')
-                    st.pyplot(figk)
-                    plt.close(figk)
-                    cap = ("Each connected path is one interior model "
-                           "(Ae/T_b grid node): its k₂, h₂, and induction "
-                           "response(s) Ae on a single complex plane. "
-                           "Marker shape = signal; marker size = ocean "
-                           "thickness; line/marker color = "
-                           + (f"{sal_col}." if sal is not None else
-                              "T_b (color by salinity activates with a "
-                              "salinity-sampled artifact). ")
-                           + " Grey clouds: per-sample k₂/h₂ rheology "
-                             "spread.")
-                    st.caption(cap)
+                        figk, axk = plt.subplots(figsize=(7.2, 5.6))
+                        # faint sample clouds for the rheology-spread signals
+                        axk.scatter(k2[:n, 0], k2[:n, 1], s=3, alpha=0.10,
+                                    color='0.6', zorder=1)
+                        if h2 is not None and len(h2) >= n:
+                            axk.scatter(h2[:n, 0], h2[:n, 1], s=3,
+                                        alpha=0.10, color='0.75', zorder=1)
+                        for row, col, sz in zip(node_rows, colors_n, sizes):
+                            pts = np.array([[c.real, c.imag]
+                                            for _, c in row['sigs']])
+                            axk.plot(pts[:, 0], pts[:, 1], '-', color=col,
+                                     linewidth=0.9, alpha=0.75, zorder=2)
+                            for (nm, c), mk in zip(row['sigs'], markers):
+                                axk.scatter(c.real, c.imag, s=sz, marker=mk,
+                                            color=col, edgecolor='k',
+                                            linewidth=0.4, zorder=3)
+                        for nm, mk in zip(sig_names, markers):
+                            axk.scatter([], [], marker=mk, color='0.4',
+                                        edgecolor='k', linewidth=0.4, s=60,
+                                        label=nm)
+                        axk.legend(fontsize=8, loc='best',
+                                   title='signal', title_fontsize=8)
+                        axk.set_xlabel('Re(signal)')
+                        axk.set_ylabel('Im(signal)')
+                        axk.set_title('Complex-plane response signals per '
+                                      'interior model')
+                        st.pyplot(figk)
+                        plt.close(figk)
+                        st.caption(
+                            "Each connected path is one interior model "
+                            "(Ae/T_b grid node): its k₂, h₂, and induction "
+                            "response(s) Ae on a single complex plane. "
+                            "Marker shape = signal; marker size = ocean "
+                            "thickness; line/marker color = T_b (per-sample "
+                            "paths colored by salinity activate with a "
+                            "salinity-sampled artifact). Grey clouds: "
+                            "per-sample k₂/h₂ rheology spread.")
 
-                st.caption(
-                    "Each point is one posterior sample's complex induction "
-                    "response, from the same per-T_b response grid the "
-                    "likelihood/support cut uses. Ae depends on the ocean "
-                    "state only through T_b in this model family.")
+                if next((p for p in result.param_names
+                         if 'wOcean' in p), None) is not None:
+                    st.caption(
+                        "Each point is one posterior sample's complex "
+                        "induction response, from the same 2D (T_b, "
+                        "salinity) response grid the likelihood/support "
+                        "cut uses — Ae varies with both bottom temperature "
+                        "and ocean salinity in this model family.")
+                else:
+                    st.caption(
+                        "Each point is one posterior sample's complex "
+                        "induction response, from the same per-T_b response "
+                        "grid the likelihood/support cut uses. Ae depends "
+                        "on the ocean state only through T_b in this "
+                        "fixed-salinity model family.")
             except Exception as e:
                 st.warning(f"Induction posterior panel unavailable: {e}")
 
