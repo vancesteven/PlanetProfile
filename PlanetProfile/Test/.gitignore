@@ -4,3 +4,8 @@
 *.pkl
 *.dat
 *.txt
+
+# v3 Europa Clipper committed test fixtures (needed to serve the 8D SBI slot;
+# reference posterior + full 2D structure cache — see HANDOFF 2026-07-19b)
+!mcmc_results/Europa/Test52_seawater_v3/europa_seawater_v3_reference_result.pkl
+!mcmc_results/Europa/Test52_seawater_v3/europa_seawater_structure_grid_v3_2d.pkl
