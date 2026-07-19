@@ -14,6 +14,13 @@ import numpy as np
 from typing import Dict, Tuple, Optional, Any, List
 import logging
 
+from PlanetProfile.Inference.grid_interp_2d import (
+    is_2d_cache as _is_2d_cache,
+    bilinear_weights as _bilinear_weights,
+    resolve_none_corners as _resolve_none_corners,
+    wOcean_ppt_from_theta as _wOcean_ppt_from_theta,
+)
+
 log = logging.getLogger('PlanetProfile')
 
 # Eager TidalPy import (was lazy inside forward_model_k2_flexible — that
@@ -427,6 +434,101 @@ def _copy_struct(s: Dict[str, Any]) -> Dict[str, Any]:
     return {k: (v.copy() if isinstance(v, np.ndarray) else v) for k, v in s.items()}
 
 
+def _apply_bottom_temperature_2d(
+    theta_dict: Dict[str, float], structure_data: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Bilinear (Tb, log10 w) structural interpolation for the v3.0 2D cache.
+
+    Uses the shared :mod:`grid_interp_2d` interpolant: the four bracketing
+    corners and bilinear weights are computed once; ``None`` corners (the
+    tilted valid band leaves two opposite corners unbuilt) are dropped and the
+    weights renormalized. The surviving corners are combined as nested 1-D
+    ``_blend_b_layered`` calls (blend the two w-corners at each Tb row, then
+    blend the two rows), falling back to the highest-weight valid corner when
+    region-sets differ (the same across-transition nearest-neighbour rule the
+    1D path uses). If NO corner is valid the sample is unservable → raise so
+    the likelihood rejects it (mirrors the support-guard REJECT).
+    """
+    Tb_grid = np.asarray(structure_data['Tb_K_grid'], dtype=float)
+    w_grid = np.asarray(structure_data['wOcean_ppt_grid'], dtype=float)
+    structs = structure_data['structures']
+    w_ppt = _wOcean_ppt_from_theta(theta_dict)
+
+    corners, weights = _bilinear_weights(Tb_grid, w_grid, Tb_K_of(theta_dict), w_ppt)
+    valid = [structs[c] is not None for c in corners]
+    resolved = _resolve_none_corners(corners, weights, valid)
+    if resolved is None:
+        raise ValueError(
+            f"2D cache: all bilinear corners are None at "
+            f"(Tb={theta_dict.get('Tb_K')}, w={w_ppt:.4g} ppt); "
+            "sample sits in an unbuilt corner — reject."
+        )
+    kept_corners, kept_w = resolved
+
+    def _blend_pair(cA, wA, cB, wB):
+        """Blend two corners by their (already-normalized-within-pair) weights."""
+        sA, sB = structs[cA], structs[cB]
+        tot = wA + wB
+        if tot <= 0:
+            return _copy_struct(sA)
+        frac_B = wB / tot
+        if _regions_match(sA, sB):
+            return _blend_b_layered(sA, sB, frac_B)
+        # across-transition: nearest (higher-weight) corner
+        return _copy_struct(sA if wA >= wB else sB)
+
+    if len(kept_corners) == 1:
+        out = _copy_struct(structs[kept_corners[0]])
+    elif len(kept_corners) == 2:
+        out = _blend_pair(kept_corners[0], kept_w[0],
+                          kept_corners[1], kept_w[1])
+    else:
+        # 3 or 4 corners: blend within each Tb row (corners share i_Tb when
+        # their flat index // n_w matches), then blend the row results by
+        # their summed weights. Grouping by i_Tb keeps w-blends (same region
+        # set, monotic freezing) separate from the Tb-blend.
+        n_w = w_grid.size
+        rows: Dict[int, list] = {}
+        for c, wt in zip(kept_corners, kept_w):
+            rows.setdefault(c // n_w, []).append((c, wt))
+        row_structs = []
+        row_weights = []
+        for i_Tb, members in rows.items():
+            if len(members) == 1:
+                (c, wt), = members
+                row_structs.append(_copy_struct(structs[c]))
+                row_weights.append(wt)
+            else:
+                (cA, wA), (cB, wB) = members[0], members[1]
+                row_structs.append(_blend_pair(cA, wA, cB, wB))
+                row_weights.append(wA + wB)
+        # blend the (≤2) row results across Tb
+        if len(row_structs) == 1:
+            out = row_structs[0]
+        else:
+            sA, sB = row_structs[0], row_structs[1]
+            wA, wB = row_weights[0], row_weights[1]
+            tot = wA + wB
+            frac_B = 0.0 if tot <= 0 else wB / tot
+            if _regions_match(sA, sB):
+                out = _blend_b_layered(sA, sB, frac_B)
+            else:
+                out = sA if wA >= wB else sB
+
+    # Carry grid references + sampled values for downstream hooks.
+    out['Tb_K_grid'] = Tb_grid
+    out['wOcean_ppt_grid'] = w_grid
+    out['structures'] = structs
+    out['Tb_K_sampled'] = theta_dict['Tb_K']
+    out['wOcean_ppt_sampled'] = w_ppt
+    return out
+
+
+def Tb_K_of(theta_dict: Dict[str, float]) -> float:
+    """Tb_K accessor (small shim so _apply_bottom_temperature_2d reads clean)."""
+    return float(theta_dict['Tb_K'])
+
+
 @parameter_hook('Tb_K')
 def apply_bottom_temperature(theta_dict: Dict[str, float], structure_data: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -449,6 +551,13 @@ def apply_bottom_temperature(theta_dict: Dict[str, float], structure_data: Dict[
        discontinuity sits well below typical posterior width.
     """
     Tb_K = theta_dict['Tb_K']
+
+    # --- Format 3: v3.0 2D (Tb × wOcean_ppt) grid ---
+    # Salinity sampled as log10_wOcean_ppt; interpolate bilinearly in
+    # (Tb, log10 w) using the SHARED interpolant so this structural blend and
+    # the induction Ae blend (mcmc_runner) agree on corners/weights/None-policy.
+    if _is_2d_cache(structure_data):
+        return _apply_bottom_temperature_2d(theta_dict, structure_data)
 
     # --- Format 2: Test50 list grid (now v2.1 transition-aware) ---
     if 'Tb_K_grid' in structure_data and 'structures' in structure_data:

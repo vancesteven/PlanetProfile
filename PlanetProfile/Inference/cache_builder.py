@@ -477,6 +477,12 @@ def build_single_structure(
         "J2": float(J2_pred),
         "C22": float(C22_pred),
         "Tb_K": float(Tb_K),
+        # Ocean salinity actually realized in this structure (g/kg). For v3
+        # (Tb × w) caches this is the second grid axis; for 1D v2 caches it
+        # simply records the fixed seawater value baked in at build time.
+        # Read back from Planet.Ocean so an ocean_overrides={'wOcean_ppt': w}
+        # is reflected faithfully (defineStructs sets it via 2-of-3 pairing).
+        "wOcean_ppt": float(getattr(Planet.Ocean, "wOcean_ppt", np.nan)),
         "rhoSil_kgm3": getattr(Planet.Sil, "rhoMean_kgm3", np.nan),
         "D_hsphere_km": D_hsphere_km,
         "D_iceIh_km": D_iceIh_km,
@@ -749,5 +755,135 @@ def build_tb_grid_cache(
             f"({len(final_structs)} grid points: "
             f"{Tb_arr.size} regular + {n_extra} from transition refinement; "
             f"{len(transitions)} transition(s))"
+        )
+    return cache
+
+
+def build_tbw_grid_cache(
+    planet_template_module: str,
+    Tb_grid: Iterable[float],
+    wOcean_ppt_grid: Iterable[float],
+    output_path: str,
+    progress: bool = True,
+) -> Dict[str, Any]:
+    """Build a 2D (Tb × wOcean_ppt) structure-grid cache (schema ``v3.0``).
+
+    Europa Clipper v3 samples ocean salinity ``log10_wOcean_ppt`` as an 8th
+    parameter, so the 1D-in-Tb v2.1 cache becomes a 2D grid. Salinity is baked
+    into each cached structure at build time (via ``ocean_overrides=
+    {'wOcean_ppt': w}`` → ``Planet.Ocean.wOcean_ppt`` → the GSW/Seawater EOS →
+    the per-cell ``sigma_Sm`` conductivity profile that drives all induction
+    channels); NO runtime hook recomputes ocean EOS.
+
+    Unlike :func:`build_tb_grid_cache`, this builder uses a **fixed regular
+    grid with no transition refinement** — per-salinity refinement would place
+    different Tb nodes at each ``w`` and could not be stacked row-major. The
+    regular-grid choice is validated in Phase-1 pre-commit checks (max |ΔCMR²|
+    vs the refined v2 cache < 0.25σ; ocean-onset & |Ae_synodic|=0.7 edges
+    agree within one grid step) — see plans/europa-clipper-v3-salinity-plan.md.
+    HP ices (III/V/VI) are structurally impossible on the Europa GSW-seawater
+    path (basal ocean P ~156 MPa < the 200 MPa ``PminHPices_MPa`` cap), so the
+    only discontinuity a regular grid must resolve is ocean-onset (~260 K),
+    which coincides with the induction support edge.
+
+    Parameters
+    ----------
+    planet_template_module
+        See :func:`build_single_structure`.
+    Tb_grid
+        Iterable of basal-temperature values (K). Cast to 1-D float, sorted
+        ascending. Use a regular spacing (e.g. 0.125 K).
+    wOcean_ppt_grid
+        Iterable of ocean salinities (g/kg). Cast to 1-D float, sorted
+        ascending. Use log-spaced nodes (e.g. ``np.logspace(-1, 2, 16)`` for
+        0.1–100 ppt) so the low-w physics (synodic de-saturation, the
+        |Ae_synodic|=0.7 support contour) is resolved.
+    output_path
+        Pickle path. Atomic write via tempfile + ``os.replace``.
+    progress
+        Per-node INFO log lines (default True).
+
+    Returns
+    -------
+    The saved-to-disk dict::
+
+        {'Tb_K_grid': np.ndarray (n_Tb,),
+         'wOcean_ppt_grid': np.ndarray (n_w,),
+         'structures': [structure_dict | None, ...],  # row-major, len n_Tb*n_w
+         'schema_version': 'v3.0'}
+
+    ``structures`` is row-major: entry ``i_Tb * n_w + i_w`` is the structure at
+    ``(Tb_K_grid[i_Tb], wOcean_ppt_grid[i_w])``. Failed/rejected builds are
+    stored as explicit ``None`` (never silently dropped) so the 2D lookup can
+    reject those (Tb, w) corners. Each structure carries both ``Tb_K`` and
+    ``wOcean_ppt``. The absence of ``wOcean_ppt_grid`` in a cache signals the
+    legacy 1D path, so v1/v2 artifacts stay servable.
+    """
+    Tb_arr = np.asarray(list(Tb_grid), dtype=np.float64)
+    w_arr = np.asarray(list(wOcean_ppt_grid), dtype=np.float64)
+    if Tb_arr.ndim != 1 or Tb_arr.size < 2:
+        raise ValueError(
+            f"Tb_grid must be a 1-D iterable with >= 2 points, got {Tb_arr!r}"
+        )
+    if w_arr.ndim != 1 or w_arr.size < 2:
+        raise ValueError(
+            f"wOcean_ppt_grid must be a 1-D iterable with >= 2 points, "
+            f"got {w_arr!r}"
+        )
+    Tb_arr = Tb_arr[np.argsort(Tb_arr)]
+    w_arr = w_arr[np.argsort(w_arr)]
+
+    n_Tb, n_w = Tb_arr.size, w_arr.size
+    total = n_Tb * n_w
+    structures: List[Dict[str, Any] | None] = [None] * total
+    n_ok = 0
+    n_fail = 0
+    for i_Tb, Tb_K in enumerate(Tb_arr):
+        for i_w, w_ppt in enumerate(w_arr):
+            flat = i_Tb * n_w + i_w
+            if progress:
+                log.info(
+                    f"[{flat + 1}/{total}] Tb_K={Tb_K:.4f} "
+                    f"wOcean_ppt={w_ppt:.4f}"
+                )
+            try:
+                struct = build_single_structure(
+                    planet_template_module, float(Tb_K),
+                    ocean_overrides={"wOcean_ppt": float(w_ppt)},
+                )
+            except Exception as exc:
+                log.warning(
+                    f"    × (Tb={Tb_K:.4f}, w={w_ppt:.4f}) → None — "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                structures[flat] = None
+                n_fail += 1
+                continue
+            structures[flat] = struct
+            n_ok += 1
+            if progress:
+                log.info(
+                    f"    → CMR²={struct.get('CMR2', float('nan')):.4f}, "
+                    f"D_ocean={struct.get('D_ocean_km', 0.0):.1f} km, "
+                    f"D_iceIh={struct.get('D_iceIh_km', 0.0):.1f} km"
+                )
+
+    if n_ok == 0:
+        raise RuntimeError(
+            f"All {total} (Tb, w) nodes failed; no cache to write."
+        )
+
+    cache = {
+        "Tb_K_grid": Tb_arr,
+        "wOcean_ppt_grid": w_arr,
+        "structures": structures,
+        "schema_version": "v3.0",
+    }
+    _save_cache_atomic(cache, output_path)
+    if progress:
+        log.info(
+            f"2D cache written → {output_path} "
+            f"({n_Tb} Tb × {n_w} w = {total} nodes: "
+            f"{n_ok} built, {n_fail} None)"
         )
     return cache

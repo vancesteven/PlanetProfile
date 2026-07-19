@@ -71,6 +71,15 @@ def main(argv=None) -> int:
         help="Number of Tb_K grid points (default: 9)",
     )
     parser.add_argument(
+        "--n-wgrid", type=int, default=0,
+        help=(
+            "Number of log-spaced ocean-salinity grid points. When > 0, build "
+            "a 2D (Tb × wOcean_ppt) cache (schema v3.0) using the config's "
+            "'log10_wOcean_ppt' param_space bounds (0.1–100 ppt for [-1, 2]). "
+            "Default 0 → the legacy 1D Tb-only cache."
+        ),
+    )
+    parser.add_argument(
         "--template", default=None,
         help=(
             "PP planet-template module (e.g. "
@@ -136,14 +145,46 @@ def main(argv=None) -> int:
 
     Tb_grid = np.linspace(float(Tb_bounds[0]), float(Tb_bounds[1]), int(args.n_grid))
 
+    # --- 2D salinity axis (v3): read log10_wOcean_ppt bounds if requested ---
+    build_2d = args.n_wgrid and args.n_wgrid > 0
+    w_grid = None
+    if build_2d:
+        try:
+            w_bounds_log10 = cfg["param_space"]["log10_wOcean_ppt"]["bounds"]
+        except KeyError:
+            log.error(
+                "--n-wgrid > 0 requires 'log10_wOcean_ppt' in param_space "
+                "(v3 salinity config)."
+            )
+            return 2
+        if len(w_bounds_log10) != 2 or w_bounds_log10[1] <= w_bounds_log10[0]:
+            log.error(f"Bad log10_wOcean_ppt bounds: {w_bounds_log10!r}")
+            return 2
+        # Log-spaced salinity nodes (a linear grid in log10 w = geometric in w),
+        # so the low-w physics is resolved (reviewer: Ae moves fastest at low w).
+        w_grid = np.logspace(
+            float(w_bounds_log10[0]), float(w_bounds_log10[1]), int(args.n_wgrid)
+        )
+
     log.info(f"Body                : {bodyname}")
     log.info(f"Template module     : {template}")
     log.info(f"Tb_K bounds         : [{Tb_bounds[0]:.4f}, {Tb_bounds[1]:.4f}] K")
     log.info(f"Grid points         : {args.n_grid}")
     log.info(f"Tb_K grid           : {Tb_grid.tolist()}")
+    if build_2d:
+        log.info(f"wOcean_ppt bounds   : "
+                 f"[{10**w_bounds_log10[0]:.4f}, {10**w_bounds_log10[1]:.4f}] ppt "
+                 f"(log10 [{w_bounds_log10[0]}, {w_bounds_log10[1]}])")
+        log.info(f"w grid points       : {args.n_wgrid}")
+        log.info(f"wOcean_ppt grid     : {[round(w, 4) for w in w_grid.tolist()]}")
     log.info(f"Output cache path   : {out_path}")
     if ocean_overrides:
         log.info(f"Ocean overrides     : {ocean_overrides}")
+        if build_2d:
+            log.warning(
+                "ocean_overrides is ignored for 2D builds — the salinity axis "
+                "is set per-node from wOcean_ppt_grid."
+            )
 
     if out_path.exists() and not args.force:
         log.error(
@@ -156,13 +197,18 @@ def main(argv=None) -> int:
         return 0
 
     # --- Build ---
-    from PlanetProfile.Inference.cache_builder import build_tb_grid_cache
-
     t0 = time.time()
-    build_tb_grid_cache(
-        template, Tb_grid, str(out_path),
-        progress=True, ocean_overrides=ocean_overrides,
-    )
+    if build_2d:
+        from PlanetProfile.Inference.cache_builder import build_tbw_grid_cache
+        build_tbw_grid_cache(
+            template, Tb_grid, w_grid, str(out_path), progress=True,
+        )
+    else:
+        from PlanetProfile.Inference.cache_builder import build_tb_grid_cache
+        build_tb_grid_cache(
+            template, Tb_grid, str(out_path),
+            progress=True, ocean_overrides=ocean_overrides,
+        )
     dt = time.time() - t0
     log.info(f"Done in {dt:.1f} s")
     return 0

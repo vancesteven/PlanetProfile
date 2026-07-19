@@ -19,6 +19,14 @@ from datetime import datetime, timezone
 from typing import Dict, Optional, Any, Callable
 from pathlib import Path
 
+from PlanetProfile.Inference.grid_interp_2d import (
+    is_2d_cache,
+    bilinear_weights,
+    resolve_none_corners,
+    blend_complex,
+    wOcean_ppt_from_theta,
+)
+
 log = logging.getLogger('PlanetProfile')
 
 
@@ -237,6 +245,96 @@ class MCMCRunner:
             log.debug(f"  Grid point {i+1}/{n}: Ae computed")
 
         log.info("Induction Ae pre-computation complete.")
+
+    def _blended_ae_dict(self, theta_dict: Dict[str, Any]
+                         ) -> Optional[Dict[str, complex]]:
+        """Return the complex Ae ``{label: Ae}`` for a sample from the
+        precomputed grid — the SINGLE lookup shared by the likelihood, the SBI
+        induction-channel values, and the support-guard bounds check.
+
+        Routing this through one method is the scientific-reviewer's binding
+        requirement: the MCMC likelihood and the SBI support guard MUST use the
+        identical interpolant, or the training-set support diverges from the
+        reference-MCMC support and the 2D Tb↔w degeneracy gate fails
+        spuriously.
+
+        - **1D cache (v1/v2):** nearest node in Tb — the historical
+          argmin(|grid_Tb − Tb|) behavior, byte-for-byte unchanged.
+        - **2D cache (v3.0):** bilinear blend in (Tb, log10 w) of the complex
+          Ae at the four bracketing corners, with ``None`` corners dropped and
+          weights renormalized (shared grid_interp_2d policy). Returns None
+          when Tb is missing, the grid/cache is unavailable, or every corner is
+          None (→ caller rejects, mirroring the 1D "Ae_dict is None" path).
+        """
+        Tb_sample = theta_dict.get('Tb_K')
+        sd = self.structure_data
+        if (not self._ae_grid_cache or Tb_sample is None
+                or not isinstance(sd, dict) or 'Tb_K_grid' not in sd):
+            return None
+
+        # --- 2D (Tb × w) bilinear path ---
+        if is_2d_cache(sd):
+            Tb_grid = np.asarray(sd['Tb_K_grid'], dtype=float)
+            w_grid = np.asarray(sd['wOcean_ppt_grid'], dtype=float)
+            w_ppt = wOcean_ppt_from_theta(theta_dict)
+            corners, weights = bilinear_weights(Tb_grid, w_grid,
+                                                float(Tb_sample), w_ppt)
+            ae_corners = [self._ae_grid_cache.get(int(c)) for c in corners]
+            valid = [d is not None for d in ae_corners]
+            resolved = resolve_none_corners(corners, weights, valid)
+            if resolved is None:
+                return None
+            kept_corners, kept_w = resolved
+            kept_dicts = [self._ae_grid_cache.get(int(c)) for c in kept_corners]
+            # Blend each label separately; a label absent from any surviving
+            # corner is omitted (caller treats a missing label as reject).
+            labels = set()
+            for d in kept_dicts:
+                labels.update(d.keys())
+            out: Dict[str, complex] = {}
+            for lab in labels:
+                vals = [d.get(lab) for d in kept_dicts]
+                if any(v is None for v in vals):
+                    continue  # label not defined at every kept corner
+                out[lab] = blend_complex([complex(v) for v in vals], kept_w)
+            return out
+
+        # --- 1D (Tb-only) nearest-node path (unchanged v1/v2 behavior) ---
+        grid_Tb = np.asarray(sd['Tb_K_grid'])
+        return self._ae_grid_cache.get(
+            int(np.argmin(np.abs(grid_Tb - Tb_sample))))
+
+    def _struct_for_hydrosphere(self, theta_dict: Dict[str, Any]):
+        """Select/blend the per-sample structure dict for CMR²/mass-conservation.
+
+        Mirrors :meth:`_blended_ae_dict`'s dispatch so the CMR² hydrosphere and
+        the induction Ae are read from the SAME (Tb, w) location:
+
+        - **2D cache (v3.0):** the bilinearly-blended structure from
+          ``forward_models._apply_bottom_temperature_2d`` (shared interpolant,
+          None-corner fallback → raises → caller rejects).
+        - **1D list cache (v2.1):** nearest-Tb structure (unchanged).
+        - **dict cache / single struct:** unchanged legacy behavior.
+
+        Returns None when the sample must be rejected (all-None 2D corner).
+        """
+        sd = self.structure_data
+        Tb_sample = theta_dict.get('Tb_K')
+        if is_2d_cache(sd) and Tb_sample is not None:
+            from .forward_models import _apply_bottom_temperature_2d
+            try:
+                return _apply_bottom_temperature_2d(theta_dict, sd)
+            except ValueError:
+                return None  # all corners None → reject
+        if (Tb_sample is not None and isinstance(sd, dict)
+                and 'Tb_K_grid' in sd and 'structures' in sd):
+            grid_Tb = np.asarray(sd['Tb_K_grid'])
+            return sd['structures'][int(np.argmin(np.abs(grid_Tb - Tb_sample)))]
+        if isinstance(sd, dict) and 'grid_cache' in sd and Tb_sample is not None:
+            grid_Tb = sd['grid_Tb_values']
+            idx = int(np.argmin(np.abs(grid_Tb - Tb_sample)))
+            return sd['grid_cache'][grid_Tb[idx]]
+        return sd
 
     def _load_be_excitation(self, observables: Dict[str, Any]
                             ) -> Optional[Dict[str, Dict[str, complex]]]:
@@ -689,14 +787,15 @@ class MCMCRunner:
 
                 # Fast path: look up pre-computed Ae from the grid cache
                 # (avoids ~1.5 s/call mpmath cost on every likelihood eval).
+                # Shared interpolant: nearest-Tb for 1D caches, bilinear
+                # (Tb, log10 w) for 2D v3.0 caches — identical to the support
+                # guard (_check_induction_bounds) by construction.
                 Tb_sample = theta_dict.get('Tb_K')
                 if (self._ae_grid_cache
                         and Tb_sample is not None
                         and 'Tb_K_grid' in structure_data
                         and 'structures' in structure_data):
-                    grid_Tb = np.asarray(structure_data['Tb_K_grid'])
-                    grid_idx = int(np.argmin(np.abs(grid_Tb - Tb_sample)))
-                    Ae_dict = self._ae_grid_cache.get(grid_idx)
+                    Ae_dict = self._blended_ae_dict(theta_dict)
                 else:
                     # Fallback: compute on-the-fly (single-struct or no-grid configs).
                     from .forward_models import forward_model_induction
@@ -779,29 +878,50 @@ class MCMCRunner:
     def _collect_posterior_Ae(self, samples: np.ndarray) -> Optional[Dict[str, Any]]:
         """Per-sample complex induction response Ae for result metadata.
 
-        Maps each posterior sample's Tb_K to the precomputed Ae grid
-        (same nearest-node lookup the likelihood uses) and returns a
-        JSON-safe ``{label: {'re': [...], 'im': [...]}}`` with one entry
-        per sample per excitation label. Cheap: Ae is evaluated once per
-        UNIQUE grid node, then broadcast. Returns None when no Ae grid is
-        cached (config without induction observables/bounds) or Tb_K is
-        not a sampled parameter.
+        Maps each posterior sample to the precomputed Ae grid via the SAME
+        interpolant the likelihood uses (:meth:`_blended_ae_dict`): nearest-Tb
+        node for 1D v1/v2 caches, bilinear (Tb, log w) blend for 2D v3.0
+        caches. Returns a JSON-safe ``{label: {'re': [...], 'im': [...]}}`` with
+        one entry per sample per excitation label. Returns None when no Ae grid
+        is cached (config without induction observables/bounds) or Tb_K is not
+        a sampled parameter.
+
+        For a 2D cache this MUST be w-aware — the earlier nearest-Tb-only
+        broadcast reported the wrong w-slice for v3 (scientific review
+        2026-07-18). It now blends per-sample through _blended_ae_dict, so the
+        reported posterior Ae matches the likelihood's Ae at each (Tb, w).
         """
         if (not self._ae_grid_cache or 'Tb_K' not in self.param_names
                 or 'Tb_K_grid' not in self.structure_data):
             return None
-        grid_Tb = np.asarray(self.structure_data['Tb_K_grid'])
-        tb = np.asarray(samples)[:, self.param_names.index('Tb_K')].astype(float)
-        idx = np.argmin(np.abs(grid_Tb[None, :] - tb[:, None]), axis=1)
+        samples = np.asarray(samples)
         labels = sorted({lab for d in self._ae_grid_cache.values() if d
                          for lab in d})
         if not labels:
             return None
+        nan_c = complex(float('nan'), float('nan'))
+
+        if is_2d_cache(self.structure_data):
+            # w-aware: blend per sample through the shared interpolant.
+            out = {lab: {'re': [], 'im': []} for lab in labels}
+            for row in samples:
+                theta_dict = self._expand_theta(row)
+                ae = self._blended_ae_dict(theta_dict) or {}
+                for lab in labels:
+                    v = ae.get(lab, nan_c)
+                    v = nan_c if v is None else complex(v)
+                    out[lab]['re'].append(float(v.real))
+                    out[lab]['im'].append(float(v.imag))
+            return out
+
+        # 1D fast path: Ae is Tb-only, evaluate once per unique node + broadcast.
+        grid_Tb = np.asarray(self.structure_data['Tb_K_grid'])
+        tb = samples[:, self.param_names.index('Tb_K')].astype(float)
+        idx = np.argmin(np.abs(grid_Tb[None, :] - tb[:, None]), axis=1)
         out = {}
         for lab in labels:
-            # complex Ae per unique node, NaN where the node has no entry
             node_ae = {i: complex((self._ae_grid_cache.get(int(i)) or {})
-                                  .get(lab, complex(float('nan'), float('nan'))))
+                                  .get(lab, nan_c))
                        for i in np.unique(idx)}
             vals = [node_ae[int(i)] for i in idx]
             out[lab] = {'re': [float(v.real) for v in vals],
@@ -990,20 +1110,20 @@ class MCMCRunner:
         rho_sil_reject = bool(rho_sil_cfg.get('reject_if_outside_bounds', True))
         density_inversion_guard = bool(rho_sil_cfg.get('density_inversion_guard', False))
 
-        structure_data = self.structure_data
+        # Shared struct selection (nearest-Tb 1D / bilinear (Tb, log w) 2D) so
+        # the mass-conservation hydrosphere is read at the same (Tb, w) as the
+        # induction Ae. Returns None for an all-None 2D corner → hard reject.
+        struct_for_cmr2 = self._struct_for_hydrosphere(theta_dict)
+        if struct_for_cmr2 is None:
+            self._last_cmr2_reject_reason = 'none_corner_2d'
+            return None
+        # Tb of this sample — used by the optional CMR2-offset sidecar
+        # interpolation below (the sidecar is defined on a Tb grid; for a 2D
+        # (Tb, w) cache it is interpolated in Tb only and assumed w-independent
+        # unless a future sidecar carries a w axis). Restored here after the
+        # struct-selection was factored into _struct_for_hydrosphere, which
+        # otherwise left Tb_sample undefined on the sidecar path.
         Tb_sample = theta_dict.get('Tb_K')
-        if (Tb_sample is not None
-                and 'Tb_K_grid' in structure_data
-                and 'structures' in structure_data):
-            grid_Tb_values = np.asarray(structure_data['Tb_K_grid'])
-            idx = int(np.argmin(np.abs(grid_Tb_values - Tb_sample)))
-            struct_for_cmr2 = structure_data['structures'][idx]
-        elif 'grid_cache' in structure_data and Tb_sample is not None:
-            grid_Tb_values = structure_data['grid_Tb_values']
-            idx = int(np.argmin(np.abs(grid_Tb_values - Tb_sample)))
-            struct_for_cmr2 = structure_data['grid_cache'][grid_Tb_values[idx]]
-        else:
-            struct_for_cmr2 = structure_data
 
         R_body_m = struct_for_cmr2.get('R_body_m', np.nan)
         M_total_kg = struct_for_cmr2.get('Mtot_kg', np.nan)
@@ -1674,13 +1794,9 @@ class MCMCRunner:
             counted, closing the old landmine where these channels were
             silently NaN-filled in SBI datasets.
             """
-            Tb_sample = theta_dict.get('Tb_K')
-            if (not self._ae_grid_cache or Tb_sample is None
-                    or 'Tb_K_grid' not in self.structure_data):
-                return np.nan
-            grid_Tb = np.asarray(self.structure_data['Tb_K_grid'])
-            Ae_dict = self._ae_grid_cache.get(
-                int(np.argmin(np.abs(grid_Tb - Tb_sample))))
+            # Shared interpolant (nearest-Tb 1D / bilinear 2D) — byte-identical
+            # to the likelihood and the support guard.
+            Ae_dict = self._blended_ae_dict(theta_dict)
             if Ae_dict is None:
                 return np.nan
             # Bind_<label>_<comp>_<part>: induced dipole coefficient expressed
@@ -1729,16 +1845,21 @@ class MCMCRunner:
                                 if apply_support_guard else {})
 
         def _check_induction_bounds(theta_dict) -> bool:
-            """True when the sample violates an induction bound (reject)."""
+            """True when the sample violates an induction bound (reject).
+
+            Uses the SAME shared interpolant as the likelihood
+            (_blended_ae_dict): for a 2D v3.0 cache this is the bilinear
+            (Tb, log w) blend with the None-corner policy — so the SBI training
+            support and the MCMC likelihood support are identical by
+            construction (scientific-reviewer binding requirement).
+            """
+            if not induction_bounds_cfg:
+                return False
+            Ae_dict = self._blended_ae_dict(theta_dict)
+            if Ae_dict is None:
+                return True  # bound configured but unevaluable -> reject
             for label, spec in induction_bounds_cfg.items():
-                Tb_sample = theta_dict.get('Tb_K')
-                if (not self._ae_grid_cache or Tb_sample is None
-                        or 'Tb_K_grid' not in self.structure_data):
-                    return True  # bound configured but unevaluable -> reject
-                grid_Tb = np.asarray(self.structure_data['Tb_K_grid'])
-                Ae_dict = self._ae_grid_cache.get(
-                    int(np.argmin(np.abs(grid_Tb - Tb_sample))))
-                Ae = None if Ae_dict is None else Ae_dict.get(label)
+                Ae = Ae_dict.get(label)
                 if Ae is None:
                     return True
                 Ae = complex(Ae)
