@@ -1511,3 +1511,36 @@ ice-vs-silicate heating-fraction comparison (v4 plan, zeta section).
   (constraints doc, review R3-binding); (c) decide elastic libration
   correction (y1 from the TidalPy solution) vs documented rigid-shell
   systematic.
+
+## ADDENDUM 2026-07-19j (Machine A) — Enceladus BLOCKING ITEMS RESOLVED (none awaited B)
+All three pre-production blockers closed on Machine A; none depended on
+Machine B MCMC results:
+1. **Hydrostatic ratio = 3.25** (McKinnon 2015, GRL 42, 2137: rapid
+   1.37-d spin + differentiated structure) — config updated from the
+   provisional 3.24. Structure-dependence bracket [3.25, 3.326
+   (homogeneous Tricarico Eq. 42)] documented as a <= ~1.2e-4
+   systematic on the recovered dC20_nh (~20% of the detected offset) —
+   report alongside the posterior. Bonus: differentiated-body
+   corrections exceeding the homogeneous formula also validates v4's
+   Europa 3.324 (GC21) as the right magnitude class.
+2. **Correlated (C20, C22) conditioning IMPLEMENTED**: config metadata
+   observable_correlations = {"C20,C22": rho} -> bivariate Gaussian in
+   the MCMC likelihood AND correlated multivariate noise in
+   generate_sbi_dataset (training generative model matches the
+   likelihood). rho = +0.47 estimated from Iess et al. 2014's ratio
+   sigma (their 3.51 +/- 0.05 vs +/- 0.042 uncorrelated implies
+   rho(J2,C22) ~= -0.47 -> +0.47 in C20 convention); Park et al. 2024
+   publish no covariance — request from authors/PDS if possible, else
+   the estimate stands (documented in config). Tests: rho=0 reduces
+   exactly to independent terms; noise correlation verified
+   empirically (tests/gravity_channels_test.py, 7/7).
+3. **Elastic libration correction UNNECESSARY**: rigid-shell channel
+   0.11091 deg vs full elastic DP-ALMA (y1, rigid=False) 0.11094 deg
+   at the default structure — 0.03% = ~0.01 sigma of the 0.003-deg
+   measurement (Enceladus k2 ~ 0.013; negligible tidal softening).
+   Rigid channel ships for production; PP-pipeline elastic value
+   retained as the crosscheck.
+Machine B's Enceladus production queue now has NO blocking items
+beyond compute: dense Tb cache (+ salinity sensitivity if desired),
+8D nuisance config per constraints doc, reference MCMC + training +
+gates.

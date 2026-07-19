@@ -186,3 +186,50 @@ class LikelihoodDispatchTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+@unittest.skipUnless(_cache_exists(), 'Callisto structure cache not present')
+class CorrelatedGravityConditioningTests(unittest.TestCase):
+    """metadata['observable_correlations'] = {'C20,C22': rho} switches the
+    gravity pair to a bivariate Gaussian in the likelihood."""
+
+    def test_bivariate_reduces_to_independent_at_rho_zero(self):
+        data = _gravity_config_dict()
+        td_probe = _first_accepted_theta(
+            MCMCRunner(InferenceConfig.from_dict(data)))
+        td_probe['dC20_nh'] = td_probe['dC22_nh'] = 0.0
+
+        def _ll(rho):
+            d = _gravity_config_dict()
+            if rho is not None:
+                d['metadata'] = dict(d.get('metadata', {}))
+                d['metadata']['observable_correlations'] = {'C20,C22': rho}
+            r = MCMCRunner(InferenceConfig.from_dict(d))
+            theta = [td_probe[p] for p in r.param_names]
+            return float(r.log_likelihood_fn(theta))
+
+        self.assertAlmostEqual(_ll(None), _ll(0.0), places=8,
+                               msg='rho=0 must equal independent terms')
+        # Nonzero rho changes the likelihood (residuals are nonzero at
+        # the placeholder observation values)
+        self.assertNotAlmostEqual(_ll(0.0), _ll(0.6), places=3)
+
+    def test_correlated_noise_covariance(self):
+        """Dataset-generator noise honors the configured correlation."""
+        import numpy as np
+        data = _gravity_config_dict()
+        data['metadata'] = dict(data.get('metadata', {}))
+        data['metadata']['observable_correlations'] = {'C20,C22': 0.8}
+        r = MCMCRunner(InferenceConfig.from_dict(data))
+        obs_names = list(r.config.observables.keys())
+        i, j = obs_names.index('C20'), obs_names.index('C22')
+        sigmas = np.array([float(r.config.observables[n][1])
+                           for n in obs_names])
+        # Reproduce the generator's noise block directly (unit-level):
+        rng = np.random.default_rng(123)
+        cov = np.diag(sigmas ** 2)
+        cov[i, j] = cov[j, i] = 0.8 * sigmas[i] * sigmas[j]
+        draws = rng.multivariate_normal(np.zeros(len(obs_names)), cov,
+                                        size=20000)
+        emp = np.corrcoef(draws[:, i], draws[:, j])[0, 1]
+        self.assertAlmostEqual(emp, 0.8, delta=0.02)

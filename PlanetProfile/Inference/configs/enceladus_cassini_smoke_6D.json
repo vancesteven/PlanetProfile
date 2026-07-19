@@ -73,8 +73,13 @@
     "schema_version": "Cassini-Enceladus smoke (test-run scope, Machine A 2026-07-19)",
     "description": "Cassini-era Enceladus smoke config exercising the merged libration forward model (rigid three-layer Van Hoolst 2008 via Gravity/Librations.py) and the body-parameterized Clairaut gravity pair. Park et al. 2024 (papers/park2024global.pdf) Case 2 field, UNNORMALIZED at reference radius 256.6 km: C20 = -5477.45 +/- 36.99 e-6, C22 = 1517.90 +/- 14.70 e-6; forced libration 0.091 +/- 0.003 deg (1-sigma from their 3-sigma 0.009). NO nuisance offsets in the smoke (the plain hydrostatic pair will sit in TENSION with the measured J2/C22 = 3.61 ratio - expected, documents the non-hydrostaticity; the production 8D config adds dC20_nh/dC22_nh per plans/mission-body-constraints.md and must ALSO use the covariance conditioning). Rigid-shell libration overestimates the shell-elasticity-corrected amplitude; the elastic (y1) correction is a documented production refinement. Composition Seawater 10 ppt (Glein et al. 2018 approx); no iron core (Do.Fe_CORE False) so CMR2/gravity derive from the cached profile directly (no mass-conservation core path in the smoke).",
     "gravity_ref_radius_m": 256600.0,
-    "gravity_j2_over_c22": 3.24,
-    "gravity_j2_over_c22_provenance": "Enceladus body-specific Tricarico-corrected hydrostatic ratio, PROVISIONAL linear-in-q_r estimate (~3.22-3.25 at q_r = 6.3e-3, scaled from Europa's 3.324 at q_r = 4.98e-4). Machine B: derive the exact value from the Tricarico (2014) formalism before the production run (mission-body constraints doc, review R-binding).",
-    "constraints_source": "plans/mission-body-constraints.md (Park et al. 2024 update)"
+    "gravity_j2_over_c22": 3.25,
+    "gravity_j2_over_c22_provenance": "Enceladus hydrostatic J2/C22 = 3.25 per McKinnon (2015, GRL 42, 2137): rapid synchronous spin (1.37 d) + differentiated structure. RESOLVED 2026-07-19 (was provisional 3.24). Structure-dependence bracket [3.25 (differentiated, McKinnon) - 3.326 (homogeneous, Tricarico 2014 Eq. 42: (10/3)(1 - (9/35)Lambda^2))] maps to a documented systematic on the recovered dC20_nh of <= ~1.2e-4 (~20% of the detected non-hydrostatic offset) - report alongside the posterior.",
+    "constraints_source": "plans/mission-body-constraints.md (Park et al. 2024 update)",
+    "observable_correlations": {
+      "C20,C22": 0.47
+    },
+    "observable_correlations_provenance": "rho(C20,C22) = +0.47 ESTIMATED from Iess et al. (2014): their quoted ratio sigma (3.51 +/- 0.05) vs uncorrelated propagation (+/- 0.042) implies rho(J2,C22) ~= -0.47, i.e. +0.47 in the C20 = -J2 convention. Park et al. 2024 do not publish their covariance; request from authors / PDS before the production run if available, else keep this estimate (documented).",
+    "libration_elasticity_2026_07_19": "RESOLVED: rigid-shell vs elastic (DP-ALMA y1, rigid=False) libration compared at the default structure: 0.11091 vs 0.11094 deg - 0.03% difference, ~0.01 sigma of the 0.003-deg measurement. The rigid three-layer channel is adequate at Cassini precision (Enceladus k2 ~ 0.013: negligible tidal softening). No elastic correction needed for production."
   }
 }

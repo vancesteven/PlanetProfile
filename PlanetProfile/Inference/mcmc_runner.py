@@ -718,13 +718,36 @@ class MCMCRunner:
                 if pair is None:
                     return -1e30
                 C20_m, C22_m = pair
-                for _gname, _gpred in (('C20', C20_m), ('C22', C22_m),
-                                       ('J2', -C20_m)):
-                    if _gname in observables:
-                        obs_val, obs_err = observables[_gname]
-                        if not np.isfinite(_gpred):
-                            return -1e30
-                        chi2 += ((_gpred - obs_val) / obs_err) ** 2
+                # Correlated (C20, C22) conditioning: published degree-2
+                # solutions are ratio-driven and correlated (constraints
+                # doc, review-binding). metadata['observable_correlations']
+                # = {"C20,C22": rho} switches the pair to a bivariate
+                # Gaussian; anything else keeps independent terms.
+                _corr = (getattr(self.config, 'metadata', {}) or {}).get(
+                    'observable_correlations', {}) or {}
+                _rho = _corr.get('C20,C22')
+                if (_rho is not None and 'C20' in observables
+                        and 'C22' in observables):
+                    if not (np.isfinite(C20_m) and np.isfinite(C22_m)):
+                        return -1e30
+                    v20, s20 = observables['C20']
+                    v22, s22 = observables['C22']
+                    rho = float(_rho)
+                    det = (s20 * s22) ** 2 * (1.0 - rho ** 2)
+                    r0, r1 = C20_m - v20, C22_m - v22
+                    chi2 += (r0 ** 2 * s22 ** 2 + r1 ** 2 * s20 ** 2
+                             - 2.0 * rho * s20 * s22 * r0 * r1) / det
+                    if 'J2' in observables:
+                        obs_val, obs_err = observables['J2']
+                        chi2 += ((-C20_m - obs_val) / obs_err) ** 2
+                else:
+                    for _gname, _gpred in (('C20', C20_m), ('C22', C22_m),
+                                           ('J2', -C20_m)):
+                        if _gname in observables:
+                            obs_val, obs_err = observables[_gname]
+                            if not np.isfinite(_gpred):
+                                return -1e30
+                            chi2 += ((_gpred - obs_val) / obs_err) ** 2
             else:
                 if 'J2' in observables:
                     obs_val, obs_err = observables['J2']
@@ -2237,15 +2260,34 @@ class MCMCRunner:
 
         obs_noise_meta = None
         if obs_noise and len(x):
-            # Diagonal Gaussian observation noise, sigma per observable from the
+            # Gaussian observation noise, sigma per observable from the
             # config. Added after the |Im| fold, NOT re-folded (see docstring).
             sigmas = np.array([float(self.config.observables[name][1])
                                for name in obs_names])
             noise_rng = np.random.default_rng(noise_seed)
-            x = x + noise_rng.normal(0.0, 1.0, size=x.shape) * sigmas
+            corr_cfg = (getattr(self.config, 'metadata', {}) or {}).get(
+                'observable_correlations', {}) or {}
+            applied_corr = {}
+            if corr_cfg:
+                # Correlated noise for configured pairs ("A,B": rho) — the
+                # training generative model must match the (correlated)
+                # MCMC likelihood (constraints doc, review-binding).
+                cov = np.diag(sigmas ** 2)
+                for pair_key, rho in corr_cfg.items():
+                    names = [p.strip() for p in pair_key.split(',')]
+                    if len(names) == 2 and all(n in obs_names for n in names):
+                        i, j = obs_names.index(names[0]), obs_names.index(names[1])
+                        cov[i, j] = cov[j, i] = float(rho) * sigmas[i] * sigmas[j]
+                        applied_corr[pair_key] = float(rho)
+                x = x + noise_rng.multivariate_normal(
+                    np.zeros(len(obs_names)), cov, size=x.shape[0])
+            else:
+                x = x + noise_rng.normal(0.0, 1.0, size=x.shape) * sigmas
             obs_noise_meta = {
-                'type': 'gaussian_diagonal',
+                'type': ('gaussian_correlated' if applied_corr
+                         else 'gaussian_diagonal'),
                 'sigma': {name: float(s) for name, s in zip(obs_names, sigmas)},
+                'correlations': applied_corr or None,
                 'noise_seed': noise_seed,
                 'refold_im': False,
             }
