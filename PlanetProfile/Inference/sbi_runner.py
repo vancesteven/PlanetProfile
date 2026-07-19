@@ -1041,6 +1041,9 @@ class SBIRunner:
         D_ocean_results = []
         D_iceIh_results = []
         D_hsphere_results = []
+        gravity_active = runner._gravity_clairaut_active()
+        c20_results = [] if gravity_active else None
+        c22_results = [] if gravity_active else None
         for i, theta in enumerate(samples):
             theta_dict = runner._expand_theta(theta)
             Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
@@ -1061,6 +1064,10 @@ class SBIRunner:
             D_ocean_results.append(runner._get_cache_scalar(theta_dict, 'D_ocean_km'))
             D_iceIh_results.append(runner._get_cache_scalar(theta_dict, 'D_iceIh_km'))
             D_hsphere_results.append(runner._get_cache_scalar(theta_dict, 'D_hsphere_km'))
+            if gravity_active:
+                pair = runner._derive_gravity_pair(theta_dict)
+                c20_results.append(pair[0] if pair is not None else np.nan)
+                c22_results.append(pair[1] if pair is not None else np.nan)
             if (i + 1) % 100 == 0:
                 log.info(f"  {i+1}/{n_samples} samples recomputed")
         k2_results = np.array(k2_results)
@@ -1069,6 +1076,9 @@ class SBIRunner:
         D_ocean_results = np.array(D_ocean_results)
         D_iceIh_results = np.array(D_iceIh_results)
         D_hsphere_results = np.array(D_hsphere_results)
+        if gravity_active:
+            c20_results = np.array(c20_results)
+            c22_results = np.array(c22_results)
         _progress(3, n_samples)
 
         # Heating on a seeded subset (same pattern/settings as MCMCRunner.run).
@@ -1121,6 +1131,8 @@ class SBIRunner:
             D_ocean_results=D_ocean_results,
             D_iceIh_results=D_iceIh_results,
             D_hsphere_results=D_hsphere_results,
+            c20_results=c20_results,
+            c22_results=c22_results,
             heating_results=heating_results,
             convergence_metrics=convergence_metrics,
             metadata={

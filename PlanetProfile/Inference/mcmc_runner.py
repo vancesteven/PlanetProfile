@@ -16,7 +16,7 @@ import threading
 import time
 import pickle
 from datetime import datetime, timezone
-from typing import Dict, Optional, Any, Callable
+from typing import Dict, Optional, Any, Callable, Tuple
 from pathlib import Path
 
 from PlanetProfile.Inference.grid_interp_2d import (
@@ -143,6 +143,13 @@ class MCMCRunner:
         # duplicating the derivation logic or changing this method's
         # public None/float return contract.
         self._last_cmr2_reject_reason: Optional[str] = None
+        # Composite (core + derived silicate + cached hydrosphere) layer
+        # stack from the most recent successful
+        # _derive_cmr2_via_mass_conservation call, as (layers, R_body_m,
+        # M_total_kg). Consumed by _derive_gravity_pair so the v4 Clairaut
+        # integration runs on the IDENTICAL per-sample profile the CMR2
+        # derivation used (reviewer-binding, v4 geodesy plan).
+        self._last_composite_layers: Optional[tuple] = None
 
         # Route to grid cache when Tb_K is a free parameter OR fixed via fixed_params
         self._use_flexible = 'Tb_K' in self.param_names or 'Tb_K' in self.fixed_params
@@ -698,20 +705,39 @@ class MCMCRunner:
             if 'h2' in observables:
                 obs_val, obs_err = observables['h2']
                 chi2 += ((np.sqrt(Re_h2**2 + Im_h2**2) - obs_val) / obs_err) ** 2
-            # Gravity coefficients J2 and C22 — cached per Tb point as scalars
-            # in the structure dict; blended via _BLEND_SCALAR_FIELDS.
-            if 'J2' in observables:
-                obs_val, obs_err = observables['J2']
-                pred = float(modified.get('J2', np.nan))
-                if not np.isfinite(pred):
+            # Gravity coefficients. v4 geodesy configs
+            # (gravity_forward_model='clairaut_hydrostatic') COMPUTE the
+            # unnormalized hydrostatic pair per sample (Clairaut k_f over
+            # the composite profile + sampled non-hydrostatic offsets);
+            # legacy configs read J2/C22 from the structure cache as-is
+            # (blended via _BLEND_SCALAR_FIELDS).
+            if self._gravity_clairaut_active() and (
+                    'C20' in observables or 'C22' in observables
+                    or 'J2' in observables):
+                pair = self._derive_gravity_pair(theta_dict)
+                if pair is None:
                     return -1e30
-                chi2 += ((pred - obs_val) / obs_err) ** 2
-            if 'C22' in observables:
-                obs_val, obs_err = observables['C22']
-                pred = float(modified.get('C22', np.nan))
-                if not np.isfinite(pred):
-                    return -1e30
-                chi2 += ((pred - obs_val) / obs_err) ** 2
+                C20_m, C22_m = pair
+                for _gname, _gpred in (('C20', C20_m), ('C22', C22_m),
+                                       ('J2', -C20_m)):
+                    if _gname in observables:
+                        obs_val, obs_err = observables[_gname]
+                        if not np.isfinite(_gpred):
+                            return -1e30
+                        chi2 += ((_gpred - obs_val) / obs_err) ** 2
+            else:
+                if 'J2' in observables:
+                    obs_val, obs_err = observables['J2']
+                    pred = float(modified.get('J2', np.nan))
+                    if not np.isfinite(pred):
+                        return -1e30
+                    chi2 += ((pred - obs_val) / obs_err) ** 2
+                if 'C22' in observables:
+                    obs_val, obs_err = observables['C22']
+                    pred = float(modified.get('C22', np.nan))
+                    if not np.isfinite(pred):
+                        return -1e30
+                    chi2 += ((pred - obs_val) / obs_err) ** 2
             if 'CMR2' in observables:
                 obs_val, obs_err = observables['CMR2']
 
@@ -1205,6 +1231,11 @@ class MCMCRunner:
             assembled.append((0.0, R_core_m, float(rho_core_kgm3)))
         assembled.append((R_core_m, R_oceanbot_m, rho_sil))
         assembled.extend(hydro_layers)
+        # Cache the composite profile for same-sample consumers (v4 gravity:
+        # _derive_gravity_pair must integrate Clairaut over the IDENTICAL
+        # profile this CMR2 derivation used — reviewer-binding, v4 plan).
+        self._last_composite_layers = (assembled, float(R_body_m),
+                                       float(M_total_kg))
         try:
             cmr2_val = compute_cmr2(
                 assembled,
@@ -1262,6 +1293,74 @@ class MCMCRunner:
             derived = self._derive_cmr2_via_mass_conservation(theta_dict)
             return derived if derived is not None else np.nan
         return self._get_cache_scalar(theta_dict, 'CMR2')
+
+    def _gravity_clairaut_active(self) -> bool:
+        """True when the config opts into the v4 computed-gravity forward
+        model (gravity_forward_model == 'clairaut_hydrostatic')."""
+        return (getattr(self.config, 'gravity_forward_model', None)
+                == 'clairaut_hydrostatic')
+
+    def _derive_gravity_pair(
+        self, theta_dict: Dict[str, float]
+    ) -> Optional[Tuple[float, float]]:
+        """Model-predicted unnormalized (C20, C22) for v4 geodesy configs.
+
+        Hydrostatic part: fluid Love number k_f by Clairaut integration
+        (gravity_obs.clairaut_kf) over the SAME per-sample composite
+        density profile the CMR2 mass-conservation derivation assembles
+        (sampled core + derived silicate + cached hydrosphere) — obtained
+        by invoking that derivation and reading its `_last_composite_layers`
+        side channel, so the two can never diverge (reviewer-binding).
+        Configs without the mass-conservation block fall back to the raw
+        cached profile (no sampled core to fold in). Then
+        C22_h = k_f q_r / 4 rescaled to the GC21 1565 km reference radius,
+        C20_h = -3.324 C22_h (Tricarico rapid-rotation ratio), plus the
+        sampled non-hydrostatic offsets dC20_nh / dC22_nh (0 when not in
+        the parameter space).
+
+        Returns None on hard-reject (same causes as the CMR2 derivation,
+        plus non-finite cache scalars); callers treat it like any other
+        -1e30 rejection (likelihood) or NaN (reporting).
+        """
+        from .gravity_obs import clairaut_kf, hydrostatic_c20_c22
+
+        derived_params_cfg = getattr(self.config, 'derived_params', {}) or {}
+        rho_sil_cfg = derived_params_cfg.get('rho_sil_kgm3', {}) or {}
+        if rho_sil_cfg.get('derivation') == 'mass_conservation':
+            self._last_composite_layers = None
+            if self._derive_cmr2_via_mass_conservation(theta_dict) is None:
+                return None
+            if self._last_composite_layers is None:
+                return None
+            assembled, R_body_m, M_total_kg = self._last_composite_layers
+            # Piecewise-constant shells -> (outer radius, density) arrays;
+            # clairaut_kf treats rho as constant down to the previous edge,
+            # which matches the (r_in, r_out, rho) stack exactly since the
+            # assembly is contiguous from r = 0.
+            r_arr = np.array([ro for (_, ro, _) in assembled], dtype=float)
+            rho_arr = np.array([rh for (_, _, rh) in assembled], dtype=float)
+        else:
+            struct = self._struct_for_hydrosphere(theta_dict)
+            if struct is None:
+                return None
+            r_arr = np.asarray(struct.get('r_m'), dtype=float)
+            rho_arr = np.asarray(struct.get('rho'), dtype=float)
+            R_body_m = float(struct.get('R_body_m', np.nan))
+            M_total_kg = float(struct.get('Mtot_kg', np.nan))
+
+        struct_scal = self._struct_for_hydrosphere(theta_dict)
+        omega = float((struct_scal or {}).get('omega', np.nan))
+        if not (np.isfinite(R_body_m) and np.isfinite(M_total_kg)
+                and np.isfinite(omega)):
+            return None
+        try:
+            kf = clairaut_kf(r_arr, rho_arr)
+        except ValueError:
+            return None
+        c20_h, c22_h = hydrostatic_c20_c22(kf, omega, R_body_m, M_total_kg)
+        c20 = c20_h + float(theta_dict.get('dC20_nh', 0.0))
+        c22 = c22_h + float(theta_dict.get('dC22_nh', 0.0))
+        return (c20, c22)
 
     def run(self, progress_callback: Optional[Callable] = None,
             progress_jsonl_path: Optional[str] = None):
@@ -1487,6 +1586,9 @@ class MCMCRunner:
         D_ocean_results = []
         D_iceIh_results = []
         D_hsphere_results = []
+        gravity_active = self._gravity_clairaut_active()
+        c20_results = [] if gravity_active else None
+        c22_results = [] if gravity_active else None
         for i, theta in enumerate(samples):
             theta_dict = self._expand_theta(theta)
             try:
@@ -1504,6 +1606,10 @@ class MCMCRunner:
             D_ocean_results.append(self._get_cache_scalar(theta_dict, 'D_ocean_km'))
             D_iceIh_results.append(self._get_cache_scalar(theta_dict, 'D_iceIh_km'))
             D_hsphere_results.append(self._get_cache_scalar(theta_dict, 'D_hsphere_km'))
+            if gravity_active:
+                pair = self._derive_gravity_pair(theta_dict)
+                c20_results.append(pair[0] if pair is not None else np.nan)
+                c22_results.append(pair[1] if pair is not None else np.nan)
             if (i + 1) % 100 == 0:
                 log.info(f"  {i+1}/{n_samples} samples recomputed")
 
@@ -1513,6 +1619,9 @@ class MCMCRunner:
         D_ocean_results = np.array(D_ocean_results)
         D_iceIh_results = np.array(D_iceIh_results)
         D_hsphere_results = np.array(D_hsphere_results)
+        if gravity_active:
+            c20_results = np.array(c20_results)
+            c22_results = np.array(c22_results)
 
         # Recompute heating on subset — same dict-based approach
         n_reeval = min(self.n_reeval, n_samples)
@@ -1547,6 +1656,8 @@ class MCMCRunner:
             D_ocean_results=D_ocean_results,
             D_iceIh_results=D_iceIh_results,
             D_hsphere_results=D_hsphere_results,
+            c20_results=c20_results,
+            c22_results=c22_results,
             heating_results=heating_results,
             convergence_metrics=convergence_metrics,
             metadata={
@@ -1969,6 +2080,18 @@ class MCMCRunner:
                     continue
                 Re_k2 = Im_k2 = Re_h2 = Im_h2 = np.nan
 
+            # v4 geodesy: compute the gravity pair once per sample when any
+            # gravity channel is present under the Clairaut forward model.
+            gravity_pair = None
+            if self._gravity_clairaut_active() and any(
+                    n in ('C20', 'C22', 'J2') for n in obs_names):
+                gravity_pair = self._derive_gravity_pair(theta_dict)
+                if gravity_pair is None:
+                    if drop_nonfinite:
+                        n_rejected_nonfinite += 1
+                        continue
+                    gravity_pair = (np.nan, np.nan)
+
             xi = []
             for name in obs_names:
                 if name == 'Re_k2':
@@ -1994,6 +2117,12 @@ class MCMCRunner:
                 elif name == 'CMR2':
                     xi.append(cmr2_precomputed if cmr2_precomputed is not None
                                else self._compute_model_cmr2(theta_dict))
+                elif name == 'C20' and gravity_pair is not None:
+                    xi.append(gravity_pair[0])
+                elif name == 'C22' and gravity_pair is not None:
+                    xi.append(gravity_pair[1])
+                elif name == 'J2' and gravity_pair is not None:
+                    xi.append(-gravity_pair[0])
                 elif name == 'Mtot_kg':
                     xi.append(self._get_cache_scalar(theta_dict, 'Mtot_kg'))
                 elif (name.startswith('Ae_') or name.startswith('BiAmp_')

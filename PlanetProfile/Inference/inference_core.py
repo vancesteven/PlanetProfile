@@ -123,6 +123,20 @@ class InferenceConfig:
     Because Ae depends only on Tb through the cached conductivity profile,
     each bound is exactly a Tb-support cut.
     """
+    gravity_forward_model: Optional[str] = None
+    """
+    gravity_forward_model: When 'clairaut_hydrostatic', the observables
+    'C20'/'C22' (and 'J2') are COMPUTED per sample — fluid Love number k_f
+    by Clairaut integration over the sample's composite density profile
+    (the same assembled core + mass-conserved silicate + cached hydrosphere
+    the CMR2 recompute uses), then the hydrostatic pair C22_h = k_f q_r/4,
+    C20_h = -3.324 C22_h (Tricarico rapid-rotation ratio), unnormalized at
+    the GC21 1565 km reference radius — plus the sampled non-hydrostatic
+    offsets dC20_nh/dC22_nh when present in param_space. When None
+    (default; every pre-v4 config), 'J2'/'C22' keep their legacy meaning:
+    read from the structure cache as-is. See
+    plans/europa-clipper-v4-geodesy-plan.md and gravity_obs.py.
+    """
 
     def __post_init__(self):
         """Validate configuration after initialization."""
@@ -216,6 +230,9 @@ class InferenceConfig:
         # provenance, cache reuse) is unchanged by the field's introduction.
         if self.induction_bounds:
             hash_data['induction_bounds'] = sorted(self.induction_bounds.items())
+        # Same include-only-when-set discipline (v4 geodesy, 2026-07-19).
+        if self.gravity_forward_model:
+            hash_data['gravity_forward_model'] = self.gravity_forward_model
         hash_str = json.dumps(hash_data, sort_keys=True)
         return hashlib.md5(hash_str.encode()).hexdigest()[:16]
 
@@ -256,6 +273,11 @@ class InferenceResult:
     # mantle thickness exactly (R_body - D_hsphere - R_core) even for
     # bodies with HP-ice layers. None on results predating 2026-07.
     D_hsphere_results: Optional[np.ndarray] = None
+    # Model-predicted unnormalized C20/C22 per sample (v4 geodesy configs
+    # with gravity_forward_model='clairaut_hydrostatic'; includes the
+    # sampled non-hydrostatic offsets). None otherwise / on older pkls.
+    c20_results: Optional[np.ndarray] = None
+    c22_results: Optional[np.ndarray] = None
     heating_results: Optional[List[Dict[str, float]]] = None
     convergence_metrics: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)

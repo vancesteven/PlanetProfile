@@ -1415,3 +1415,39 @@ Machine B queue (order):
 INDEX rows v1 + v2 annotated RETIRING; GUI scope notes now carry the
 caveat loudly; slots stay live until replacements land (public-app
 continuity). Do NOT HF-deploy in the interim unless the user asks.
+
+## ADDENDUM 2026-07-19g (Machine A) — v4 runner integration LANDED; Machine B CLEARED
+The v4 gravity forward model is wired end-to-end (user-approved):
+- InferenceConfig.gravity_forward_model ('clairaut_hydrostatic'; hash
+  include-only-when-set, pre-existing hashes untouched — verified by test).
+- MCMCRunner._derive_gravity_pair: Clairaut k_f over the IDENTICAL
+  composite profile the CMR2 mass-conservation derivation assembles
+  (side-channel _last_composite_layers, so they cannot diverge), then
+  C22_h = k_f q_r/4 at the GC21 1565 km reference radius,
+  C20_h = -3.324 C22_h (Tricarico), + sampled dC20_nh/dC22_nh offsets.
+  Non-mass-conservation configs fall back to the raw cached profile.
+- Likelihood + generate_sbi_dataset dispatch C20/C22/J2 through the
+  computed pair when the flag is set; legacy cached-scalar branches
+  preserved verbatim otherwise. run() and SBI _condition_and_package
+  package per-sample c20_results/c22_results (new InferenceResult
+  fields). parameter_registry: dC20_nh/dC22_nh ('gravity' category).
+- Tests: tests/gravity_channels_test.py (5: composite-profile identity,
+  Tricarico ratio exact, additive nuisances, core sensitivity,
+  likelihood conditioning 5-sigma = 12.5 ll, legacy-path + hash
+  stability) + tests/gravity_obs_test.py (11). Full sweep 39/39 green
+  (cmr2_reporting, sbi_runner, sidecar included).
+
+**Machine B is CLEARED to start, in order:**
+1. Galileo v1.1 (spec in v4 plan; Test51 1D cache; independent of the
+   gravity code).
+2. v4 geodesy: author europa_clipper_v4_geodesy_10D.json per the plan's
+   config section (Re_k2 [0.23, 0.015], Im_k2 [0.0040, 0.015], CMR2
+   kept as GC21 MoI prior, C20 [fiducial, 8.5e-7], C22 [fiducial,
+   2.0e-7] UNNORMALIZED, gravity_forward_model='clairaut_hydrostatic',
+   dC20_nh/dC22_nh U[-2e-5, 2e-5], seeds train 43 / data 49 / noise
+   4949; fiducial C20/C22 from one _derive_gravity_pair call at the
+   fiducial (Tb, w) with zero offsets). Same v3 2D cache — zero PP
+   runs. Reference MCMC -> Test/mcmc_results/Europa/Test53_geodesy_v4/
+   (add .gitignore negations as f7a03572). Gates incl. the two-arm
+   non-hydrostaticity recovery gate (ratio-breaking recoverable;
+   ratio-preserving EXPECTED-DEGENERATE) + interior-unbiasedness check.

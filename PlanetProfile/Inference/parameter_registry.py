@@ -74,6 +74,45 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
         rheology_constraint=None
     ),
 
+    # -------------------------------------------------------------------------
+    # Gravity nuisance parameters (v4 geodesy: sampled non-hydrostaticity)
+    # -------------------------------------------------------------------------
+    'dC20_nh': ParameterDef(
+        id='dC20_nh',
+        label='Non-hydrostatic ΔC₂₀',
+        latex_label=r'$\Delta C_{20}^{nh}$',
+        description='Additive non-hydrostatic offset on the unnormalized '
+                    'C20 gravity coefficient. Sampled alongside the '
+                    'physical parameters so real non-hydrostatic power '
+                    'cannot bias the interior posterior; its posterior IS '
+                    'the inferred degree of non-hydrostaticity. Requires '
+                    "gravity_forward_model='clairaut_hydrostatic' "
+                    '(v4 geodesy plan).',
+        category='gravity',
+        default_prior='uniform',
+        default_bounds=[-2.0e-5, 2.0e-5],
+        units='dimensionless',
+        requires_structure_rebuild=False,
+        rheology_constraint=None
+    ),
+
+    'dC22_nh': ParameterDef(
+        id='dC22_nh',
+        label='Non-hydrostatic ΔC₂₂',
+        latex_label=r'$\Delta C_{22}^{nh}$',
+        description='Additive non-hydrostatic offset on the unnormalized '
+                    'C22 gravity coefficient (see dC20_nh). Only the '
+                    'ratio-breaking combination is identifiable; the '
+                    'ratio-preserving one is degenerate with a C/MR² '
+                    'shift (v4 plan, review R4).',
+        category='gravity',
+        default_prior='uniform',
+        default_bounds=[-2.0e-5, 2.0e-5],
+        units='dimensionless',
+        requires_structure_rebuild=False,
+        rheology_constraint=None
+    ),
+
     'alpha': ParameterDef(
         id='alpha',
         label='Andrade Exponent',
@@ -355,9 +394,10 @@ CATEGORY_LABELS = {
     'structure': '🌍 Structural Parameters',
     'ocean': '🌊 Ocean Properties',
     'magnetic': '🧲 Magnetic Properties',
+    'gravity': '⚖️ Gravity (non-hydrostatic offsets)',
 }
 
-CATEGORY_ORDER = ['rheology', 'structure', 'ocean', 'magnetic']
+CATEGORY_ORDER = ['rheology', 'structure', 'ocean', 'magnetic', 'gravity']
 
 
 # ============================================================================
