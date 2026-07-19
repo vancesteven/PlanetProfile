@@ -2,7 +2,7 @@ import os
 import numpy as np
 import hashlib
 import logging
-from PlanetProfile import _ROOT
+from PlanetProfile import _ROOT, _REFPROFILESCACHE
 from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetTfreeze
 from PlanetProfile.Utilities.defineStructs import EOSlist
 
@@ -16,7 +16,7 @@ def CalcRefProfiles(PlanetList, Params):
     maxPmax = np.max([Planet.P_MPa[Planet.Steps.nHydro-1] for Planet in PlanetList])
 
     for Planet in PlanetList:
-        if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
+        if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none' and Planet.Ocean.comp != 'constant':
             wList = Params.wRef_ppt[Planet.Ocean.comp]
             thisRefLabel = f'{Planet.Ocean.comp}' + ','.join([f'{w_ppt}' for w_ppt in wList])
             thisRefRange = maxPmax
@@ -44,13 +44,13 @@ def CalcRefProfiles(PlanetList, Params):
                 for i, w_ppt in enumerate(wList):
                     EOSref = GetOceanEOS(Planet.Ocean.comp, w_ppt, Params.Pref_MPa[Planet.Ocean.comp], Tref_K, Planet.Ocean.MgSO4elecType,
                             rhoType=Planet.Ocean.MgSO4rhoType, scalingType=Planet.Ocean.MgSO4scalingType, phaseType='lookup',
-                            EXTRAP=Params.EXTRAP_REF, FORCE_NEW=Params.FORCE_EOS_RECALC, MELT=True, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
+                            EXTRAP=Params.EXTRAP_REF, FORCE_NEW=Params.FORCE_EOS_RECALC, MELT=False, kThermConst_WmK=Planet.Ocean.kThermWater_WmK)
 
                     if EOSref.propsPmax < Pmax or EOSref.Pmax < Pmax:
                         Params.Pref_MPa[Planet.Ocean.comp] = np.linspace(Params.Pref_MPa[Planet.Ocean.comp][0], np.minimum(EOSref.propsPmax, EOSref.Pmax),
                                                                          Params.nRefPts[Planet.Ocean.comp])
                     try:
-                        Tfreeze_K = np.array([GetTfreeze(EOSref, P_MPa, Tref_K[0], TfreezeRange_K=230) for P_MPa in Params.Pref_MPa[Planet.Ocean.comp]])
+                        Tfreeze_K = np.array([GetTfreeze(EOSref, P_MPa, Tref_K[0], TUpper_K=Tref_K[0] + 230) for P_MPa in Params.Pref_MPa[Planet.Ocean.comp]])
                     except:
                         raise RuntimeError(f'Unable to calculate reference melting curve for {Planet.Ocean.comp} with ' +
                                            f'maximum Pref_MPa = {Params.Pref_MPa[Planet.Ocean.comp][-1]}. Try to recalculate ' +
@@ -58,10 +58,10 @@ def CalcRefProfiles(PlanetList, Params):
                                            'in configPP.py.')
                     Params.rhoRef_kgm3[Planet.Ocean.comp][i,:] = EOSref.fn_rho_kgm3(Params.Pref_MPa[Planet.Ocean.comp], Tfreeze_K)
 
-                # Save to disk for quick reloading
+                # Save to disk for quick reloading in user cache directory
                 # Get name to save
                 fNameRef = hashlib.md5(Planet.Ocean.comp.split('=')[-1].encode()).hexdigest()
-                with open(os.path.join(_ROOT, 'Thermodynamics', 'RefProfiles', fNameRef), 'w') as f:
+                with open(os.path.join(_REFPROFILESCACHE, fNameRef), 'w') as f:
                     f.write(f'This file contains melting curve densities for one or more "{Planet.Ocean.comp}" salinity values.\n')
                     wListStr = ''
                     colHeader = f'P (MPa)'.ljust(24)
@@ -90,10 +90,10 @@ def ReloadRefProfiles(PlanetList, Params):
     newRef = {comp: True for comp in comps}
 
     for Planet in PlanetList:
-        if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none':
-            # Get name to save
+        if newRef[Planet.Ocean.comp] and Planet.Ocean.comp != 'none' and Planet.Ocean.comp != 'constant':
+            # Get name to load - check cache directory first, then package directory
             fNameRef = hashlib.md5(Planet.Ocean.comp.split('=')[-1].encode()).hexdigest()
-            fNameRefReload = os.path.join(_ROOT, 'Thermodynamics', 'RefProfiles', fNameRef)
+            fNameRefReload = os.path.join(_REFPROFILESCACHE, fNameRef)
             if not os.path.isfile(fNameRefReload):
                 raise RuntimeError(f'CALC_NEW_REF is set to False, but a reference profile for {Planet.Ocean.comp} ' +
                                    'was not found. Try running again with CALC_NEW_REF set to True in configPP.py.')

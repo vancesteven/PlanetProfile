@@ -1,6 +1,7 @@
 """ File for functions relevant to Custom Solution implementation into PlanetProfile"""
 from PlanetProfile.GetConfig import Color, Style, FigMisc
-from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import MolalConverter, wpptCalculator, SpeciesParser, EOSLookupTableLoader
+from PlanetProfile.Utilities.defineStructs import EOSlist
+from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import MolalConverter, wpptCalculator, SpeciesParser, EOSLookupTableLoader, SetupReaktoroDatabases
 import numpy as np
 import logging
 import re
@@ -22,15 +23,18 @@ def SetupCustomSolution(Planet, Params):
             # Flag that we are not using wOcean_ppt as independent parameter - used in file name generation
             Planet.Do.USE_WOCEAN_PPT = False
             Planet.Ocean.wOcean_ppt = wpptCalculator(Planet.Ocean.comp.split('=')[1].strip())
+        # Setup reaktoro databases
+        if not EOSlist.loaded['ReaktoroDatabases'] or EOSlist.loaded['ReaktoroDatabases']['Supcrt'] is None or EOSlist.loaded['ReaktoroDatabases']['Phreeqc'] is None:
+            EOSlist.loaded['ReaktoroDatabases'] = SetupReaktoroDatabases()
         if not Params.PRELOAD_EOS_IN_PROGRESS:
-            Params = SetupCustomSolutionPlotSettings(np.array(Planet.Ocean.comp), Params)
-            SetupCustomSolutionEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt)
+            if not Params.SKIP_PLOTS:
+                Params = SetupCustomSolutionPlotSettings(np.array(Planet.Ocean.comp), Params)
     return Planet, Params
 
 
 def SetupCustomSolutionEOS(CustomSolutionComp, wOcean_ppt):
     """
-    Generate/Load a Planet's custom solution EOS. We generate and load here so when GetOceanEOS is called, the file is already loaded.
+    Generate/Load a Planet's custom solution EOS. 
     """
     # Parse out the species list and ratio into a format compatible with Reaktoro and create a CustomSolution EOS label
     aqueous_species_string, speciation_ratio_mol_kg, ocean_solid_phases, EOS_lookup_label = SpeciesParser(

@@ -12,6 +12,8 @@ Planet = PlanetStruct('Callisto')
 """ Bulk planetary settings """
 Planet.Bulk.R_m = 2410.3e3  # Value from mean radius in Archinal et al. (2018): https://doi.org/10.1007/s10569-017-9805-5
 Planet.Bulk.M_kg = 1.0759e23  # Value from Hussmann et al. (2006): http://dx.doi.org/10.1016/j.icarus.2006.06.005
+Planet.Bulk.Torb_s = 16.689 * 24 * 3600
+Planet.Bulk.eccentricity = 0.0074
 Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.3549  # Value from Anderson et al. (2001): https://doi.org/10.1006/icar.2001.6664

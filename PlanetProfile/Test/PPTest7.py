@@ -1,6 +1,6 @@
 """
 PPTest7
-Europa-like, Seawater model with CONSTANT_INNER_DENSITY set to True
+Europa-like, Seawater model with Planet.Do.ConstantProps['Inner'] = True set to True
 For testing purposes
 """
 import numpy as np
@@ -29,6 +29,7 @@ Planet.Steps.iSilStart = Planet.Steps.nIceI
 Planet.Ocean.comp = 'Seawater'
 Planet.Ocean.wOcean_ppt = Constants.stdSeawater_ppt
 Planet.Ocean.deltaP = 1.0
+Planet.Ocean.deltaT = 1.0
 Planet.Ocean.PHydroMax_MPa = 250.0
 
 """ Silicate Mantle """
@@ -42,7 +43,7 @@ Planet.Sil.rhoSilWithCore_kgm3 = 3539.0
 
 """ Core assumptions """
 Planet.Do.Fe_CORE = True
-Planet.Do.CONSTANT_INNER_DENSITY = True
+Planet.Do.ConstantProps['Inner'] = True
 Planet.Core.rhoFe_kgm3 = 8000.0
 Planet.Core.rhoFeS_kgm3 = 5150.0
 Planet.Core.rhoPoFeFCC = 5455.0

@@ -12,6 +12,8 @@ Planet = PlanetStruct('Ganymede')
 """ Bulk planetary settings """
 Planet.Bulk.R_m = 2631.2e3  # Value from mean radius in Archinal et al. (2018): https://doi.org/10.1007/s10569-017-9805-5
 Planet.Bulk.M_kg = 1.4819e23  # Value from Hussmann et al. (2006): http://dx.doi.org/10.1016/j.icarus.2006.06.005
+Planet.Bulk.Torb_s = 7.155 * 24 * 3600
+Planet.Bulk.eccentricity = 0.0013
 Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.3115  # Value from Schubert et al. (2004): https://lasp.colorado.edu/home/mop/files/2015/08/jupiter_ch13-1.pdf

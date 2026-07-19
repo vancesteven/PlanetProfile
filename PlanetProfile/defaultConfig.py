@@ -12,7 +12,7 @@ def configAssign():
     ExploreParams = ExploreParamsStruct()
 
     Params.VERBOSE =       False  # Provides extra runtime messages. Overrides QUIET below
-    Params.QUIET =         False  # Hides all log messages except warnings and errors
+    Params.QUIET =         False  # Hides all log messages except errors
     Params.TIMING =        False  # Whether to print timing messages to analyze performance
     Params.PRINT_COMPLETION = True # Print completion message
     Params.QUIET_MOONMAG = True  # If True, sets MoonMag logging level to WARNING, otherwise uses the same as PlanetProfile.
@@ -26,8 +26,8 @@ def configAssign():
     Params.EXTRAP_SIL =   False
     Params.EXTRAP_Fe =    False
     Params.lookupInterpMethod = 'nearest'  # Interpolation method to use for EOS lookup tables. Options are 'nearest', 'linear', 'cubic'.
-    Params.minPres_MPa = None  # Only applies to ice EOS! Applies a lower bound to how small the pressure step can be in loading the EOS. Avoids major slowdowns when chaining models for small and large bodies.
-    Params.minTres_K = None  # Same as above. Set to None to allow default behavior for ice EOS resolution.
+    Params.minPres_MPa = 0.5  # Only applies to ice EOS! Applies a lower bound to how small the pressure step can be in loading the EOS. Avoids major slowdowns when chaining models for small and large bodies.
+    Params.minTres_K = 0.5  # Same as above. Set to None to allow default behavior for ice EOS resolution.
     Params.PRELOAD_EOS = True  # Whether to preload EOS tables for all planets in the grid for large scale explorations. Improves runtime.
     Params.SAVE_AS_MATLAB = True  # Whether to also save results also in MATLAB format (.mat files)
         
@@ -39,7 +39,7 @@ def configAssign():
     Params.CALC_SEISMIC =     True  # Calculate sound speeds and elastic moduli?
     Params.CALC_CONDUCT =     True  # Calculate electrical conductivity?
     Params.CALC_VISCOSITY =   True  # Calculate viscosity for all layers as a post-processing step?
-    Params.CALC_OCEAN_PROPS = True  # Calculate ocean properties?
+    Params.CALC_OCEAN_PROPS = False  # Calculate ocean properties?
     Params.CALC_ASYM =        True  # Calculate induction with asymmetric shape?
     Params.RUN_ALL_PROFILES = False  # Whether to run all PPBody.py files for the named body and plot together
     Params.COMPARE =          False  # Whether to plot each new run against other runs from the same body
@@ -51,7 +51,7 @@ def configAssign():
     Params.NO_SAVEFILE =      False  # Whether to prevent printing run outputs to disk. Saves time and disk space for large induction studies.
     Params.DISP_LAYERS =      True  # Whether to display layer depths and heat fluxes for user
     Params.DISP_TABLE =       True  # Whether to print latex-formatted table
-    Params.ALLOW_BROKEN_MODELS = False  # Whether to continue running models that don't match physical constraints (i.e. MoI), with many values set to nan. Currently only implemented for CONSTANT_INNER_DENSITY = True and only allows broken MoI matching. Broken Tb_K matching is also intended.
+    Params.ALLOW_BROKEN_MODELS = False  # Whether to continue running models that don't match physical constraints (i.e. MoI), with many values set to nan. Currently only implemented for Planet.Do.ConstantProps['Inner'] = True and only allows broken MoI matching. Broken Tb_K matching is also intended.
     Params.DEPRECATED =       False  # Whether to allow deprecated code to run. Will often cause errors.
     Params.TIME_AND_DATE_LABEL = False # Whether to add a time and date stamp to the end of saved file names
 
@@ -63,6 +63,7 @@ def configAssign():
     Params.PLOT_MELTING_CURVES = False  # Whether to plot melting curves in P-T space for all ocean compositions modeled
     Params.PLOT_SPECIES_HYDROSPHERE = True # Whether to plot aqueous species concentration as a function of ocean depth
     Params.PLOT_REF =         True  # Whether to plot reference melting curve densities on hydrosphere plot
+    Params.PLOT_HYDRO_TEMP = True  # Whether to plot temperature vs depth on hydrosphere plot
     Params.PLOT_SIGS =        True  # Whether to plot conductivities as a function of radius on hydrosphere plot if they have been calculated
     Params.PLOT_SOUNDS =      True  # Whether to plot sound speeds as a function of radius on hydrosphere plot if they have been calculated
     Params.PLOT_TRADEOFF =    True  # Whether to plot mantle properties tradeoff

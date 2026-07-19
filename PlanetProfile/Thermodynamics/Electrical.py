@@ -1,7 +1,7 @@
 import numpy as np
 import logging
 import scipy.interpolate as spi
-from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS, GetIceEOS
+from PlanetProfile.Thermodynamics.HydroEOS import GetPlanetOceanEOS, GetPlanetIceEOS
 from PlanetProfile.Utilities.Indexing import GetPhaseIndices, PhaseConv, MixedPhaseSeparator
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
 import time
@@ -33,12 +33,7 @@ def ElecConduct(Planet, Params):
             if not (Planet.Do.NO_H2O or Planet.Do.NO_OCEAN) and Planet.Ocean.EOS.key not in EOSlist.loaded.keys():
                 POcean_MPa = np.arange(Planet.PfreezeLower_MPa, Planet.Ocean.PHydroMax_MPa, Planet.Ocean.deltaP)
                 TOcean_K = np.arange(Planet.Bulk.Tb_K, Planet.Ocean.THydroMax_K, Planet.Ocean.deltaT)
-                Planet.Ocean.EOS = GetOceanEOS(Planet.Ocean.comp, Planet.Ocean.wOcean_ppt, POcean_MPa, TOcean_K,
-                                   Planet.Ocean.MgSO4elecType, rhoType=Planet.Ocean.MgSO4rhoType,
-                                   scalingType=Planet.Ocean.MgSO4scalingType, FORCE_NEW=Params.FORCE_EOS_RECALC,
-                                   phaseType=Planet.Ocean.phaseType, EXTRAP=Params.EXTRAP_OCEAN,
-                                   sigmaFixed_Sm=Planet.Ocean.sigmaFixed_Sm, kThermConst_WmK=Planet.Ocean.kThermWater_WmK,
-                                   propsStepReductionFactor=Planet.Ocean.propsStepReductionFactor)
+                Planet.Ocean.EOS = GetPlanetOceanEOS(Planet, Params, POcean_MPa, TOcean_K)
 
             if Planet.Do.POROUS_ICE:
                 Planet = CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, indsIII, indsIIIund,
@@ -109,13 +104,7 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
         if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
             PIce_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Pb_MPa + Planet.Ocean.deltaP * 9, 10)
             TIce_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K + Planet.Ocean.deltaT * 9, 10)
-            Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                            porosType=Planet.Ocean.porosType[icePhase],
-                                                            phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                            Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                            phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                            EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
+            Planet.Ocean.surfIceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
         Planet.sigma_Sm[indsI] = Planet.Ocean.surfIceEOS['Ih'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['Ih'], 0,
                                                                                Planet.phi_frac[indsI],
                                                                                Planet.Ocean.Jsigma)
@@ -124,13 +113,7 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
         if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
             PIce_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Pb_MPa + Planet.Ocean.deltaP * 9, 10)
             TIce_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K + Planet.Ocean.deltaT * 9, 10)
-            Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                            porosType=Planet.Ocean.porosType[icePhase],
-                                                            phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                            Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                            phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                            EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
+            Planet.Ocean.surfIceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
         Planet.sigma_Sm[indsClath] = Planet.Ocean.surfIceEOS['Clath'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['Clath'], 0,
                                                                                       Planet.phi_frac[indsClath],
                                                                                       Planet.Ocean.Jsigma)
@@ -140,13 +123,7 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
         if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
             PIce_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Pb_MPa + Planet.Ocean.deltaP * 9, 10)
             TIce_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K + Planet.Ocean.deltaT * 9, 10)
-            Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                            porosType=Planet.Ocean.porosType[icePhase],
-                                                            phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                            Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                            phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                            EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
+            Planet.Ocean.surfIceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
         Planet.sigma_Sm[indsIIund] = Planet.Ocean.surfIceEOS['II'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['II'], 0,
                                                                                    Planet.phi_frac[indsIIund],
                                                                                    Planet.Ocean.Jsigma)
@@ -155,13 +132,7 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
         if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
             PIce_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Pb_MPa + Planet.Ocean.deltaP * 9, 10)
             TIce_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K + Planet.Ocean.deltaT * 9, 10)
-            Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                            porosType=Planet.Ocean.porosType[icePhase],
-                                                            phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                            Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                            phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                            EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
+            Planet.Ocean.surfIceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
         Planet.sigma_Sm[indsIIIund] = Planet.Ocean.surfIceEOS['III'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['III'], 0,
                                                                                      Planet.phi_frac[indsIIIund],
                                                                                      Planet.Ocean.Jsigma)
@@ -170,13 +141,7 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
         if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
             PIce_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Pb_MPa + Planet.Ocean.deltaP * 9, 10)
             TIce_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K + Planet.Ocean.deltaT * 9, 10)
-            Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                            porosType=Planet.Ocean.porosType[icePhase],
-                                                            phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                            Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                            phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                            EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
+            Planet.Ocean.surfIceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
         Planet.sigma_Sm[indsVund] = Planet.Ocean.surfIceEOS['V'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['V'], 0,
                                                                                  Planet.phi_frac[indsVund],
                                                                                  Planet.Ocean.Jsigma)
@@ -185,13 +150,7 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
         if Planet.Ocean.surfIceEOS[icePhase].key not in EOSlist.loaded.keys():
             PIce_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Pb_MPa + Planet.Ocean.deltaP * 9, 10)
             TIce_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K + Planet.Ocean.deltaT * 9, 10)
-            Planet.Ocean.surfIceEOS[icePhase] = GetIceEOS(PIce_MPa, TIce_K, icePhase,
-                                                            porosType=Planet.Ocean.porosType[icePhase],
-                                                            phiTop_frac=Planet.Ocean.phiMax_frac[icePhase],
-                                                            Pclosure_MPa=Planet.Ocean.Pclosure_MPa[icePhase],
-                                                            phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                            EXTRAP=Params.EXTRAP_ICE[icePhase],
-                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT, kThermConst_WmK=Planet.Ocean.kThermIce_WmK)
+            Planet.Ocean.surfIceEOS[icePhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, icePhase)
         Planet.sigma_Sm[indsVIund] = Planet.Ocean.surfIceEOS['VI'].fn_porosCorrect(Planet.Ocean.sigmaIce_Sm['VI'], 0,
                                                                                    Planet.phi_frac[indsVIund],
                                                                                    Planet.Ocean.Jsigma)
@@ -209,14 +168,7 @@ def CalcElecPorIce(Planet, Params, indsLiq, indsI, indsIwet, indsII, indsIIund, 
             if Planet.Ocean.surfIceEOS[mixedPhase].key not in EOSlist.loaded.keys():
                 PIce_MPa = np.linspace(Planet.Bulk.Psurf_MPa, Planet.Pb_MPa + Planet.Ocean.deltaP * 9, 10)
                 TIce_K = np.linspace(Planet.Bulk.Tsurf_K, Planet.Bulk.Tb_K + Planet.Ocean.deltaT * 9, 10)
-                Planet.Ocean.surfIceEOS[mixedPhase] = GetIceEOS(PIce_MPa, TIce_K, mixedPhase,
-                                                            porosType=Planet.Ocean.porosType['Clath'],
-                                                            phiTop_frac=Planet.Ocean.phiMax_frac['Clath'],
-                                                            Pclosure_MPa=Planet.Ocean.Pclosure_MPa['Clath'],
-                                                            phiMin_frac=Planet.Ocean.phiMin_frac,
-                                                            EXTRAP=Params.EXTRAP_ICE[mixedPhase],
-                                                            ICEIh_DIFFERENT=Planet.Do.ICEIh_DIFFERENT,
-                                                            mixParameters={'mixFrac': Planet.Bulk.volumeFractionClathrate, 'JmixedRheologyConstant': Planet.Bulk.JmixedRheologyConstant})
+                Planet.Ocean.surfIceEOS[mixedPhase] = GetPlanetIceEOS(Planet, Params, PIce_MPa, TIce_K, mixedPhase)
             Planet.sigma_Sm[indsMixedClathrate] = Planet.Ocean.surfIceEOS[mixedPhase].fn_porosCorrect(sigmaMixed_Sm, 0,
                                                                                       Planet.phi_frac[indsMixedClathrate],
                                                                                       Planet.Ocean.Jsigma)

@@ -60,8 +60,8 @@ def smoothGrid(x, y, zs, factor):
     y_min, y_max = np.nanmin(y), np.nanmax(y)
     
     # Ensure x and y are above machine error to prevent interpolation errors
-    if (x_min < 1e-10 and x_max < 1e-10) or (y_min < 1e-10 and y_max < 1e-10):
-        log.warning('x or y is below machine error. Smoothing will not be performed.')
+    if (abs(x_min) < 1e-10 and abs(x_max) < 1e-10) or (abs(y_min) < 1e-10 and abs(y_max) < 1e-10):
+        log.debug('Attempting to smooth 2d grid for plotting, but x or y is below machine error. Smoothing will not be performed.')
         x_fine = x
         y_fine = y
     else: 
@@ -90,13 +90,16 @@ def smoothGrid(x, y, zs, factor):
             y_valid = y_flat[valid_mask]
             z_valid = z_flat[valid_mask]
             if len(z_valid) > 0:
-
-                z_fine = griddata((x_valid, y_valid), z_valid, 
-                                (x_fine, y_fine), method='linear', fill_value=np.nan)
-                # Update x, y, z to use the finer resolution data
-                zs[i] = z_fine
+                try:
+                    z_fine = griddata((x_valid, y_valid), z_valid, 
+                                    (x_fine, y_fine), method='linear', fill_value=np.nan)
+                    # Update x, y, z to use the finer resolution data
+                    zs[i] = z_fine
+                except Exception as e:
+                    log.debug(f'Error smoothing 2d grid for plotting: {e}')
+                    zs[i] = z
             else:
-                zs[i] = np.zeros((n_x_fine, n_y_fine)) * np.nan
+                zs[i] = np.full((x_fine.shape[0], y_fine.shape[1]), np.nan)
     return x_fine, y_fine, zs
 class ReturnZeros:
     """ Returns an array or tuple of arrays of zeros, for functions of properties
@@ -114,7 +117,7 @@ class ReturnZeros:
             nPs = np.size(P)
             nTs = np.size(T)
             if self.nVar > 1:
-                out = (np.zeros(np.maximum(nPs, nTs)) for _ in range(self.nVar))
+                out = tuple(np.zeros(np.maximum(nPs, nTs)) for _ in range(self.nVar))
             else:
                 out = np.zeros(np.maximum(nPs, nTs))
         return out
@@ -177,7 +180,7 @@ class ReturnConstantSpecies:
         self.species_names = np.append(self.species_names,'H2O(aq)')
         self.speciation = np.append(self.speciation, 1/Constants.m_gmol['H2O']*1000)
 
-    def __call__(self, P, T, grid = False, reactionSubstruct = None):
+    def __call__(self, P, T, grid = False, reactionEquation = None):
         nPs = np.size(P)
         nTs = np.size(T)
         pH = (np.zeros(nPs)) + self.pH
@@ -296,14 +299,6 @@ class EOSwrapper:
         return EOSlist.loaded[self.key].fn_alpha_pK(P_MPa, T_K, grid=grid)
     def fn_kTherm_WmK(self, P_MPa, T_K, grid=False):
         return EOSlist.loaded[self.key].fn_kTherm_WmK(P_MPa, T_K, grid=grid)
-    def fn_VP_kms(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_VP_kms(P_MPa, T_K, grid=grid)
-    def fn_VS_kms(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_VS_kms(P_MPa, T_K, grid=grid)
-    def fn_KS_GPa(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_KS_GPa(P_MPa, T_K, grid=grid)
-    def fn_GS_GPa(self, P_MPa, T_K, grid=False):
-        return EOSlist.loaded[self.key].fn_GS_GPa(P_MPa, T_K, grid=grid)
     def fn_phi_frac(self, P_MPa, T_K, grid=False):
         return EOSlist.loaded[self.key].fn_phi_frac(P_MPa, T_K, grid=grid)
     def fn_porosCorrect(self, propBulk, propPore, phi, J):
@@ -316,7 +311,7 @@ class EOSwrapper:
         return EOSlist.loaded[self.key].updateConvectionViscosity(etaConv_Pas, Tconv_K)
     def fn_Seismic(self, P_MPa, T_K, grid=False):
         return EOSlist.loaded[self.key].fn_Seismic(P_MPa, T_K, grid=grid)
-    def fn_species(self, P_MPa, T_K, grid = False, reactionSubstruct=None):
-        return EOSlist.loaded[self.key].fn_species(P_MPa, T_K, grid=grid, reactionSubstruct=reactionSubstruct)
+    def fn_species(self, P_MPa, T_K, grid = False, reactionEquation=None):
+        return EOSlist.loaded[self.key].fn_species(P_MPa, T_K, grid=grid, reactionEquation=reactionEquation)
     def fn_averageValuesAccordingtoRule(self, prop1, prop2, rule):
         return EOSlist.loaded[self.key].fn_averageValuesAccordingtoRule(prop1, prop2, rule)

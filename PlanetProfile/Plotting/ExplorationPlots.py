@@ -684,6 +684,25 @@ def PlotExploreOgramMultiSubplot(results_list, FigureFilesList, Params):
                 ax.grid(False)
                 ax.set_axisbelow(False)
 
+            # Add subplot label (a, b, c, etc.) if enabled
+            if FigMisc.SUBPLOT_LABELS:
+                letters = "abcdefghijklmnopqrstuvwxyz"
+                label = ""
+                n = i + 1
+                while n:
+                    n, r = divmod(n - 1, 26)
+                    label = letters[r] + label
+
+                ax.text(
+                    FigMisc.SUBPLOT_LABEL_X, FigMisc.SUBPLOT_LABEL_Y, label,
+                    transform=ax.transAxes,
+                    fontsize=FigMisc.SUBPLOT_LABEL_FONTSIZE,
+                    fontweight='bold',
+                    ha='left',
+                    va='top',
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8)
+                )
+
             # Hide redundant axis labels — shared axes handle tick labels automatically
             is_bottom_row = (row == n_rows - 1) or (i >= n_subplots - n_cols)
             is_left_column = (col == 0)
@@ -738,8 +757,8 @@ def PlotExploreOgramZbD(results_list, FigureFilesList, Params):
         
         # Extract and validate data using helper
         plot_data = extract_and_validate_plot_data(result_obj = result, x_field = xName, y_field = yName, c_field = result.zName,
-                                                  x_multiplier = FigLbl.xMultExplore, y_multiplier = FigLbl.yMultExplore, c_multiplier = FigLbl.zMultExplore,
-                                                  custom_x_axis = FigLbl.xCustomAxis, custom_y_axis = FigLbl.yCustomAxis)
+                                                x_multiplier = FigLbl.xMultExplore, y_multiplier = FigLbl.yMultExplore, c_multiplier = FigLbl.zMultExplore,
+                                                custom_x_axis = FigLbl.xCustomAxis, custom_y_axis = FigLbl.yCustomAxis)
         
         if len(plot_data['x']) == 0:
             log.warning(f"No valid data points for {result.bodyname}")
@@ -797,8 +816,8 @@ def PlotExploreOgramZbD(results_list, FigureFilesList, Params):
                     # Draw composition lines if enabled using helper
         if FigMisc.DRAW_COMPOSITION_LINE:
             draw_ocean_composition_lines(ax, x, y, z, ocean_comp, 
-                                       FigMisc.MANUAL_HYDRO_COLORS,
-                                       FigMisc.ZBD_COMP_LINE_WIDTH, FigMisc.ZBD_COMP_LINE_ALPHA)
+                                    FigMisc.MANUAL_HYDRO_COLORS,
+                                    FigMisc.ZBD_COMP_LINE_WIDTH, FigMisc.ZBD_COMP_LINE_ALPHA)
             
             # Add colorbar
             cbar = fig.colorbar(pts, ax=ax, format=FigLbl.cbarFmt)
@@ -811,9 +830,9 @@ def PlotExploreOgramZbD(results_list, FigureFilesList, Params):
         # Plot NaN points with distinct color
         if np.any(nan_mask):
             ax.scatter(x[nan_mask], y[nan_mask], c=FigMisc.ZBD_NAN_COLOR,
-                      marker=FigMisc.ZBD_NAN_MARKER, s=Style.MW_Induction**2, 
-                      linewidths=FigMisc.ZBD_DOT_EDGE_WIDTH,
-                      zorder=3)
+                    marker=FigMisc.ZBD_NAN_MARKER, s=Style.MW_Induction**2, 
+                    linewidths=FigMisc.ZBD_DOT_EDGE_WIDTH,
+                    zorder=3)
         
         # Add legends if enabled
         if FigMisc.DRAW_COMPOSITION_LINE and Params.LEGEND:
@@ -821,7 +840,7 @@ def PlotExploreOgramZbD(results_list, FigureFilesList, Params):
         # Save the plot
         plt.tight_layout()
         fig.savefig(Params.FigureFiles.exploreZbD, format=FigMisc.figFormat,
-                   dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
+                dpi=FigMisc.dpi, metadata=FigLbl.meta, transparent=FigMisc.TRANSPARENT)
         log.debug(f'Plot saved to file: {Params.FigureFiles.exploreZbD}')
         plt.close()
 
