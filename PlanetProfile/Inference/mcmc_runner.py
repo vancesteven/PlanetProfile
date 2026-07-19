@@ -70,12 +70,28 @@ def _parse_bind_channel(name: str):
 
 def _structure_R_body_km(structure_data) -> Optional[float]:
     """Body radius in km from a structure grid cache (constant across the
-    Tb grid), or None when the cache lacks it (older cache schemas)."""
+    Tb grid), or None when the cache lacks it (older cache schemas).
+
+    Scans for the first BUILT (non-None) structure: the 2D (Tb × w) v3.0 cache
+    leaves the tilted-band corners — including ``structures[0]`` (low-Tb/low-w)
+    — as ``None``, so indexing [0] blindly hits ``None.get`` (AttributeError,
+    caught here as TypeError). R_body_m is constant across the grid, so any
+    built node gives the same value."""
     try:
-        R_m = structure_data['structures'][0].get('R_body_m')
-        return float(R_m) / 1e3 if R_m is not None else None
-    except (KeyError, IndexError, TypeError):
+        structures = structure_data['structures']
+    except (KeyError, TypeError):
         return None
+    for struct in structures:
+        if struct is None:
+            continue
+        try:
+            R_m = struct.get('R_body_m')
+        except AttributeError:
+            return None
+        if R_m is not None:
+            return float(R_m) / 1e3
+        return None
+    return None
 
 
 class MCMCRunner:
@@ -951,9 +967,16 @@ class MCMCRunner:
                 for lab, comps in be.items()}
 
     def _get_cache_scalar(self, theta_dict: Dict[str, float], key: str) -> float:
-        """Extract scalar from interpolated structure for grid caches."""
-        from .forward_models import apply_parameters
-        modified = apply_parameters(theta_dict, self.structure_data)
+        """Extract scalar from interpolated structure for grid caches.
+
+        Returns NaN for a sample in an unbuilt 2D-cache corner (the reporting
+        loops run over posterior draws, which are in-support, but an edge draw
+        must degrade to NaN rather than crash post-processing)."""
+        from .forward_models import apply_parameters, UnservableSampleError
+        try:
+            modified = apply_parameters(theta_dict, self.structure_data)
+        except UnservableSampleError:
+            return np.nan
         val = modified.get(key, np.nan)
         return float(val) if np.isfinite(float(val)) else np.nan
 
@@ -1455,7 +1478,8 @@ class MCMCRunner:
         log.info(f"Recomputing k2 for {n_samples} posterior samples...")
         rheology = self._infer_rheology() if not self._use_flexible else None
 
-        from .forward_models import forward_model_k2_flexible
+        from .forward_models import (forward_model_k2_flexible,
+                                     UnservableSampleError)
 
         k2_results = []
         h2_results = []
@@ -1465,10 +1489,15 @@ class MCMCRunner:
         D_hsphere_results = []
         for i, theta in enumerate(samples):
             theta_dict = self._expand_theta(theta)
-            Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
-                theta_dict, self.structure_data,
-                return_heating=False, arrhenius_params=self.arrhenius_params
-            )
+            try:
+                Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
+                    theta_dict, self.structure_data,
+                    return_heating=False, arrhenius_params=self.arrhenius_params
+                )
+            except UnservableSampleError:
+                # Posterior draw in an unbuilt 2D-cache corner (rare edge draw):
+                # report NaN k2/h2 rather than crash the recompute loop.
+                Re_k2 = Im_k2 = Re_h2 = Im_h2 = np.nan
             k2_results.append((Re_k2, Im_k2))
             h2_results.append((Re_h2, Im_h2))
             cmr2_results.append(self._compute_model_cmr2(theta_dict))
@@ -1495,10 +1524,13 @@ class MCMCRunner:
         heating_results = []
         for si in idx_heat:
             theta_dict = self._expand_theta(samples[si])
-            _, _, _, _, perPhase_W = forward_model_k2_flexible(
-                theta_dict, self.structure_data,
-                return_heating=True, arrhenius_params=self.arrhenius_params
-            )
+            try:
+                _, _, _, _, perPhase_W = forward_model_k2_flexible(
+                    theta_dict, self.structure_data,
+                    return_heating=True, arrhenius_params=self.arrhenius_params
+                )
+            except UnservableSampleError:
+                perPhase_W = None
             heating_results.append(perPhase_W if perPhase_W is not None else {})
         heating_indices = idx_heat
 
