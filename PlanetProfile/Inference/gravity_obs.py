@@ -130,15 +130,22 @@ def radau_darwin_cmr2(kf: float) -> float:
 
 
 def hydrostatic_c20_c22(kf: float, omega: float, R_m: float, M_kg: float,
-                        R_ref_m: float = R_REF_GC21_M) -> tuple:
+                        R_ref_m: float = R_REF_GC21_M,
+                        j2_over_c22: float = J2_OVER_C22) -> tuple:
     """Hydrostatic (C20_h, C22_h), UNNORMALIZED, at reference radius
-    R_ref_m (GC21 1565 km). C22_h = k_f q_r / 4 evaluated at the
-    physical radius, rescaled by (R/R_ref)^2; J2_h = 3.324 C22_h
-    (Tricarico rapid-rotation correction); C20_h = -J2_h."""
+    R_ref_m (default: GC21's Europa 1565 km). C22_h = k_f q_r / 4
+    evaluated at the physical radius, rescaled by (R/R_ref)^2;
+    J2_h = j2_over_c22 * C22_h; C20_h = -J2_h.
+
+    j2_over_c22 defaults to Europa's Tricarico-corrected 3.324. The
+    correction from the classical 10/3 grows with q_r (mission-body
+    constraints doc, review-binding): pass the body-specific value via
+    the config keys gravity_j2_over_c22 / gravity_ref_radius_m for any
+    non-Europa body (e.g. Enceladus q_r ~ 6.3e-3 -> ~3.22)."""
     q_r = rotation_parameter(omega, R_m, M_kg)
     scale = (float(R_m) / float(R_ref_m)) ** 2
     c22 = 0.25 * float(kf) * q_r * scale
-    return (-J2_OVER_C22 * c22, c22)
+    return (-float(j2_over_c22) * c22, c22)
 
 
 def cmr2_from_c22_rd(c22: float, omega: float, R_m: float, M_kg: float,

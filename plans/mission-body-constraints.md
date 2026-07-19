@@ -78,19 +78,38 @@ NaCl and MgSO4 variants exist; salinity sampling is a non-goal here).
 
 ## 3. Cassini–Enceladus (NEW; template PPEnceladus.py exists; cache = Machine B build)
 
-Data (real):
-- Degree-2 gravity (Iess et al. 2014, unnormalized):
-  **J2 = 5435.2 ± 34.9 e-6, C22 = 1549.8 ± 15.6 e-6**; measured ratio
-  J2/C22 = 3.51 ± 0.05 — a DETECTED mild non-hydrostaticity. Model via
-  gravity_forward_model + nuisances. Offset sizing (review-corrected):
-  with Enceladus's BODY-SPECIFIC Tricarico ratio (~3.22–3.25 at
-  q_r ≈ 6.3e-3 — below Europa's 3.324, NOT the classical 10/3), the
-  hydrostatic J2 from the measured C22 is ~4990–5040e-6, so
-  ΔJ2_nh ≈ +4.0–4.5e-4. Nuisance priors ASYMMETRIC per review:
-  **dC20_nh U[-1e-3, 1e-3]** (~2–2.5× the detected J2 excess) but
-  **dC22_nh U[-1e-4, 1e-4]** (the measured C22 is near-hydrostatic;
-  a common ±1e-3 would be ~64× σ(C22) and destroy the C22 channel).
-  Pre-register prior-sensitivity on both.
+**PRIMARY SOURCE UPDATED (user 2026-07-19): Park et al. 2024 (JGR
+Planets 129, e2023JE008054; papers/park2024global.pdf) supersedes
+Iess et al. 2014 + Thomas et al. 2016.** Their Case 2 (quadrupole +
+J3) is the paper-recommended field; unnormalized, reference radius
+**256.6 km**, formal 1σ:
+
+Data (real, Park et al. 2024 Table 8 Case 2):
+- **C20 = −5477.45 ± 36.99 e-6** (J2 = 5477.45e-6)
+- **C22 = 1517.90 ± 14.70 e-6**
+- Measured J2/C22 = 3.61 — non-hydrostaticity STRONGER than Iess's
+  3.51. With Enceladus's body-specific hydrostatic ratio (~3.22–3.25
+  at q_r ≈ 6.3e-3), hydrostatic J2 from the measured C22 is
+  ~4890–4930e-6 → **ΔJ2_nh ≈ +5.5–5.9e-4**. Nuisance priors
+  ASYMMETRIC per review, widened for the Park field:
+  **dC20_nh U[-1.5e-3, 1.5e-3]** (~2.6× the detected J2 excess),
+  **dC22_nh U[-1e-4, 1e-4]** (C22 near-hydrostatic; a wide common
+  prior would destroy the C22 channel). Pre-register
+  prior-sensitivity on both.
+- **Forced libration amplitude = 0.091° ± 0.009° (3σ → 1σ ≈ 0.003°)**
+  — REVISED DOWN from Thomas et al. 2016's 0.120° ± 0.014° (2σ).
+  With the merged Librations.py forward model (main → genai,
+  2026-07-19) this is now a WIRABLE observable channel — the
+  ocean/shell-decoupling constraint enters the likelihood instead of
+  being a documented gap. New observable 'libration_deg' + runner
+  channel (Machine A test runs).
+- Park interior context (their inference, for fiducial/crosscheck
+  only, NOT observables): mean shell 27–33 km, ocean 21–26 km, core
+  density 2270–2330 kg/m3, total conductive heat loss 18–28 GW.
+- Out of 1D scope (documented): S22 = −275.31 ± 10.87 e-6 (significant
+  lateral structure — needs a 3D/lateral model); C30 = 177.82 ± 33.42
+  e-6 (degree-3 zonal; our forward model is degree-2 — J3 modeling is
+  future work alongside higher-degree Clipper terms).
 - **Nuisance-dominated honesty statement (review-binding):** the
   structural signal in C22_h (≈ k_f q_r/4 ~ 1.6e-3, k_f swing a few
   e-4) is comparable to the nuisance box, so C20/C22 alone constrain
@@ -100,11 +119,7 @@ Data (real):
 - CMR2 ≈ 0.335 (Iess 2014 interpretation) is DERIVED (hydrostatic+
   corrections) — do NOT double-count; use only as a sanity cross-check,
   not an observable, when C20/C22 are conditioned directly.
-Not modelable today (documented gaps):
-- Physical libration 0.120° ± 0.014° (2σ; Thomas et al. 2016) — THE
-  global-ocean/decoupled-shell evidence. No libration observable exists
-  in the pipeline; adding a libration forward model (Van Hoolst
-  formalism) is the highest-value new-observable item on the roadmap.
+Remaining gap:
 - k2: unmeasured; tiny predicted (~0.01–0.02 with ocean). Hypothetical
   channel Re_k2 [0.015, 0.02], Im_k2 [0.005, 0.02].
 Params (9): as Ganymede minus HP ices (no III/V/VI at Enceladus

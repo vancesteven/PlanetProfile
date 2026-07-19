@@ -56,6 +56,8 @@ BODY_ORBITAL_PARAMS: Dict[str, Dict[str, float]] = {
     "Ganymede": {"meanMotion_radps": 1.0163e-5, "eccentricity": 0.0013},
     "Callisto": {"meanMotion_radps": 4.358e-6,  "eccentricity": 0.0074},
     "Titan":    {"meanMotion_radps": 4.560e-6,  "eccentricity": 0.0288},
+    # Enceladus: Torb 32.9 h (PPEnceladus/Archinal); ecc Jacobson 2006.
+    "Enceladus": {"meanMotion_radps": 5.307e-5, "eccentricity": 0.0047},
 }
 
 
@@ -79,6 +81,7 @@ def build_single_structure(
     planet_template_module: str,
     Tb_K: float,
     ocean_overrides: Dict[str, Any] | None = None,
+    bulk_overrides: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     """Run PlanetProfile once and return the cache dict for one ``Tb_K``.
 
@@ -141,12 +144,35 @@ def build_single_structure(
             setattr(Planet.Ocean, key, value)
         log.info(f"Applied ocean_overrides: {ocean_overrides}")
 
+    # Bulk overrides (e.g. {'Cuncertainty': 0.06} to widen the MoI matching
+    # window for cache builds: small bodies like Enceladus swing MoI hugely
+    # per 0.1 K of Tb, so the template's tight measurement window rejects
+    # every non-default Tb node — the inference constrains MoI through its
+    # CMR2/C20/C22 observables instead, so the cache must ACCEPT a range).
+    if bulk_overrides:
+        for key, value in bulk_overrides.items():
+            if not hasattr(Planet.Bulk, key):
+                log.warning(
+                    f"bulk_overrides: Planet.Bulk has no attribute {key!r}; "
+                    "setting it anyway."
+                )
+            setattr(Planet.Bulk, key, value)
+        log.info(f"Applied bulk_overrides: {bulk_overrides}")
+
     # Inject orbital params if the PP default config didn't set them.
     # Required by the k2 forward model (rheology path); not used by the v2
     # CMR² mass-conservation path itself.
     if getattr(Planet.Bulk, "meanMotion_radps", None) is None:
+        # Synchronous rotators: derive mean motion from the template's
+        # orbital period when set (e.g. PPEnceladus defines Torb_s but
+        # not meanMotion_radps) before falling back to the table.
+        Torb_s = getattr(Planet.Bulk, "Torb_s", None)
+        if Torb_s is not None and np.isfinite(Torb_s) and Torb_s > 0:
+            Planet.Bulk.meanMotion_radps = 2.0 * np.pi / float(Torb_s)
         body_orb = BODY_ORBITAL_PARAMS.get(getattr(Planet, "bodyname", ""))
-        if body_orb is not None:
+        if getattr(Planet.Bulk, "meanMotion_radps", None) is not None:
+            pass
+        elif body_orb is not None:
             Planet.Bulk.meanMotion_radps = body_orb["meanMotion_radps"]
             if getattr(Planet.Bulk, "eccentricity", None) is None:
                 Planet.Bulk.eccentricity = body_orb["eccentricity"]
@@ -598,6 +624,7 @@ def build_tb_grid_cache(
     detect_transitions: bool = True,
     eps_T: float = 0.01,
     ocean_overrides: Dict[str, Any] | None = None,
+    bulk_overrides: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     """Build a Tb-grid cache by repeatedly calling ``build_single_structure``.
 
@@ -670,6 +697,7 @@ def build_tb_grid_cache(
             struct = build_single_structure(
                 planet_template_module, float(Tb_K),
                 ocean_overrides=ocean_overrides,
+                bulk_overrides=bulk_overrides,
             )
         except Exception as exc:
             log.warning(

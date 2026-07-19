@@ -1,0 +1,80 @@
+{
+  "mode": "mcmc",
+  "bodyname": "Enceladus",
+  "param_space": {
+    "alpha": {
+      "prior_type": "uniform",
+      "bounds": [
+        0.15,
+        0.45
+      ]
+    },
+    "log10_zeta_Ih": {
+      "prior_type": "uniform",
+      "bounds": [
+        -3.0,
+        2.0
+      ]
+    },
+    "log10_zeta_sil": {
+      "prior_type": "uniform",
+      "bounds": [
+        -3.0,
+        2.0
+      ]
+    },
+    "log10_eta_Ih": {
+      "prior_type": "uniform",
+      "bounds": [
+        12.0,
+        17.0
+      ]
+    },
+    "log10_eta_sil": {
+      "prior_type": "uniform",
+      "bounds": [
+        18.0,
+        22.0
+      ]
+    },
+    "Tb_K": {
+      "prior_type": "uniform",
+      "bounds": [
+        271.8,
+        272.6
+      ]
+    }
+  },
+  "observables": {
+    "C20": [
+      -0.00547745,
+      3.699e-05
+    ],
+    "C22": [
+      0.0015179,
+      1.47e-05
+    ],
+    "libration_deg": [
+      0.091,
+      0.003
+    ]
+  },
+  "gravity_forward_model": "clairaut_hydrostatic",
+  "sampler_settings": {
+    "n_effective": 256,
+    "n_active": 128,
+    "n_posterior_samples": 1000,
+    "n_reeval": 30
+  },
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Enceladus/Cassini_smoke/enceladus_seawater_smoke_grid.pkl",
+  "random_state": 42,
+  "planet_template_module": "PlanetProfile.Default.Enceladus.PPEnceladus",
+  "metadata": {
+    "schema_version": "Cassini-Enceladus smoke (test-run scope, Machine A 2026-07-19)",
+    "description": "Cassini-era Enceladus smoke config exercising the merged libration forward model (rigid three-layer Van Hoolst 2008 via Gravity/Librations.py) and the body-parameterized Clairaut gravity pair. Park et al. 2024 (papers/park2024global.pdf) Case 2 field, UNNORMALIZED at reference radius 256.6 km: C20 = -5477.45 +/- 36.99 e-6, C22 = 1517.90 +/- 14.70 e-6; forced libration 0.091 +/- 0.003 deg (1-sigma from their 3-sigma 0.009). NO nuisance offsets in the smoke (the plain hydrostatic pair will sit in TENSION with the measured J2/C22 = 3.61 ratio - expected, documents the non-hydrostaticity; the production 8D config adds dC20_nh/dC22_nh per plans/mission-body-constraints.md and must ALSO use the covariance conditioning). Rigid-shell libration overestimates the shell-elasticity-corrected amplitude; the elastic (y1) correction is a documented production refinement. Composition Seawater 10 ppt (Glein et al. 2018 approx); no iron core (Do.Fe_CORE False) so CMR2/gravity derive from the cached profile directly (no mass-conservation core path in the smoke).",
+    "gravity_ref_radius_m": 256600.0,
+    "gravity_j2_over_c22": 3.24,
+    "gravity_j2_over_c22_provenance": "Enceladus body-specific Tricarico-corrected hydrostatic ratio, PROVISIONAL linear-in-q_r estimate (~3.22-3.25 at q_r = 6.3e-3, scaled from Europa's 3.324 at q_r = 4.98e-4). Machine B: derive the exact value from the Tricarico (2014) formalism before the production run (mission-body constraints doc, review R-binding).",
+    "constraints_source": "plans/mission-body-constraints.md (Park et al. 2024 update)"
+  }
+}

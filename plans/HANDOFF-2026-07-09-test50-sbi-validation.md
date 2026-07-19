@@ -1467,3 +1467,47 @@ confirmed (zeta_sil -1.5 dex quintuples |Im k2|). Machine B: train from
 the RENAMED configs; SBC/crosscheck at 8/11 params; add the
 zeta-Ih-vs-zeta-sil joint-posterior report + the pre-registered
 ice-vs-silicate heating-fraction comparison (v4 plan, zeta section).
+
+## ADDENDUM 2026-07-19i (Machine A) — main merged; Enceladus test runs; Park 2024
+
+1. **origin/main MERGED into genai** (523890a0; 33 conflicted files;
+   policy + verification in the merge commit message). Libration model
+   (Gravity/Librations.py), DP-ALMA backend, etaMelt plumbing, upstream
+   bug fixes all in; genai's TidalPy backend, MoonMag first-party,
+   McCleskey speciation, Arrhenius viscosity, guarded reaktoro import
+   all preserved. NO merges genai -> main (user directive). Machine B:
+   run the BuildTest sweep to close the merge's PP-pipeline
+   verification (inference stack already verified: 45/45 tests + v2
+   artifact serving).
+2. **Park et al. 2024 supersedes Iess/Thomas for Enceladus**
+   (constraints doc updated): Case 2 field, unnormalized at 256.6 km —
+   C20 -5477.45 +/- 36.99 e-6, C22 1517.90 +/- 14.70 e-6, libration
+   0.091 +/- 0.003 deg (1 sigma). J2/C22 = 3.61.
+3. **Machine A test runs COMPLETE (user-directed; B does production
+   only):** Enceladus smoke cache (3 Tb nodes, Seawater 10 ppt,
+   Test/mcmc_results/Enceladus/Cassini_smoke/), new observable channel
+   'libration_deg' (rigid 3-layer Van Hoolst 2008 via merged
+   Librations.py; MCMCRunner._derive_libration_deg; wired into
+   likelihood + SBI dataset), body-parameterized gravity keys
+   (metadata gravity_ref_radius_m / gravity_j2_over_c22 threaded into
+   _derive_gravity_pair), cache_builder bulk_overrides (Enceladus MoI
+   window must be widened for cache builds — MoI swings hugely per
+   0.1 K; the inference constrains MoI via observables instead),
+   Enceladus in BODY_ORBITAL_PARAMS + Torb_s-derived meanMotion.
+   Channel sanity at fiducial: libration 0.111 deg vs obs 0.091
+   (rigid-shell overestimate, correct direction); hydrostatic C22
+   1.444e-3 vs measured 1.518e-3 and C20 -4.68e-3 vs -5.477e-3 (the
+   documented non-hydrostatic tension). Smoke config:
+   configs/enceladus_cassini_smoke_6D.json.
+
+**Machine B production queue for Cassini-Enceladus** (after v1.1 + v4):
+- Dense Tb cache (bulk_overrides Cuncertainty ~0.08; box [271.8,
+  272.6] at 10 ppt — 272.7+ exceeds freezing; consider salinity
+  sensitivity), production 8D config = smoke + dC20_nh U[-1.5e-3,
+  1.5e-3] + dC22_nh U[-1e-4, 1e-4] per the constraints doc.
+- BLOCKING before training: (a) exact Tricarico (2014) J2/C22 ratio
+  for Enceladus (config carries provisional 3.24 with provenance
+  note); (b) correlated 2x2 (C20, C22) covariance conditioning
+  (constraints doc, review R3-binding); (c) decide elastic libration
+  correction (y1 from the TidalPy solution) vs documented rigid-shell
+  systematic.

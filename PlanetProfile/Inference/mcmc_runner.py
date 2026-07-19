@@ -738,6 +738,15 @@ class MCMCRunner:
                     if not np.isfinite(pred):
                         return -1e30
                     chi2 += ((pred - obs_val) / obs_err) ** 2
+            # Forced libration amplitude [deg] (Cassini-Enceladus era;
+            # rigid three-layer Van Hoolst 2008 forward model from the
+            # merged Librations.py — see _derive_libration_deg).
+            if 'libration_deg' in observables:
+                obs_val, obs_err = observables['libration_deg']
+                pred = self._derive_libration_deg(theta_dict)
+                if pred is None:
+                    return -1e30
+                chi2 += ((pred - obs_val) / obs_err) ** 2
             if 'CMR2' in observables:
                 obs_val, obs_err = observables['CMR2']
 
@@ -1357,10 +1366,86 @@ class MCMCRunner:
             kf = clairaut_kf(r_arr, rho_arr)
         except ValueError:
             return None
-        c20_h, c22_h = hydrostatic_c20_c22(kf, omega, R_body_m, M_total_kg)
+        # Body-dependent conventions (mission-body constraints doc,
+        # review-binding): reference radius and Tricarico-corrected
+        # hydrostatic ratio come from the config when set; defaults are
+        # Europa's (GC21 1565 km, 3.324).
+        gm = (getattr(self.config, 'metadata', {}) or {})
+        kwargs = {}
+        if gm.get('gravity_ref_radius_m'):
+            kwargs['R_ref_m'] = float(gm['gravity_ref_radius_m'])
+        if gm.get('gravity_j2_over_c22'):
+            kwargs['j2_over_c22'] = float(gm['gravity_j2_over_c22'])
+        c20_h, c22_h = hydrostatic_c20_c22(kf, omega, R_body_m,
+                                           M_total_kg, **kwargs)
         c20 = c20_h + float(theta_dict.get('dC20_nh', 0.0))
         c22 = c22_h + float(theta_dict.get('dC22_nh', 0.0))
         return (c20, c22)
+
+    def _derive_libration_deg(
+        self, theta_dict: Dict[str, float]
+    ) -> Optional[float]:
+        """Forced libration amplitude [degrees] from the per-sample
+        structure, via the merged Gravity/Librations.py forward model
+        (rigid three-layer reduction: interior / ocean / outer shell,
+        Van Hoolst et al. 2008 formalism as invoked by the PP pipeline).
+
+        Rigid-shell approximation (test-run scope): the elastic (y1/k2)
+        correction requires per-sample radial y-functions — a documented
+        production refinement (extractable from the TidalPy solution).
+        Returns None when the sample's structure has no contiguous
+        interior/ocean/shell partition or inputs are non-finite.
+        """
+        from PlanetProfile.Gravity.Librations import librations
+
+        struct = self._struct_for_hydrosphere(theta_dict)
+        if struct is None:
+            return None
+        r_m = np.asarray(struct.get('r_m'), dtype=float)
+        rho = np.asarray(struct.get('rho'), dtype=float)
+        phases = np.asarray(struct.get('phases'))
+        omega = float(struct.get('omega', np.nan))
+        ecc = float(struct.get('eccentricity', np.nan))
+        if not (np.isfinite(omega) and np.isfinite(ecc)) or r_m.size < 3:
+            return None
+        order = np.argsort(r_m)
+        r_m, rho, phases = r_m[order], rho[order], phases[order]
+        keep = np.isfinite(r_m) & np.isfinite(rho) & (r_m > 0)
+        r_m, rho, phases = r_m[keep], rho[keep], phases[keep]
+
+        ocean = np.where(phases == 0)[0]
+        if ocean.size == 0:
+            return None
+        first, last = int(ocean[0]), int(ocean[-1])
+        if not np.all(phases[first:last + 1] == 0):
+            return None
+        if first == 0 or last == r_m.size - 1:
+            return None
+
+        def _vw_rho(i0, i1):
+            r_in = np.concatenate(([0.0], r_m))[i0:i1 + 1]
+            r_out = r_m[i0:i1 + 1]
+            vol = r_out ** 3 - r_in ** 3
+            good = vol > 0
+            if not np.any(good):
+                return np.nan
+            return float(np.sum(rho[i0:i1 + 1][good] * vol[good])
+                         / np.sum(vol[good]))
+
+        reduced_r = np.array([r_m[first - 1], r_m[last], r_m[-1]])
+        reduced_rho = np.array([_vw_rho(0, first - 1),
+                                _vw_rho(first, last),
+                                _vw_rho(last + 1, r_m.size - 1)])
+        if not np.all(np.isfinite(reduced_rho)):
+            return None
+        try:
+            lib_m = librations(reduced_r, reduced_rho, omega, ecc,
+                               rigid=True, ocean=True, ocean_idx=1)
+        except Exception:
+            return None
+        if lib_m is None or not np.isfinite(lib_m):
+            return None
+        return float(np.degrees(lib_m / r_m[-1]))
 
     def run(self, progress_callback: Optional[Callable] = None,
             progress_jsonl_path: Optional[str] = None):
@@ -2123,6 +2208,9 @@ class MCMCRunner:
                     xi.append(gravity_pair[1])
                 elif name == 'J2' and gravity_pair is not None:
                     xi.append(-gravity_pair[0])
+                elif name == 'libration_deg':
+                    lib = self._derive_libration_deg(theta_dict)
+                    xi.append(lib if lib is not None else np.nan)
                 elif name == 'Mtot_kg':
                     xi.append(self._get_cache_scalar(theta_dict, 'Mtot_kg'))
                 elif (name.startswith('Ae_') or name.startswith('BiAmp_')

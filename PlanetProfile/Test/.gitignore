@@ -9,3 +9,7 @@
 # reference posterior + full 2D structure cache — see HANDOFF 2026-07-19b)
 !mcmc_results/Europa/Test52_seawater_v3/europa_seawater_v3_reference_result.pkl
 !mcmc_results/Europa/Test52_seawater_v3/europa_seawater_structure_grid_v3_2d.pkl
+# Cassini-Enceladus smoke test fixtures (Machine A test runs, user-directed
+# 2026-07-19; production cache/results are Machine B work)
+!mcmc_results/Enceladus/Cassini_smoke/enceladus_seawater_smoke_grid.pkl
+!mcmc_results/Enceladus/Cassini_smoke/enceladus_cassini_smoke_result.pkl
