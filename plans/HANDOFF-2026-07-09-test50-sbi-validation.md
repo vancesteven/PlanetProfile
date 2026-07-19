@@ -1303,3 +1303,15 @@ v3 plan — current per-Tb-node plot stays as the v2 interim.
 2. **Europa Clipper v2 RATIFIED** — INDEX row moved to Deployed. The GUI
    slot was already live with full guards; no code change needed. v3 is
    cleared to start (Phase 1: 2D Tb x salinity cache).
+
+## ADDENDUM 2026-07-19 (Machine A) — HF redeploy SHIPPED
+User ran the deploy one-liner 2026-07-18 21:29 UTC: app-deploy snapshot
+1ce9c378 (from genai a882e599) uploaded; Space vsteven/planetprofile
+stage RUNNING, HTTP 200 at vsteven-planetprofile.hf.space. Live batch now
+includes: ratified Clipper v2 slot + guards, k2 ellipse alias fix,
+Ae posterior + connected-signals plots, h2 packaging, ion table + Europa
+presets, McCleskey equilibrium speciation (default-on CustomSolution),
+PvT inner surfaces, MCMC preset removal + Titan default config, Im_h2
+fold fix, adaptive truncation. Status: server-side checks `verified`
+(runtime stage + HTTP); in-browser click-throughs remain with the user.
+Machine B: no new commits on genai since a882e599 — v3 Phase 1 pending.
