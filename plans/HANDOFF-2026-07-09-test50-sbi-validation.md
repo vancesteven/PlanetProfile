@@ -1349,3 +1349,17 @@ Machine A cannot run the sampling verification and the public app cannot
 serve the slot. Remove the ignore line + `git add -f` + push. PENDING USER
 OK on repo size (21 MB single blob). After it lands: Machine A runs the
 sampling verify + presents the ratification package.
+
+## ADDENDUM 2026-07-19c (Machine A) — v3 sampling VERIFIED end-to-end
+Machine B committed the 2D cache (f7a03572; targeted .gitignore negations,
+1488 nodes / 1303 built / 185 tilted-band Nones). Machine A then ran the
+full GUI sampling path via AppTest (select v3 slot -> Generate Posterior ->
+packaged result): 10,000 draws in 4.0 min on the M4 Air; 8 params incl.
+log10_wOcean_ppt; per-sample k2 (n,2), h2 (n,2), and induction_Ae for all
+three labels packaged and index-aligned; the per-sample cloud plot rendered
+in the live result. Posterior vs reference MCMC: Tb 264.46 vs 264.3 K;
+w 36.6 vs 38.7 ppt; corr(Tb, log10 w) -0.988 vs -0.986. Every v3 phase is
+now `verified`. Remaining: (1) USER RATIFICATION of the v3 artifact for
+deployment; (2) HF redeploy (user one-liner) after ratification. Inherited
+guards (Im_k2 <= 0.15; synodic |Ae| [0.75, 0.94]) stay until a v3 anchor
+grid-walk widens them — future Machine B work, non-blocking.

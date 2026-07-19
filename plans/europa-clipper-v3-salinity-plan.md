@@ -7,10 +7,12 @@ runs everything compute-intensive.
 Status 2026-07-19: Phases 1–3 `verified` (Machine B, commits bfc7f3f1 →
 f228810f; gates in validation_reports/europa_clipper_v3_1m/, artifact
 RATIFIABLE). Phase 3.5 cloud plot `verified` (Machine A, AppTest + PNG
-against the committed reference pickle). Phase 4 GUI slot: render
-`verified` (AppTest); sampling `implemented, unverified` — blocked on
-committing the 21 MB 2D cache (Machine B holds it; see handoff
-2026-07-19b). User ratification pending.
+against the committed reference pickle). Phase 4 GUI slot `verified`
+end-to-end: 2D cache committed (Machine B, f7a03572), then Machine A ran
+the full GUI sampling path via AppTest — 10k draws/4 min, posterior
+matches the reference MCMC (Tb 264.46 vs 264.3 K, w 36.6 vs 38.7 ppt,
+corr(Tb, log10 w) −0.988 vs −0.986), per-sample cloud plot rendered.
+ONLY user ratification remains; HF deploy after that.
 
 ## Objective
 
