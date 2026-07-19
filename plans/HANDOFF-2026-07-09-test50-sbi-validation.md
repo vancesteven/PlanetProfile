@@ -1363,3 +1363,20 @@ now `verified`. Remaining: (1) USER RATIFICATION of the v3 artifact for
 deployment; (2) HF redeploy (user one-liner) after ratification. Inherited
 guards (Im_k2 <= 0.15; synodic |Ae| [0.75, 0.94]) stay until a v3 anchor
 grid-walk widens them — future Machine B work, non-blocking.
+
+## ADDENDUM 2026-07-19d (Machine A) — v4 geodesy plan authored (Machine B: WAIT for user answers)
+User direction: v3's k2 conditioning sigma (0.06) is the requirement,
+not the Mazarico et al. (2023, Table 5) Clipper projection
+(k2 = 0.2-0.3 +/- (1.4-1.8)e-2); and add an option to model C20/C22
+directly (Clipper sigma(C20) (3.5-8.5)e-7, sigma(C22) (1.5-2.3)e-7)
+instead of the RD-derived CMR2 datum, with hydrostatic C/MR2 shown via
+Radau-Darwin and the implied non-hydrostaticity reported. Full plan:
+plans/europa-clipper-v4-geodesy-plan.md — scientific-reviewer PASS WITH
+CONCERNS, all four binding fixes incorporated (Clairaut k_f integration
+replaces RD in the forward map; free 2-D nuisances honestly remove the
+gravity MoI constraint; ratio-preserving injections pre-registered as
+expected-degenerate; normalization convention gate). Machine B: do NOT
+start until the user answers the five open items at the plan's end
+(normalization convention is BLOCKING) and Machine A lands
+gravity_obs.py + runner channels. Same 2D cache — zero PP runs needed.
+v3 ratification remains a separate pending user decision.
