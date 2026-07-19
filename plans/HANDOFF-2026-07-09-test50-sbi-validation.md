@@ -1380,3 +1380,18 @@ start until the user answers the five open items at the plan's end
 (normalization convention is BLOCKING) and Machine A lands
 gravity_obs.py + runner channels. Same 2D cache — zero PP runs needed.
 v3 ratification remains a separate pending user decision.
+
+## ADDENDUM 2026-07-19e (Machine A) — v3 VETOED by user; C/MR2 explainer added
+User decision: Europa Clipper v3 is VETOED — wrong training bounds (k2
+conditioning sigma 0.06 = requirement level, not the Mazarico (1.4-1.8)e-2
+projections; Re_k2 0.25 vs ocean-consistent 0.23). INDEX row updated
+(vetoed, retained for provenance), GUI slot REMOVED (AppTest-verified:
+3 slots offered, no v3). The v3 2D cache, reference-MCMC infrastructure,
+and gate pre-registrations carry into v4 unchanged — nothing recomputes.
+Machine B: v4 is now the active campaign; still wait on Machine A's
+runner C20/C22 channels before dataset generation.
+GUI: added a "How degree-2 gravity constrains C/MR2" popover in the
+C/MR2 posterior expander (MacCullagh relations per Mazarico et al. 2023
+Eq. 5 — C20 = -J2 = -[C-(A+B)/2]/MR^2, C22 = (B-A)/4MR^2; A<=B<=C axes
+explained; Radau-Darwin + Tricarico 3.324; GC21 provenance of the
+0.3547 +/- 0.0024 value; v4 forward-look). AppTest-verified rendering.

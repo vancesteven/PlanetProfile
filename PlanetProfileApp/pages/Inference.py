@@ -1082,62 +1082,10 @@ _SBI_ARTIFACT_SLOTS = {
         # Trained on torch 2.8.0 / sbi 0.26.1 — identical to this machine's
         # runtime; no cross-version pair needed.
     },
-    'europa_seawater_v3_clipper_8D_posterior_1m.pt': {
-        'label': ('Europa (Andrade, seawater) — Clipper v3, 8D sampled '
-                  'salinity 0.1–100 ppt'),
-        'bodyname': 'Europa',
-        'config_path': ('PlanetProfile/Inference/configs/'
-                        'europa_seawater_andrade_clipper_v3_8D.json'),
-        # 2D (Tb x log10 w) structure cache, schema v3.0 — built on Machine B
-        # (build_tbw_grid_cache); until it is committed the run button
-        # refuses with the cache-not-found error below.
-        'cache_path': ('PlanetProfile/Test/mcmc_results/Europa/'
-                       'Test52_seawater_v3/'
-                       'europa_seawater_structure_grid_v3_2d.pkl'),
-        # Same 19 observables and fiducial conditioning values as v2 (the
-        # v3 config copies them; salinity is a sampled PARAMETER, not an
-        # observable).
-        'default_obs': {
-            'CMR2': 0.3547, 'Re_k2': 0.25, 'Im_k2': 0.0,
-            'Re_h2': 1.2, 'Im_h2': 0.0,
-            'Bind_synodic_x_real': 91.8248, 'Bind_synodic_x_imag': -157.7708,
-            'Bind_synodic_y_real': -59.4061, 'Bind_synodic_y_imag': -25.8874,
-            'Bind_synodic_z_real': -5.6378, 'Bind_synodic_z_imag': -12.4064,
-            'Bind_synodic 2nd_x_real': 14.7108, 'Bind_synodic 2nd_x_imag': 3.1779,
-            'Bind_synodic 2nd_y_real': 1.8788, 'Bind_synodic 2nd_y_imag': -9.8686,
-            'Bind_orbital_x_real': -0.3812, 'Bind_orbital_x_imag': 6.454,
-            'Bind_orbital_y_real': -2.2124, 'Bind_orbital_y_imag': -0.2825,
-        },
-        # Inherited from the v2 anchor sweep — v3's Phase-3 gates validated
-        # the fiducial (2D degeneracy gate + crosscheck) and global
-        # calibration (SBC), but ran no new Im_k2 anchor walk; keep the
-        # v2 envelope until a v3 grid-walk widens it.
-        'x_obs_limits': {'Im_k2': (0.0, 0.15)},
-        # Ae guard likewise inherited from the v2 grid-walk envelope
-        # (synodic |Ae| 0.75-0.94); the v3 training support cut is the same
-        # |Ae_synodic| > 0.7. Recompute from a v3 grid-walk when run
-        # (plan Phase 4 note).
-        'derived_ae_guards': [{
-            'label': 'synodic', 'comp': 'x',
-            'Be_comp': (128.466302323619, -170.084146795136),
-            'ae_range': (0.75, 0.94),
-            'warn_support_below': 0.7,
-        }],
-        # Induction support edge: with sampled salinity the |Ae_synodic|>0.7
-        # cut carves a 2D (Tb, w) region rather than a single Tb edge, so no
-        # 1D Tb truncation is pre-applied — the flow was trained on the full
-        # surviving 2D support and reject_outside_prior handles the box.
-        'scope_note': ('Clipper v3: ocean salinity is SAMPLED '
-                       '(log10 w, 0.1–100 ppt, Jeffreys prior) — posteriors '
-                       'expose the strong Tb–salinity degeneracy '
-                       '(corr ≈ −0.99): both raise ocean conductance, which '
-                       'is what induction actually constrains. Salinity is '
-                       'weakly identified; its posterior is prior-shape '
-                       'sensitive. GSW extrapolation caveat above 42 ppt '
-                       'and gate details: sbi_artifacts/INDEX.md.'),
-        # Trained on torch 2.8.0 / sbi 0.26.1 (Machine B, 2026-07-19) —
-        # same major runtime as this machine; no cross-version pair needed.
-    },
+    # Clipper v3 slot REMOVED (user veto 2026-07-19): trained with
+    # requirement-level k2 sigmas (0.06), not the Mazarico et al. (2023)
+    # Clipper projections — superseded by the v4 geodesy campaign
+    # (plans/europa-clipper-v4-geodesy-plan.md). See sbi_artifacts/INDEX.md.
 }
 
 
@@ -2265,6 +2213,40 @@ def render_results():
 
     # C/MR² posterior
     with st.expander("⚖️ C/MR² Moment-of-Inertia Posterior", expanded=True):
+        with st.popover("📖 How degree-2 gravity constrains C/MR²"):
+            st.markdown(
+                "A body's degree-2 gravity field measures **differences** "
+                "of its principal moments of inertia $A \\le B \\le C$ "
+                "(for synchronous Europa: $A$ along the Jupiter-facing "
+                "axis, $C$ along the spin axis). With unnormalized Stokes "
+                "coefficients (Mazarico et al. 2023, Eq. 5):")
+            st.latex(r"C_{20} = -J_2 = -\frac{C - \tfrac{1}{2}(A + B)}"
+                     r"{M R^2}, \qquad C_{22} = \frac{B - A}{4 M R^2}")
+            st.markdown(
+                "So $C_{20}$ senses the polar flattening of the mass "
+                "distribution and $C_{22}$ the equatorial (tidal) "
+                "elongation — but neither gives the **mean** moment "
+                "$C/MR^2$ (the differentiation measure this panel shows) "
+                "directly. Getting $C/MR^2$ requires the **hydrostatic "
+                "assumption**: for a fluid body in equilibrium, figure "
+                "theory ties the fluid Love number $k_f$ — and hence the "
+                "ratio $J_2/C_{22} = 10/3$ (3.324 with Europa's "
+                "rapid-rotation correction, Tricarico 2014) — to "
+                "$C/MR^2$ via the Radau–Darwin relation:")
+            st.latex(r"\frac{C}{MR^2} = \frac{2}{3}\left[1 - \frac{2}{5}"
+                     r"\sqrt{\frac{4 - k_f}{1 + k_f}}\,\right],\qquad "
+                     r"C_{22} = \frac{k_f\, q_r}{4},\quad "
+                     r"q_r = \frac{\omega^2 R^3}{G M}")
+            st.markdown(
+                "The C/MR² value used as an observable here "
+                "(0.3547 ± 0.0024, Gomez Casajus et al. 2021) is exactly "
+                "this hydrostatic reduction of the Galileo-era $C_{22}$. "
+                "Europa Clipper will estimate $C_{20}$ and $C_{22}$ "
+                "**independently** (ratio uncertainty ~0.003) — testing "
+                "hydrostatic equilibrium rather than assuming it. The "
+                "planned v4 inference conditions on $C_{20}$/$C_{22}$ "
+                "directly, with sampled non-hydrostatic offsets, and "
+                "keeps this Galileo-derived C/MR² only as a prior.")
         cmr2_obs = result.config.observables.get('CMR2')
         cmr2_results = getattr(result, 'cmr2_results', None)
 

@@ -12,7 +12,7 @@ end-to-end: 2D cache committed (Machine B, f7a03572), then Machine A ran
 the full GUI sampling path via AppTest — 10k draws/4 min, posterior
 matches the reference MCMC (Tb 264.46 vs 264.3 K, w 36.6 vs 38.7 ppt,
 corr(Tb, log10 w) −0.988 vs −0.986), per-sample cloud plot rendered.
-ONLY user ratification remains; HF deploy after that.
+**VETOED by user 2026-07-19** (wrong training bounds: requirement-level k2 sigmas, Re_k2 0.25 vs ocean 0.23). Slot removed; superseded by v4 (europa-clipper-v4-geodesy-plan.md), which reuses the 2D cache + infrastructure.
 
 ## Objective
 
