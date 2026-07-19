@@ -127,25 +127,24 @@ constraint. Therefore sample TWO nuisance parameters:
 
 `europa_clipper_v4_geodesy_10D.json` = v3 config with:
 
-1. `Re_k2`: [0.25, 0.015]  (central kept at 0.25 = mid of Mazarico's
-   0.2–0.3 and the ocean-bearing predictions 0.24–0.26; sigma = mid of
-   (1.4–1.8)e-2)
-2. `Im_k2`: [0.0, 0.015]  — **FLAG: placeholder.** Mazarico Table 5
-   projects amplitude; the phase-uncertainty mapping
-   sigma(Im k2) ≈ |k2|·sigma(phase, rad) needs the user's read of the
-   table. Amplitude-sigma parity is the interim choice; user confirms
-   or supplies the phase number before training.
-3. REMOVE `CMR2` observable. ADD:
-   - `C20`: [<fiducial C20_h>, 6.0e-7]  (sigma = mid of (3.5–8.5)e-7)
-   - `C22`: [<fiducial C22_h>, 2.0e-7]  (sigma = mid of (1.5–2.3)e-7)
-   **R1 GATE (blocking, before ANY freeze):** confirm whether Mazarico
-   Table 5 sigmas are UNNORMALIZED or fully-normalized (4-pi) harmonic
-   coefficients. The forward map above is unnormalized (C22_h = 130e-6,
-   Anderson convention). If Table 5 is normalized: N20 = sqrt(5),
-   N22 ≈ 0.6455 — sigma(C̄22) = 2e-7 normalized is 1.29e-7 unnormalized
-   (35% likelihood-width error if ignored). Record the resolved
-   convention + conversion in config metadata. USER: please check the
-   table caption (Machine A could not access the full paper).
+1. `Re_k2`: [0.23, 0.015]  (USER 2026-07-19: ocean-consistent central
+   per Mazarico section 3.1.1 / Moore & Schubert 2000; sigma = mid of
+   the projected (1.4–1.8)e-2)
+2. `Im_k2`: [0.0040, 0.015]  (USER: central = 0.23 x sin(1 deg), the
+   1-degree phase-lag equivalent from section 3.1.1; sigma = same as
+   amplitude — the paper projects no separate phase uncertainty)
+3. KEEP `CMR2` [0.3547, 0.0024] — relabeled in metadata as the
+   GALILEO-DERIVED MoI PRIOR (GC21 Table 3; see USER ANSWERS (e)),
+   not a Clipper observable. ADD:
+   - `C20`: [<fiducial C20_h>, 8.5e-7]  (unnormalized; top of the
+     projected (3.5–8.5)e-7 range — absorbs the normalization-
+     convention risk, see USER ANSWERS (a))
+   - `C22`: [<fiducial C22_h>, 2.0e-7]  (unnormalized; conservative
+     under either convention reading)
+   Convention: UNNORMALIZED coefficients at reference radius 1565 km
+   (GC21), J2_h = 3.324 x C22_h (Tricarico 2014 rapid-rotation
+   correction; classical 10/3 in docstrings only). Resolved
+   convention + conversions recorded in config metadata (R1 CLOSED).
    Central values COMPUTED at the v3 fiducial node (Tb 264.5 K,
    w 35.165 ppt) from the new forward-model code with
    dC20_nh = dC22_nh = 0 — i.e., self-consistent hydrostatic fiducial,
@@ -234,18 +233,66 @@ constraint. Therefore sample TWO nuisance parameters:
   enters only as the C20/C22 forward map, with non-hydrostaticity
   explicitly sampled, and the RD systematic documented.
 - Cache untouched (schema v3.0 serves v4 unchanged).
-- Open numeric items for USER before B trains:
-  (a) **R1 normalization gate**: are Mazarico Table 5 C20/C22 sigmas
-      unnormalized or 4-pi-normalized? (blocking; see config section);
-  (b) Im_k2 sigma — does Table 5 project a k2 PHASE uncertainty?
-      (sigma(Im k2) ≈ |k2|·sigma(phase, rad); interim placeholder
-      0.015 = amplitude parity);
-  (c) confirm sigma midpoints (k2 0.015, C20 6e-7, C22 2e-7) vs
-      picking a specific Mazarico tracking scenario;
-  (d) nuisance prior half-width ±2e-5 OK? (GC21 offset 9e-6 at
-      0.36 sigma — consistent with hydrostatic; v4 is an upper-limit
-      measurement, and the honest sensitivity floor is set by the C̄
-      uncertainty ~5–9e-6, not by sigma(C22) = 2e-7);
-  (e) accept the MoI-constraint trade? Dropping CMR2 for free-nuisance
-      C20/C22 means gravity no longer constrains the interior — that
-      IS the honest physics, but it changes what v4 delivers.
+## USER ANSWERS 2026-07-19 (all five open items RESOLVED)
+
+(a) **Normalization**: Mazarico et al. (2023) write the potential in
+    4-pi-normalized Stokes coefficients (Eq. 2, Kaula formalism), BUT
+    the user's quoted Table 5 C22 central range (1250–1400)e-7 matches
+    the UNNORMALIZED literature span exactly (Jacobson 125.0e-6 →
+    GC21 138.42e-6; normalized C̄22 would be ~2037e-7). GC21 Table 2
+    is explicitly "unnormalized ... reference radius 1565 km".
+    **Decision: v4 works in UNNORMALIZED coefficients throughout**
+    (Anderson/GC21 convention), documented in config metadata with the
+    conversion factors (C20: x sqrt(5) = 2.236 normalized→...; C22:
+    C22_unnorm = 0.6455 x C̄22_norm). Sigma convention risk, per
+    direction: if Table 5's sigma(C22) 2e-7 is normalized, unnorm is
+    1.29e-7 → using 2.0e-7 is CONSERVATIVE (wider). If sigma(C20)
+    6e-7 is normalized, unnorm is 13.4e-7 → using 6e-7 would be
+    2.2x too TIGHT; adopt sigma(C20) = 13.4e-7-equivalent risk bound:
+    use 8.5e-7 (top of the projected range) and note the residual
+    factor ~1.6 risk in metadata. Non-hydrostaticity is an upper-limit
+    deliverable whose floor is set by the MoI prior (below), so this
+    residual sigma ambiguity does not drive the science claim.
+(b) **Im_k2 sigma = 0.015** (same as amplitude; both accessible paper
+    versions project amplitude only — no separate phase uncertainty).
+(c) **Centrals: Re_k2 = 0.23** (ocean-consistent, Moore & Schubert
+    2000 per the paper: "around 0.23 with an ocean and <0.015
+    without"); **Im_k2 = 0.23 x sin(1 deg) = 0.0040** (paper section
+    3.1.1: phase lag < 1 deg for a non-dissipative mantle; partial
+    melt raises it to several degrees — 1 deg is the adopted
+    conditioning value, user-directed).
+(d) Nuisance-parameter framing explained to user (an offset sampled
+    alongside the physical parameters so real non-hydrostatic power
+    cannot masquerade as interior structure); design unchanged.
+(e) **MoI bound RESTORED as a Galileo-derived prior (user-directed):**
+    keep the existing CMR2 term [0.3547, 0.0024] — this IS the GC21
+    MoI (their Table 3, "This Work") — but RELABELED in config
+    metadata as a PRIOR derived from Galileo-era data (GC21's C22 via
+    Radau + hydrostatic assumption), NOT a Clipper observable. No
+    double-counting: it is independent of the future Clipper C20/C22
+    measurement the new observables represent. This fully restores
+    the interior MoI constraint the review flagged as lost (R3) while
+    keeping the non-hydrostaticity readout honest. Config knob
+    `moi_prior` = {source: 'gomescasajus2021 Table 3', value: 0.3547,
+    sigma: 0.0024} so future users can swap Anderson (0.3475
+    +/- 0.0026) or Jacobson (0.3405 +/- 0.0022) solutions.
+
+**Additional physics refinement from GC21 (adopt):** Europa's
+relatively rapid rotation modifies the hydrostatic ratio J2/C22 from
+10/3 to **3.324** (Tricarico 2014); GC21 applied this in their MoI
+derivation. v4 forward model uses J2_h = 3.324 x C22_h (the 10/3
+value stays only in docstrings as the classical limit). The
+ratio-preserving injection arm and the reported ratio diagnostic use
+3.324 accordingly. Reference radius: coefficients are quoted at
+1565 km (GC21) — the forward model must evaluate q_r and the
+coefficients at the SAME reference radius, not R_body_m = 1560.8 km
+(a (1565/1560.8)^2 ~ 0.5% effect on C22 = 3x sigma(C22): load-bearing,
+document it).
+
+## Future work (user 2026-07-19; out of v4 scope)
+
+Higher-degree gravity coefficients (l >= 3) within modeled error
+bounds — as with directional Bind components, this requires a
+simulation of the actual Europa Clipper trajectory/flyby geometry
+(per-flyby sensitivity), not just projected sigmas. Same
+infrastructure slot as the future Clipper-trajectory Bind inversion.
