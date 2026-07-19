@@ -10,7 +10,14 @@
         0.45
       ]
     },
-    "log10_zeta": {
+    "log10_zeta_Ih": {
+      "prior_type": "uniform",
+      "bounds": [
+        -3.0,
+        2.0
+      ]
+    },
+    "log10_zeta_sil": {
       "prior_type": "uniform",
       "bounds": [
         -3.0,
@@ -62,15 +69,15 @@
     "dC20_nh": {
       "prior_type": "uniform",
       "bounds": [
-        -2.0e-5,
-        2.0e-5
+        -2e-05,
+        2e-05
       ]
     },
     "dC22_nh": {
       "prior_type": "uniform",
       "bounds": [
-        -2.0e-5,
-        2.0e-5
+        -2e-05,
+        2e-05
       ]
     }
   },
@@ -90,19 +97,19 @@
       0.0024
     ],
     "C20": [
-      -4.579201e-4,
-      8.5e-7
+      -0.0004579201,
+      8.5e-07
     ],
     "C22": [
-      1.377618e-4,
-      2.0e-7
+      0.0001377618,
+      2e-07
     ],
     "Re_k2": [
       0.23,
       0.015
     ],
     "Im_k2": [
-      0.0040,
+      0.004,
       0.015
     ],
     "Re_h2": [
@@ -185,7 +192,7 @@
   "random_state": 43,
   "planet_template_module": "PlanetProfile.Default.Europa.PPEuropa",
   "metadata": {
-    "schema_version": "v4 (v3 8D + degree-2 geodesy: C20/C22 observables + sampled non-hydrostaticity dC20_nh/dC22_nh) — clipper_v4_geodesy_10D",
+    "schema_version": "v4 (v3 8D + degree-2 geodesy: C20/C22 observables + sampled non-hydrostaticity dC20_nh/dC22_nh) \u2014 clipper_v4_geodesy_11D",
     "description": "Europa Clipper v4 geodesy campaign: v3 8D (rheology + Tb_K + log10_wOcean_ppt salinity + sampled core, mass-conservation rho_sil) PLUS Mazarico-projected degree-2 gravity. Adds two sampled non-hydrostatic offsets dC20_nh, dC22_nh (uniform [-2e-5, 2e-5]) => 10 sampled parameters. k2 conditioning tightened to the Mazarico et al. (2023) projected precision (Re_k2 0.23+/-0.015, Im_k2 0.0040+/-0.015) replacing v1-v3's requirement-level sigma 0.06. CMR2 is RETAINED but RELABELED as a Galileo-derived MoI PRIOR (GC21 Table 3), not a Clipper observable. C20/C22 modeled directly via a hydrostatic Clairaut forward map (gravity_forward_model='clairaut_hydrostatic') + sampled non-hydrostatic offsets; the posterior of (dC20_nh, dC22_nh) IS the inferred degree of non-hydrostaticity. Same 2D (Tb x w) v3.0 structure cache (NO PP runs). Plan: plans/europa-clipper-v4-geodesy-plan.md.",
     "ocean_composition": "Seawater (Constants.stdSeawater_ppt)",
     "gravity_forward_model_2026_07_19": "gravity_forward_model='clairaut_hydrostatic' (InferenceConfig top-level flag). The C20/C22 observables are COMPUTED per sample by MCMCRunner._derive_gravity_pair: fluid Love number k_f by direct Clairaut integration (gravity_obs.clairaut_kf) over the SAME per-sample composite density profile the CMR2 mass-conservation derivation assembles (sampled core + derived silicate + cached hydrosphere; side-channel _last_composite_layers so they cannot diverge), then C22_h = k_f q_r / 4 rescaled to the GC21 1565 km reference radius, C20_h = -3.324 C22_h (Tricarico 2014 rapid-rotation ratio; classical 10/3 in docstrings only), plus the sampled offsets: C20_model = C20_h + dC20_nh, C22_model = C22_h + dC22_nh. Clairaut (not Radau-Darwin) is used because the ~1% RD systematic (~1e-6 in C22 = 5x sigma(C22)) would alias into the non-hydrostaticity deliverable (scientific review R2, 2026-07-19). RD retained only as a unit-test cross-check and the GUI inverse readout.",
@@ -213,7 +220,8 @@
     "bind_channels_provenance_2026_07_14": "Induction observables unchanged from v3 (see europa_seawater_andrade_clipper_v3_8D.json). Bind = Ae*Be (UNCONJUGATED Ae, complex Be, FT surface-field path), sigma = 1.5 nT/channel; synodic |Ae|>0.7 support cut is the Galileo prior support, the Bind_synodic Gaussians are the Clipper likelihood.",
     "core_bounds_rationale": "R_core in [0, 0.5 R_body]; rho_core in [5000, 8000] kg/m^3 (metallic Fe / Fe-S); rho_sil derived from M_total mass conservation, samples outside [2200, 3500] kg/m^3 rejected.",
     "Tb_bounds_rationale": "Tb_K=[259.5, 271.0] K targets D_iceIh=[~3, ~100] km; see v3 config.",
-    "plan_reference": "plans/europa-clipper-v4-geodesy-plan.md (Machine A 2026-07-19; scientific review PASS WITH CONCERNS, four binding fixes incorporated). Gravity code landed 2026-07-19 (gravity_obs.py + runner channels; tests/gravity_obs_test.py + tests/gravity_channels_test.py 16/16 green)."
+    "plan_reference": "plans/europa-clipper-v4-geodesy-plan.md (Machine A 2026-07-19; scientific review PASS WITH CONCERNS, four binding fixes incorporated). Gravity code landed 2026-07-19 (gravity_obs.py + runner channels; tests/gravity_obs_test.py + tests/gravity_channels_test.py 16/16 green).",
+    "zeta_split_2026_07_19": "log10_zeta split into log10_zeta_Ih (ice Ih) and log10_zeta_sil (silicate), both U[-3, 2] (user 2026-07-19): a SINGLE sampled zeta couples the Andrade transient-creep amplification of ice and rock, so any zeta raised to fit ice dissipation (Im k2) simultaneously amplifies silicate dissipation - systematically preferencing silicate heating in the posterior heating budget. Independent zetas let the data set each. No HP-ice zeta: the Europa Tb box has no III/V/VI layers. Forward-model hook apply_andrade_params already supports per-phase zeta (log10_zeta_Ih/log10_zeta_sil override precedence)."
   },
   "induction_bounds": {
     "synodic": {

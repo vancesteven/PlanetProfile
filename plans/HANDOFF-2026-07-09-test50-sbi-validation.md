@@ -1451,3 +1451,19 @@ The v4 gravity forward model is wired end-to-end (user-approved):
    (add .gitignore negations as f7a03572). Gates incl. the two-arm
    non-hydrostaticity recovery gate (ratio-breaking recoverable;
    ratio-preserving EXPECTED-DEGENERATE) + interior-unbiasedness check.
+
+## ADDENDUM 2026-07-19h (Machine A) — zeta split (user); B's configs revised in place
+User: shared zeta preferences silicate heating — separate ice/silicate.
+Machine B's two provisional configs (ff0316bc, thanks — fiducial gravity
+verified self-consistent) are REVISED and RENAMED on genai:
+- europa_galileo_v1p1_7D.json  -> europa_galileo_v1p1_8D.json
+- europa_clipper_v4_geodesy_10D.json -> europa_clipper_v4_geodesy_11D.json
+Change: param_space log10_zeta -> log10_zeta_Ih + log10_zeta_sil (both
+U[-3,2]; hook already supported per-phase zeta; metadata block
+zeta_split_2026_07_19 documents the physics). Fiducial C20/C22 UNCHANGED
+(zeta does not touch the density profile). Machine A verification: both
+configs load + sample finite likelihoods; independent-zeta effect on k2
+confirmed (zeta_sil -1.5 dex quintuples |Im k2|). Machine B: train from
+the RENAMED configs; SBC/crosscheck at 8/11 params; add the
+zeta-Ih-vs-zeta-sil joint-posterior report + the pre-registered
+ice-vs-silicate heating-fraction comparison (v4 plan, zeta section).

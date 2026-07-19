@@ -125,7 +125,7 @@ constraint. Therefore sample TWO nuisance parameters:
 
 ## Config changes (Machine B authors trivially — copy v3 8D json)
 
-`europa_clipper_v4_geodesy_10D.json` = v3 config with:
+`europa_clipper_v4_geodesy_11D.json` = v3 config with:
 
 1. `Re_k2`: [0.23, 0.015]  (USER 2026-07-19: ocean-consistent central
    per Mazarico section 3.1.1 / Moore & Schubert 2000; sigma = mid of
@@ -152,7 +152,7 @@ constraint. Therefore sample TWO nuisance parameters:
    zero-centered nuisances makes the null test clean: recovered
    non-hydrostaticity should be consistent with 0.)
 4. `param_space` += `dC20_nh`, `dC22_nh` (uniform [−2e-5, 2e-5]) →
-   10 sampled parameters.
+   11 sampled parameters (incl. the zeta split below).
 5. Everything else (8 v3 params, induction observables at 1.5 nT,
    support cut, 2D cache path, GSW caveat metadata) UNCHANGED. Fresh
    seeds: train 43 / data 49 / noise 4949.
@@ -196,7 +196,7 @@ constraint. Therefore sample TWO nuisance parameters:
    add the two .gitignore negation lines as in f7a03572).
 4. 1M dataset (SAME 2D cache — no PP runs; support guard ON,
    drop_nonfinite) → nsf train → artifact
-   `europa_clipper_v4_geodesy_10D_posterior_1m.pt`.
+   `europa_clipper_v4_geodesy_11D_posterior_1m.pt`.
 5. Gates: SBC (10 params), crosscheck, 2D Tb–w degeneracy gate (same
    pre-registration as v3), PLUS a **non-hydrostaticity recovery gate**
    (pre-registered per review R4, the central v4 deliverable). Two
@@ -337,3 +337,31 @@ bounds — as with directional Bind components, this requires a
 simulation of the actual Europa Clipper trajectory/flyby geometry
 (per-flyby sensitivity), not just projected sigmas. Same
 infrastructure slot as the future Clipper-trajectory Bind inversion.
+
+## Zeta split: independent ice / silicate transient creep (user 2026-07-19)
+
+A SINGLE sampled `log10_zeta` couples the Andrade transient-creep
+amplification of ice and rock: any zeta the sampler raises to fit ice
+dissipation simultaneously amplifies silicate dissipation —
+systematically preferencing silicate heating in the posterior heating
+budget. Both new configs therefore replace `log10_zeta` with
+`log10_zeta_Ih` + `log10_zeta_sil` (each U[-3, 2], the previous single
+range; no HP-ice zeta — the Europa Tb box has no III/V/VI layers):
+
+- `europa_galileo_v1p1_8D.json` (was 7D)
+- `europa_clipper_v4_geodesy_11D.json` (was 10D)
+
+The forward-model hook `apply_andrade_params` already supported
+per-phase zeta (override precedence) — config-only change, verified on
+Machine A: both configs load, prior draws yield finite likelihoods
+(14/20 and 13/30), and perturbing each zeta independently moves k2
+(zeta_sil -1.5 dex quintuples |Im k2| at the test draw — the
+silicate-dominance mechanism, confirmed). Machine B's fiducial
+C20/C22 remain VALID (gravity depends on the density profile, not
+zeta); the fiducial-metadata interior median simply reads as the
+single-zeta value for both phases. SBC/crosscheck now cover 8 and 11
+params respectively; expect the two zetas to be individually less
+identified than the old single zeta (they share the Im k2 budget) —
+report their joint posterior (corr) alongside the marginals, and
+pre-register a heating-fraction comparison (ice vs silicate) between
+the split and single-zeta runs as the user-facing deliverable.
