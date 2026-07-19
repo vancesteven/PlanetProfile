@@ -1,0 +1,211 @@
+{
+  "check": "limits",
+  "gate": "log10_eta_Ih posterior median monotone decreasing vs Im_k2 (<= 1 tie); prior-box containment == 1.0",
+  "verdict": "FAIL",
+  "results": {
+    "sweep_obs": "Im_k2",
+    "sweep_values": [
+      0.15,
+      0.2,
+      0.25,
+      0.3
+    ],
+    "fixed_obs": {
+      "CMR2": 0.3547,
+      "Re_k2": 0.25,
+      "Re_h2": 1.2,
+      "Im_h2": 0.0,
+      "Bind_synodic_x_real": 91.8248,
+      "Bind_synodic_x_imag": -157.7708,
+      "Bind_synodic_y_real": -59.4061,
+      "Bind_synodic_y_imag": -25.8874,
+      "Bind_synodic_z_real": -5.6378,
+      "Bind_synodic_z_imag": -12.4064,
+      "Bind_synodic 2nd_x_real": 14.7108,
+      "Bind_synodic 2nd_x_imag": 3.1779,
+      "Bind_synodic 2nd_y_real": 1.8788,
+      "Bind_synodic 2nd_y_imag": -9.8686,
+      "Bind_orbital_x_real": -0.3812,
+      "Bind_orbital_x_imag": 6.454,
+      "Bind_orbital_y_real": -2.2124,
+      "Bind_orbital_y_imag": -0.2825
+    },
+    "monotone_param": "log10_eta_Ih",
+    "grid": [
+      {
+        "sweep_value": 0.15,
+        "log10_eta_Ih_median": 13.128901481628418,
+        "n_samples": 2000,
+        "n_inside_box": 1973
+      },
+      {
+        "sweep_value": 0.2,
+        "log10_eta_Ih_median": 13.116964340209961,
+        "n_samples": 2000,
+        "n_inside_box": 1978
+      },
+      {
+        "sweep_value": 0.25,
+        "log10_eta_Ih_median": 13.200360774993896,
+        "n_samples": 2000,
+        "n_inside_box": 1967
+      },
+      {
+        "sweep_value": 0.3,
+        "log10_eta_Ih_median": 13.189300060272217,
+        "n_samples": 2000,
+        "n_inside_box": 1959
+      }
+    ],
+    "medians": [
+      13.128901481628418,
+      13.116964340209961,
+      13.200360774993896,
+      13.189300060272217
+    ],
+    "monotonicity": {
+      "direction": "decreasing",
+      "tol": 0.006,
+      "diffs": [
+        -0.011937141418457031,
+        0.08339643478393555,
+        -0.011060714721679688
+      ],
+      "n_strict_violations": 1,
+      "n_ties": 0,
+      "max_ties_allowed": 1,
+      "monotone_pass": false
+    },
+    "containment_fraction": 0.984625,
+    "containment_required": 1.0,
+    "containment_pass": false,
+    "all_pass": false
+  },
+  "artifact": "/tmp/europa_seawater_v3_clipper_8D_posterior_1m.pt",
+  "artifact_meta": {
+    "schema_version": 1,
+    "config_hash": "41097cc6d4ef64c9",
+    "bodyname": "Europa",
+    "git_sha": "aa1090f0",
+    "seed": 42,
+    "n_train_effective": 336537,
+    "sbi_version": "0.26.1",
+    "torch_version": "2.8.0",
+    "created_utc": "2026-07-19T07:28:59Z",
+    "density_estimator": "nsf",
+    "imag_convention": "abs",
+    "param_names": [
+      "alpha",
+      "log10_zeta",
+      "log10_eta_Ih",
+      "log10_eta_sil",
+      "Tb_K",
+      "log10_wOcean_ppt",
+      "R_core_km",
+      "rho_core_kgm3"
+    ],
+    "param_bounds": [
+      [
+        0.15,
+        0.45
+      ],
+      [
+        -3.0,
+        2.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        18.0,
+        22.0
+      ],
+      [
+        259.5,
+        271.0
+      ],
+      [
+        -1.0,
+        2.0
+      ],
+      [
+        0.0,
+        780.5
+      ],
+      [
+        5000.0,
+        8000.0
+      ]
+    ],
+    "obs_names": [
+      "CMR2",
+      "Re_k2",
+      "Im_k2",
+      "Re_h2",
+      "Im_h2",
+      "Bind_synodic_x_real",
+      "Bind_synodic_x_imag",
+      "Bind_synodic_y_real",
+      "Bind_synodic_y_imag",
+      "Bind_synodic_z_real",
+      "Bind_synodic_z_imag",
+      "Bind_synodic 2nd_x_real",
+      "Bind_synodic 2nd_x_imag",
+      "Bind_synodic 2nd_y_real",
+      "Bind_synodic 2nd_y_imag",
+      "Bind_orbital_x_real",
+      "Bind_orbital_x_imag",
+      "Bind_orbital_y_real",
+      "Bind_orbital_y_imag"
+    ],
+    "rejection_stats": {
+      "n_requested": 1000000,
+      "n_rejected_support": 651568,
+      "n_rejected_nonfinite": 11895,
+      "rejection_rate": 0.663463,
+      "imag_convention": "abs",
+      "seed": 48,
+      "obs_noise": {
+        "type": "gaussian_diagonal",
+        "sigma": {
+          "CMR2": 0.0024,
+          "Re_k2": 0.06,
+          "Im_k2": 0.06,
+          "Re_h2": 0.1,
+          "Im_h2": 0.1,
+          "Bind_synodic_x_real": 1.5,
+          "Bind_synodic_x_imag": 1.5,
+          "Bind_synodic_y_real": 1.5,
+          "Bind_synodic_y_imag": 1.5,
+          "Bind_synodic_z_real": 1.5,
+          "Bind_synodic_z_imag": 1.5,
+          "Bind_synodic 2nd_x_real": 1.5,
+          "Bind_synodic 2nd_x_imag": 1.5,
+          "Bind_synodic 2nd_y_real": 1.5,
+          "Bind_synodic 2nd_y_imag": 1.5,
+          "Bind_orbital_x_real": 1.5,
+          "Bind_orbital_x_imag": 1.5,
+          "Bind_orbital_y_real": 1.5,
+          "Bind_orbital_y_imag": 1.5
+        },
+        "noise_seed": 4848,
+        "refold_im": false
+      },
+      "apply_support_guard": true,
+      "n_kept": 336537
+    }
+  },
+  "limits_plot": "validation_reports/europa_clipper_v3_1m/limits/limits_median_trend.png",
+  "provenance": {
+    "seed": 42,
+    "timestamp_utc": "2026-07-19T07:35:31Z",
+    "git_sha": "aa1090f0",
+    "versions": {
+      "torch": "2.8.0",
+      "sbi": "0.26.1",
+      "scipy": "1.16.3",
+      "numpy": "2.4.3"
+    }
+  }
+}

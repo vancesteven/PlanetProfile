@@ -1,0 +1,193 @@
+{
+  "check": "sbc",
+  "gate": "per-parameter rank-uniformity KS p >= 0.05",
+  "verdict": "PASS",
+  "results": {
+    "n_sbc_pairs": 497,
+    "num_posterior_samples": 1000,
+    "ks_alpha": 0.05,
+    "per_parameter": [
+      {
+        "param": "$\\alpha$",
+        "ks_pval": 0.6530928611755371,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.5251611593320137
+      },
+      {
+        "param": "$\\log_{10}\\zeta$",
+        "ks_pval": 0.5832714438438416,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.5241256788995482
+      },
+      {
+        "param": "$\\log_{10}\\eta_\\mathrm{Ih}$",
+        "ks_pval": 0.11798623949289322,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.5332571950662403
+      },
+      {
+        "param": "$\\log_{10}\\eta_\\mathrm{sil}$",
+        "ks_pval": 0.43465372920036316,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.4708644231257296
+      },
+      {
+        "param": "$T_b$ (K)",
+        "ks_pval": 0.4904018044471741,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.5080402010050251
+      },
+      {
+        "param": "log10_wOcean_ppt",
+        "ks_pval": 0.6735942363739014,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.5181209075681437
+      },
+      {
+        "param": "R_core_km",
+        "ks_pval": 0.684465229511261,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.4808892949596467
+      },
+      {
+        "param": "rho_core_kgm3",
+        "ks_pval": 0.28369399905204773,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.5432363839399015
+      }
+    ],
+    "all_pass": true,
+    "min_ks_pval": 0.11798623949289322
+  },
+  "source": {
+    "mode": "dataset",
+    "dataset": "/tmp/v3_sbc_heldout.npz"
+  },
+  "artifact": "/tmp/europa_seawater_v3_clipper_8D_posterior_1m.pt",
+  "artifact_meta": {
+    "schema_version": 1,
+    "config_hash": "41097cc6d4ef64c9",
+    "bodyname": "Europa",
+    "git_sha": "aa1090f0",
+    "seed": 42,
+    "n_train_effective": 336537,
+    "sbi_version": "0.26.1",
+    "torch_version": "2.8.0",
+    "created_utc": "2026-07-19T07:28:59Z",
+    "density_estimator": "nsf",
+    "imag_convention": "abs",
+    "param_names": [
+      "alpha",
+      "log10_zeta",
+      "log10_eta_Ih",
+      "log10_eta_sil",
+      "Tb_K",
+      "log10_wOcean_ppt",
+      "R_core_km",
+      "rho_core_kgm3"
+    ],
+    "param_bounds": [
+      [
+        0.15,
+        0.45
+      ],
+      [
+        -3.0,
+        2.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        18.0,
+        22.0
+      ],
+      [
+        259.5,
+        271.0
+      ],
+      [
+        -1.0,
+        2.0
+      ],
+      [
+        0.0,
+        780.5
+      ],
+      [
+        5000.0,
+        8000.0
+      ]
+    ],
+    "obs_names": [
+      "CMR2",
+      "Re_k2",
+      "Im_k2",
+      "Re_h2",
+      "Im_h2",
+      "Bind_synodic_x_real",
+      "Bind_synodic_x_imag",
+      "Bind_synodic_y_real",
+      "Bind_synodic_y_imag",
+      "Bind_synodic_z_real",
+      "Bind_synodic_z_imag",
+      "Bind_synodic 2nd_x_real",
+      "Bind_synodic 2nd_x_imag",
+      "Bind_synodic 2nd_y_real",
+      "Bind_synodic 2nd_y_imag",
+      "Bind_orbital_x_real",
+      "Bind_orbital_x_imag",
+      "Bind_orbital_y_real",
+      "Bind_orbital_y_imag"
+    ],
+    "rejection_stats": {
+      "n_requested": 1000000,
+      "n_rejected_support": 651568,
+      "n_rejected_nonfinite": 11895,
+      "rejection_rate": 0.663463,
+      "imag_convention": "abs",
+      "seed": 48,
+      "obs_noise": {
+        "type": "gaussian_diagonal",
+        "sigma": {
+          "CMR2": 0.0024,
+          "Re_k2": 0.06,
+          "Im_k2": 0.06,
+          "Re_h2": 0.1,
+          "Im_h2": 0.1,
+          "Bind_synodic_x_real": 1.5,
+          "Bind_synodic_x_imag": 1.5,
+          "Bind_synodic_y_real": 1.5,
+          "Bind_synodic_y_imag": 1.5,
+          "Bind_synodic_z_real": 1.5,
+          "Bind_synodic_z_imag": 1.5,
+          "Bind_synodic 2nd_x_real": 1.5,
+          "Bind_synodic 2nd_x_imag": 1.5,
+          "Bind_synodic 2nd_y_real": 1.5,
+          "Bind_synodic 2nd_y_imag": 1.5,
+          "Bind_orbital_x_real": 1.5,
+          "Bind_orbital_x_imag": 1.5,
+          "Bind_orbital_y_real": 1.5,
+          "Bind_orbital_y_imag": 1.5
+        },
+        "noise_seed": 4848,
+        "refold_im": false
+      },
+      "apply_support_guard": true,
+      "n_kept": 336537
+    }
+  },
+  "rank_plot": "validation_reports/europa_clipper_v3_1m/sbc/sbc_rank_cdf.png",
+  "provenance": {
+    "seed": 42,
+    "timestamp_utc": "2026-07-19T07:33:10Z",
+    "git_sha": "aa1090f0",
+    "versions": {
+      "torch": "2.8.0",
+      "sbi": "0.26.1",
+      "scipy": "1.16.3",
+      "numpy": "2.4.3"
+    }
+  }
+}
