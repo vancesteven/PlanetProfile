@@ -1694,3 +1694,19 @@ triggered only on planet CHANGE so applied configs are not clobbered);
 AppTest: fresh Europa session -> 0.23; fresh Titan -> 0.608 + demo;
 mid-session switch Titan->Europa -> 0.23; ->Enceladus -> 0.015; the
 config-apply path re-verified.
+
+## ADDENDUM 2026-07-20e (Machine A) — Ae precompute now persisted (the real slowdown)
+Endless "1/3 ... 3/3 complete" scroll = MoonMag's per-node mpmath Ae
+solve. Root cause of the slow v4 runs: _precompute_ae_grid rebuilds the
+ENTIRE induction Ae grid at every MCMCRunner construction — i.e. every
+GUI "Generate Posterior" click — and the v3/v4 2D cache has 1488 nodes
+(~seconds each). That is minutes of solver spam PER RUN, unrelated to
+the Clairaut fix. Now the Ae grid is computed once and PERSISTED to a
+sidecar next to the structure cache (<cache>.ae_sidecar.pkl), keyed on
+{labels, node count, cache file SIZE} so a rebuilt cache invalidates it
+and the key survives the deploy rsync. Reload is ~1 s for 1488 nodes.
+v4 Generate Posterior: 6.0 -> 2.4 min (first run builds the sidecar;
+subsequent instant). Committed sidecars for the Test51 1D + Test52 2D
+caches (v2/v3/v4 share the 2D one); deploy script ships them; gitignore
+negations added. The remaining ~2.2 min is the 10k-draw SBI
+sampling+recompute (draw count, not overhead). Regressions 29/29.

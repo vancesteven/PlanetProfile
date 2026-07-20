@@ -46,14 +46,20 @@ echo "Staging deploy snapshot of ${SRC_SHA} in ${STAGE}"
   done
 )
 
-# Serve-time data from Test/: only the structure grids the
-# _SBI_ARTIFACT_SLOTS cache_paths reference (plus their dirs).
+# Serve-time data from Test/: the structure grids the _SBI_ARTIFACT_SLOTS
+# cache_paths reference (plus their dirs), and the v3/v4 2D salinity cache.
+# For each, ship its Ae precompute sidecar too (*.ae_sidecar.pkl) when
+# present — it turns the first per-run mpmath induction precompute
+# (minutes for the ~1300-node 2D cache) into an instant reload.
 for f in \
   "PlanetProfile/Test/mcmc_results/Europa/Test51_seawater/europa_seawater_structure_grid.pkl" \
+  "PlanetProfile/Test/mcmc_results/Europa/Test52_seawater_v3/europa_seawater_structure_grid_v3_2d.pkl" \
   "PlanetProfile/Test/mcmc_results/Titan/Test50_andrade_noocean_yao2014/titan_allice_yao2014_structure_grid.pkl" \
   ; do
   mkdir -p "$STAGE/$(dirname "$f")"
   cp "$REPO_ROOT/$f" "$STAGE/$f"
+  [ -f "$REPO_ROOT/$f.ae_sidecar.pkl" ] && \
+    cp "$REPO_ROOT/$f.ae_sidecar.pkl" "$STAGE/$f.ae_sidecar.pkl"
 done
 
 # README with Hugging Face Spaces YAML frontmatter (harmless on GitHub).

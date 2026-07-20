@@ -235,7 +235,6 @@ class MCMCRunner:
 
         structures = sd['structures']
         n = len(structures)
-        log.info(f"Pre-computing induction Ae for {n} grid points ...")
 
         # Collect all requested frequency labels from observables + bounds.
         requested_labels: set = set(bound_labels)
@@ -253,6 +252,52 @@ class MCMCRunner:
                 if parsed is not None:
                     requested_labels.add(parsed[0])
 
+        # Persistent sidecar: the mpmath Ae solve costs seconds per node, and
+        # this precompute runs at EVERY runner construction (each GUI
+        # "Generate Posterior" click builds a fresh runner). For the 2D
+        # (Tb x w) caches that was ~1300 nodes = many minutes of solver spam
+        # per run (user-reported 2026-07-20). Compute once, persist next to
+        # the structure cache, and reload instantly ever after. Keyed on the
+        # requested labels, node count, and the cache file's mtime so a
+        # rebuilt cache invalidates the sidecar.
+        import os as _os
+        import pickle as _pickle
+        sidecar_path = None
+        cache_path = getattr(self.config, 'structure_cache_path', None)
+        sidecar_key = None
+        if cache_path:
+            _cp = str(cache_path)
+            if not _os.path.isabs(_cp):
+                from PlanetProfile import _ROOT
+                _repo = _os.path.dirname(_ROOT)
+                _cand = _os.path.join(_repo, _cp)
+                _cp = _cand if _os.path.exists(_cand) else _cp
+            if _os.path.exists(_cp):
+                sidecar_path = _cp + '.ae_sidecar.pkl'
+                sidecar_key = {
+                    'labels': tuple(sorted(requested_labels)),
+                    'n': n,
+                    # File size, not mtime: survives the deploy rsync so a
+                    # shipped sidecar is reused on the public app. A rebuilt
+                    # cache changes size (different node count / contents).
+                    'cache_size': _os.path.getsize(_cp),
+                }
+        if sidecar_path and _os.path.exists(sidecar_path):
+            try:
+                with open(sidecar_path, 'rb') as f:
+                    payload = _pickle.load(f)
+                if payload.get('key') == sidecar_key:
+                    self._ae_grid_cache = dict(payload['ae_grid'])
+                    log.info(f"Loaded induction Ae grid sidecar "
+                             f"({n} nodes) — no recompute needed.")
+                    return
+                log.info("Ae sidecar stale (labels/cache changed); "
+                         "recomputing.")
+            except Exception as _exc:
+                log.warning(f"Ae sidecar unreadable ({_exc}); recomputing.")
+
+        log.info(f"Pre-computing induction Ae for {n} grid points "
+                 "(one-time; persisted to a sidecar for future runs) ...")
         for i, struct in enumerate(structures):
             Texc_hr_full = struct.get('Texc_hr') if isinstance(struct, dict) else None
             if not Texc_hr_full:
@@ -265,9 +310,24 @@ class MCMCRunner:
                 continue
             result = forward_model_induction(struct, freq_dict, nn=1, do_parallel=False)
             self._ae_grid_cache[i] = result
-            log.debug(f"  Grid point {i+1}/{n}: Ae computed")
+            if (i + 1) % 100 == 0 or i + 1 == n:
+                log.info(f"  Ae grid {i + 1}/{n}")
 
         log.info("Induction Ae pre-computation complete.")
+        if sidecar_path:
+            try:
+                import tempfile as _tempfile
+                fd, tmp = _tempfile.mkstemp(
+                    dir=_os.path.dirname(sidecar_path), suffix='.tmp')
+                with _os.fdopen(fd, 'wb') as f:
+                    _pickle.dump({'key': sidecar_key,
+                                  'ae_grid': self._ae_grid_cache}, f,
+                                 protocol=_pickle.HIGHEST_PROTOCOL)
+                _os.replace(tmp, sidecar_path)
+                log.info(f"Saved Ae grid sidecar: {sidecar_path}")
+            except Exception as _exc:
+                log.warning(f"Could not save Ae sidecar ({_exc}); "
+                            "the grid will recompute next run.")
 
     def _blended_ae_dict(self, theta_dict: Dict[str, Any]
                          ) -> Optional[Dict[str, complex]]:

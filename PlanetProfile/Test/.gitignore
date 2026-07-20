@@ -18,3 +18,9 @@
 # 2026-07-19; production cache/results are Machine B work)
 !mcmc_results/Enceladus/Cassini_smoke/enceladus_seawater_smoke_grid.pkl
 !mcmc_results/Enceladus/Cassini_smoke/enceladus_cassini_smoke_result.pkl
+
+# Ae induction precompute sidecars: turn the per-run mpmath induction
+# precompute (minutes for the 2D salinity cache) into an instant reload.
+# Keyed on cache size + labels so a rebuilt cache invalidates them.
+!mcmc_results/Europa/Test51_seawater/europa_seawater_structure_grid.pkl.ae_sidecar.pkl
+!mcmc_results/Europa/Test52_seawater_v3/europa_seawater_structure_grid_v3_2d.pkl.ae_sidecar.pkl
