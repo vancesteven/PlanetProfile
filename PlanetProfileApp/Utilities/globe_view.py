@@ -33,6 +33,30 @@ import numpy as np
 
 _ASSETS = Path(__file__).resolve().parents[1] / 'assets' / 'globes'
 
+# Spin rate + mass for the hydrostatic display figure when a run has no
+# C20/C22 observables (values match the inference cache_builder table).
+BODY_ROTATION = {
+    'europa':    {'omega': 2.0479e-5, 'M_kg': 4.7998e22},
+    'ganymede':  {'omega': 1.0163e-5, 'M_kg': 1.4819e23},
+    'callisto':  {'omega': 4.358e-6,  'M_kg': 1.0759e23},
+    'titan':     {'omega': 4.560e-6,  'M_kg': 1.3452e23},
+    'enceladus': {'omega': 5.307e-5,  'M_kg': 1.08022e20},
+}
+_G = 6.674e-11
+
+
+def hydrostatic_display_pair(bodyname, R_km, kf):
+    """Hydrostatic (C20, C22) for DISPLAY when a run carries no gravity
+    observables: C22 = kf*q_r/4 at the physical radius, C20 = -(10/3)*C22
+    (classical ratio suffices for visualization)."""
+    rot = BODY_ROTATION.get(str(bodyname).strip().lower())
+    if rot is None or kf is None or not np.isfinite(kf):
+        return None, None
+    R_m = float(R_km) * 1e3
+    q_r = rot['omega'] ** 2 * R_m ** 3 / (_G * rot['M_kg'])
+    c22 = 0.25 * float(kf) * q_r
+    return -(10.0 / 3.0) * c22, c22
+
 # Layer colors (inner to outer rendering order handled by caller lists)
 LAYER_COLORS = {
     'core': 'rgb(120, 110, 100)',
@@ -111,15 +135,61 @@ def _surface_trace(R_km: float, T, P, texture_img=None,
 
 
 def _layer_sphere_trace(r_km: float, T, P, color: str, name: str,
-                        opacity: float = 0.35):
+                        opacity: float = 0.35, c20: float = 0.0,
+                        c22: float = 0.0, h_amp: float = 1.0,
+                        exaggeration: float = 1.0):
     import plotly.graph_objects as go
-    x = r_km * np.sin(T) * np.cos(P)
-    y = r_km * np.sin(T) * np.sin(P)
-    z = r_km * np.cos(T)
+    # Interior interfaces follow (to first order for visualization) the
+    # same relative degree-2 figure as the surface — without this, at
+    # high exaggeration the spherical shells poke through the deformed
+    # surface.
+    r = _degree2_radius(r_km, T, P, c20, c22, h_amp, exaggeration)
+    x = r * np.sin(T) * np.cos(P)
+    y = r * np.sin(T) * np.sin(P)
+    z = r * np.cos(T)
     return go.Surface(
         x=x, y=y, z=z, opacity=opacity, showscale=False, name=name,
         surfacecolor=np.zeros_like(x), colorscale=[[0, color], [1, color]],
         hovertemplate=f'{name}: r = {r_km:.0f} km<extra></extra>')
+
+
+def triaxial_semiaxes(R_km, c20, c22, h_amp, exaggeration=1.0):
+    """Semi-axes (a, b, c) of the degree-2 figure [km]: a along the
+    sub-parent x-axis, b along the orbital y-axis, c along the spin
+    z-axis."""
+    a = _degree2_radius(R_km, np.array(np.pi / 2), np.array(0.0),
+                        c20, c22, h_amp, exaggeration)
+    b = _degree2_radius(R_km, np.array(np.pi / 2), np.array(np.pi / 2),
+                        c20, c22, h_amp, exaggeration)
+    c = _degree2_radius(R_km, np.array(0.0), np.array(0.0),
+                        c20, c22, h_amp, exaggeration)
+    return float(a), float(b), float(c)
+
+
+def _axis_traces(a, b, c):
+    """Principal-axis lines with labels: the principal moments satisfy
+    A < B < C about the a (sub-parent), b (orbital), and c (spin) axes."""
+    import plotly.graph_objects as go
+    ext = 1.22
+    specs = [
+        ('A', (a * ext, 0, 0), 'rgb(255, 120, 90)',
+         f'a-axis (sub-parent): {a:.1f} km — smallest principal moment A'),
+        ('B', (0, b * ext, 0), 'rgb(120, 230, 120)',
+         f'b-axis (orbital): {b:.1f} km — intermediate principal moment B'),
+        ('C', (0, 0, c * ext), 'rgb(120, 190, 255)',
+         f'c-axis (spin): {c:.1f} km — largest principal moment C'),
+    ]
+    traces = []
+    for label, tip, color, hover in specs:
+        traces.append(go.Scatter3d(
+            x=[-tip[0], tip[0]], y=[-tip[1], tip[1]],
+            z=[-tip[2], tip[2]],
+            mode='lines+text', text=['', label],
+            textposition='top center',
+            textfont=dict(color=color, size=15),
+            line=dict(color=color, width=5),
+            name=label, hovertemplate=hover + '<extra></extra>'))
+    return traces
 
 
 def build_globe_figure(
@@ -130,6 +200,7 @@ def build_globe_figure(
     c22: Optional[float] = None,
     kf: Optional[float] = None,
     exaggeration: float = 1.0,
+    show_axes: bool = True,
     n_lat: int = 160,
     n_lon: int = 320,
 ):
@@ -184,16 +255,26 @@ def build_globe_figure(
         if i == len(ordered) - 1:
             # innermost body: solid full sphere
             fig.add_trace(_layer_sphere_trace(
-                float(layer['r_km']), T_c, P_c, color, name, opacity=1.0))
+                float(layer['r_km']), T_c, P_c, color, name, opacity=1.0,
+                c20=(c20 or 0.0), c22=(c22 or 0.0), h_amp=h_amp,
+                exaggeration=exaggeration))
         else:
             theta = np.linspace(1e-3, np.pi - 1e-3, 36)
             phi_l = np.linspace((0.5 - 0.10 * (i + 1)) * np.pi,
                                 2.0 * np.pi, 72)
             T_l, P_l = np.meshgrid(theta, phi_l, indexing='ij')
             fig.add_trace(_layer_sphere_trace(
-                float(layer['r_km']), T_l, P_l, color, name, opacity=0.95))
+                float(layer['r_km']), T_l, P_l, color, name, opacity=0.95,
+                c20=(c20 or 0.0), c22=(c22 or 0.0), h_amp=h_amp,
+                exaggeration=exaggeration))
 
-    lim = R_body_km * 1.15
+    a, b, c = triaxial_semiaxes(float(R_body_km), (c20 or 0.0),
+                                (c22 or 0.0), h_amp, exaggeration)
+    if show_axes:
+        for tr in _axis_traces(a, b, c):
+            fig.add_trace(tr)
+
+    lim = 1.32 * max(R_body_km, a, b, c)
     fig.update_layout(
         scene=dict(
             xaxis=dict(visible=False, range=[-lim, lim]),

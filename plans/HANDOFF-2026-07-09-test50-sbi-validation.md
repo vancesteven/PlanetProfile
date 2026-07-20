@@ -1603,3 +1603,18 @@ Future upgrade recorded: true RGB texture mapping + faster rotation =
 three.js custom component or missionwidget.com (roadmap 3D note).
 AppTest green on both fixtures (toggle absent, picker caption present);
 PNG inspection: solid core, contrast-stretched surface.
+
+## ADDENDUM 2026-07-19n (Machine A) — globe v3: figure fallback + principal axes
+User: exaggeration did nothing + wants A/B/C axes. Root cause: runs
+without C20/C22 observables (all CMR2-only configs) had no figure to
+exaggerate. Fixes: (1) hydrostatic_display_pair(body, R, kf) — when a
+run carries no gravity pair, the display figure comes from the posterior
+k_f and the body's rotation (BODY_ROTATION table; caption states the
+source). Europa true figure checks out: a - c = 3.19 km at 1x
+(literature ~3-4 km). (2) Principal axes drawn + labeled: A (sub-parent
+a-axis, smallest moment), B (orbital), C (spin, largest), hover shows
+semi-axis lengths; caption lists true-figure a/b/c and a - c. (3)
+Interior shells now deform with the same relative degree-2 figure (no
+poke-through at high exaggeration; the core visibly elongates along A);
+axis range scales with the exaggerated semi-axes. Verified numerically
+(a - c scales exactly with exaggeration) + PNG inspection + AppTest.

@@ -2348,6 +2348,19 @@ def render_results():
                     except ValueError:
                         kf = None
 
+                # Runs without C20/C22 observables (e.g. CMR2-only
+                # configs) still get a figure: the hydrostatic pair
+                # implied by the posterior k_f and the body's rotation —
+                # otherwise the exaggeration slider has nothing to act
+                # on (user-reported 2026-07-19).
+                figure_src = "measured C20/C22 observables"
+                if c20 is None and c22 is None:
+                    from Utilities.globe_view import \
+                        hydrostatic_display_pair
+                    c20, c22 = hydrostatic_display_pair(body, R_km, kf)
+                    figure_src = ("hydrostatic figure from the posterior "
+                                  "k_f (no C20/C22 in this run)")
+
                 dev = abs(c20 or 0.0) + 3 * abs(c22 or 0.0)
                 default_ex = (min(500.0, max(1.0, 0.03 / dev))
                               if dev > 0 else 1.0)
@@ -2359,6 +2372,17 @@ def render_results():
                     body, R_km, glayers, c20=c20, c22=c22, kf=kf,
                     exaggeration=exagg)
                 st.plotly_chart(fig3d, width='stretch', key='globe_chart')
+                from Utilities.globe_view import triaxial_semiaxes
+                _kf_amp = (1.0 + (kf or 1.0)) / (kf or 1.0)
+                _a, _b, _c = triaxial_semiaxes(
+                    R_km, (c20 or 0.0), (c22 or 0.0), _kf_amp, 1.0)
+                st.caption(
+                    f"Principal axes (true figure, no exaggeration): "
+                    f"a = {_a:.2f} km (sub-parent, moment A), "
+                    f"b = {_b:.2f} km (orbital, B), "
+                    f"c = {_c:.2f} km (spin, C); "
+                    f"a − c = {(_a - _c) * 1000:.0f} m. "
+                    f"Figure source: {figure_src}.")
                 tex_note = ("NASA/USGS global mosaic (public domain)"
                             if texture_path(body) else
                             "no shipped texture for this body yet — "
