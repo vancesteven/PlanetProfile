@@ -1580,3 +1580,26 @@ cutaway (Europa: ice rim / blue ocean ring / silicate mantle / metal
 core at posterior-median radii). Future 3D: per-layer r(theta, phi)
 fields on the same mesh (roadmap); browser does all rendering — no new
 HF runtime deps (kaleido/chrome were dev-only for verification).
+
+## ADDENDUM 2026-07-19m (Machine A) — globe v2 (user feedback)
+1. Europa texture: 2048x1024 extracted from the USGS 500-m mosaic COG
+   via HTTP range reads (rasterio /vsicurl, dev-only dep) with a 2-98
+   percentile contrast stretch + unsharp mask — lineae/mottled terrain
+   now visible (the old 1024 quicklook was washed out).
+2. Cutaway toggle REMOVED: always cutaway, innermost body now a SOLID
+   sphere (user); shells on a coarse 36x72 mesh (uniform color needs no
+   density), textured surface on 160x320 (payload ~2.6 MB, builds in
+   0.08 s — render cost is dominated by plotly WebGL init per rerun).
+3. SAMPLE PICKER (user request): a clickable posterior scatter
+   (Tb vs ocean thickness, colored by salinity when sampled) above the
+   globe — clicking a point rebuilds the globe from THAT sample's
+   per-sample packaging (D_hsphere/D_iceIh/D_ocean[i], R_core sample,
+   per-sample kf via RD, per-sample c20/c22 when packaged) with the
+   sample's parameter values in the caption; default = posterior
+   median. This covers the 'sliders in model space' idea with
+   posterior-consistent structures (arbitrary off-posterior sliders
+   would need a cache-lookup path — future).
+Future upgrade recorded: true RGB texture mapping + faster rotation =
+three.js custom component or missionwidget.com (roadmap 3D note).
+AppTest green on both fixtures (toggle absent, picker caption present);
+PNG inspection: solid core, contrast-stretched surface.

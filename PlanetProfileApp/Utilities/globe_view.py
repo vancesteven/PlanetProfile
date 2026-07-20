@@ -84,18 +84,21 @@ def _surface_trace(R_km: float, T, P, texture_img=None,
     z = r * np.cos(T)
 
     if texture_img is not None:
-        # Sample the equirectangular map at the mesh nodes (grayscale
-        # brightness + 'gray' colorscale: robust in plotly Surface, and
-        # icy-moon mosaics read well in monochrome).
+        # Grid-exact texture: LANCZOS-resample the equirectangular map to
+        # the mesh grid, then map longitudes (mesh phi range may be a
+        # cutaway sub-interval). Grayscale + 'gray' colorscale (robust in
+        # plotly Surface; icy-moon mosaics read well in monochrome).
+        from PIL import Image
         h, w = texture_img.shape[:2]
-        lon_frac = P / (2.0 * np.pi)
-        lat_frac = T / np.pi
-        col = np.clip((lon_frac * (w - 1)).astype(int), 0, w - 1)
-        row = np.clip((lat_frac * (h - 1)).astype(int), 0, h - 1)
-        if texture_img.ndim == 3:
-            shade = texture_img[row, col, :3].mean(axis=-1)
-        else:
-            shade = texture_img[row, col].astype(float)
+        img = Image.fromarray(texture_img).convert('L')
+        n_lat_m, n_lon_m = T.shape
+        full = np.asarray(img.resize((2 * n_lon_m, n_lat_m),
+                                     Image.LANCZOS), dtype=float)
+        lon_frac = (P / (2.0 * np.pi)) % 1.0
+        col = np.clip((lon_frac * (full.shape[1] - 1)).astype(int),
+                      0, full.shape[1] - 1)
+        rows = np.arange(n_lat_m)[:, None] * np.ones((1, n_lon_m), int)
+        shade = full[rows, col]
         surfargs = dict(surfacecolor=shade, colorscale='gray',
                         cmin=0, cmax=255)
     else:
@@ -127,10 +130,8 @@ def build_globe_figure(
     c22: Optional[float] = None,
     kf: Optional[float] = None,
     exaggeration: float = 1.0,
-    surface_opacity: float = 0.65,
-    cutaway: bool = False,
-    n_lat: int = 60,
-    n_lon: int = 120,
+    n_lat: int = 160,
+    n_lon: int = 320,
 ):
     """Assemble the interactive globe.
 
@@ -142,16 +143,15 @@ def build_globe_figure(
     """
     import plotly.graph_objects as go
 
-    T, P = _sphere_mesh(n_lat, n_lon)
-    # Cutaway: remove a 90-degree longitude wedge from the OUTER surface
-    # (and progressively smaller wedges from each shell) so the interior
-    # layering is directly visible, like a cut orange.
-    if cutaway:
-        theta = np.linspace(1e-3, np.pi - 1e-3, n_lat)
-        phi_s = np.linspace(0.5 * np.pi, 2.0 * np.pi, n_lon)
-        T_surf, P_surf = np.meshgrid(theta, phi_s, indexing='ij')
-    else:
-        T_surf, P_surf = T, P
+    # Always cutaway (user 2026-07-19): a 90-degree longitude wedge is
+    # removed from the surface, each shell keeps a slightly wider wedge
+    # (staggered rings in the cut face), and the INNERMOST body is drawn
+    # as a solid full sphere. Shells use a coarse mesh (uniform color);
+    # the textured surface gets the fine mesh.
+    theta_s = np.linspace(1e-3, np.pi - 1e-3, n_lat)
+    phi_s = np.linspace(0.5 * np.pi, 2.0 * np.pi, n_lon)
+    T_surf, P_surf = np.meshgrid(theta_s, phi_s, indexing='ij')
+    T_c, P_c = _sphere_mesh(36, 72)   # coarse mesh for uniform shells
 
     texture_img = None
     tp = texture_path(bodyname)
@@ -167,40 +167,31 @@ def build_globe_figure(
                     if l.get('r_km') and np.isfinite(l['r_km'])
                     and l['r_km'] > 0]
 
-    surface_trace = _surface_trace(
+    # Opaque outer shell FIRST (writes the depth buffer correctly), then
+    # the interior: WebGL blends later traces against it, so the layers
+    # show inside the cut wedge.
+    fig.add_trace(_surface_trace(
         float(R_body_km), T_surf, P_surf, texture_img=texture_img,
         c20=(c20 or 0.0), c22=(c22 or 0.0), h_amp=h_amp,
-        exaggeration=exaggeration,
-        opacity=(1.0 if cutaway else surface_opacity),
-        name=f'{bodyname} surface')
+        exaggeration=exaggeration, opacity=1.0,
+        name=f'{bodyname} surface'))
 
-    if cutaway:
-        # Opaque outer shell FIRST (writes the depth buffer correctly),
-        # then the interior shells: WebGL blends them properly against
-        # the opaque surface, so they show inside the cut wedge.
-        fig.add_trace(surface_trace)
-        for i, layer in enumerate(sorted(valid_layers,
-                                         key=lambda l: -l['r_km'])):
-            # stagger shell wedges so each ring shows in the cut face
-            theta = np.linspace(1e-3, np.pi - 1e-3, n_lat)
+    ordered = sorted(valid_layers, key=lambda l: -l['r_km'])
+    for i, layer in enumerate(ordered):
+        color = LAYER_COLORS.get(layer.get('kind', 'silicate'),
+                                 LAYER_COLORS['silicate'])
+        name = layer.get('name', layer.get('kind', 'layer'))
+        if i == len(ordered) - 1:
+            # innermost body: solid full sphere
+            fig.add_trace(_layer_sphere_trace(
+                float(layer['r_km']), T_c, P_c, color, name, opacity=1.0))
+        else:
+            theta = np.linspace(1e-3, np.pi - 1e-3, 36)
             phi_l = np.linspace((0.5 - 0.10 * (i + 1)) * np.pi,
-                                2.0 * np.pi, n_lon)
+                                2.0 * np.pi, 72)
             T_l, P_l = np.meshgrid(theta, phi_l, indexing='ij')
             fig.add_trace(_layer_sphere_trace(
-                float(layer['r_km']), T_l, P_l,
-                LAYER_COLORS.get(layer.get('kind', 'silicate'),
-                                 LAYER_COLORS['silicate']),
-                layer.get('name', layer.get('kind', 'layer')),
-                opacity=0.95))
-    else:
-        for layer in sorted(valid_layers, key=lambda l: l['r_km']):
-            fig.add_trace(_layer_sphere_trace(
-                float(layer['r_km']), T, P,
-                LAYER_COLORS.get(layer.get('kind', 'silicate'),
-                                 LAYER_COLORS['silicate']),
-                layer.get('name', layer.get('kind', 'layer')),
-                opacity=0.35))
-        fig.add_trace(surface_trace)
+                float(layer['r_km']), T_l, P_l, color, name, opacity=0.95))
 
     lim = R_body_km * 1.15
     fig.update_layout(

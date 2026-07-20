@@ -2237,46 +2237,127 @@ def render_results():
                 build_globe_figure, posterior_median_layers, texture_path)
 
             body = getattr(result.config, 'bodyname', '') or ''
-            R_km, glayers = posterior_median_layers(result)
+            R_km, _ = posterior_median_layers(result)
             if R_km is None:
                 st.info("Globe unavailable: this result predates the "
                         "R_body_km/layer packaging — rerun to enable.")
             else:
-                obs = getattr(result.config, 'observables', {}) or {}
-                c20 = obs.get('C20', [None])[0]
-                c22 = obs.get('C22', [None])[0]
-                kf = None
-                cmr2_vals = getattr(result, 'cmr2_results', None)
-                if cmr2_vals is not None:
-                    _c = np.asarray(cmr2_vals, float)
-                    _c = _c[np.isfinite(_c)]
-                    if _c.size:
-                        from PlanetProfile.Inference.gravity_obs import \
-                            radau_darwin_kf
-                        try:
-                            kf = radau_darwin_kf(float(np.median(_c)))
-                        except ValueError:
-                            kf = None
+                # --- Sample picker: click a posterior sample to see the
+                # interior it corresponds to (user 2026-07-19). Median is
+                # the default until a point is selected.
+                names = list(result.param_names)
+                samples = np.asarray(result.samples, float)
+                d_oc = np.asarray(getattr(result, 'D_ocean_results', []),
+                                  float)
+                d_hs = np.asarray(getattr(result, 'D_hsphere_results', []),
+                                  float)
+                d_ih = np.asarray(getattr(result, 'D_iceIh_results', []),
+                                  float)
+                cmr2s = np.asarray(getattr(result, 'cmr2_results', []),
+                                   float)
+                tb = (samples[:, names.index('Tb_K')]
+                      if 'Tb_K' in names else None)
+                sal_col = next((p_ for p_ in names if 'wOcean' in p_), None)
+                sal = (samples[:, names.index(sal_col)]
+                       if sal_col else None)
 
-                # Default exaggeration: make the degree-2 bulge ~3% of R
-                # so it is visible; 1x = true shape.
+                sel_idx = None
+                if tb is not None and d_oc.size == len(samples):
+                    import plotly.graph_objects as go_
+                    n_show = min(len(samples), 1500)
+                    rng = np.random.default_rng(0)
+                    idx_show = (rng.choice(len(samples), n_show,
+                                           replace=False)
+                                if len(samples) > n_show
+                                else np.arange(len(samples)))
+                    marker = dict(size=5, opacity=0.6)
+                    if sal is not None:
+                        marker.update(color=sal[idx_show],
+                                      colorscale='Viridis',
+                                      colorbar=dict(title=sal_col,
+                                                    thickness=12))
+                    figsel = go_.Figure(go_.Scattergl(
+                        x=tb[idx_show], y=d_oc[idx_show], mode='markers',
+                        marker=marker, customdata=idx_show,
+                        hovertemplate=('Tb %{x:.2f} K, ocean %{y:.1f} km'
+                                       '<extra>click to view</extra>')))
+                    figsel.update_layout(
+                        height=260, margin=dict(l=0, r=0, t=24, b=0),
+                        xaxis_title='T_b (K)',
+                        yaxis_title='Ocean thickness (km)',
+                        title=dict(text='Click a posterior sample to view '
+                                        'its interior', font=dict(size=12)))
+                    ev = st.plotly_chart(
+                        figsel, width='stretch', key='globe_picker',
+                        on_select='rerun', selection_mode='points')
+                    try:
+                        pts = ev.selection.points
+                        if pts:
+                            sel_idx = int(pts[0].get(
+                                'customdata', pts[0].get('point_index')))
+                    except Exception:
+                        sel_idx = None
+
+                def _sample_layers(i):
+                    lays = []
+                    if 'R_core_km' in names and samples[i, names.index(
+                            'R_core_km')] > 1.0:
+                        lays.append({'name': 'core',
+                                     'r_km': float(samples[i, names.index(
+                                         'R_core_km')]),
+                                     'kind': 'core'})
+                    if d_hs.size > i and np.isfinite(d_hs[i]):
+                        lays.append({'name': 'silicate (ocean floor)',
+                                     'r_km': R_km - float(d_hs[i]),
+                                     'kind': 'silicate'})
+                    if (d_ih.size > i and np.isfinite(d_ih[i])
+                            and d_oc.size > i and d_oc[i] > 0.5):
+                        lays.append({'name': 'ocean (top)',
+                                     'r_km': R_km - float(d_ih[i]),
+                                     'kind': 'ocean'})
+                    return lays
+
+                from PlanetProfile.Inference.gravity_obs import \
+                    radau_darwin_kf
+
+                obs = getattr(result.config, 'observables', {}) or {}
+                c20s = getattr(result, 'c20_results', None)
+                c22s = getattr(result, 'c22_results', None)
+                if sel_idx is not None:
+                    glayers = _sample_layers(sel_idx)
+                    cmr2_i = (float(cmr2s[sel_idx])
+                              if cmr2s.size > sel_idx else np.nan)
+                    c20 = (float(c20s[sel_idx]) if c20s is not None
+                           else obs.get('C20', [None])[0])
+                    c22 = (float(c22s[sel_idx]) if c22s is not None
+                           else obs.get('C22', [None])[0])
+                    which = (f"sample #{sel_idx}: " + ", ".join(
+                        f"{n} = {samples[sel_idx, j]:.3g}"
+                        for j, n in enumerate(names)))
+                else:
+                    _, glayers = posterior_median_layers(result)
+                    _c = cmr2s[np.isfinite(cmr2s)] if cmr2s.size else []
+                    cmr2_i = float(np.median(_c)) if len(_c) else np.nan
+                    c20 = obs.get('C20', [None])[0]
+                    c22 = obs.get('C22', [None])[0]
+                    which = "posterior median (click a point above to pick a sample)"
+                kf = None
+                if np.isfinite(cmr2_i):
+                    try:
+                        kf = radau_darwin_kf(cmr2_i)
+                    except ValueError:
+                        kf = None
+
                 dev = abs(c20 or 0.0) + 3 * abs(c22 or 0.0)
                 default_ex = (min(500.0, max(1.0, 0.03 / dev))
                               if dev > 0 else 1.0)
-                col1, col2, col3 = st.columns(3)
-                exagg = col1.slider(
+                exagg = st.slider(
                     "Shape exaggeration (1 = true figure)", 1.0, 500.0,
                     float(round(default_ex)), 1.0, key='globe_exagg')
-                sopac = col2.slider(
-                    "Surface opacity", 0.1, 1.0, 0.65, 0.05,
-                    key='globe_opacity')
-                cutaway = col3.toggle("Cutaway view", value=True,
-                                      key='globe_cutaway')
 
                 fig3d = build_globe_figure(
                     body, R_km, glayers, c20=c20, c22=c22, kf=kf,
-                    exaggeration=exagg, surface_opacity=sopac,
-                    cutaway=cutaway)
+                    exaggeration=exagg)
                 st.plotly_chart(fig3d, width='stretch', key='globe_chart')
                 tex_note = ("NASA/USGS global mosaic (public domain)"
                             if texture_path(body) else
@@ -2284,19 +2365,19 @@ def render_results():
                             "shaded sphere")
                 shape_note = (
                     "Surface deformed by the degree-2 figure implied by "
-                    "the C20/C22 observables (tidal bulge along the "
-                    "sub-parent x-axis, polar flattening) with fluid "
-                    "amplification h_f ≈ 1 + k_f — the non-spherical "
-                    "shape that the spherically averaged C/MR² never "
-                    "captures." if (c20 or c22) else
-                    "No C20/C22 observables in this run — sphere shown; "
-                    "gravity-pair configs deform the figure.")
+                    "C20/C22 (tidal bulge along the sub-parent x-axis, "
+                    "polar flattening) with fluid amplification "
+                    "(1+k_f)/k_f — the non-spherical shape the "
+                    "spherically averaged C/MR² never captures."
+                    if (c20 or c22) else
+                    "No C20/C22 in this run — sphere shown; gravity-pair "
+                    "configs deform the figure.")
                 st.caption(
-                    f"Drag to rotate, scroll to zoom. Texture: {tex_note}. "
-                    f"Concentric shells: posterior-median layer radii "
-                    f"(core / silicate / ocean top). {shape_note} "
-                    "Lateral (3D) structure becomes per-layer "
-                    "r(θ, φ) fields on this same mesh — roadmap.")
+                    f"Showing {which}. Drag to rotate, scroll to zoom. "
+                    f"Texture: {tex_note}. Cutaway wedge exposes the "
+                    f"interior; the innermost body is solid. {shape_note} "
+                    "Lateral (3D) structure becomes per-layer r(θ, φ) "
+                    "fields on this same mesh — roadmap.")
         except Exception as e:
             st.warning(f"Globe unavailable: {e}")
 
