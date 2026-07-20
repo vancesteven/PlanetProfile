@@ -1630,3 +1630,25 @@ notes on both Europa slots, v3 slot removal, the full main merge
 (libration + DP-ALMA + upstream fixes), Im_h2 fold fix, adaptive
 truncation. Server-side checks `verified`; in-browser click-throughs
 (globe rotation, picker, texture) with the user.
+
+## ADDENDUM 2026-07-20a (Machine A) — v1.1 + v4 INTEGRATED, sampling verified
+Machine B's two-campaign delivery (fc8cc72b, 34d70bb8) integrated:
+1. **Galileo v1.1 slot swap** (retirement schedule): v1 slot replaced in
+   place; end-to-end GUI sampling `verified` — 10k draws, all 8 marginal
+   means match the stored crosscheck MCMC statistics (v1.1 reference pkl
+   lived in /tmp on B; the report stats are the committed evidence).
+   Guards: Im_k2 <= 0.15 conservative carryover + Tb >= 261.5 truncation.
+2. **Clipper v4 slot ADDED + v2 slot REMOVED** (same commit, per the
+   user-ratified schedule): end-to-end GUI sampling `verified` — 10k
+   draws, corr(Tb, log10 w) -0.986 vs committed Test53 reference -0.982;
+   u sigma 3.35e-7 matches the gate report; per-sample c20/c22_results
+   packaged (the globe picks up the measured per-sample figure
+   automatically). Inherited v2 guards; no Tb truncation (2D support).
+3. **New u-panel** in results (renders for any run sampling
+   dC20_nh/dC22_nh): histogram + median + 95% upper limit on
+   u = dC22_nh + dC20_nh/R, sigma_u(obs) band, with the
+   reviewer-binding caveats (per-component marginals do-not-cite;
+   sigma_u 4pi-normalization risk). AppTest-verified in the v4 run.
+INDEX rows: v1 + v2 RETIRED; v1.1 DEPLOYED; v4 INTEGRATED — **AWAITING
+USER RATIFICATION** before any HF deploy (release discipline).
+Regressions: 29/29 (sbi_runner + gravity_channels).

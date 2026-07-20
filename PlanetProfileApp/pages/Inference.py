@@ -997,60 +997,52 @@ _SBI_ARTIFACT_SLOTS = {
         # torch 2.8 (artifact trained on 2.11). See sbi_artifacts/INDEX.md.
         'validated_version_pairs': (('torch', '2.11.0', '2.8.0'),),
     },
-    'europa_seawater_andrade_posterior_1m.pt': {
-        'label': '1D · Galileo–Europa (Andrade, seawater) — synodic-only 7D',
+    'europa_galileo_v1p1_8D_posterior_1m.pt': {
+        'label': '1D · Galileo–Europa (Andrade, seawater) — v1.1 honest observables, 8D',
         'bodyname': 'Europa',
-        # Training config JSON: carries derived_params (mass-conservation
-        # rho_sil + core-sensitive CMR2 dispatch) and induction_bounds that
-        # a minimal reconstructed config would silently drop.
         'config_path': ('PlanetProfile/Inference/configs/'
-                        'europa_seawater_andrade_7D.json'),
+                        'europa_galileo_v1p1_8D.json'),
         'cache_path': ('PlanetProfile/Test/mcmc_results/Europa/'
                        'Test51_seawater/europa_seawater_structure_grid.pkl'),
-        'default_obs': {'CMR2': 0.3547, 'Re_k2': 0.25, 'Im_k2': 0.0,
+        # Honest Galileo-era data = CMR2 (GC21 MoI) + the synodic |Ae|>0.7
+        # support cut. k2/h2 are LABELED HYPOTHETICAL channels at theory
+        # widths (no Galileo measurement exists); zeta split ice/silicate.
+        'default_obs': {'CMR2': 0.3547, 'Re_k2': 0.23, 'Im_k2': 0.004,
                         'Re_h2': 1.2, 'Im_h2': 0.0},
-        # Hard validated-domain guard (scientific-reviewer 2026-07-13): the W1
-        # anchor sweep validated conditioning only for |Im k2| <= 0.15
-        # (Europa-scaled). This is NARROWER than Titan's 0.20 — no anchor was
-        # run above 0.15. Refuse conditioning beyond it (use MCMC mode).
+        # Conservative carryover from the v1 anchor sweep: no v1.1 anchor
+        # walk was run; SBC (8/8, global) + fiducial crosscheck (8/8) are
+        # the calibration evidence. Refuse far-off-fiducial Im k2.
         'x_obs_limits': {'Im_k2': (0.0, 0.15)},
-        # Default prior truncation, pre-applied ON (not just slider-available):
-        # the synodic induction support cut removes Tb < ~261.5 K (no conductive
-        # ocean below that). The NSF flow smooths that hard one-sided edge and
-        # leaks ~3.5% of Tb mass into the excluded [259.5, 261.5] K band.
-        # reject_outside_prior does NOT re-cut it (it is inside the prior box),
-        # so we restore the edge exactly at sample time. A matched-truncation
-        # crosscheck vs Test51 confirms this is edge-smear, not structural:
-        # Tb KS D drops 0.093 -> 0.019 (< tol 0.057, p=0.51) when both are cut
-        # at 261.5 K. See sbi_artifacts/INDEX.md + HANDOFF-2026-07-09 addendum.
+        # Same synodic induction support edge as v1 (identical cut + cache):
+        # no conductive ocean below ~261.5 K; restore the hard edge.
         'default_truncate': {'Tb_K': (261.5, None)},
-        'scope_note': ('Galileo synodic-only run. Validated conditioning '
-                       'domain: |Im k2| <= 0.15. Tb defaults to the '
-                       'induction-surviving support [261.5, 271.0] K (a '
-                       'present conductive ocean is required); a low-Tb '
-                       'marginal-shape caveat is documented in '
-                       'sbi_artifacts/INDEX.md. ⚠️ RETIRING: the k2/h2 '
-                       'conditioning sigmas are Titan-derived — Europa has '
-                       'no measured k2; treat tidal inputs as hypothetical. '
-                       'Replacement (Galileo v1.1, honest observable set) '
-                       'is in training.'),
-        # Cross-version sampling gate-validated on this machine (2026-07-13):
-        # Machine A (torch 2.8) crosscheck reproduces Machine B's (torch 2.11)
-        # committed report to 4 decimals on every per-parameter statistic.
-        # See sbi_artifacts/INDEX.md.
-        'validated_version_pairs': (('torch', '2.11.0', '2.8.0'),),
+        'scope_note': ('Galileo v1.1 (replaces v1): honest-data framing — '
+                       'only C/MR² (Gomez Casajus et al. 2021) and the '
+                       'synodic induction support cut are Galileo-era '
+                       'measurements; the k2/h2 inputs are HYPOTHETICAL '
+                       'exploration channels at theory widths (no Galileo '
+                       'k2/h2 measurement exists). Independent ice/silicate '
+                       'Andrade ζ. Gates: SBC 8/8, crosscheck 8/8 (no soft '
+                       'fails); details sbi_artifacts/INDEX.md.'),
+        # Trained torch 2.8.0 / sbi 0.26.1 — same runtime; no pair needed.
     },
-    'europa_seawater_andrade_clipper_v2.pt': {
-        'label': '1D · Clipper–Europa (Andrade, seawater) — v2, 3-frequency induction 7D',
+    'europa_clipper_v4_geodesy_11D_posterior_1m.pt': {
+        'label': ('1D · Clipper–Europa (Andrade, seawater) — v4 geodesy, '
+                  '11D sampled salinity + non-hydrostatic gravity'),
         'bodyname': 'Europa',
         'config_path': ('PlanetProfile/Inference/configs/'
-                        'europa_seawater_andrade_clipper_v2.json'),
+                        'europa_clipper_v4_geodesy_11D.json'),
         'cache_path': ('PlanetProfile/Test/mcmc_results/Europa/'
-                       'Test51_seawater/europa_seawater_structure_grid.pkl'),
-        # Fiducial conditioning values = the training config's central values
-        # (Bind channels in nT, sigma = 1.5 nT frozen; Kivelson et al. 2023).
+                       'Test52_seawater_v3/'
+                       'europa_seawater_structure_grid_v3_2d.pkl'),
+        # Mazarico-2023-projected k2 (sigma 0.015) + Park-style degree-2
+        # gravity through the Clairaut hydrostatic map + sampled
+        # non-hydrostatic offsets; CMR2 = the GC21 Galileo-derived MoI
+        # prior; 14 Bind channels at 1.5 nT as v2/v3.
         'default_obs': {
-            'CMR2': 0.3547, 'Re_k2': 0.25, 'Im_k2': 0.0,
+            'CMR2': 0.3547,
+            'C20': -4.579201e-4, 'C22': 1.377618e-4,
+            'Re_k2': 0.23, 'Im_k2': 0.004,
             'Re_h2': 1.2, 'Im_h2': 0.0,
             'Bind_synodic_x_real': 91.8248, 'Bind_synodic_x_imag': -157.7708,
             'Bind_synodic_y_real': -59.4061, 'Bind_synodic_y_imag': -25.8874,
@@ -1061,38 +1053,29 @@ _SBI_ARTIFACT_SLOTS = {
             'Bind_orbital_y_real': -2.2124, 'Bind_orbital_y_imag': -0.2825,
         },
         'x_obs_limits': {'Im_k2': (0.0, 0.15)},
-        # Machine B deploy condition (INDEX scope note 2026-07-14): the W1
-        # grid-walk validated conditioning only over the synodic |Ae|
-        # envelope its anchors exercised (~0.75-0.94). Guard on the implied
-        # |Ae| from the dominant-SNR synodic x channel (|Be_x| = 213.2 nT);
-        # additionally warn below the Galileo training support cut (0.7).
+        # Inherited v2 grid-walk envelope (no v4 anchor walk; SBC-global +
+        # fiducial gates are the v4 calibration evidence).
         'derived_ae_guards': [{
             'label': 'synodic', 'comp': 'x',
             'Be_comp': (128.466302323619, -170.084146795136),
             'ae_range': (0.75, 0.94),
             'warn_support_below': 0.7,
         }],
-        # Same induction support edge as v1: no conductive ocean below
-        # ~261.5 K; restore the hard edge at sample time.
-        'default_truncate': {'Tb_K': (261.5, None)},
-        'scope_note': ('Conditions on Europa Clipper-era magnetic induction '
-                       '(14 channels at three periods, ±1.5 nT) plus '
-                       'gravity/tidal observables. Induction inputs are '
-                       'accepted within the validated range (roughly '
-                       '160–200 nT synodic amplitude); outside it the run '
-                       'is refused — use MCMC mode. Technical validation '
-                       'details: sbi_artifacts/INDEX.md. ⚠️ RETIRING: the '
-                       'k2 sigmas are Titan-derived, not the Mazarico et '
-                       'al. (2023) Clipper projections — superseded by the '
-                       'v4 geodesy artifact (in preparation), which will '
-                       'replace this slot.'),
-        # Trained on torch 2.8.0 / sbi 0.26.1 — identical to this machine's
-        # runtime; no cross-version pair needed.
+        # 2D (Tb, w) support — no 1D Tb truncation pre-applied.
+        'scope_note': ('Clipper v4: 11 sampled parameters = v3 interior + '
+                       'salinity PLUS two non-hydrostatic degree-2 gravity '
+                       'offsets. REPORTABLE (calibrated): the identifiable '
+                       'combination u = dC22_nh + dC20_nh/3.324 as an '
+                       'upper limit, and the Tb–salinity joint. NOT '
+                       'calibrated (do not cite): per-component '
+                       'dC20_nh/dC22_nh marginals, the −C20/C22 ratio, and '
+                       'the prior-dominated interior scalars ζ_Ih/ρ_core '
+                       '(SBI conservatively wider). Re k2 = 0.23 sits a '
+                       'mild 1.3σ below the joint posterior-predictive '
+                       '(consistent; a v5 question, not a claim). Gate '
+                       'details: sbi_artifacts/INDEX.md.'),
+        # Trained torch 2.8.0 / sbi 0.26.1 — same runtime; no pair needed.
     },
-    # Clipper v3 slot REMOVED (user veto 2026-07-19): trained with
-    # requirement-level k2 sigmas (0.06), not the Mazarico et al. (2023)
-    # Clipper projections — superseded by the v4 geodesy campaign
-    # (plans/europa-clipper-v4-geodesy-plan.md). See sbi_artifacts/INDEX.md.
 }
 
 
@@ -2404,6 +2387,68 @@ def render_results():
                     "fields on this same mesh — roadmap.")
         except Exception as e:
             st.warning(f"Globe unavailable: {e}")
+
+    # v4 geodesy: the reviewer-binding REPORTABLE quantity — the
+    # identifiable non-hydrostatic combination u = dC22_nh + dC20_nh/R.
+    # Per-component marginals are NOT calibrated (do not cite).
+    if ('dC20_nh' in result.param_names
+            and 'dC22_nh' in result.param_names):
+        with st.expander("🪨 Non-hydrostatic gravity: identifiable "
+                         "combination u", expanded=True):
+            try:
+                import matplotlib.pyplot as plt
+                md_cfg = (getattr(result.config, 'metadata', {}) or {})
+                R_ratio = float(md_cfg.get('gravity_j2_over_c22', 3.324))
+                _s = np.asarray(result.samples, float)
+                u = (_s[:, result.param_names.index('dC22_nh')]
+                     + _s[:, result.param_names.index('dC20_nh')] / R_ratio)
+                obs = getattr(result.config, 'observables', {}) or {}
+                s20 = float(obs.get('C20', [0, np.nan])[1])
+                s22 = float(obs.get('C22', [0, np.nan])[1])
+                sigma_u = float(np.sqrt(s22 ** 2 + (s20 / R_ratio) ** 2))
+
+                med = float(np.median(u))
+                lo68, hi68 = np.percentile(u, [16, 84])
+                ul95 = float(np.percentile(np.abs(u), 95))
+
+                c1, c2, c3 = st.columns(3)
+                c1.metric("median u", f"{med:.2e}")
+                c2.metric("95% upper limit |u|", f"{ul95:.2e}")
+                c3.metric("|u|₉₅ / σ_u(obs)",
+                          f"{ul95 / sigma_u:.1f}"
+                          if np.isfinite(sigma_u) and sigma_u > 0 else "—")
+
+                figu, axu = plt.subplots(figsize=(7, 3.2))
+                axu.hist(u, bins=60, color='peru', alpha=0.8)
+                axu.axvline(0, color='k', linewidth=0.8)
+                axu.axvline(med, color='crimson', linewidth=1.2,
+                            label=f'median {med:.2e}')
+                axu.axvspan(lo68, hi68, color='crimson', alpha=0.12,
+                            label='68%')
+                if np.isfinite(sigma_u) and sigma_u > 0:
+                    axu.axvspan(-sigma_u, sigma_u, color='steelblue',
+                                alpha=0.10,
+                                label=f'±σ_u(obs) = {sigma_u:.2e}')
+                axu.set_xlabel(f'u = dC22_nh + dC20_nh / {R_ratio:g} '
+                               '(unnormalized)')
+                axu.set_ylabel('posterior samples')
+                axu.legend(fontsize=8)
+                st.pyplot(figu)
+                plt.close(figu)
+                st.caption(
+                    "u is the RATIO-BREAKING combination of the sampled "
+                    "non-hydrostatic Stokes offsets — the interior term "
+                    "cancels exactly, making u interior-independent and "
+                    "SBC-calibrated (the v4 deliverable). Report u as a "
+                    "provisional upper limit in absolute and observation-σ "
+                    "units. Do NOT cite the per-component dC20_nh/dC22_nh "
+                    "marginals or the −C20/C22 ratio: the ratio-preserving "
+                    "direction is pinned only through the weakly "
+                    "identified interior. σ_u convention risk: if the "
+                    "mission's σ(C20) is 4π-normalized, σ_u is ~1.4× "
+                    "larger than shown.")
+            except Exception as e:
+                st.warning(f"u panel unavailable: {e}")
 
     # C/MR² posterior
     with st.expander("⚖️ C/MR² Moment-of-Inertia Posterior", expanded=True):
