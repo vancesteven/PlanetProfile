@@ -1618,3 +1618,15 @@ Interior shells now deform with the same relative degree-2 figure (no
 poke-through at high exaggeration; the core visibly elongates along A);
 axis range scales with the exaggerated semi-axes. Verified numerically
 (a - c scales exactly with exaggeration) + PNG inspection + AppTest.
+
+## ADDENDUM 2026-07-19o (Machine A) — HF redeploy SHIPPED (globe batch)
+User ran the deploy one-liner: snapshot from genai 6c58553f uploaded
+2026-07-20 01:20 UTC; Space rebuild completed, stage RUNNING, app
+HTTP 200. Live batch adds: interactive globe (textures, cutaway +
+solid core, posterior sample picker, principal axes A/B/C, hydrostatic
+figure fallback), per-sample connected-signals cloud plot, C/MR2
+MacCullagh explainer, 1D mission-body slot labels, RETIRING scope
+notes on both Europa slots, v3 slot removal, the full main merge
+(libration + DP-ALMA + upstream fixes), Im_h2 fold fix, adaptive
+truncation. Server-side checks `verified`; in-browser click-throughs
+(globe rotation, picker, texture) with the user.
