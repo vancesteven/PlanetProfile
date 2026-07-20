@@ -1,0 +1,354 @@
+{
+  "check": "crosscheck",
+  "gate": "per-param: |dmean| <= max(0.25*sigma_MCMC, MC-error); sigma_SBI/sigma_MCMC in [0.7,1.4]; shape (ratified 2026-07-10): D <= 1.5x matched-n self-D p99 AND |dmedian| <= 0.3 dex (log params) / 0.3*sigma_MCMC (linear); KS p reported informationally",
+  "verdict": "PASS",
+  "x_obs": {
+    "CMR2": 0.3547,
+    "Re_k2": 0.23,
+    "Im_k2": 0.004,
+    "Re_h2": 1.2,
+    "Im_h2": 0.0
+  },
+  "results": {
+    "n_mcmc": 4267,
+    "ess_mcmc": 4179.709761203218,
+    "n_sbi": 4267,
+    "per_parameter": [
+      {
+        "param": "alpha",
+        "mcmc_mean": 0.31606137914891824,
+        "sbi_mean": 0.3089088877260978,
+        "mcmc_std": 0.08352928622289511,
+        "sbi_std": 0.08637557939131088,
+        "mean_diff": 0.007152491422820428,
+        "mean_tol": 0.02088232155572378,
+        "mc_error": 0.0012920095016840754,
+        "mean_pass": true,
+        "sigma_ratio": 1.0340753919627725,
+        "sigma_ratio_bounds": [
+          0.7,
+          1.4
+        ],
+        "sigma_pass": true,
+        "ks_stat": 0.03565446279014118,
+        "ks_pval": 0.009854194539643004,
+        "ks_n": 4179,
+        "ks_alpha_informational": 0.01,
+        "d_floor_p99": 0.032251267248172205,
+        "d_tol": 0.04837690087225831,
+        "d_pass": true,
+        "median_diff": 0.006785561478898916,
+        "median_tol": 0.025058785866868532,
+        "median_pass": true,
+        "shape_pass": true,
+        "param_pass": true
+      },
+      {
+        "param": "log10_zeta_Ih",
+        "mcmc_mean": -0.4333728195607564,
+        "sbi_mean": -0.4378903967930826,
+        "mcmc_std": 1.3827588652642353,
+        "sbi_std": 1.4085051213661135,
+        "mean_diff": 0.004517577232326209,
+        "mean_tol": 0.3456897163160588,
+        "mc_error": 0.021388158252567444,
+        "mean_pass": true,
+        "sigma_ratio": 1.0186194836631608,
+        "sigma_ratio_bounds": [
+          0.7,
+          1.4
+        ],
+        "sigma_pass": true,
+        "ks_stat": 0.015553960277578369,
+        "ks_pval": 0.6929382069881308,
+        "ks_n": 4179,
+        "ks_alpha_informational": 0.01,
+        "d_floor_p99": 0.03139821273075369,
+        "d_tol": 0.04709731909613053,
+        "d_pass": true,
+        "median_diff": 0.01373328440075161,
+        "median_tol": 0.3,
+        "median_pass": true,
+        "shape_pass": true,
+        "param_pass": true
+      },
+      {
+        "param": "log10_zeta_sil",
+        "mcmc_mean": -0.021952254454213428,
+        "sbi_mean": 0.03500998464331903,
+        "mcmc_std": 1.2125250949637996,
+        "sbi_std": 1.23071904450189,
+        "mean_diff": 0.05696223909753246,
+        "mean_tol": 0.3031312737409499,
+        "mc_error": 0.018755026105972118,
+        "mean_pass": true,
+        "sigma_ratio": 1.0150050086498488,
+        "sigma_ratio_bounds": [
+          0.7,
+          1.4
+        ],
+        "sigma_pass": true,
+        "ks_stat": 0.04594400574300072,
+        "ks_pval": 0.0002945235830489875,
+        "ks_n": 4179,
+        "ks_alpha_informational": 0.01,
+        "d_floor_p99": 0.0363018801347942,
+        "d_tol": 0.0544528202021913,
+        "d_pass": true,
+        "median_diff": 0.02432201873567319,
+        "median_tol": 0.3,
+        "median_pass": true,
+        "shape_pass": true,
+        "param_pass": true
+      },
+      {
+        "param": "log10_eta_Ih",
+        "mcmc_mean": 12.914427624630024,
+        "sbi_mean": 12.974141391345592,
+        "mcmc_std": 1.6810831867730434,
+        "sbi_std": 1.6947607314868578,
+        "mean_diff": 0.05971376671556783,
+        "mean_tol": 0.42027079669326084,
+        "mc_error": 0.02600256207908054,
+        "mean_pass": true,
+        "sigma_ratio": 1.0081361498475692,
+        "sigma_ratio_bounds": [
+          0.7,
+          1.4
+        ],
+        "sigma_pass": true,
+        "ks_stat": 0.027757836803062933,
+        "ks_pval": 0.07991005249813762,
+        "ks_n": 4179,
+        "ks_alpha_informational": 0.01,
+        "d_floor_p99": 0.03574412704988281,
+        "d_tol": 0.05361619057482421,
+        "d_pass": true,
+        "median_diff": 0.02285173087736858,
+        "median_tol": 0.3,
+        "median_pass": true,
+        "shape_pass": true,
+        "param_pass": true
+      },
+      {
+        "param": "log10_eta_sil",
+        "mcmc_mean": 20.08430693273865,
+        "sbi_mean": 20.102344972008364,
+        "mcmc_std": 1.1282686370865989,
+        "sbi_std": 1.1295282079529299,
+        "mean_diff": 0.018038039269715256,
+        "mean_tol": 0.2820671592716497,
+        "mc_error": 0.017451768900288617,
+        "mean_pass": true,
+        "sigma_ratio": 1.0011163749704002,
+        "sigma_ratio_bounds": [
+          0.7,
+          1.4
+        ],
+        "sigma_pass": true,
+        "ks_stat": 0.025364919837281646,
+        "ks_pval": 0.13590299046145204,
+        "ks_n": 4179,
+        "ks_alpha_informational": 0.01,
+        "d_floor_p99": 0.034321550017389325,
+        "d_tol": 0.05148232502608399,
+        "d_pass": true,
+        "median_diff": 0.05473447823646538,
+        "median_tol": 0.3,
+        "median_pass": true,
+        "shape_pass": true,
+        "param_pass": true
+      },
+      {
+        "param": "Tb_K",
+        "mcmc_mean": 265.92119386195685,
+        "sbi_mean": 265.869452280492,
+        "mcmc_std": 2.5968279934695118,
+        "sbi_std": 2.677215392157958,
+        "mean_diff": 0.05174158146485297,
+        "mean_tol": 0.6492069983673779,
+        "mc_error": 0.04016706706733682,
+        "mean_pass": true,
+        "sigma_ratio": 1.0309559966584634,
+        "sigma_ratio_bounds": [
+          0.7,
+          1.4
+        ],
+        "sigma_pass": true,
+        "ks_stat": 0.02847571189279732,
+        "ks_pval": 0.06750501985454521,
+        "ks_n": 4179,
+        "ks_alpha_informational": 0.01,
+        "d_floor_p99": 0.03769798040324264,
+        "d_tol": 0.05654697060486396,
+        "d_pass": true,
+        "median_diff": 0.044603186373876724,
+        "median_tol": 0.7790483980408535,
+        "median_pass": true,
+        "shape_pass": true,
+        "param_pass": true
+      },
+      {
+        "param": "R_core_km",
+        "mcmc_mean": 537.6719209877975,
+        "sbi_mean": 538.2431258261273,
+        "mcmc_std": 69.0897207868582,
+        "sbi_std": 73.38920729310378,
+        "mean_diff": 0.571204838329777,
+        "mean_tol": 17.27243019671455,
+        "mc_error": 1.0686620197749688,
+        "mean_pass": true,
+        "sigma_ratio": 1.0622304802694094,
+        "sigma_ratio_bounds": [
+          0.7,
+          1.4
+        ],
+        "sigma_pass": true,
+        "ks_stat": 0.03469729600382867,
+        "ks_pval": 0.013057811663122606,
+        "ks_n": 4179,
+        "ks_alpha_informational": 0.01,
+        "d_floor_p99": 0.03332305630936578,
+        "d_tol": 0.04998458446404867,
+        "d_pass": true,
+        "median_diff": 1.0691486853722836,
+        "median_tol": 20.72691623605746,
+        "median_pass": true,
+        "shape_pass": true,
+        "param_pass": true
+      },
+      {
+        "param": "rho_core_kgm3",
+        "mcmc_mean": 6379.078700875379,
+        "sbi_mean": 6390.442911945966,
+        "mcmc_std": 853.2359312124914,
+        "sbi_std": 862.4556422375781,
+        "mean_diff": 11.364211070587771,
+        "mean_tol": 213.30898280312286,
+        "mc_error": 13.197633789939388,
+        "mean_pass": true,
+        "sigma_ratio": 1.0108055822402897,
+        "sigma_ratio_bounds": [
+          0.7,
+          1.4
+        ],
+        "sigma_pass": true,
+        "ks_stat": 0.023211294568078487,
+        "ks_pval": 0.2102527539415942,
+        "ks_n": 4179,
+        "ks_alpha_informational": 0.01,
+        "d_floor_p99": 0.03538869738505746,
+        "d_tol": 0.053083046077586196,
+        "d_pass": true,
+        "median_diff": 12.454859978364766,
+        "median_tol": 255.97077936374743,
+        "median_pass": true,
+        "shape_pass": true,
+        "param_pass": true
+      }
+    ],
+    "all_pass": true
+  },
+  "artifact": "/tmp/galileo_v1p1/europa_galileo_v1p1_8D_posterior_1m.pt",
+  "artifact_meta": {
+    "schema_version": 1,
+    "config_hash": "a9d70df25dabdbda",
+    "bodyname": "Europa",
+    "git_sha": "6e995165",
+    "seed": 44,
+    "n_train_effective": 831903,
+    "sbi_version": "0.26.1",
+    "torch_version": "2.8.0",
+    "created_utc": "2026-07-19T20:27:31Z",
+    "density_estimator": "nsf",
+    "imag_convention": "abs",
+    "param_names": [
+      "alpha",
+      "log10_zeta_Ih",
+      "log10_zeta_sil",
+      "log10_eta_Ih",
+      "log10_eta_sil",
+      "Tb_K",
+      "R_core_km",
+      "rho_core_kgm3"
+    ],
+    "param_bounds": [
+      [
+        0.15,
+        0.45
+      ],
+      [
+        -3.0,
+        2.0
+      ],
+      [
+        -3.0,
+        2.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        18.0,
+        22.0
+      ],
+      [
+        259.5,
+        271.0
+      ],
+      [
+        0.0,
+        780.5
+      ],
+      [
+        5000.0,
+        8000.0
+      ]
+    ],
+    "obs_names": [
+      "CMR2",
+      "Re_k2",
+      "Im_k2",
+      "Re_h2",
+      "Im_h2"
+    ],
+    "rejection_stats": {
+      "n_requested": 1000000,
+      "n_rejected_support": 152100,
+      "n_rejected_nonfinite": 15997,
+      "rejection_rate": 0.168097,
+      "imag_convention": "abs",
+      "seed": 50,
+      "obs_noise": {
+        "type": "gaussian_diagonal",
+        "sigma": {
+          "CMR2": 0.0024,
+          "Re_k2": 0.05,
+          "Im_k2": 0.05,
+          "Re_h2": 0.1,
+          "Im_h2": 0.1
+        },
+        "noise_seed": 5050,
+        "refold_im": false
+      },
+      "apply_support_guard": true,
+      "n_kept": 831903
+    }
+  },
+  "mcmc_result": "/tmp/galileo_v1p1/galileo_v1p1_reference_result.pkl",
+  "mcmc_config_hash": "b78c363a95281c8a",
+  "mcmc_weighted": true,
+  "overlay_plot": "/tmp/galileo_v1p1/reports/crosscheck/crosscheck_marginals.png",
+  "provenance": {
+    "seed": 42,
+    "timestamp_utc": "2026-07-19T20:27:59Z",
+    "git_sha": "6e995165",
+    "versions": {
+      "torch": "2.8.0",
+      "sbi": "0.26.1",
+      "scipy": "1.16.3",
+      "numpy": "2.4.3"
+    }
+  }
+}

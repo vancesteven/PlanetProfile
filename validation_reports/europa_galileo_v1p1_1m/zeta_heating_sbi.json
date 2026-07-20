@@ -1,0 +1,32 @@
+{
+  "zeta_corr": -0.04028639289687154,
+  "log10_zeta_Ih_q": [
+    -2.125146961212158,
+    -0.3710162341594696,
+    1.1801668643951417
+  ],
+  "log10_zeta_sil_q": [
+    -1.382899670600891,
+    0.10178269445896149,
+    1.3855060863494875
+  ],
+  "f_ice_q": [
+    0.2531466696569158,
+    0.8708670492051339,
+    0.9914299183593164
+  ],
+  "n_heating": 500,
+  "median_Ice_Ih_W": 451844208138.93384,
+  "median_Silicate_W": 69884226520.73792,
+  "frac_ice_dominated": 0.736,
+  "source": "galileo_v1p1_SBI_posterior",
+  "n_posterior": 4267,
+  "forward_path": "MCMCRunner._expand_theta + forward_model_k2_flexible (runner-enriched cache)",
+  "x_obs": {
+    "CMR2": 0.3547,
+    "Re_k2": 0.23,
+    "Im_k2": 0.004,
+    "Re_h2": 1.2,
+    "Im_h2": 0.0
+  }
+}
