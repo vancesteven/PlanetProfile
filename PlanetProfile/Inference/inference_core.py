@@ -368,10 +368,19 @@ class InferenceResult:
         """
         Get best-fit parameters (maximum likelihood).
 
+        Uses ``nanargmax`` because amortized SBI results may NaN-pad the
+        log-likelihood outside the recomputed subset (see
+        ``SBIRunner._condition_and_package`` ``n_derived``); a plain
+        ``argmax`` would return the first NaN-padded row. Falls back to the
+        posterior median when every likelihood is NaN.
+
         Returns:
             1D array of parameter values
         """
-        best_idx = np.argmax(self.log_likelihoods)
+        ll = np.asarray(self.log_likelihoods, dtype=np.float64)
+        if not np.any(np.isfinite(ll)):
+            return np.median(self.samples, axis=0)
+        best_idx = int(np.nanargmax(ll))
         return self.samples[best_idx]
 
 

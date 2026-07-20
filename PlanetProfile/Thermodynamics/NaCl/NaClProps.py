@@ -112,18 +112,27 @@ class NaClConductPan2021:
     def _warn_once(self, P_MPa, T_K):
         if self._warned:
             return
+        # P and T are independent axes in grid mode (grid=True passes an
+        # (nP,) P vector and an (nT,) T vector of DIFFERENT lengths), so they
+        # cannot be element-wise combined. Mask each axis independently — this
+        # is a diagnostic envelope check, not a per-point filter, so the
+        # correct question is "is any requested P (or any requested T) outside
+        # the Pan-2021 envelope", which independent masking answers for both
+        # grid and element-aligned calls. (Fixes the (200,)/(160,) broadcast
+        # error in PlotPvThydro for NaCl oceans, PPTest21.)
         P = np.atleast_1d(P_MPa)
         T = np.atleast_1d(T_K)
-        finite = np.isfinite(P) & np.isfinite(T)
-        if not np.any(finite):
+        Pf = P[np.isfinite(P)]
+        Tf = T[np.isfinite(T)]
+        if Pf.size == 0 or Tf.size == 0:
             return
-        if (np.any(P[finite] < PAN2021_P_MPA[0]) or np.any(P[finite] > PAN2021_P_MPA[1])
-                or np.any(T[finite] < PAN2021_T_K[0]) or np.any(T[finite] > PAN2021_T_K[1])):
+        if (np.any(Pf < PAN2021_P_MPA[0]) or np.any(Pf > PAN2021_P_MPA[1])
+                or np.any(Tf < PAN2021_T_K[0]) or np.any(Tf > PAN2021_T_K[1])):
             log.warning(
                 f'Pan et al. (2021) NaCl conductivity evaluated outside the '
                 f'experimental envelope P {PAN2021_P_MPA} MPa, T {PAN2021_T_K} K '
-                f'(requested P [{np.nanmin(P[finite]):.0f}, {np.nanmax(P[finite]):.0f}] MPa, '
-                f'T [{np.nanmin(T[finite]):.1f}, {np.nanmax(T[finite]):.1f}] K). '
+                f'(requested P [{np.nanmin(Pf):.0f}, {np.nanmax(Pf):.0f}] MPa, '
+                f'T [{np.nanmin(Tf):.1f}, {np.nanmax(Tf):.1f}] K). '
                 f'Values are smooth extrapolations; below ~212 MPa the model '
                 f'misses the MD-predicted conductivity maximum.')
             self._warned = True

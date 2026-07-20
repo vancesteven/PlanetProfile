@@ -1214,6 +1214,31 @@ def render_amortized_config():
     slot = _SBI_ARTIFACT_SLOTS[fname]
     artifact_path = _sbi_artifacts_dir() / fname
 
+    # Body-of-record banner. The dropdown has no body-aware default, so it
+    # sits on the FIRST slot (Titan) on open — which silently seeds Titan's
+    # k2 (Re_k2 = 0.608) into the observable defaults below. A user on
+    # Europa then reads Titan's k2 as Europa's (user-reported 2026-07-20).
+    # Ordering is intentionally unchanged; make the active body unmistakable
+    # instead, and warn when it disagrees with the globally selected planet.
+    _slot_body = slot['bodyname']
+    # 'ChosenPlanet' is the canonical body-NAME string (path-validated, e.g.
+    # "Europa"/"Titan"); 'Planet' is a PlanetStruct object, so str() on it
+    # yields an object repr — never compare against that (it would make the
+    # mismatch warning fire constantly with garbage text).
+    _chosen = st.session_state.get('ChosenPlanet', None)
+    _global_body = (str(_chosen).strip().capitalize()
+                    if _chosen and not str(_chosen).startswith('--') else '')
+    if _global_body and _global_body != _slot_body:
+        st.warning(
+            f"⚠️ You are viewing the **{_slot_body}** model, but your "
+            f"globally selected body is **{_global_body}**. Every observable "
+            f"default below — including k₂ — is a **{_slot_body}** value. "
+            f"Switch the dropdown above to a {_global_body} model if that is "
+            f"what you intend.")
+    else:
+        st.info(f"📍 Active model body: **{_slot_body}** — the observable "
+                f"defaults below are {_slot_body} values.")
+
     # Reseed per-slot widget state when the artifact selection changes.
     # Keyed widget values win over value= defaults on rerun, so without
     # this the previous slot's inputs leak into the new slot wherever the
@@ -1423,6 +1448,22 @@ def render_amortized_config():
     n_reeval = st.select_slider("Heating re-evaluation subset:",
                                 options=reeval_opts,
                                 value=reeval_default, key='amort_n_reeval')
+    # Derived-quantity recompute subset. This is the dominant wall-time cost
+    # of amortized conditioning (two forward-model passes per sample:
+    # k2/CMR2/thicknesses + the true Gaussian log-likelihood). The flow draw
+    # itself is instant; capping the recompute is what makes conditioning
+    # interactive. Rows beyond the subset are NaN-padded — k2/CMR2 cloud
+    # plots already filter NaN, and best-fit uses nanargmax. "All" recomputes
+    # every sample (the artifact/validation-grade path).
+    derived_opts = [500, 1000, 2000, 5000, 'All']
+    n_derived_choice = st.select_slider(
+        "Derived-quantity recompute subset (k₂/CMR²/likelihood):",
+        options=derived_opts, value=1000, key='amort_n_derived',
+        help="Caps the forward-model recompute that dominates conditioning "
+             "time. The subset always includes the heating subset. Lower = "
+             "faster conditioning; un-recomputed samples are omitted from "
+             "the k₂/CMR² clouds. 'All' matches the validation-grade run.")
+    n_derived = None if n_derived_choice == 'All' else int(n_derived_choice)
     seed = st.number_input("Seed:", value=42, step=1, key='amort_seed')
 
     # --- Validated-domain guard (hard refusal, per deployment conditions) ---
@@ -1484,6 +1525,7 @@ def render_amortized_config():
         'truncate_bounds': truncate_bounds or None,
         'n_posterior_samples': int(n_post),
         'n_reeval': int(n_reeval),
+        'n_derived': n_derived,
         'seed': int(seed),
         'cache_path': cache_path,
         'config_path': slot.get('config_path'),
@@ -1571,6 +1613,7 @@ def _amortized_spec_fingerprint(spec):
         'truncate': spec['truncate_bounds'],
         'n_post': spec['n_posterior_samples'],
         'n_reeval': spec['n_reeval'],
+        'n_derived': spec.get('n_derived'),
         'seed': spec['seed'],
     }, sort_keys=True)
 
@@ -1637,6 +1680,7 @@ def render_amortized_run_button(spec, InferenceConfig):
                 n_posterior_samples=spec['n_posterior_samples'],
                 seed=spec['seed'],
                 n_reeval=spec['n_reeval'],
+                n_derived=spec.get('n_derived'),
                 truncate_bounds=spec['truncate_bounds'],
                 progress_callback=progress_callback,
                 validated_version_pairs=spec.get('validated_version_pairs', ()),
@@ -1795,6 +1839,14 @@ def render_results():
             else:
                 corner_samples_plot = corner_samples[:, valid_cols]
                 corner_labels_plot = [corner_labels[i] for i in valid_cols]
+                # Drop rows with any non-finite value: derived columns
+                # (D_ocean/D_iceIh) are NaN-padded outside the recompute
+                # subset in amortized mode (n_derived), and corner.corner
+                # errors on NaN. Parameter columns are always finite, so
+                # this only prunes un-recomputed derived rows.
+                row_ok = np.all(np.isfinite(corner_samples_plot), axis=1)
+                if not np.all(row_ok):
+                    corner_samples_plot = corner_samples_plot[row_ok]
 
                 n_dim = len(valid_cols)
                 fig_size = max(10, 2.5 * n_dim)

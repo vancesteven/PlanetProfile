@@ -928,6 +928,7 @@ class SBIRunner:
         t0: float,
         progress_cb: Optional[Callable] = None,
         truncate_bounds: Optional[Dict[str, Tuple[float, float]]] = None,
+        n_derived: Optional[int] = None,
     ):
         """Steps 2-4 of the SBI pipeline: condition the (already loaded or
         trained) flow on ``x_obs``, recompute derived quantities with the
@@ -941,6 +942,18 @@ class SBIRunner:
         reweighting needed). Oversamples in batches until
         ``n_posterior_samples`` survive (cap 10x); raises if the kept
         fraction falls below 1%.
+
+        ``n_derived`` bounds the number of samples on which the forward-model
+        derived quantities (k2/h2/CMR2/thicknesses/gravity) AND the true
+        Gaussian log-likelihood are recomputed. It is the dominant cost of
+        this method (two forward passes per sample). When set below
+        ``n_samples`` a seeded subset (a SUPERSET of the heating subset, so
+        heating rows always carry derived quantities) is recomputed and the
+        remaining rows are NaN-padded; ``log_likelihoods`` is therefore a
+        TRUE guard-aware chi^2 on the evaluated subset and NaN elsewhere
+        (``get_best_fit`` uses ``nanargmax``). Full-density flow_log_prob
+        stays over ALL samples. None => recompute all (the artifact/validation
+        path; identical to the historical behavior).
         """
         from .inference_core import InferenceResult
 
@@ -1034,24 +1047,60 @@ class SBIRunner:
         from .forward_models import forward_model_k2_flexible
         from .mcmc_runner import _structure_R_body_km
 
-        log.info(f"Recomputing k2/CMR2/thicknesses for {n_samples} posterior samples...")
-        k2_results = []
-        h2_results = []
-        cmr2_results = []
-        D_ocean_results = []
-        D_iceIh_results = []
-        D_hsphere_results = []
+        # Derived-quantity + likelihood recompute subset. This is the
+        # dominant cost of amortized inference (two forward passes per
+        # sample); ``n_derived`` bounds it for the interactive GUI. The
+        # subset is a SUPERSET of the heating subset so every heating row
+        # also carries k2/CMR2/etc., and rows outside it are NaN-padded to
+        # preserve full length == n_samples (InferenceResult contract).
+        n_reeval = min(int(n_reeval), n_samples)
+        rng = np.random.RandomState(seed)
+        idx_heat = rng.choice(n_samples, n_reeval, replace=False)
+        idx_heat.sort()
+        if n_derived is None or int(n_derived) >= n_samples:
+            derived_indices = np.arange(n_samples)
+        else:
+            n_der = max(int(n_derived), n_reeval)
+            n_der = min(n_der, n_samples)
+            # Superset of the heating subset: keep idx_heat, fill the rest
+            # from a seeded permutation of the remaining rows.
+            heat_set = set(idx_heat.tolist())
+            rng2 = np.random.RandomState(seed + 1)
+            rest = np.array([i for i in rng2.permutation(n_samples)
+                             if i not in heat_set], dtype=int)
+            n_extra = max(n_der - len(idx_heat), 0)
+            derived_indices = np.concatenate([idx_heat, rest[:n_extra]])
+            derived_indices = np.unique(derived_indices)  # sorted
+        n_der_eff = len(derived_indices)
+        log.info(f"Recomputing k2/CMR2/thicknesses for {n_der_eff}/{n_samples} "
+                 f"posterior samples"
+                 + (" (full)" if n_der_eff == n_samples
+                    else f" (n_derived={n_derived})") + " ...")
+
         gravity_active = runner._gravity_clairaut_active()
-        c20_results = [] if gravity_active else None
-        c22_results = [] if gravity_active else None
-        for i, theta in enumerate(samples):
+        # Full-length NaN-padded arrays; only derived_indices rows are filled.
+        k2_results = np.full((n_samples, 2), np.nan)
+        h2_results = np.full((n_samples, 2), np.nan)
+        cmr2_results = np.full(n_samples, np.nan)
+        D_ocean_results = np.full(n_samples, np.nan)
+        D_iceIh_results = np.full(n_samples, np.nan)
+        D_hsphere_results = np.full(n_samples, np.nan)
+        c20_results = np.full(n_samples, np.nan) if gravity_active else None
+        c22_results = np.full(n_samples, np.nan) if gravity_active else None
+        # True Gaussian chi^2 log-likelihood on the SAME subset, via the exact
+        # MCMC likelihood (includes the no-ocean guard, which returns the
+        # -1e30 sentinel for guard-violating draws). NaN outside the subset;
+        # get_best_fit() uses nanargmax so it never selects a padded row.
+        log_likelihoods = np.full(n_samples, np.nan)
+        for count, i in enumerate(derived_indices):
+            theta = samples[i]
             theta_dict = runner._expand_theta(theta)
             Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
                 theta_dict, runner.structure_data,
                 return_heating=False, arrhenius_params=runner.arrhenius_params
             )
-            k2_results.append((Re_k2, Im_k2))
-            h2_results.append((Re_h2, Im_h2))
+            k2_results[i] = (Re_k2, Im_k2)
+            h2_results[i] = (Re_h2, Im_h2)
             # CMR2 must use the same dispatch as the likelihood/reporting fix
             # (2026-07): _compute_model_cmr2 is core-sensitive for v2 configs
             # (sampled core + mass-conservation rho_sil, e.g. Europa 7D) and
@@ -1060,33 +1109,22 @@ class SBIRunner:
             # displaying a CMR2 distribution systematically offset from the
             # Gaussian the flow was conditioned on (user-reported 2026-07-13:
             # Europa MoI 'far left of the Gaussian' in the GUI).
-            cmr2_results.append(runner._compute_model_cmr2(theta_dict))
-            D_ocean_results.append(runner._get_cache_scalar(theta_dict, 'D_ocean_km'))
-            D_iceIh_results.append(runner._get_cache_scalar(theta_dict, 'D_iceIh_km'))
-            D_hsphere_results.append(runner._get_cache_scalar(theta_dict, 'D_hsphere_km'))
+            cmr2_results[i] = runner._compute_model_cmr2(theta_dict)
+            D_ocean_results[i] = runner._get_cache_scalar(theta_dict, 'D_ocean_km')
+            D_iceIh_results[i] = runner._get_cache_scalar(theta_dict, 'D_iceIh_km')
+            D_hsphere_results[i] = runner._get_cache_scalar(theta_dict, 'D_hsphere_km')
             if gravity_active:
                 pair = runner._derive_gravity_pair(theta_dict)
-                c20_results.append(pair[0] if pair is not None else np.nan)
-                c22_results.append(pair[1] if pair is not None else np.nan)
-            if (i + 1) % 100 == 0:
-                log.info(f"  {i+1}/{n_samples} samples recomputed")
-        k2_results = np.array(k2_results)
-        h2_results = np.array(h2_results)
-        cmr2_results = np.array(cmr2_results)
-        D_ocean_results = np.array(D_ocean_results)
-        D_iceIh_results = np.array(D_iceIh_results)
-        D_hsphere_results = np.array(D_hsphere_results)
-        if gravity_active:
-            c20_results = np.array(c20_results)
-            c22_results = np.array(c22_results)
+                c20_results[i] = pair[0] if pair is not None else np.nan
+                c22_results[i] = pair[1] if pair is not None else np.nan
+            log_likelihoods[i] = float(runner.log_likelihood_fn(theta))
+            if (count + 1) % 100 == 0:
+                log.info(f"  {count+1}/{n_der_eff} samples recomputed")
         _progress(3, n_samples)
 
-        # Heating on a seeded subset (same pattern/settings as MCMCRunner.run).
-        n_reeval = min(int(n_reeval), n_samples)
+        # Heating on the seeded subset (same pattern/settings as
+        # MCMCRunner.run); idx_heat ⊆ derived_indices by construction.
         log.info(f"Recomputing heating for {n_reeval} posterior samples...")
-        rng = np.random.RandomState(seed)
-        idx_heat = rng.choice(n_samples, n_reeval, replace=False)
-        idx_heat.sort()
         heating_results = []
         for si in idx_heat:
             theta_dict = runner._expand_theta(samples[si])
@@ -1095,15 +1133,6 @@ class SBIRunner:
                 return_heating=True, arrhenius_params=runner.arrhenius_params
             )
             heating_results.append(perPhase_W if perPhase_W is not None else {})
-
-        # True Gaussian chi^2 log-likelihood per sample, via the exact
-        # likelihood the MCMC path samples (includes the no-ocean guard,
-        # which returns the -1e30 sentinel for guard-violating draws).
-        log.info(f"Evaluating Gaussian log-likelihood for {n_samples} samples...")
-        log_likelihoods = np.array(
-            [float(runner.log_likelihood_fn(theta)) for theta in samples],
-            dtype=np.float64,
-        )
         _progress(4, n_samples)
 
         elapsed = time.time() - t0
@@ -1140,6 +1169,10 @@ class SBIRunner:
                 'density_estimator': self._train_info.get('density_estimator'),
                 'elapsed_time_s': elapsed,
                 'heating_indices': idx_heat,
+                # Rows on which derived quantities + true log-likelihood were
+                # recomputed (a superset of heating_indices). Equals all
+                # samples when n_derived is None. Other rows are NaN-padded.
+                'derived_indices': derived_indices,
                 'artifact_path': str(artifact_path),
                 'artifact_reused': reused,
                 'config_hash': config_hash,
@@ -1200,6 +1233,7 @@ class SBIRunner:
         truncate_bounds: Optional[Dict[str, Tuple[float, float]]] = None,
         progress_callback: Optional[Callable] = None,
         validated_version_pairs=None,
+        n_derived: Optional[int] = None,
     ):
         """Amortized inference from a pretrained artifact — NEVER trains.
 
@@ -1217,6 +1251,9 @@ class SBIRunner:
                 ``config.observables`` central values). Aliased 'Im_k2' /
                 'abs_Im_k2' accepted.
             n_posterior_samples / seed / n_reeval: as in run().
+            n_derived: Optional cap on forward-model derived-quantity +
+                true-likelihood recompute (the dominant cost). See
+                ``_condition_and_package``. None => recompute all.
             truncate_bounds: Optional exact uniform-prior truncation, a
                 {param: (lo, hi)} sub-box of the trained prior
                 (see ``_condition_and_package``).
@@ -1296,6 +1333,7 @@ class SBIRunner:
             t0=time.time(),
             progress_cb=_progress,
             truncate_bounds=truncate_bounds,
+            n_derived=n_derived,
         )
         result.metadata['mode'] = 'amortized'
         result.metadata['artifact_created_utc'] = artifact.get('created_utc')

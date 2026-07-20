@@ -296,9 +296,11 @@ def test_result_serialization():
         loaded_result = InferenceResult.load(tmp_path)
         log.info("✓ Result loaded from pickle")
 
-        # Verify data matches
-        assert np.allclose(loaded_result.samples, result.samples)
-        assert np.allclose(loaded_result.log_likelihoods, result.log_likelihoods)
+        # Verify data matches. equal_nan=True so a NaN-padded log-likelihood
+        # (amortized SBI n_derived subset) round-trips cleanly.
+        assert np.allclose(loaded_result.samples, result.samples, equal_nan=True)
+        assert np.allclose(loaded_result.log_likelihoods,
+                           result.log_likelihoods, equal_nan=True)
         assert loaded_result.param_names == result.param_names
 
         log.info("✓ Result round-trip successful")
