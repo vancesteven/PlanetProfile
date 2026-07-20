@@ -1,5 +1,8 @@
 # HANDOFF 2026-07-09 — Test50 Titan SBI validation campaign
 
+> **CURRENT STATE + Machine B queue: see plans/STATUS-2026-07-20.md.**
+> This file remains the detailed day-by-day log (addenda below).
+
 ## RATIFIED 2026-07-09 (user, via decision prompt)
 
 A. Observation-noise injection: APPROVED, likelihood convention (x_Im = |Im_model| +

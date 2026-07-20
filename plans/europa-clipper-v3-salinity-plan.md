@@ -1,5 +1,9 @@
 # Europa Clipper v3: ocean salinity as an 8th sampled parameter (Machine B)
 
+> STATUS: v3 artifact VETOED (wrong k2 bounds); its 2D (Tb x w) cache +
+> infrastructure carried into v4. Retained for the cache/interpolant
+> design record. See plans/STATUS-2026-07-20.md.
+
 Author: Machine A, 2026-07-14 (user-directed: "train for a range of
 salinities from 0.1 to 100 ppt (range widened from 1 ppt, user 2026-07-18)", seawater composition retained). Machine B
 runs everything compute-intensive.

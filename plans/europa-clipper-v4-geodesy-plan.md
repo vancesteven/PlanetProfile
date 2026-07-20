@@ -2,7 +2,10 @@
 
 Author: Machine A, 2026-07-19 (user-directed). Machine B runs all
 compute; this plan is written to minimize Machine B token use — all
-decisions are made here, B executes. Status: `not implemented`.
+decisions are made here, B executes. Status: **DONE** — artifact
+trained + gated (Machine B, fc8cc72b), GUI slot integrated + sampling
+verified (Machine A, 6a463baa); awaiting user ratification. See
+plans/STATUS-2026-07-20.md.
 
 Scientific review 2026-07-19 (opus): **PASS WITH CONCERNS** — physics of
 the forward map confirmed (RD inverse algebra exact; q_r rotational
