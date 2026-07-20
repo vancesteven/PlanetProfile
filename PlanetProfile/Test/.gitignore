@@ -13,3 +13,8 @@
 # v4 Europa Clipper geodesy committed test fixture (11D reference posterior;
 # needed by the v4 degeneracy + non-hydrostaticity gates — see Test53_geodesy_v4)
 !mcmc_results/Europa/Test53_geodesy_v4/europa_clipper_v4_reference_result.pkl
+
+# Cassini-Enceladus smoke test fixtures (Machine A test runs, user-directed
+# 2026-07-19; production cache/results are Machine B work)
+!mcmc_results/Enceladus/Cassini_smoke/enceladus_seawater_smoke_grid.pkl
+!mcmc_results/Enceladus/Cassini_smoke/enceladus_cassini_smoke_result.pkl

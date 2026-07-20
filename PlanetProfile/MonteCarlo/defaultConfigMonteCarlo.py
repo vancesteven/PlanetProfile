@@ -25,7 +25,7 @@ def montecarloAssign():
         'dzIceI_km', 'D_km', 'Core_R_km', 'rho_iceIhCond_kgm3', 'rho_iceIhConv_kgm3',
         'rho_ocean_kgm3', 'rho_sil_kgm3', 'rho_core_kgm3', 'GS_condIh_GPa', 'GS_convIh_GPa',
         'GS_sil_GPa', 'GS_core_GPa', 'kThermWater_WmK', 'kThermIceIh_WmK', 'kThermCore_WmK',
-        'etaSil_Pas', 'etaMelt_Pas', 'TSurf_K', 'EactIceIh_kJmol', 'AndradeExponent'
+        'etaSil_Pas', 'etaMelt_Pas', 'TSurf_K', 'EactIceIh_kJmol', 'AndradeAlpha'
     ]
     
     # Distribution types for each parameter (currently only 'uniform' is supported)
@@ -59,7 +59,7 @@ def montecarloAssign():
         'etaMelt_Pas': 'uniform',
         'TSurf_K': 'uniform',
         'EactIceIh_kJmol': 'uniform',
-        'AndradeExponent': 'uniform'
+        'AndradeAlpha': 'uniform'
         
     }
     
@@ -91,7 +91,7 @@ def montecarloAssign():
         'etaMelt_Pas': [1e18, 1e20],  # Melt viscosity in Pa s
         'TSurf_K': [260, 272],  # Surface temperature in K
         'EactIceIh_kJmol': [0, 100],  # Activation energy for ocean in kJ/mol
-        'AndradeExponent': [0, 10]  # Andrade exponent
+        'AndradeAlpha': [0, 10]  # Andrade alpha
     }
     
     # Output settings

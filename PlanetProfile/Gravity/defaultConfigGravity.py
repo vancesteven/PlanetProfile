@@ -22,11 +22,10 @@ def gravityAssign():
                                            # Status: NOT YET IMPLEMENTED - deferred pending benchmarking justification
                                            # See JULIA_ALMA3_ASSESSMENT.md for implementation approach
 
-    # Parsing parameters
-    GravityParams.rheology_models = {'0': 'newton', 'Ih': 'andrade', 'Ih_conv': 'andrade',
-                                     'II': 'andrade', 'III': 'andrade', 'III_conv': 'andrade',
-                                     'IV': 'andrade', 'V': 'andrade', 'V_conv': 'andrade', 'VI': 'andrade',
-                                     'Sil': 'andrade', 'Fe': 'elastic', 'Clath': 'elastic', 'Clath_conv': 'andrade'}  # Rheology structure model, where each model corresponds to a layer
+    # Rheology model for each layer
+    GravityParams.rheology_models = {'0': 'newton', 'Ih': 'elastic', 'Ih_conv': 'andrade','II': 'maxwell', 'III': 'maxwell', 'III_conv': 'andrade',
+                                     'IV': 'maxwell', 'V': 'maxwell','V_conv': 'andrade', 'VI': 'maxwell',
+                                     'Sil': 'elastic', 'Sil_conv': 'elastic','Fe': 'elastic', 'Clath': 'newton', 'Clath_conv': 'andrade'}  # Rheology structure model, where each model corresponds to a layer
 
     # General parameters
     GravityParams.num_digits = 128  # Set precision

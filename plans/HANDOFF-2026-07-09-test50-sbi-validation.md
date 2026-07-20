@@ -1467,3 +1467,166 @@ confirmed (zeta_sil -1.5 dex quintuples |Im k2|). Machine B: train from
 the RENAMED configs; SBC/crosscheck at 8/11 params; add the
 zeta-Ih-vs-zeta-sil joint-posterior report + the pre-registered
 ice-vs-silicate heating-fraction comparison (v4 plan, zeta section).
+
+## ADDENDUM 2026-07-19i (Machine A) — main merged; Enceladus test runs; Park 2024
+
+1. **origin/main MERGED into genai** (523890a0; 33 conflicted files;
+   policy + verification in the merge commit message). Libration model
+   (Gravity/Librations.py), DP-ALMA backend, etaMelt plumbing, upstream
+   bug fixes all in; genai's TidalPy backend, MoonMag first-party,
+   McCleskey speciation, Arrhenius viscosity, guarded reaktoro import
+   all preserved. NO merges genai -> main (user directive). Machine B:
+   run the BuildTest sweep to close the merge's PP-pipeline
+   verification (inference stack already verified: 45/45 tests + v2
+   artifact serving).
+2. **Park et al. 2024 supersedes Iess/Thomas for Enceladus**
+   (constraints doc updated): Case 2 field, unnormalized at 256.6 km —
+   C20 -5477.45 +/- 36.99 e-6, C22 1517.90 +/- 14.70 e-6, libration
+   0.091 +/- 0.003 deg (1 sigma). J2/C22 = 3.61.
+3. **Machine A test runs COMPLETE (user-directed; B does production
+   only):** Enceladus smoke cache (3 Tb nodes, Seawater 10 ppt,
+   Test/mcmc_results/Enceladus/Cassini_smoke/), new observable channel
+   'libration_deg' (rigid 3-layer Van Hoolst 2008 via merged
+   Librations.py; MCMCRunner._derive_libration_deg; wired into
+   likelihood + SBI dataset), body-parameterized gravity keys
+   (metadata gravity_ref_radius_m / gravity_j2_over_c22 threaded into
+   _derive_gravity_pair), cache_builder bulk_overrides (Enceladus MoI
+   window must be widened for cache builds — MoI swings hugely per
+   0.1 K; the inference constrains MoI via observables instead),
+   Enceladus in BODY_ORBITAL_PARAMS + Torb_s-derived meanMotion.
+   Channel sanity at fiducial: libration 0.111 deg vs obs 0.091
+   (rigid-shell overestimate, correct direction); hydrostatic C22
+   1.444e-3 vs measured 1.518e-3 and C20 -4.68e-3 vs -5.477e-3 (the
+   documented non-hydrostatic tension). Smoke config:
+   configs/enceladus_cassini_smoke_6D.json.
+
+**Machine B production queue for Cassini-Enceladus** (after v1.1 + v4):
+- Dense Tb cache (bulk_overrides Cuncertainty ~0.08; box [271.8,
+  272.6] at 10 ppt — 272.7+ exceeds freezing; consider salinity
+  sensitivity), production 8D config = smoke + dC20_nh U[-1.5e-3,
+  1.5e-3] + dC22_nh U[-1e-4, 1e-4] per the constraints doc.
+- BLOCKING before training: (a) exact Tricarico (2014) J2/C22 ratio
+  for Enceladus (config carries provisional 3.24 with provenance
+  note); (b) correlated 2x2 (C20, C22) covariance conditioning
+  (constraints doc, review R3-binding); (c) decide elastic libration
+  correction (y1 from the TidalPy solution) vs documented rigid-shell
+  systematic.
+
+## ADDENDUM 2026-07-19j (Machine A) — Enceladus BLOCKING ITEMS RESOLVED (none awaited B)
+All three pre-production blockers closed on Machine A; none depended on
+Machine B MCMC results:
+1. **Hydrostatic ratio = 3.25** (McKinnon 2015, GRL 42, 2137: rapid
+   1.37-d spin + differentiated structure) — config updated from the
+   provisional 3.24. Structure-dependence bracket [3.25, 3.326
+   (homogeneous Tricarico Eq. 42)] documented as a <= ~1.2e-4
+   systematic on the recovered dC20_nh (~20% of the detected offset) —
+   report alongside the posterior. Bonus: differentiated-body
+   corrections exceeding the homogeneous formula also validates v4's
+   Europa 3.324 (GC21) as the right magnitude class.
+2. **Correlated (C20, C22) conditioning IMPLEMENTED**: config metadata
+   observable_correlations = {"C20,C22": rho} -> bivariate Gaussian in
+   the MCMC likelihood AND correlated multivariate noise in
+   generate_sbi_dataset (training generative model matches the
+   likelihood). rho = +0.47 estimated from Iess et al. 2014's ratio
+   sigma (their 3.51 +/- 0.05 vs +/- 0.042 uncorrelated implies
+   rho(J2,C22) ~= -0.47 -> +0.47 in C20 convention); Park et al. 2024
+   publish no covariance — request from authors/PDS if possible, else
+   the estimate stands (documented in config). Tests: rho=0 reduces
+   exactly to independent terms; noise correlation verified
+   empirically (tests/gravity_channels_test.py, 7/7).
+3. **Elastic libration correction UNNECESSARY**: rigid-shell channel
+   0.11091 deg vs full elastic DP-ALMA (y1, rigid=False) 0.11094 deg
+   at the default structure — 0.03% = ~0.01 sigma of the 0.003-deg
+   measurement (Enceladus k2 ~ 0.013; negligible tidal softening).
+   Rigid channel ships for production; PP-pipeline elastic value
+   retained as the crosscheck.
+Machine B's Enceladus production queue now has NO blocking items
+beyond compute: dense Tb cache (+ salinity sensitivity if desired),
+8D nuisance config per constraints doc, reference MCMC + training +
+gates.
+
+## ADDENDUM 2026-07-19k (Machine A) — Park et al. 2024 ERRATUM applied
+User supplied the published erratum (authoritative version of record).
+Changes applied: libration observable 0.091 -> 0.092 deg (Eq. 6
+amplitude 0.092119; 3-sigma 0.009 unchanged); interior
+context/crosscheck values revised (shell 25-29 km pref. 27, ocean
+26-30 km pref. 28 - THICKER ocean than v1 - core R ~197 km, rho
+2290-2350 pref. 2320, MoI 0.337 [0.335, 0.338], heat loss 20-30 GW).
+The MEASURED Case 2 gravity field is NOT affected (erratum touches
+shape/topography-derived quantities only) - C20/C22 observables stand.
+Erratum's added rescaling note C_nm ~ (R_old/R_new)^n confirms our
+degree-2 (R/R_ref)^2 convention. Config + constraints doc updated;
+committed smoke result pkl ran pre-erratum at 0.091 (0.3-sigma shift,
+immaterial for the channel-exercise smoke); Machine B production uses
+0.092. papers/park2024global.pdf remains the v1 PDF - read values
+through the erratum notes in the config/constraints doc.
+
+## ADDENDUM 2026-07-19l (Machine A) — Interactive 3D globe in results view
+User-requested feature: "🌐 Interactive Globe" expander in the inference
+results (Utilities/globe_view.py + assets/globes/): grab-to-rotate
+plotly globe with the body's NASA/USGS global mosaic on the surface,
+concentric posterior-median interior shells (core / silicate seafloor /
+ocean top), cutaway toggle (90-degree wedge, staggered per shell),
+surface-opacity + shape-exaggeration sliders. Degree-2 figure: the
+surface is deformed by the equipotential implied by the C20/C22
+observables with fluid amplification (1+k_f)/k_f — the user's point
+that even 1D inference carries a non-spherical shape C/MR2 never shows.
+Textures shipped (public domain, 75-170 KB each): Europa + Callisto
+(USGS CKAN quicklooks), Enceladus (PIA18435), Titan (PIA19658 cropped);
+Ganymede falls back to a shaded sphere until a texture lands. Verified:
+AppTest on both the Enceladus smoke result (C20/C22 -> deformed figure)
+and the Europa v3 reference (sphere + note), plus PNG inspection of the
+cutaway (Europa: ice rim / blue ocean ring / silicate mantle / metal
+core at posterior-median radii). Future 3D: per-layer r(theta, phi)
+fields on the same mesh (roadmap); browser does all rendering — no new
+HF runtime deps (kaleido/chrome were dev-only for verification).
+
+## ADDENDUM 2026-07-19m (Machine A) — globe v2 (user feedback)
+1. Europa texture: 2048x1024 extracted from the USGS 500-m mosaic COG
+   via HTTP range reads (rasterio /vsicurl, dev-only dep) with a 2-98
+   percentile contrast stretch + unsharp mask — lineae/mottled terrain
+   now visible (the old 1024 quicklook was washed out).
+2. Cutaway toggle REMOVED: always cutaway, innermost body now a SOLID
+   sphere (user); shells on a coarse 36x72 mesh (uniform color needs no
+   density), textured surface on 160x320 (payload ~2.6 MB, builds in
+   0.08 s — render cost is dominated by plotly WebGL init per rerun).
+3. SAMPLE PICKER (user request): a clickable posterior scatter
+   (Tb vs ocean thickness, colored by salinity when sampled) above the
+   globe — clicking a point rebuilds the globe from THAT sample's
+   per-sample packaging (D_hsphere/D_iceIh/D_ocean[i], R_core sample,
+   per-sample kf via RD, per-sample c20/c22 when packaged) with the
+   sample's parameter values in the caption; default = posterior
+   median. This covers the 'sliders in model space' idea with
+   posterior-consistent structures (arbitrary off-posterior sliders
+   would need a cache-lookup path — future).
+Future upgrade recorded: true RGB texture mapping + faster rotation =
+three.js custom component or missionwidget.com (roadmap 3D note).
+AppTest green on both fixtures (toggle absent, picker caption present);
+PNG inspection: solid core, contrast-stretched surface.
+
+## ADDENDUM 2026-07-19n (Machine A) — globe v3: figure fallback + principal axes
+User: exaggeration did nothing + wants A/B/C axes. Root cause: runs
+without C20/C22 observables (all CMR2-only configs) had no figure to
+exaggerate. Fixes: (1) hydrostatic_display_pair(body, R, kf) — when a
+run carries no gravity pair, the display figure comes from the posterior
+k_f and the body's rotation (BODY_ROTATION table; caption states the
+source). Europa true figure checks out: a - c = 3.19 km at 1x
+(literature ~3-4 km). (2) Principal axes drawn + labeled: A (sub-parent
+a-axis, smallest moment), B (orbital), C (spin, largest), hover shows
+semi-axis lengths; caption lists true-figure a/b/c and a - c. (3)
+Interior shells now deform with the same relative degree-2 figure (no
+poke-through at high exaggeration; the core visibly elongates along A);
+axis range scales with the exaggerated semi-axes. Verified numerically
+(a - c scales exactly with exaggeration) + PNG inspection + AppTest.
+
+## ADDENDUM 2026-07-19o (Machine A) — HF redeploy SHIPPED (globe batch)
+User ran the deploy one-liner: snapshot from genai 6c58553f uploaded
+2026-07-20 01:20 UTC; Space rebuild completed, stage RUNNING, app
+HTTP 200. Live batch adds: interactive globe (textures, cutaway +
+solid core, posterior sample picker, principal axes A/B/C, hydrostatic
+figure fallback), per-sample connected-signals cloud plot, C/MR2
+MacCullagh explainer, 1D mission-body slot labels, RETIRING scope
+notes on both Europa slots, v3 slot removal, the full main merge
+(libration + DP-ALMA + upstream fixes), Im_h2 fold fix, adaptive
+truncation. Server-side checks `verified`; in-browser click-throughs
+(globe rotation, picker, texture) with the user.

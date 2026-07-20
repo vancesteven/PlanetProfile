@@ -1,5 +1,5 @@
 """
-PPTest14
+PPTest27
 Europa-like, pure water model with whole-shell, porous clathrate ice
 For testing purposes
 """

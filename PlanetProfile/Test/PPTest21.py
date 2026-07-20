@@ -19,7 +19,7 @@ Planet.Bulk.Psurf_MPa = 0.15
 Planet.Bulk.Cmeasured = 0.33  # Value from Flavio but accounting for Gao and Stevenson (2013)
 Planet.Bulk.Cuncertainty = 0.01  # No uncertainty is reported by Durante et al.
 Planet.Do.NONHYDROSTATIC = False
-Planet.Bulk.Tb_K = Constants.TtripleIh_III_L_K - 5 # Set the Tb_K to be slightly below the triple point to ensure we are in the ice Ih to high pressure ice phase transition
+Planet.Bulk.Tb_K = Constants.triplePointT_K - 20 # Set the Tb_K to be slightly below the triple point to ensure we are in the ice Ih to high pressure ice phase transition
 # Planet.Do.ICEIh_THICKNESS = True
 # Planet.Bulk.zb_approximate_km = 300 # The approximate ice shell thickness desired
 Planet.Do.HYDROSPHERE_THICKNESS = True
@@ -37,8 +37,8 @@ Planet.Steps.iSilStart = Planet.Steps.nIceI
 
 """ Hydrosphere assumptions/settings """
 # Planet.Ocean.comp = 'MgSO4'
-Planet.Ocean.comp = 'PureH2O'
-Planet.Ocean.wOcean_ppt = 0
+Planet.Ocean.comp = 'NaCl'
+Planet.Ocean.wOcean_ppt = 100
 Planet.Ocean.deltaP = 8.0
 Planet.Ocean.deltaT = 0.5
 Planet.Ocean.phaseType = 'lookup'
@@ -50,7 +50,7 @@ Planet.Sil.Qrad_Wkg = 1.5e-12
 Planet.Sil.Htidal_Wm3 = 1e-10
 # Rock porosity
 Planet.Do.POROUS_ROCK = False
-Planet.Do.CONSTANT_INNER_DENSITY = True
+Planet.Do.ConstantProps['Inner'] = True
 Planet.Sil.porosType = 'Han2014'
 Planet.Sil.HtidalMin_Wm3 = 1e-10  # Only needed for non-Han 2014 porosTypes
 Planet.Sil.phiRockMax_frac = 0.90

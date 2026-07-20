@@ -1,7 +1,8 @@
 """
 PPTest29
-Europa-like with 3D lateral structure: SH ice thickness variation + mass conservation
-Tests the Lateral module (SpatialGrid, LateralStructure, MassConservation, LateralIO)
+Europa-like, test using constant thermal conductivty for ice layers and ocean layers, specifying activation energy for diffusion of ice phases Ih-VI, and using a different viscosity for rock and corelayers
+Also tests 3D lateral structure: SH ice thickness variation + mass conservation
+(the Lateral module: SpatialGrid, LateralStructure, MassConservation, LateralIO)
 For testing purposes
 """
 import numpy as np
@@ -27,17 +28,21 @@ Planet.Steps.nCore = 10
 Planet.Steps.iSilStart = Planet.Steps.nIceI
 
 """ Hydrosphere assumptions/settings """
-Planet.Ocean.comp = 'Seawater'
-Planet.Ocean.wOcean_ppt = Constants.stdSeawater_ppt
+Planet.Ocean.comp = "CustomSolutionSeawater = NH4+: 0.5, Cl-: 0.5657647, Na+: 0.4860597, Mg+2: 0.0547421, Ca+2: 0.0106568, K+: 0.0105797, SO4-2: 0.0292643"
+Planet.Ocean.wOcean_ppt = 0
 Planet.Ocean.deltaP = 1.0
 Planet.Ocean.PHydroMax_MPa = 250.0
+Planet.Ocean.kThermIce_WmK = {phase: 2 for phase in ['Ih', 'II', 'III', 'V', 'VI', 'Clath']} # New setting
+Planet.Ocean.kThermWater_WmK = 0.6 # New setting
 
 """ Silicate Mantle """
 Planet.Sil.Qrad_Wkg = 5.33e-12
 Planet.Sil.Htidal_Wm3 = 1e-10
+# Rock porosity
 Planet.Do.POROUS_ROCK = False
+# Mantle equation of state model
 Planet.Sil.mantleEOS = 'CV3hy1wt_678_1.tab'
-Planet.Sil.rhoSilWithCore_kgm3 = 3539.0
+Planet.Sil.etaRock_Pas = [1e10, 1e5] # New setting
 
 """ Core assumptions """
 Planet.Do.Fe_CORE = True
@@ -51,6 +56,8 @@ Planet.Core.xFeSmeteoritic = 0.0405
 Planet.Core.xFeS = 0.55
 Planet.Core.xFeCore = 0.0279
 Planet.Core.xH2O = 0.0035
+Planet.Core.etaFeSolid_Pas = 1e20 # New setting
+Planet.Core.etaFeLiquid_Pas = 1e15 # New setting
 
 """ Seismic properties of solids """
 Planet.Seismic.lowQDiv = 1.0

@@ -1,0 +1,86 @@
+{
+  "mode": "mcmc",
+  "bodyname": "Enceladus",
+  "param_space": {
+    "alpha": {
+      "prior_type": "uniform",
+      "bounds": [
+        0.15,
+        0.45
+      ]
+    },
+    "log10_zeta_Ih": {
+      "prior_type": "uniform",
+      "bounds": [
+        -3.0,
+        2.0
+      ]
+    },
+    "log10_zeta_sil": {
+      "prior_type": "uniform",
+      "bounds": [
+        -3.0,
+        2.0
+      ]
+    },
+    "log10_eta_Ih": {
+      "prior_type": "uniform",
+      "bounds": [
+        12.0,
+        17.0
+      ]
+    },
+    "log10_eta_sil": {
+      "prior_type": "uniform",
+      "bounds": [
+        18.0,
+        22.0
+      ]
+    },
+    "Tb_K": {
+      "prior_type": "uniform",
+      "bounds": [
+        271.8,
+        272.6
+      ]
+    }
+  },
+  "observables": {
+    "C20": [
+      -0.00547745,
+      3.699e-05
+    ],
+    "C22": [
+      0.0015179,
+      1.47e-05
+    ],
+    "libration_deg": [
+      0.092,
+      0.003
+    ]
+  },
+  "gravity_forward_model": "clairaut_hydrostatic",
+  "sampler_settings": {
+    "n_effective": 256,
+    "n_active": 128,
+    "n_posterior_samples": 1000,
+    "n_reeval": 30
+  },
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Enceladus/Cassini_smoke/enceladus_seawater_smoke_grid.pkl",
+  "random_state": 42,
+  "planet_template_module": "PlanetProfile.Default.Enceladus.PPEnceladus",
+  "metadata": {
+    "schema_version": "Cassini-Enceladus smoke (test-run scope, Machine A 2026-07-19)",
+    "description": "Cassini-era Enceladus smoke config exercising the merged libration forward model (rigid three-layer Van Hoolst 2008 via Gravity/Librations.py) and the body-parameterized Clairaut gravity pair. Park et al. 2024 (papers/park2024global.pdf) Case 2 field, UNNORMALIZED at reference radius 256.6 km: C20 = -5477.45 +/- 36.99 e-6, C22 = 1517.90 +/- 14.70 e-6; forced libration 0.091 +/- 0.003 deg (1-sigma from their 3-sigma 0.009). NO nuisance offsets in the smoke (the plain hydrostatic pair will sit in TENSION with the measured J2/C22 = 3.61 ratio - expected, documents the non-hydrostaticity; the production 8D config adds dC20_nh/dC22_nh per plans/mission-body-constraints.md and must ALSO use the covariance conditioning). Rigid-shell libration overestimates the shell-elasticity-corrected amplitude; the elastic (y1) correction is a documented production refinement. Composition Seawater 10 ppt (Glein et al. 2018 approx); no iron core (Do.Fe_CORE False) so CMR2/gravity derive from the cached profile directly (no mass-conservation core path in the smoke).",
+    "gravity_ref_radius_m": 256600.0,
+    "gravity_j2_over_c22": 3.25,
+    "gravity_j2_over_c22_provenance": "Enceladus hydrostatic J2/C22 = 3.25 per McKinnon (2015, GRL 42, 2137): rapid synchronous spin (1.37 d) + differentiated structure. RESOLVED 2026-07-19 (was provisional 3.24). Structure-dependence bracket [3.25 (differentiated, McKinnon) - 3.326 (homogeneous, Tricarico 2014 Eq. 42: (10/3)(1 - (9/35)Lambda^2))] maps to a documented systematic on the recovered dC20_nh of <= ~1.2e-4 (~20% of the detected non-hydrostatic offset) - report alongside the posterior.",
+    "constraints_source": "plans/mission-body-constraints.md (Park et al. 2024 update)",
+    "observable_correlations": {
+      "C20,C22": 0.47
+    },
+    "observable_correlations_provenance": "rho(C20,C22) = +0.47 ESTIMATED from Iess et al. (2014): their quoted ratio sigma (3.51 +/- 0.05) vs uncorrelated propagation (+/- 0.042) implies rho(J2,C22) ~= -0.47, i.e. +0.47 in the C20 = -J2 convention. Park et al. 2024 do not publish their covariance; request from authors / PDS before the production run if available, else keep this estimate (documented).",
+    "libration_elasticity_2026_07_19": "RESOLVED: rigid-shell vs elastic (DP-ALMA y1, rigid=False) libration compared at the default structure: 0.11091 vs 0.11094 deg - 0.03% difference, ~0.01 sigma of the 0.003-deg measurement. The rigid three-layer channel is adequate at Cassini precision (Enceladus k2 ~ 0.013: negligible tidal softening). No elastic correction needed for production.",
+    "park2024_erratum_2026_07_19": "Park et al. 2024 ERRATUM applied (user-supplied, authoritative version of record): forced libration 0.091 -> 0.092 deg (Eq. 6 amplitude 0.092119 deg; 3-sigma 0.009 unchanged -> 1-sigma 0.003). The MEASURED Case 2 gravity field (C20 -5477.45 +/- 36.99 e-6, C22 1517.90 +/- 14.70 e-6) is NOT affected - the erratum corrects only shape/topography-derived quantities. Revised interior interpretation (context/crosscheck): shell 25-29 km, ocean 26-30 km, core radius ~197 km, core density 2290-2350 kg/m3, MoI 0.337 [0.335, 0.338], conductive heat loss 20-30 GW. The erratum also states the coefficient rescaling C_nm_new = (R_old/R_new)^n C_nm_old, confirming this pipeline degree-2 (R/R_ref)^2 convention. Note: the committed smoke MCMC result pkl was run pre-erratum at 0.091 (a 0.3-sigma shift in one observable - immaterial for the channel-exercise smoke; the production run uses 0.092)."
+  }
+}

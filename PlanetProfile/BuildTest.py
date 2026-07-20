@@ -85,6 +85,12 @@ def full(iTestStart=2, skipType=None):
             Params.CALC_NEW_INDUCT = True
             Params.CALC_NEW_GRAVITY = True
             Params.CALC_NEW_ASYM = False
+            
+            # At the end of each test, clear the EOS list to prevent memory issues
+            EOSlist.loaded = {}
+            EOSlist.loaded['CustomSolutionEOS'] = {}
+            EOSlist.loaded['ReaktoroDatabases'] = {}
+            EOSlist.ranges = {}
 
         testPlanet1.name = 'Test0'
         # Test that we can successfully run standard profiles with parallelization options
@@ -191,6 +197,8 @@ def TestAllExploreOgrams(TestPlanets, Params, tMarks, SKIP_HYDRO=False):
     Params.DO_EXPLOREOGRAM = True
     Params.CALC_NEW = True
     Params.NO_SAVEFILE = True
+    Params.minPres_MPa = 1.0
+    Params.minTres_K = 1.0
     Params.Explore.zName = 'CMR2mean'
     Params.Explore.oceanCompRangeList = ['Seawater', 'MgSO4', 'NaCl', 'PureH2O']
     allZNames = ["CMR2mean", "D_km", "Dconv_m", "dzIceI_km", "dzClath_km", "dzIceIII_km", "dzIceIIIund_km",
@@ -392,6 +400,8 @@ def setFullSettings(Params):
     Params.ALLOW_BROKEN_MODELS = False
     Params.DEPRECATED = False
     Params.TIME_AND_DATE_LABEL = False
+    # Set customsolution settings
+    Params.CustomSolution.SOLID_PHASES = True
     # Set plotting options
     Params.SKIP_PLOTS = False
     Params.PLOT_GRAVITY = True
@@ -424,6 +434,10 @@ def setFullSettings(Params):
     Params.TITLES = True
     Params.PLOT_COMBO_EXPLORATIONS = True
     FigMisc.propsToPlot = ['rho', 'Cp', 'alpha', 'VP', 'KS', 'sig', 'VS', 'GS']
+    FigMisc.PmaxHydro_MPa = None
+    FigMisc.TmaxHydro_K = None
+    FigMisc.TminHydro_K = None
+    FigMisc.SHOW_GEOTHERM = True
     
     # Disable other features not relevant to single model runs
     Params.DO_INDUCTOGRAM = False

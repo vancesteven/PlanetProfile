@@ -15,6 +15,8 @@ Planet.PfreezeUpper_MPa = 150
 """ Bulk planetary settings """
 Planet.Bulk.R_m = 1560.8e3
 Planet.Bulk.M_kg = 4.800e22
+Planet.Bulk.Torb_s = 3.551181 * 24 * 3600
+Planet.Bulk.eccentricity = 0.0094
 Planet.Bulk.Tsurf_K = 110
 Planet.Bulk.Psurf_MPa = 0.0
 Planet.Bulk.Cmeasured = 0.346
@@ -37,7 +39,7 @@ Planet.Ocean.deltaP = 2.0
 Planet.Ocean.PHydroMax_MPa = 350.0
 
 """ Silicate Mantle """
-Planet.Do.CONSTANT_INNER_DENSITY = True
+Planet.Do.ConstantProps['Inner'] = True
 Planet.Sil.Qrad_Wkg = 5.33e-12  # Estimate from Hussmann and Spohn (2004): https://doi.org/10.1016/j.icarus.2004.05.020, calculated from total heating rate, silicate density, and layer radii
 Planet.Sil.Htidal_Wm3 = 1e-10  # Approximate max. tidal heating in silicates as modeled by Tobie et al. (2003): https://doi.org/10.1029/2003JE002099
 # Rock porosity

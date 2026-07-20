@@ -10,11 +10,18 @@ import logging
 import pickle
 from scipy.io import savemat
 from PlanetProfile.MagneticInduction.Moments import Excitations
-from PlanetProfile.MagneticInduction.MagneticInduction import Benm2absBexyz
 from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
+
+
+def ensure_parent_dir(filepath):
+    """Create parent directory for filepath if needed."""
+    parent = os.path.dirname(filepath)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+
 
 def WriteResults(Results, pklFilePath, saveMatlab = False, matlabFilePath=None):
     """
@@ -25,12 +32,14 @@ def WriteResults(Results, pklFilePath, saveMatlab = False, matlabFilePath=None):
         filepath (str): Base filepath (without extension)
         save_matlab (bool): Whether to also save as .mat file
     """
+    ensure_parent_dir(pklFilePath)
     with open(pklFilePath, 'wb') as f:
         pickle.dump(Results, f)
     log.info(f"Results saved to pickle file: {pklFilePath}")
     
     # Optionally save as MATLAB format for compatibility
     if saveMatlab:
+        ensure_parent_dir(matlabFilePath)
         flat_dict = flatten_dict_for_matlab(Results)
         savemat(matlabFilePath, flat_dict)
         log.info(f"Results saved to MATLAB file: {matlabFilePath}")
@@ -186,13 +195,8 @@ def ExtractBasePlanetData(baseStruct, PlanetGrid):
         # Seafloor and geochemistry
         'Pseafloor_MPa': np.array([[getattr(Planeti, 'Pseafloor_MPa', np.nan) for Planeti in line] for line in PlanetGrid]),
         'phiSeafloor_frac': np.array([[getattr(Planeti, 'phiSeafloor_frac', np.nan) for Planeti in line] for line in PlanetGrid]),
-        'affinitySeafloor_kJ': np.array([[getattr(Planeti.Ocean, 'affinitySeafloor_kJ', np.nan) for Planeti in line] for line in PlanetGrid]),
-        'affinityMean_kJ': np.array([[getattr(Planeti.Ocean, 'affinityMean_kJ', np.nan) for Planeti in line] for line in PlanetGrid]),
         'pHSeafloor': np.array([[getattr(Planeti.Ocean, 'pHSeafloor', np.nan) for Planeti in line] for line in PlanetGrid]),
         'pHTop': np.array([[getattr(Planeti.Ocean, 'pHTop', np.nan) for Planeti in line] for line in PlanetGrid]),
-        'affinityTop_kJ': np.array([[getattr(Planeti.Ocean, 'affinityTop_kJ', np.nan) for Planeti in line] for line in PlanetGrid]),
-        'speciesRatioToChange': np.array([[getattr(Planeti.Ocean.Reaction, 'speciesRatioToChange', np.nan) for Planeti in line] for line in PlanetGrid]),
-        'mixingRatioToH2O': np.array([[getattr(Planeti.Ocean.Reaction, 'speciesToChangeMixingRatio', np.nan) for Planeti in line] for line in PlanetGrid]),
         
         # Porosity and rock properties  
         'silPhiCalc_frac': np.array([[getattr(Planeti.Sil, 'phiCalc_frac', np.nan) for Planeti in line] for line in PlanetGrid]),
@@ -273,8 +277,6 @@ def ExtractInductionData(InductionResults, bodyname, PlanetGrid, Params):
     else:
         Benm_nT_array = Benm_nT
 
-    # Organize data into a format that can be plotted/saved for plotting
-    Bex_nT, Bey_nT, Bez_nT = Benm2absBexyz(Benm_nT_array)
     induction_data = {
         'nPeaks': nPeaks,
         'Amp': None,
@@ -335,6 +337,10 @@ def ExtractInductionData(InductionResults, bodyname, PlanetGrid, Params):
         induction_data['Bi1y_nT'] = Bi1y_nT_3D
         induction_data['Bi1z_nT'] = Bi1z_nT_3D
         # Calculate induced field components
+        # Organize data into a format that can be plotted/saved for plotting
+        # (Benm_nT_array was extracted and validated above, handling None and multi-era dict cases)
+        from PlanetProfile.MagneticInduction.MagneticInduction import Benm2absBexyz
+        Bex_nT, Bey_nT, Bez_nT = Benm2absBexyz(Benm_nT_array)
         induction_data['Bix_nT'] = np.array([Amp_3d[i, ...] * Bex_nT[i] for i in range(nPeaks)])
         induction_data['Biy_nT'] = np.array([Amp_3d[i, ...] * Bey_nT[i] for i in range(nPeaks)])
         induction_data['Biz_nT'] = np.array([Amp_3d[i, ...] * Bez_nT[i] for i in range(nPeaks)])

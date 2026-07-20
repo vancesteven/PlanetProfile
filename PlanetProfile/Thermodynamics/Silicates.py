@@ -22,8 +22,8 @@ def SilicateLayers(Planet, Params):
                  Later, we truncate this array to shape Planet.Steps.nSil with the MoI- and mass-
                  matching profile.
     """
-    if Planet.Do.CONSTANT_INNER_DENSITY or Planet.Do.NO_H2O or Planet.Do.NO_DIFFERENTIATION:
-        # If CONSTANT_INNER_DENSITY is True, we have already done the C/MR^2 calculations
+    if Planet.Do.ConstantProps['Inner'] or Planet.Do.NO_H2O or Planet.Do.NO_DIFFERENTIATION:
+        # If Planet.Do.ConstantProps['Inner'] is True, we have already done the C/MR^2 calculations
         # and now we are just evaluating the EOS for the winning silicate layer set
         # Similarly, if Do.NO_H2O is True, we have 0 ice layers so there is just 1 profile to run
         nProfiles = 1
@@ -41,7 +41,7 @@ def SilicateLayers(Planet, Params):
             profRange = [Planet.Steps.nHydro - Planet.Steps.iSilStart]
 
         else:
-            nProfiles = Planet.Steps.nSurfIce - Planet.Steps.iSilStart + Planet.Steps.nOceanMax - 1
+            nProfiles = Planet.Steps.nSurfIce - Planet.Steps.iSilStart + Planet.Steps.nOceanMax
             profRange = range(nProfiles)
 
     # Check if we set the core radius to 0, or a found C/MR^2 value (for constant-density approach)
@@ -63,7 +63,7 @@ def SilicateLayers(Planet, Params):
             = PropagateConductionProfilesSolid(Planet, Params, nProfiles, profRange, rSilEnd_m)
 
     # Perform validity checks on outputs and package for return
-    if Planet.Do.CONSTANT_INNER_DENSITY:
+    if Planet.Do.ConstantProps['Inner']:
         # Include all indices for later calculations if we already found the desired C/MR^2 match
         indsSilValid = profRange
     else:
@@ -116,8 +116,14 @@ def SilicateLayers(Planet, Params):
             # this is *the* match for this Htidal coupling
             if np.size(indsSilValid) != 0:
                 indsSilValid = indsSilValid[0]
-            # Mark this model as invalid if it has negative temps
-            if Tsil_K[indsSilValid, -1] < 0:
+                # Mark this model as invalid if it has negative temps
+                if Tsil_K[indsSilValid, -1] < 0:
+                    indsSilValid = range(0)
+            else:
+                # No silicate size had a total mass below the bulk mass. Return an empty
+                # selection so callers (e.g. the porosity/Htidal sweep in
+                # FindInnerWithMoIAndEOS) can terminate gracefully instead of crashing
+                # on an empty-array truth check below.
                 indsSilValid = range(0)
 
         if np.any(Tsil_K[indsSilValid,:] < 0):

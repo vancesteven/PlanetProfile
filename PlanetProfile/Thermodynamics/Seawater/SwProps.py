@@ -139,7 +139,13 @@ def GetdCTdTanddHdT(wOcean_ppt, CT_C, SP_dbar, T_C, dT=0.01):
     dHless = Hmid_Jkg - Hless_Jkg
     # Take the average value between the numerically evaluated derivatives above and below
     dHdT = np.mean([dHplus/dT, dHless/dT], axis=0)
-
+    # Clip NaN or infinite values to prevent numerical issues
+    if np.isnan(dHdT).any() or np.isinf(dHdT).any():
+        valid_mask = np.isfinite(dHdT)
+        dHdT_max = np.max(dHdT[valid_mask])
+        dHdT = np.where(np.isnan(dHdT), dHdT_max, dHdT)
+        dHdT = np.where(np.isinf(dHdT), dHdT_max, dHdT)
+        log.warning("NaN or infinite values found in calculating heat capacity, which indicates overflow errors. Setting to max of valid heat capacity values to prevent errors in spline.")
     return dCTdT, dHdT
 
 
@@ -165,7 +171,7 @@ class SwPhase:
         # 3. Compare to zero -- if we are below the freezing temp, it's ice I, above, liquid
         # 4. Cast the above comparison (True if less than Tfreeze, False if greater) to int,
         #       so that we get 1 if we are below the freezing temp and 0 if above.
-        return (((T_K - Constants.T0) - gswTfreeze(self.w_ppt, MPa2seaPressure(P_MPa), 0)) < 0).astype(int)
+        return (((T_K - Constants.T0) - gswTfreeze(self.w_ppt, MPa2seaPressure(P_MPa), 0)) < 0).astype(np.int64)
 
 
 class SwSeismic:
