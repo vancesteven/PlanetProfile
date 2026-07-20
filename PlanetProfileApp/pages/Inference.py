@@ -118,6 +118,22 @@ def initialize_session_state():
     if 'inference_param_space' not in st.session_state:
         st.session_state.inference_param_space = {}
 
+    # Sync the MCMC observables to the GLOBALLY chosen planet: when the
+    # user switches body in the sidebar, reseed the observable defaults
+    # (and clear the instantiated widgets) for the new body. Triggered
+    # only on a CHANGE of the global planet, so an explicitly applied
+    # config for a different body is not clobbered on later reruns.
+    _planet_now = str(st.session_state.get('Planet', '') or '')
+    _planet_known = _planet_now.capitalize() in BODY_OBS_DEFAULTS
+    if _planet_known and _planet_now != st.session_state.get(
+            '_inference_planet_seen'):
+        st.session_state['_inference_planet_seen'] = _planet_now
+        _bd = BODY_OBS_DEFAULTS[_planet_now.capitalize()]
+        st.session_state.inference_bodyname = _planet_now.capitalize()
+        st.session_state.inference_observables = dict(_bd)
+        for _wk in _OBS_WIDGET_KEYS:
+            st.session_state.pop(_wk, None)
+
     if 'inference_observables' not in st.session_state:
         st.session_state.inference_observables = dict(
             BODY_OBS_DEFAULTS['Titan'])
@@ -3105,8 +3121,14 @@ def main():
         # file loader above (and historically stomped loaded configs). A
         # fresh session instead auto-loads the Titan no-ocean 8D config as
         # the worked example of how an MCMC run is set up; every other
-        # configuration comes from "Load config file".
-        if not st.session_state.get('_default_cfg_applied'):
+        # configuration comes from "Load config file". Only when the
+        # globally chosen planet actually IS Titan (or unset) — auto-
+        # loading a Titan config under a Europa session planted Titan k2
+        # in the observables (user 2026-07-20).
+        _global_planet = str(st.session_state.get('Planet', '') or '')
+        if (not st.session_state.get('_default_cfg_applied')
+                and _global_planet.lower() in ('', 'titan',
+                                               '-- select a planet --')):
             try:
                 import json as _json
                 _default_cfg = _json.loads(

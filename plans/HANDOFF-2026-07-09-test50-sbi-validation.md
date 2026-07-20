@@ -1681,3 +1681,16 @@ negligible vs gates (B's artifact/gates used the full-resolution map;
 the runtime change is well inside gate tolerances). 19.8 -> 4.2
 ms/sample: gravity overhead ~80 s per 10k run. Tests 18/18 (incl.
 Roche-limit guard).
+
+## ADDENDUM 2026-07-20d (Machine A) — k2-still-0.6 root cause: global-planet sync
+Second report of Titan k2 in Europa sessions. The previous fix covered
+config LOADS; the uncovered path was the GLOBAL sidebar planet: the
+Inference page never consulted it, and the Titan demo config auto-loaded
+regardless of body — a Europa session with no config applied showed and
+simulated Titan k2. Fixes: (1) observables now SYNC to the globally
+chosen planet on change (reseed BODY_OBS_DEFAULTS + clear widget keys;
+triggered only on planet CHANGE so applied configs are not clobbered);
+(2) the Titan no-ocean demo auto-load is gated to Titan/unset sessions.
+AppTest: fresh Europa session -> 0.23; fresh Titan -> 0.608 + demo;
+mid-session switch Titan->Europa -> 0.23; ->Enceladus -> 0.015; the
+config-apply path re-verified.
