@@ -1652,3 +1652,17 @@ Machine B's two-campaign delivery (fc8cc72b, 34d70bb8) integrated:
 INDEX rows: v1 + v2 RETIRED; v1.1 DEPLOYED; v4 INTEGRATED — **AWAITING
 USER RATIFICATION** before any HF deploy (release discipline).
 Regressions: 29/29 (sbi_runner + gravity_channels).
+
+## ADDENDUM 2026-07-20b (Machine A) — Titan k2 baseline leak in MCMC mode FIXED
+User: Europa Clipper k2 simulations still baselining Titan values. Two
+stacked causes in the MCMC-mode observables panel: (1) the universal
+fallback defaults were the Cassini-Titan pair (Re_k2 0.608 +/- 0.048,
+|Im k2| 0.135 +/- 0.035) for EVERY body; (2) keyed number_inputs ignore
+value= after first render, so even loading a Europa config left the
+Titan numbers displayed. Fixes: BODY_OBS_DEFAULTS table
+(mission-appropriate k2/CMR2 fallbacks per body, from the constraints
+doc) keyed by the loaded config's bodyname, and config-apply now clears
+the instantiated observable widget keys (same reseed pattern as the
+amortized slot switch) so loaded values actually display.
+AppTest-verified through the real selector: fresh page shows Titan
+0.608 -> apply Europa v4 config -> inputs show 0.23 / 0.004 / 0.3547.

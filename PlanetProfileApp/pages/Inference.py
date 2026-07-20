@@ -119,11 +119,8 @@ def initialize_session_state():
         st.session_state.inference_param_space = {}
 
     if 'inference_observables' not in st.session_state:
-        st.session_state.inference_observables = {
-            'Re_k2': (0.608, 0.048),  # Petricca et al. 2025 defaults
-            'abs_Im_k2': (0.135, 0.035),
-            'CMR2': (0.343, 0.001),   # Petricca et al. 2025
-        }
+        st.session_state.inference_observables = dict(
+            BODY_OBS_DEFAULTS['Titan'])
 
     if 'inference_sampler_settings' not in st.session_state:
         st.session_state.inference_sampler_settings = {
@@ -192,6 +189,30 @@ def _load_available_configs():
 
     # Sort bodies alphabetically; entries within each body already sorted by filename
     return dict(sorted(result.items()))
+
+
+# Mission-appropriate observable defaults per body (fallbacks for the
+# MCMC-mode observables panel; plans/mission-body-constraints.md). The old
+# universal fallback was the Cassini-Titan pair — which silently baselined
+# Titan k2 for every other body (user-reported 2026-07-20).
+BODY_OBS_DEFAULTS = {
+    'Titan': {'Re_k2': (0.608, 0.048), 'abs_Im_k2': (0.135, 0.035),
+              'CMR2': (0.343, 0.001)},   # Cassini / Petricca et al. 2025
+    'Europa': {'Re_k2': (0.23, 0.015), 'abs_Im_k2': (0.004, 0.015),
+               'CMR2': (0.3547, 0.0024)},  # Mazarico proj. / GC21 MoI
+    'Enceladus': {'Re_k2': (0.015, 0.02), 'abs_Im_k2': (0.005, 0.02),
+                  'CMR2': (0.335, 0.003)},  # theory / Iess-Park context
+    'Ganymede': {'Re_k2': (0.45, 0.10), 'abs_Im_k2': (0.008, 0.10),
+                 'CMR2': (0.3115, 0.0028)},  # theory / Anderson 1996
+    'Callisto': {'Re_k2': (0.3, 0.1), 'abs_Im_k2': (0.005, 0.1),
+                 'CMR2': (0.3549, 0.0042)},  # theory / Anderson 2001
+}
+
+# Observable-panel widget keys: keyed-widget-state WINS over value= on
+# rerun, so a config load must clear these for the loaded values to show
+# (same reseed pattern as the amortized slot switch).
+_OBS_WIDGET_KEYS = ('Re_k2_value', 'Re_k2_unc', 'Im_k2_value', 'Im_k2_unc',
+                    'CMR2_value', 'CMR2_unc', 'use_k2_obs', 'use_cmr2_obs')
 
 
 def render_config_file_selector():
@@ -294,6 +315,16 @@ def _apply_config_to_session_state(cfg):
                 normalised[key] = pair
         if normalised:
             st.session_state.inference_observables = normalised
+            # Clear the instantiated observable widgets so the loaded
+            # config's values actually DISPLAY (keyed-widget-state wins
+            # over value= — without this, e.g. Titan k2 defaults kept
+            # showing after loading a Europa config; user 2026-07-20).
+            for wk in _OBS_WIDGET_KEYS:
+                st.session_state.pop(wk, None)
+
+    # Record the body for mission-appropriate observable fallbacks.
+    if cfg.get('bodyname'):
+        st.session_state.inference_bodyname = str(cfg['bodyname'])
 
     # --- sampler settings (merge with existing defaults) ---
     raw_sampler = cfg.get("sampler_settings", {})
@@ -547,7 +578,10 @@ def render_observables_config():
         help="Gaussian χ² terms for Re(k₂) and |Im(k₂)|."
     )
     Re_k2_value = Re_k2_uncertainty = None
-    re_k2_default = _obs_now.get('Re_k2', (0.608, 0.048))
+    _body_defaults = BODY_OBS_DEFAULTS.get(
+        st.session_state.get('inference_bodyname', 'Titan'),
+        BODY_OBS_DEFAULTS['Titan'])
+    re_k2_default = _obs_now.get('Re_k2', _body_defaults['Re_k2'])
     if use_k2:
         col1, col2 = st.columns(2)
         with col1:
@@ -567,7 +601,8 @@ def render_observables_config():
 
     # Im(k2) input - handle both old 'Im_k2' and new 'abs_Im_k2' keys for backward compatibility
     observables = st.session_state.inference_observables
-    im_k2_default = observables.get('abs_Im_k2', observables.get('Im_k2', (0.135, 0.035)))
+    im_k2_default = observables.get(
+        'abs_Im_k2', observables.get('Im_k2', _body_defaults['abs_Im_k2']))
 
     Im_k2_value = Im_k2_uncertainty = None
     if use_k2:
