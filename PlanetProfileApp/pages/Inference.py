@@ -2227,6 +2227,79 @@ def render_results():
             except Exception as e:
                 st.warning(f"Induction posterior panel unavailable: {e}")
 
+    # Interactive 3D globe: textured body surface (semi-transparent) over
+    # the posterior-median concentric interior layers; degree-2 (C20/C22)
+    # figure deformation — even 1D inference carries a non-spherical shape
+    # the C/MR^2 view never shows (user 2026-07-19).
+    with st.expander("🌐 Interactive Globe", expanded=False):
+        try:
+            from Utilities.globe_view import (
+                build_globe_figure, posterior_median_layers, texture_path)
+
+            body = getattr(result.config, 'bodyname', '') or ''
+            R_km, glayers = posterior_median_layers(result)
+            if R_km is None:
+                st.info("Globe unavailable: this result predates the "
+                        "R_body_km/layer packaging — rerun to enable.")
+            else:
+                obs = getattr(result.config, 'observables', {}) or {}
+                c20 = obs.get('C20', [None])[0]
+                c22 = obs.get('C22', [None])[0]
+                kf = None
+                cmr2_vals = getattr(result, 'cmr2_results', None)
+                if cmr2_vals is not None:
+                    _c = np.asarray(cmr2_vals, float)
+                    _c = _c[np.isfinite(_c)]
+                    if _c.size:
+                        from PlanetProfile.Inference.gravity_obs import \
+                            radau_darwin_kf
+                        try:
+                            kf = radau_darwin_kf(float(np.median(_c)))
+                        except ValueError:
+                            kf = None
+
+                # Default exaggeration: make the degree-2 bulge ~3% of R
+                # so it is visible; 1x = true shape.
+                dev = abs(c20 or 0.0) + 3 * abs(c22 or 0.0)
+                default_ex = (min(500.0, max(1.0, 0.03 / dev))
+                              if dev > 0 else 1.0)
+                col1, col2, col3 = st.columns(3)
+                exagg = col1.slider(
+                    "Shape exaggeration (1 = true figure)", 1.0, 500.0,
+                    float(round(default_ex)), 1.0, key='globe_exagg')
+                sopac = col2.slider(
+                    "Surface opacity", 0.1, 1.0, 0.65, 0.05,
+                    key='globe_opacity')
+                cutaway = col3.toggle("Cutaway view", value=True,
+                                      key='globe_cutaway')
+
+                fig3d = build_globe_figure(
+                    body, R_km, glayers, c20=c20, c22=c22, kf=kf,
+                    exaggeration=exagg, surface_opacity=sopac,
+                    cutaway=cutaway)
+                st.plotly_chart(fig3d, width='stretch', key='globe_chart')
+                tex_note = ("NASA/USGS global mosaic (public domain)"
+                            if texture_path(body) else
+                            "no shipped texture for this body yet — "
+                            "shaded sphere")
+                shape_note = (
+                    "Surface deformed by the degree-2 figure implied by "
+                    "the C20/C22 observables (tidal bulge along the "
+                    "sub-parent x-axis, polar flattening) with fluid "
+                    "amplification h_f ≈ 1 + k_f — the non-spherical "
+                    "shape that the spherically averaged C/MR² never "
+                    "captures." if (c20 or c22) else
+                    "No C20/C22 observables in this run — sphere shown; "
+                    "gravity-pair configs deform the figure.")
+                st.caption(
+                    f"Drag to rotate, scroll to zoom. Texture: {tex_note}. "
+                    f"Concentric shells: posterior-median layer radii "
+                    f"(core / silicate / ocean top). {shape_note} "
+                    "Lateral (3D) structure becomes per-layer "
+                    "r(θ, φ) fields on this same mesh — roadmap.")
+        except Exception as e:
+            st.warning(f"Globe unavailable: {e}")
+
     # C/MR² posterior
     with st.expander("⚖️ C/MR² Moment-of-Inertia Posterior", expanded=True):
         with st.popover("📖 How degree-2 gravity constrains C/MR²"):

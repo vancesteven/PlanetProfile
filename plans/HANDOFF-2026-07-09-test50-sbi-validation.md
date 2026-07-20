@@ -1560,3 +1560,23 @@ committed smoke result pkl ran pre-erratum at 0.091 (0.3-sigma shift,
 immaterial for the channel-exercise smoke); Machine B production uses
 0.092. papers/park2024global.pdf remains the v1 PDF - read values
 through the erratum notes in the config/constraints doc.
+
+## ADDENDUM 2026-07-19l (Machine A) — Interactive 3D globe in results view
+User-requested feature: "🌐 Interactive Globe" expander in the inference
+results (Utilities/globe_view.py + assets/globes/): grab-to-rotate
+plotly globe with the body's NASA/USGS global mosaic on the surface,
+concentric posterior-median interior shells (core / silicate seafloor /
+ocean top), cutaway toggle (90-degree wedge, staggered per shell),
+surface-opacity + shape-exaggeration sliders. Degree-2 figure: the
+surface is deformed by the equipotential implied by the C20/C22
+observables with fluid amplification (1+k_f)/k_f — the user's point
+that even 1D inference carries a non-spherical shape C/MR2 never shows.
+Textures shipped (public domain, 75-170 KB each): Europa + Callisto
+(USGS CKAN quicklooks), Enceladus (PIA18435), Titan (PIA19658 cropped);
+Ganymede falls back to a shaded sphere until a texture lands. Verified:
+AppTest on both the Enceladus smoke result (C20/C22 -> deformed figure)
+and the Europa v3 reference (sphere + note), plus PNG inspection of the
+cutaway (Europa: ice rim / blue ocean ring / silicate mantle / metal
+core at posterior-median radii). Future 3D: per-layer r(theta, phi)
+fields on the same mesh (roadmap); browser does all rendering — no new
+HF runtime deps (kaleido/chrome were dev-only for verification).
