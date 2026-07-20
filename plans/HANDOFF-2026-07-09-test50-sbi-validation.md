@@ -1666,3 +1666,18 @@ the instantiated observable widget keys (same reseed pattern as the
 amortized slot switch) so loaded values actually display.
 AppTest-verified through the real selector: fresh page shows Titan
 0.608 -> apply Europa v4 config -> inputs show 0.23 / 0.004 / 0.3547.
+
+## ADDENDUM 2026-07-20c (Machine A) — v4 run-time slowdown fixed (Clairaut 5x)
+User: amortized runs slower. Cause: v4 added a pure-Python Clairaut RK4
+integration (~200 layers x 40 substeps = 19.8 ms/sample) TWICE per
+sample (likelihood + packaging) = ~7 min extra per 10k run — more
+parameters was the minor part. Fix in gravity_obs.clairaut_kf:
+interface-preserving mass-exact profile downsampling (split at density
+jumps > 1%, volume-weighted bins within smooth runs; binning error
+7.6e-9) + n_sub 40 -> 16 + adaptive per-shell retry (8x refinement when
+eta overshoots at extreme density contrast). Worst relative k_f error
+8.2e-5 over 25 posterior-drawn composite profiles = 0.06 sigma(C22) —
+negligible vs gates (B's artifact/gates used the full-resolution map;
+the runtime change is well inside gate tolerances). 19.8 -> 4.2
+ms/sample: gravity overhead ~80 s per 10k run. Tests 18/18 (incl.
+Roche-limit guard).
