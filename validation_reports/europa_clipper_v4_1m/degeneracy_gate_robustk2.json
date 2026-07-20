@@ -1,0 +1,13 @@
+{
+  "corr_mcmc": -0.9833634894684318,
+  "corr_sbi": -0.986137122083997,
+  "dcorr": 0.0027736326155651803,
+  "frac68": 0.63355,
+  "frac95": 0.91675,
+  "marg_pass": false,
+  "corr_pass": true,
+  "cont_pass": true,
+  "overall": false,
+  "ess_mcmc": 4159.33643873563,
+  "n_sbi": 20000
+}

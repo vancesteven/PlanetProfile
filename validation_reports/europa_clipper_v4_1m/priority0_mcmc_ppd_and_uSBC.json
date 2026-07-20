@@ -1,0 +1,29 @@
+{
+  "A_mcmc_ppd": {
+    "mcmc_implied_re_k2_16_50_84": [
+      0.24210392210699105,
+      0.25361957152766723,
+      0.26561626218350787
+    ],
+    "sbi_implied_re_k2_16_50_84": [
+      0.24247869775397402,
+      0.2539081132214078,
+      0.26423173296715113
+    ],
+    "flow_fidelity_ks_D": 0.08321705426356589,
+    "flow_fidelity_ks_p": 0.12138522876848219,
+    "flow_faithful": true,
+    "obs_re_k2": 0.23,
+    "mcmc_noisy_ppd_std": 0.018211266484962192,
+    "model_adequacy_n_sigma": 1.2969757785473566,
+    "verdict": "GENUINE MODEL TENSION (retrain cannot relocate; document)"
+  },
+  "B_u_sbc": {
+    "n_pairs": 400,
+    "ks_p": 0.09304694675964587,
+    "pass": true,
+    "mean_dev": 0.024449999999999972,
+    "var_ratio": 0.9049231499999999,
+    "dispersion": "well-calibrated width"
+  }
+}

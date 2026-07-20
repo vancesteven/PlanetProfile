@@ -1,0 +1,89 @@
+{
+  "diagnostic1_local_sbc": {
+    "re_k2_band": [
+      0.2,
+      0.26
+    ],
+    "n_band_total": 253,
+    "n_band_sbc": 250,
+    "n_bulk_sbc": 250,
+    "per_param": {
+      "alpha": {
+        "ks_p_band": 0.6214646981254516,
+        "ks_p_bulk": 0.7535349147957929
+      },
+      "log10_zeta_Ih": {
+        "ks_p_band": 0.3768654900656013,
+        "ks_p_bulk": 0.16453977229368277
+      },
+      "log10_zeta_sil": {
+        "ks_p_band": 0.3985403948382553,
+        "ks_p_bulk": 0.024773633455510202
+      },
+      "log10_eta_Ih": {
+        "ks_p_band": 0.008290637497102129,
+        "ks_p_bulk": 0.4440650591425568
+      },
+      "log10_eta_sil": {
+        "ks_p_band": 0.9398792345876126,
+        "ks_p_bulk": 0.11410742232037052
+      },
+      "Tb_K": {
+        "ks_p_band": 0.5427406465653759,
+        "ks_p_bulk": 0.5686672374263788
+      },
+      "log10_wOcean_ppt": {
+        "ks_p_band": 0.778822370837396,
+        "ks_p_bulk": 0.5427406465653755
+      },
+      "R_core_km": {
+        "ks_p_band": 0.3559457059095411,
+        "ks_p_bulk": 0.1532383639461934
+      },
+      "rho_core_kgm3": {
+        "ks_p_band": 0.9251485115443354,
+        "ks_p_bulk": 0.7535349147957915
+      },
+      "dC20_nh": {
+        "ks_p_band": 0.7276609470533713,
+        "ks_p_bulk": 0.00019570265114696688
+      },
+      "dC22_nh": {
+        "ks_p_band": 0.6214646981254501,
+        "ks_p_bulk": 4.7402506571731934e-05
+      }
+    }
+  },
+  "diagnostic2_ppd_selfconsistency": {
+    "re_k2_target": 0.23,
+    "re_k2_implied_16_50_84": [
+      0.24200171288178335,
+      0.2539561052837711,
+      0.26410757008398755
+    ],
+    "brackets_target": false,
+    "n_finite": 391,
+    "n_pushed": 400,
+    "im_k2_implied_median": -0.0031221823613694815
+  },
+  "diagnostic3_tb_rank_shape": {
+    "n": 500,
+    "hist": [
+      0.12,
+      0.076,
+      0.106,
+      0.122,
+      0.094,
+      0.096,
+      0.094,
+      0.07,
+      0.106,
+      0.116
+    ],
+    "mean_dev": -0.003383999999999998,
+    "var_ratio": 1.060754790528,
+    "slope": -0.005333333333333301,
+    "quad": 0.0742424242424241,
+    "shape": "U -> UNDER-dispersed (posterior too narrow / overconfident)"
+  }
+}

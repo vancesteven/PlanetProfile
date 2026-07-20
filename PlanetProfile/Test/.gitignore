@@ -9,3 +9,7 @@
 # reference posterior + full 2D structure cache — see HANDOFF 2026-07-19b)
 !mcmc_results/Europa/Test52_seawater_v3/europa_seawater_v3_reference_result.pkl
 !mcmc_results/Europa/Test52_seawater_v3/europa_seawater_structure_grid_v3_2d.pkl
+
+# v4 Europa Clipper geodesy committed test fixture (11D reference posterior;
+# needed by the v4 degeneracy + non-hydrostaticity gates — see Test53_geodesy_v4)
+!mcmc_results/Europa/Test53_geodesy_v4/europa_clipper_v4_reference_result.pkl
