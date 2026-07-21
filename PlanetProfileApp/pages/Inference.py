@@ -1214,6 +1214,19 @@ def render_amortized_config():
     slot = _SBI_ARTIFACT_SLOTS[fname]
     artifact_path = _sbi_artifacts_dir() / fname
 
+    # Namespace every observable/sigma/truncation widget key by the artifact
+    # filename. Streamlit ignores a widget's value= once its key exists in
+    # session_state, so slots that share an observable NAME (e.g. Re_k2 in
+    # both the Titan and Clipper slots) would otherwise share the key
+    # 'amort_obs_Re_k2' — whichever slot renders FIRST (Titan, 0.608) writes
+    # that key and its value sticks when you switch slots. The per-transition
+    # reseed below is not enough on its own: a hot-reload (e.g. after git pull)
+    # keeps session_state while resetting the transition bookkeeping, so the
+    # reseed never fires and the stale value leaks. Distinct keys per artifact
+    # make the leak structurally impossible (user-reported 2026-07-20: Clipper
+    # x_obs stuck at Titan's Re_k2=0.608 instead of Mazarico 0.23).
+    slot_key = fname.replace('.', '_').replace(' ', '_')
+
     # Body-of-record banner. The dropdown has no body-aware default, so it
     # sits on the FIRST slot (Titan) on open — which silently seeds Titan's
     # k2 (Re_k2 = 0.608) into the observable defaults below. A user on
@@ -1332,7 +1345,7 @@ def render_amortized_config():
             init = (float(dlo) if dlo is not None else lo,
                     float(dhi) if dhi is not None else hi)
             sel = st.slider(name, min_value=lo, max_value=hi,
-                            value=init, key=f'amort_trunc_{name}')
+                            value=init, key=f'amort_trunc_{slot_key}_{name}')
             if sel != (lo, hi):
                 truncate_bounds[name] = (float(sel[0]), float(sel[1]))
 
@@ -1363,13 +1376,13 @@ def render_amortized_config():
         with c1:
             x_obs[name] = st.number_input(
                 f"{name}:", value=float(default), format="%.4f",
-                key=f'amort_obs_{name}')
+                key=f'amort_obs_{slot_key}_{name}')
         sig = float(train_sigma.get(name, float('nan')))
         obs_sigma[name] = sig
         with c2:
             st.number_input(
                 "± σ (frozen at training):", value=sig, format="%.4f",
-                key=f'amort_sigma_{name}', disabled=True,
+                key=f'amort_sigma_{slot_key}_{name}', disabled=True,
                 help="The flow was trained with this observation noise; "
                      "changing σ requires retraining (or MCMC mode).")
 
@@ -1406,12 +1419,12 @@ def render_amortized_config():
                 ae_re = st.number_input(f"Re Ae ({lab}):",
                                         value=float(ae_default.real),
                                         format="%.4f",
-                                        key=f'amort_obs_ae_{lab}_re')
+                                        key=f'amort_obs_ae_{slot_key}_{lab}_re')
             with c2:
                 ae_im = st.number_input(f"Im Ae ({lab}):",
                                         value=float(ae_default.imag),
                                         format="%.4f",
-                                        key=f'amort_obs_ae_{lab}_im')
+                                        key=f'amort_obs_ae_{slot_key}_{lab}_im')
             ae = complex(ae_re, ae_im)
             derived = []
             for comp in comps[lab]:
@@ -2352,6 +2365,37 @@ def render_results():
                 sel_idx = None
                 if tb is not None and d_oc.size == len(samples):
                     import plotly.graph_objects as go_
+                    # --- X-axis selector (user 2026-07-20): plotting vs ICE
+                    # THICKNESS (not Tb) reveals the full salinity distribution
+                    # — a uniform-Tb view clusters high salinity at low Tb, an
+                    # artifact of the Tb<->thickness<->salinity coupling. Each
+                    # candidate is offered only when its array is present and
+                    # has some finite values; default to ice thickness.
+                    def _finite_ok(a):
+                        return (a is not None and np.size(a) == len(samples)
+                                and np.isfinite(a).any())
+                    x_choices = []
+                    if _finite_ok(d_ih):
+                        x_choices.append(('Ice thickness', d_ih,
+                                          'Ice thickness (km)',
+                                          'ice %{x:.1f} km'))
+                    if tb is not None:
+                        x_choices.append(('T_b', tb, 'T_b (K)',
+                                          'Tb %{x:.2f} K'))
+                    if _finite_ok(d_oc):
+                        x_choices.append(('Ocean thickness', d_oc,
+                                          'Ocean thickness (km)',
+                                          'ocean %{x:.1f} km'))
+                    x_labels = [c[0] for c in x_choices]
+                    x_pick = st.segmented_control(
+                        'Sample-picker x-axis', x_labels,
+                        default=x_labels[0], key='globe_xaxis',
+                        label_visibility='collapsed')
+                    if x_pick not in x_labels:
+                        x_pick = x_labels[0]
+                    _lab, x_arr, x_title, x_hover = x_choices[
+                        x_labels.index(x_pick)]
+
                     n_show = min(len(samples), 1500)
                     rng = np.random.default_rng(0)
                     idx_show = (rng.choice(len(samples), n_show,
@@ -2365,13 +2409,14 @@ def render_results():
                                       colorbar=dict(title=sal_col,
                                                     thickness=12))
                     figsel = go_.Figure(go_.Scattergl(
-                        x=tb[idx_show], y=d_oc[idx_show], mode='markers',
+                        x=np.asarray(x_arr, float)[idx_show],
+                        y=d_oc[idx_show], mode='markers',
                         marker=marker, customdata=idx_show,
-                        hovertemplate=('Tb %{x:.2f} K, ocean %{y:.1f} km'
+                        hovertemplate=(x_hover + ', ocean %{y:.1f} km'
                                        '<extra>click to view</extra>')))
                     figsel.update_layout(
                         height=260, margin=dict(l=0, r=0, t=24, b=0),
-                        xaxis_title='T_b (K)',
+                        xaxis_title=x_title,
                         yaxis_title='Ocean thickness (km)',
                         title=dict(text='Click a posterior sample to view '
                                         'its interior', font=dict(size=12)))
