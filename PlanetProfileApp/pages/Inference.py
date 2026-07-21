@@ -2379,10 +2379,23 @@ def render_results():
                         figsel, width='stretch', key='globe_picker',
                         on_select='rerun', selection_mode='points')
                     try:
-                        pts = ev.selection.points
+                        pts = (ev.get('selection', {}) or {}).get('points') \
+                            if isinstance(ev, dict) else ev.selection.points
                         if pts:
-                            sel_idx = int(pts[0].get(
-                                'customdata', pts[0].get('point_index')))
+                            p0 = pts[0]
+                            # customdata carries the ORIGINAL sample index;
+                            # for a 1-D customdata array each point's value
+                            # comes back as a list [idx]. Fall back to the
+                            # plotted-position index mapped through idx_show.
+                            cd = p0.get('customdata')
+                            if isinstance(cd, (list, tuple)):
+                                cd = cd[0] if cd else None
+                            if cd is None:
+                                pos = p0.get('point_index',
+                                             p0.get('point_number'))
+                                cd = (idx_show[int(pos)]
+                                      if pos is not None else None)
+                            sel_idx = int(cd) if cd is not None else None
                     except Exception:
                         sel_idx = None
 

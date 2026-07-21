@@ -175,6 +175,30 @@ def _layer_sphere_trace(r_km: float, T, P, color: str, name: str,
         hovertemplate=f'{name}: r = {r_km:.0f} km<extra></extra>')
 
 
+def _cut_face_trace(r_in, r_out, phi, color, name,
+                    c20=0.0, c22=0.0, h_amp=1.0, exaggeration=1.0):
+    """A FILLED radial cross-section face on the meridional half-plane at
+    longitude phi, spanning colatitude [0, pi] and radius [r_in, r_out].
+    These caps on the two wedge boundaries give each layer real, filled
+    thickness in the cutaway (a hollow spherical shell would show zero
+    thickness / see-through)."""
+    import plotly.graph_objects as go
+    th = np.linspace(0.0, np.pi, 60)
+    rr = np.linspace(float(r_in), float(r_out), 6)
+    TH, RR = np.meshgrid(th, rr, indexing='ij')
+    P = np.full_like(TH, float(phi))
+    Rdef = _degree2_radius(RR, TH, P, c20, c22, h_amp, exaggeration)
+    x = Rdef * np.sin(TH) * np.cos(P)
+    y = Rdef * np.sin(TH) * np.sin(P)
+    z = Rdef * np.cos(TH)
+    return go.Surface(
+        x=x, y=y, z=z, opacity=1.0, showscale=False, showlegend=False,
+        name=name, surfacecolor=np.zeros_like(x),
+        colorscale=[[0, color], [1, color]],
+        hovertemplate=(f'{name}: {r_in:.0f}–{r_out:.0f} km'
+                       '<extra></extra>'))
+
+
 def triaxial_semiaxes(R_km, c20, c22, h_amp, exaggeration=1.0):
     """Semi-axes (a, b, c) of the degree-2 figure [km]: a along the
     sub-parent x-axis, b along the orbital y-axis, c along the spin
@@ -236,15 +260,15 @@ def build_globe_figure(
     """
     import plotly.graph_objects as go
 
-    # Always cutaway (user 2026-07-19): a 90-degree longitude wedge is
-    # removed from the surface, each shell keeps a slightly wider wedge
-    # (staggered rings in the cut face), and the INNERMOST body is drawn
-    # as a solid full sphere. Shells use a coarse mesh (uniform color);
-    # the textured surface gets the fine mesh.
+    # Cutaway design (user 2026-07-20): a 90-degree longitude wedge
+    # [0, pi/2] is removed. The intact 3/4 shows the textured exterior;
+    # the wedge exposes a FILLED radial cross-section — each layer painted
+    # as a solid annular face on the two meridional cut planes, so every
+    # phase (incl. Ice Ih) has real proportional thickness rather than a
+    # see-through hollow shell.
     theta_s = np.linspace(1e-3, np.pi - 1e-3, n_lat)
     phi_s = np.linspace(0.5 * np.pi, 2.0 * np.pi, n_lon)
     T_surf, P_surf = np.meshgrid(theta_s, phi_s, indexing='ij')
-    T_c, P_c = _sphere_mesh(36, 72)   # coarse mesh for uniform shells
 
     texture_img = None
     tp = texture_path(bodyname)
@@ -254,47 +278,34 @@ def build_globe_figure(
 
     _kf = kf if (kf is not None and np.isfinite(kf) and kf > 0.05) else 1.0
     h_amp = (1.0 + _kf) / _kf
+    _dk = dict(c20=(c20 or 0.0), c22=(c22 or 0.0), h_amp=h_amp,
+               exaggeration=exaggeration)
 
     fig = go.Figure()
     valid_layers = [l for l in layers
                     if l.get('r_km') and np.isfinite(l['r_km'])
                     and l['r_km'] > 0]
+    ordered = sorted(valid_layers, key=lambda l: -l['r_km'])
 
-    # Opaque outer shell FIRST (writes the depth buffer correctly), then
-    # the interior: WebGL blends later traces against it, so the layers
-    # show inside the cut wedge.
+    # Textured exterior over the intact 3/4 (opaque, drawn first).
     fig.add_trace(_surface_trace(
         float(R_body_km), T_surf, P_surf, texture_img=texture_img,
-        c20=(c20 or 0.0), c22=(c22 or 0.0), h_amp=h_amp,
-        exaggeration=exaggeration, opacity=1.0,
-        name=f'{bodyname} surface'))
+        opacity=1.0, name=f'{bodyname} surface', **_dk))
 
-    ordered = sorted(valid_layers, key=lambda l: -l['r_km'])
-    # The Ice Ih "surface skin" is the textured surface itself — not a
-    # separate shell. Draw the rest; stagger the cutaway wedge across the
-    # drawable shells so each phase shows a ring in the cut face (budget
-    # ~0.45pi total so the innermost never wraps past longitude 0).
-    drawable = [l for l in ordered if not l.get('surface_skin')]
-    n_draw = max(1, len(drawable))
-    for i, layer in enumerate(drawable):
+    # Filled cross-section: consecutive outer radii give each layer's
+    # [r_in, r_out]; innermost fills to the center. Two faces per layer
+    # (the phi=0 and phi=pi/2 wedge boundaries).
+    radii = [float(l['r_km']) for l in ordered] + [0.0]
+    for k, layer in enumerate(ordered):
+        r_out, r_in = radii[k], radii[k + 1]
+        if r_out - r_in < 1e-3:
+            continue
         color = LAYER_COLORS.get(layer.get('kind', 'silicate'),
                                  LAYER_COLORS['silicate'])
         name = layer.get('name', layer.get('kind', 'layer'))
-        if i == len(drawable) - 1:
-            # innermost body: solid full sphere
-            fig.add_trace(_layer_sphere_trace(
-                float(layer['r_km']), T_c, P_c, color, name, opacity=1.0,
-                c20=(c20 or 0.0), c22=(c22 or 0.0), h_amp=h_amp,
-                exaggeration=exaggeration))
-        else:
-            wedge = 0.5 - 0.45 * (i + 1) / n_draw
-            theta = np.linspace(1e-3, np.pi - 1e-3, 36)
-            phi_l = np.linspace(wedge * np.pi, 2.0 * np.pi, 72)
-            T_l, P_l = np.meshgrid(theta, phi_l, indexing='ij')
-            fig.add_trace(_layer_sphere_trace(
-                float(layer['r_km']), T_l, P_l, color, name, opacity=0.97,
-                c20=(c20 or 0.0), c22=(c22 or 0.0), h_amp=h_amp,
-                exaggeration=exaggeration))
+        for phi in (0.0, 0.5 * np.pi):
+            fig.add_trace(_cut_face_trace(r_in, r_out, phi, color, name,
+                                          **_dk))
 
     # Legend: one color swatch per layer present (radial order, incl. the
     # Ih surface skin), via invisible Scatter3d proxies — go.Surface has no
