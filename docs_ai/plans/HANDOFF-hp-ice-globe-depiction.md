@@ -2,6 +2,13 @@
 
 **Author:** genai session, 2026-07-20
 **For:** machine A (implementer)
+**Status:** `implemented, verified` (Machine A, 2026-07-20) — HP-ice shell now
+emitted to the globe. Verified on the Titan Test50 slot (median HP thickness
+319 km; light-blue shell between the Ih surface and the silicate interior at
+r = 2417 km > silicate 2081 km; Europa correctly shows no HP shell).
+
+(Original spec below.)
+
 **Status of the depiction:** `not implemented` — the HP-ice *style* exists but no
 HP-ice layer is ever emitted to the globe. This document is the findings + a
 concrete, grounded implementation spec. It changes NO fundamental scientific

@@ -2339,6 +2339,8 @@ def render_results():
                                   float)
                 d_ih = np.asarray(getattr(result, 'D_iceIh_results', []),
                                   float)
+                d_hp = np.asarray(getattr(result, 'D_iceHP_results', []),
+                                  float)
                 cmr2s = np.asarray(getattr(result, 'cmr2_results', []),
                                    float)
                 tb = (samples[:, names.index('Tb_K')]
@@ -2401,6 +2403,17 @@ def render_results():
                         lays.append({'name': 'ocean (top)',
                                      'r_km': R_km - float(d_ih[i]),
                                      'kind': 'ocean'})
+                    # HP-ice shell (III+V+VI) between ocean and silicate;
+                    # absent for HP-free bodies (Europa -> d_hp ~ 0). No-ocean
+                    # bodies have no d_oc[i] -> treat as 0 (HP under Ih).
+                    if (d_hp.size > i and np.isfinite(d_hp[i])
+                            and d_hp[i] > 0.5 and d_ih.size > i
+                            and np.isfinite(d_ih[i])):
+                        _doc = (float(d_oc[i]) if d_oc.size > i
+                                and np.isfinite(d_oc[i]) else 0.0)
+                        lays.append({'name': 'high-pressure ice (top)',
+                                     'r_km': R_km - float(d_ih[i]) - _doc,
+                                     'kind': 'hp_ice'})
                     return lays
 
                 from PlanetProfile.Inference.gravity_obs import \

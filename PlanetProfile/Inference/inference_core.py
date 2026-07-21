@@ -273,6 +273,12 @@ class InferenceResult:
     # mantle thickness exactly (R_body - D_hsphere - R_core) even for
     # bodies with HP-ice layers. None on results predating 2026-07.
     D_hsphere_results: Optional[np.ndarray] = None
+    # Aggregate high-pressure-ice (III + V + VI) shell thickness (km) per
+    # sample, from the cache's D_iceIII/V/VI_km. 0.0 for bodies with no HP
+    # ices (e.g. Europa seawater, basal-ocean P < 200 MPa). Lets the globe
+    # draw the HP-ice shell between the ocean and the silicate floor. None
+    # on results predating 2026-07-20.
+    D_iceHP_results: Optional[np.ndarray] = None
     # Model-predicted unnormalized C20/C22 per sample (v4 geodesy configs
     # with gravity_forward_model='clairaut_hydrostatic'; includes the
     # sampled non-hydrostatic offsets). None otherwise / on older pkls.

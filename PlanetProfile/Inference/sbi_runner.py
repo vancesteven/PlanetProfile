@@ -1085,6 +1085,7 @@ class SBIRunner:
         D_ocean_results = np.full(n_samples, np.nan)
         D_iceIh_results = np.full(n_samples, np.nan)
         D_hsphere_results = np.full(n_samples, np.nan)
+        D_iceHP_results = np.full(n_samples, np.nan)
         c20_results = np.full(n_samples, np.nan) if gravity_active else None
         c22_results = np.full(n_samples, np.nan) if gravity_active else None
         # True Gaussian chi^2 log-likelihood on the SAME subset, via the exact
@@ -1113,6 +1114,7 @@ class SBIRunner:
             D_ocean_results[i] = runner._get_cache_scalar(theta_dict, 'D_ocean_km')
             D_iceIh_results[i] = runner._get_cache_scalar(theta_dict, 'D_iceIh_km')
             D_hsphere_results[i] = runner._get_cache_scalar(theta_dict, 'D_hsphere_km')
+            D_iceHP_results[i] = runner._hp_ice_thickness_km(theta_dict)
             if gravity_active:
                 pair = runner._derive_gravity_pair(theta_dict)
                 c20_results[i] = pair[0] if pair is not None else np.nan
@@ -1160,6 +1162,7 @@ class SBIRunner:
             D_ocean_results=D_ocean_results,
             D_iceIh_results=D_iceIh_results,
             D_hsphere_results=D_hsphere_results,
+            D_iceHP_results=D_iceHP_results,
             c20_results=c20_results,
             c22_results=c22_results,
             heating_results=heating_results,

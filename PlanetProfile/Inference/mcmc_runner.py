@@ -1098,6 +1098,18 @@ class MCMCRunner:
         val = modified.get(key, np.nan)
         return float(val) if np.isfinite(float(val)) else np.nan
 
+    def _hp_ice_thickness_km(self, theta_dict: Dict[str, float]) -> float:
+        """Aggregate high-pressure-ice (III + V + VI) shell thickness (km)
+        for this sample. Missing/NaN per-phase keys coalesce to 0.0, so
+        bodies without HP ices (e.g. Europa seawater) report 0.0, not NaN,
+        and older caches lacking the keys are unaffected."""
+        total = 0.0
+        for k in ('D_iceIII_km', 'D_iceV_km', 'D_iceVI_km'):
+            v = self._get_cache_scalar(theta_dict, k)
+            if np.isfinite(v):
+                total += v
+        return total
+
     def _load_cmr2_offset_sidecar(self) -> Optional[Dict[str, np.ndarray]]:
         """Lazily load the per-Tb CMR2 discretization-offset sidecar, once.
 
@@ -1754,6 +1766,7 @@ class MCMCRunner:
         D_ocean_results = []
         D_iceIh_results = []
         D_hsphere_results = []
+        D_iceHP_results = []
         gravity_active = self._gravity_clairaut_active()
         c20_results = [] if gravity_active else None
         c22_results = [] if gravity_active else None
@@ -1774,6 +1787,7 @@ class MCMCRunner:
             D_ocean_results.append(self._get_cache_scalar(theta_dict, 'D_ocean_km'))
             D_iceIh_results.append(self._get_cache_scalar(theta_dict, 'D_iceIh_km'))
             D_hsphere_results.append(self._get_cache_scalar(theta_dict, 'D_hsphere_km'))
+            D_iceHP_results.append(self._hp_ice_thickness_km(theta_dict))
             if gravity_active:
                 pair = self._derive_gravity_pair(theta_dict)
                 c20_results.append(pair[0] if pair is not None else np.nan)
@@ -1787,6 +1801,7 @@ class MCMCRunner:
         D_ocean_results = np.array(D_ocean_results)
         D_iceIh_results = np.array(D_iceIh_results)
         D_hsphere_results = np.array(D_hsphere_results)
+        D_iceHP_results = np.array(D_iceHP_results)
         if gravity_active:
             c20_results = np.array(c20_results)
             c22_results = np.array(c22_results)
@@ -1824,6 +1839,7 @@ class MCMCRunner:
             D_ocean_results=D_ocean_results,
             D_iceIh_results=D_iceIh_results,
             D_hsphere_results=D_hsphere_results,
+            D_iceHP_results=D_iceHP_results,
             c20_results=c20_results,
             c22_results=c22_results,
             heating_results=heating_results,

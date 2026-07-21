@@ -317,6 +317,7 @@ def posterior_median_layers(result) -> Tuple[float, List[Dict]]:
     d_hs = _med('D_hsphere_results')
     d_oc = _med('D_ocean_results')
     d_ih = _med('D_iceIh_results')
+    d_hp = _med('D_iceHP_results')
 
     r_core = None
     names = list(getattr(result, 'param_names', []))
@@ -334,4 +335,12 @@ def posterior_median_layers(result) -> Tuple[float, List[Dict]]:
         # ocean top = base of the Ih shell
         layers.append({'name': 'ocean (top)', 'r_km': R_km - d_ih,
                        'kind': 'ocean'})
+    # HP-ice shell (III+V+VI aggregate) between the ocean and the silicate
+    # floor: outer radius = base of ocean = R - D_iceIh - D_ocean. No-ocean
+    # bodies (Titan allice) have an empty ocean array -> treat D_ocean as 0
+    # so HP ice sits directly under Ih. Absent when d_hp ~ 0 (Europa).
+    if d_hp is not None and d_hp > 0.5 and d_ih is not None:
+        _d_oc = d_oc if d_oc is not None else 0.0
+        layers.append({'name': 'high-pressure ice (top)',
+                       'r_km': R_km - d_ih - _d_oc, 'kind': 'hp_ice'})
     return R_km, layers
