@@ -7,6 +7,10 @@ emitted to the globe. Verified on the Titan Test50 slot (median HP thickness
 319 km; light-blue shell between the Ih surface and the silicate interior at
 r = 2417 km > silicate 2081 km; Europa correctly shows no HP shell).
 
+
+
+**UPDATE 2026-07-20 (per-phase):** superseded the single aggregate hp_ice shell — each ice phase (Ih / III / V / VI), the ocean, silicate mantle, and core now render as its OWN labeled shell with finite proportional thickness and a color legend (Ih=textured surface skin, III=cyan, V=teal, VI=violet, ocean=royal blue). Carried via a new InferenceResult.D_icePhase_results dict {III,V,VI}. Verified: Ganymede (all 5 phases nested + legend), Titan (Ih/III/V/VI, no ocean), Europa (ocean+silicate, no HP).
+
 (Original spec below.)
 
 **Status of the depiction:** `not implemented` — the HP-ice *style* exists but no

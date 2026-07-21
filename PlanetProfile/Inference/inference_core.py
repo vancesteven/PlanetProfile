@@ -279,6 +279,12 @@ class InferenceResult:
     # draw the HP-ice shell between the ocean and the silicate floor. None
     # on results predating 2026-07-20.
     D_iceHP_results: Optional[np.ndarray] = None
+    # Per-phase high-pressure-ice thicknesses (km), per sample, as a dict
+    # {'III': (n,), 'V': (n,), 'VI': (n,)} from the cache's D_iceIII/V/VI_km.
+    # Lets the globe draw each ice phase as its own labeled, proportional
+    # shell (Ih is the textured surface; ocean uses D_ocean_results). None
+    # on results predating 2026-07-20.
+    D_icePhase_results: Optional[Dict[str, np.ndarray]] = None
     # Model-predicted unnormalized C20/C22 per sample (v4 geodesy configs
     # with gravity_forward_model='clairaut_hydrostatic'; includes the
     # sampled non-hydrostatic offsets). None otherwise / on older pkls.

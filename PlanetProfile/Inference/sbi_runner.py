@@ -1086,6 +1086,9 @@ class SBIRunner:
         D_iceIh_results = np.full(n_samples, np.nan)
         D_hsphere_results = np.full(n_samples, np.nan)
         D_iceHP_results = np.full(n_samples, np.nan)
+        D_iceIII_results = np.full(n_samples, np.nan)
+        D_iceV_results = np.full(n_samples, np.nan)
+        D_iceVI_results = np.full(n_samples, np.nan)
         c20_results = np.full(n_samples, np.nan) if gravity_active else None
         c22_results = np.full(n_samples, np.nan) if gravity_active else None
         # True Gaussian chi^2 log-likelihood on the SAME subset, via the exact
@@ -1114,7 +1117,11 @@ class SBIRunner:
             D_ocean_results[i] = runner._get_cache_scalar(theta_dict, 'D_ocean_km')
             D_iceIh_results[i] = runner._get_cache_scalar(theta_dict, 'D_iceIh_km')
             D_hsphere_results[i] = runner._get_cache_scalar(theta_dict, 'D_hsphere_km')
-            D_iceHP_results[i] = runner._hp_ice_thickness_km(theta_dict)
+            _phases = runner._ice_phase_thicknesses_km(theta_dict)
+            D_iceIII_results[i] = _phases['III']
+            D_iceV_results[i] = _phases['V']
+            D_iceVI_results[i] = _phases['VI']
+            D_iceHP_results[i] = _phases['III'] + _phases['V'] + _phases['VI']
             if gravity_active:
                 pair = runner._derive_gravity_pair(theta_dict)
                 c20_results[i] = pair[0] if pair is not None else np.nan
@@ -1163,6 +1170,9 @@ class SBIRunner:
             D_iceIh_results=D_iceIh_results,
             D_hsphere_results=D_hsphere_results,
             D_iceHP_results=D_iceHP_results,
+            D_icePhase_results={'III': D_iceIII_results,
+                                'V': D_iceV_results,
+                                'VI': D_iceVI_results},
             c20_results=c20_results,
             c22_results=c22_results,
             heating_results=heating_results,

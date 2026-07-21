@@ -1098,17 +1098,22 @@ class MCMCRunner:
         val = modified.get(key, np.nan)
         return float(val) if np.isfinite(float(val)) else np.nan
 
+    def _ice_phase_thicknesses_km(self, theta_dict: Dict[str, float]
+                                  ) -> Dict[str, float]:
+        """Per-phase HP-ice thicknesses (km) for this sample as
+        {'III','V','VI'}. Missing/NaN keys coalesce to 0.0 (HP-free bodies
+        report 0.0; older caches unaffected)."""
+        out = {}
+        for phase, key in (('III', 'D_iceIII_km'), ('V', 'D_iceV_km'),
+                           ('VI', 'D_iceVI_km')):
+            v = self._get_cache_scalar(theta_dict, key)
+            out[phase] = float(v) if np.isfinite(v) else 0.0
+        return out
+
     def _hp_ice_thickness_km(self, theta_dict: Dict[str, float]) -> float:
-        """Aggregate high-pressure-ice (III + V + VI) shell thickness (km)
-        for this sample. Missing/NaN per-phase keys coalesce to 0.0, so
-        bodies without HP ices (e.g. Europa seawater) report 0.0, not NaN,
-        and older caches lacking the keys are unaffected."""
-        total = 0.0
-        for k in ('D_iceIII_km', 'D_iceV_km', 'D_iceVI_km'):
-            v = self._get_cache_scalar(theta_dict, k)
-            if np.isfinite(v):
-                total += v
-        return total
+        """Aggregate high-pressure-ice (III + V + VI) shell thickness (km).
+        Sums the per-phase thicknesses (all coalesced to 0.0 when absent)."""
+        return sum(self._ice_phase_thicknesses_km(theta_dict).values())
 
     def _load_cmr2_offset_sidecar(self) -> Optional[Dict[str, np.ndarray]]:
         """Lazily load the per-Tb CMR2 discretization-offset sidecar, once.
@@ -1767,6 +1772,7 @@ class MCMCRunner:
         D_iceIh_results = []
         D_hsphere_results = []
         D_iceHP_results = []
+        D_iceIII_results, D_iceV_results, D_iceVI_results = [], [], []
         gravity_active = self._gravity_clairaut_active()
         c20_results = [] if gravity_active else None
         c22_results = [] if gravity_active else None
@@ -1787,7 +1793,11 @@ class MCMCRunner:
             D_ocean_results.append(self._get_cache_scalar(theta_dict, 'D_ocean_km'))
             D_iceIh_results.append(self._get_cache_scalar(theta_dict, 'D_iceIh_km'))
             D_hsphere_results.append(self._get_cache_scalar(theta_dict, 'D_hsphere_km'))
-            D_iceHP_results.append(self._hp_ice_thickness_km(theta_dict))
+            _phases = self._ice_phase_thicknesses_km(theta_dict)
+            D_iceIII_results.append(_phases['III'])
+            D_iceV_results.append(_phases['V'])
+            D_iceVI_results.append(_phases['VI'])
+            D_iceHP_results.append(_phases['III'] + _phases['V'] + _phases['VI'])
             if gravity_active:
                 pair = self._derive_gravity_pair(theta_dict)
                 c20_results.append(pair[0] if pair is not None else np.nan)
@@ -1802,6 +1812,9 @@ class MCMCRunner:
         D_iceIh_results = np.array(D_iceIh_results)
         D_hsphere_results = np.array(D_hsphere_results)
         D_iceHP_results = np.array(D_iceHP_results)
+        D_icePhase_results = {'III': np.array(D_iceIII_results),
+                              'V': np.array(D_iceV_results),
+                              'VI': np.array(D_iceVI_results)}
         if gravity_active:
             c20_results = np.array(c20_results)
             c22_results = np.array(c22_results)
@@ -1840,6 +1853,7 @@ class MCMCRunner:
             D_iceIh_results=D_iceIh_results,
             D_hsphere_results=D_hsphere_results,
             D_iceHP_results=D_iceHP_results,
+            D_icePhase_results=D_icePhase_results,
             c20_results=c20_results,
             c22_results=c22_results,
             heating_results=heating_results,

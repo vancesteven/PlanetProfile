@@ -57,13 +57,34 @@ def hydrostatic_display_pair(bodyname, R_km, kf):
     c22 = 0.25 * float(kf) * q_r
     return -(10.0 / 3.0) * c22, c22
 
-# Layer colors (inner to outer rendering order handled by caller lists)
+# Layer colors. Ice phases run pale (Ih) -> deep cyan (VI) with rising
+# pressure; the ocean is a distinct saturated navy so it never reads as
+# an ice band.
 LAYER_COLORS = {
     'core': 'rgb(120, 110, 100)',
-    'silicate': 'rgb(146, 100, 60)',
-    'hp_ice': 'rgb(170, 200, 230)',
-    'ocean': 'rgb(20, 80, 180)',
-    'ice': 'rgb(210, 230, 245)',
+    'silicate': 'rgb(150, 96, 52)',
+    # Ocean: saturated royal blue (liquid). Ice phases walk across hue
+    # (pale white -> cyan -> teal -> violet) so adjacent HP shells are
+    # clearly distinct, not one blue mass.
+    'ocean': 'rgb(30, 90, 220)',
+    'ice_Ih': 'rgb(222, 238, 250)',   # pale white-blue skin
+    'ice_III': 'rgb(120, 224, 224)',  # cyan
+    'ice_V': 'rgb(70, 170, 150)',     # teal-green
+    'ice_VI': 'rgb(150, 120, 210)',   # violet
+    # legacy aliases
+    'hp_ice': 'rgb(120, 224, 224)',
+    'ice': 'rgb(222, 238, 250)',
+}
+
+# Friendly legend/hover names per layer kind.
+LAYER_LABELS = {
+    'core': 'Metallic core',
+    'silicate': 'Silicate mantle',
+    'ocean': 'Liquid ocean',
+    'ice_Ih': 'Ice Ih',
+    'ice_III': 'Ice III',
+    'ice_V': 'Ice V',
+    'ice_VI': 'Ice VI',
 }
 
 
@@ -130,7 +151,7 @@ def _surface_trace(R_km: float, T, P, texture_img=None,
                         cmin=-2, cmax=2)
 
     return go.Surface(
-        x=x, y=y, z=z, opacity=opacity, showscale=False,
+        x=x, y=y, z=z, opacity=opacity, showscale=False, showlegend=False,
         name=name, hovertemplate=f'{name}<extra></extra>', **surfargs)
 
 
@@ -148,8 +169,9 @@ def _layer_sphere_trace(r_km: float, T, P, color: str, name: str,
     y = r * np.sin(T) * np.sin(P)
     z = r * np.cos(T)
     return go.Surface(
-        x=x, y=y, z=z, opacity=opacity, showscale=False, name=name,
-        surfacecolor=np.zeros_like(x), colorscale=[[0, color], [1, color]],
+        x=x, y=y, z=z, opacity=opacity, showscale=False, showlegend=False,
+        name=name, surfacecolor=np.zeros_like(x),
+        colorscale=[[0, color], [1, color]],
         hovertemplate=f'{name}: r = {r_km:.0f} km<extra></extra>')
 
 
@@ -187,7 +209,7 @@ def _axis_traces(a, b, c):
             mode='lines+text', text=['', label],
             textposition='top center',
             textfont=dict(color=color, size=15),
-            line=dict(color=color, width=5),
+            line=dict(color=color, width=5), showlegend=False,
             name=label, hovertemplate=hover + '<extra></extra>'))
     return traces
 
@@ -248,25 +270,44 @@ def build_globe_figure(
         name=f'{bodyname} surface'))
 
     ordered = sorted(valid_layers, key=lambda l: -l['r_km'])
-    for i, layer in enumerate(ordered):
+    # The Ice Ih "surface skin" is the textured surface itself — not a
+    # separate shell. Draw the rest; stagger the cutaway wedge across the
+    # drawable shells so each phase shows a ring in the cut face (budget
+    # ~0.45pi total so the innermost never wraps past longitude 0).
+    drawable = [l for l in ordered if not l.get('surface_skin')]
+    n_draw = max(1, len(drawable))
+    for i, layer in enumerate(drawable):
         color = LAYER_COLORS.get(layer.get('kind', 'silicate'),
                                  LAYER_COLORS['silicate'])
         name = layer.get('name', layer.get('kind', 'layer'))
-        if i == len(ordered) - 1:
+        if i == len(drawable) - 1:
             # innermost body: solid full sphere
             fig.add_trace(_layer_sphere_trace(
                 float(layer['r_km']), T_c, P_c, color, name, opacity=1.0,
                 c20=(c20 or 0.0), c22=(c22 or 0.0), h_amp=h_amp,
                 exaggeration=exaggeration))
         else:
+            wedge = 0.5 - 0.45 * (i + 1) / n_draw
             theta = np.linspace(1e-3, np.pi - 1e-3, 36)
-            phi_l = np.linspace((0.5 - 0.10 * (i + 1)) * np.pi,
-                                2.0 * np.pi, 72)
+            phi_l = np.linspace(wedge * np.pi, 2.0 * np.pi, 72)
             T_l, P_l = np.meshgrid(theta, phi_l, indexing='ij')
             fig.add_trace(_layer_sphere_trace(
-                float(layer['r_km']), T_l, P_l, color, name, opacity=0.95,
+                float(layer['r_km']), T_l, P_l, color, name, opacity=0.97,
                 c20=(c20 or 0.0), c22=(c22 or 0.0), h_amp=h_amp,
                 exaggeration=exaggeration))
+
+    # Legend: one color swatch per layer present (radial order, incl. the
+    # Ih surface skin), via invisible Scatter3d proxies — go.Surface has no
+    # reliable legend entry.
+    import plotly.graph_objects as _go
+    for layer in ordered:
+        color = LAYER_COLORS.get(layer.get('kind', 'silicate'),
+                                 LAYER_COLORS['silicate'])
+        fig.add_trace(_go.Scatter3d(
+            x=[None], y=[None], z=[None], mode='markers',
+            marker=dict(size=9, color=color, symbol='square'),
+            name=layer.get('name', layer.get('kind', 'layer')),
+            showlegend=True, hoverinfo='skip'))
 
     a, b, c = triaxial_semiaxes(float(R_body_km), (c20 or 0.0),
                                 (c22 or 0.0), h_amp, exaggeration)
@@ -288,7 +329,10 @@ def build_globe_figure(
         ),
         margin=dict(l=0, r=0, t=0, b=0),
         height=560,
-        showlegend=False,
+        showlegend=True,
+        legend=dict(x=0.01, y=0.99, bgcolor='rgba(3,6,18,0.6)',
+                    font=dict(color='rgb(220,225,235)', size=11),
+                    itemsizing='constant'),
         paper_bgcolor='rgb(3, 6, 18)',
     )
     return fig
@@ -314,10 +358,21 @@ def posterior_median_layers(result) -> Tuple[float, List[Dict]]:
         v = v[np.isfinite(v)]
         return float(np.median(v)) if v.size else None
 
-    d_hs = _med('D_hsphere_results')
-    d_oc = _med('D_ocean_results')
-    d_ih = _med('D_iceIh_results')
-    d_hp = _med('D_iceHP_results')
+    d_hs = _med('D_hsphere_results') or 0.0
+    d_oc = _med('D_ocean_results') or 0.0
+    d_ih = _med('D_iceIh_results') or 0.0
+
+    phases = getattr(result, 'D_icePhase_results', None) or {}
+
+    def _phase_med(key):
+        v = phases.get(key)
+        if v is None:
+            return 0.0
+        v = np.asarray(v, float)
+        v = v[np.isfinite(v)]
+        return float(np.median(v)) if v.size else 0.0
+
+    d_iii, d_v, d_vi = _phase_med('III'), _phase_med('V'), _phase_med('VI')
 
     r_core = None
     names = list(getattr(result, 'param_names', []))
@@ -325,22 +380,39 @@ def posterior_median_layers(result) -> Tuple[float, List[Dict]]:
         r_core = float(np.median(
             np.asarray(result.samples, float)[:, names.index('R_core_km')]))
 
+    return R_km, _build_radial_layers(
+        R_km, r_core, d_hs, d_ih, d_oc, d_iii, d_v, d_vi)
+
+
+def _build_radial_layers(R_km, r_core, d_hs, d_ih, d_oc,
+                         d_iii, d_v, d_vi, min_km=0.5):
+    """Assemble the concentric layer list (each drawn at its OUTER radius)
+    from the surface inward, one labeled shell per material with finite
+    proportional thickness: Ice Ih (the textured surface skin) -> ocean ->
+    Ice III -> Ice V -> Ice VI -> silicate mantle -> core. Layers thinner
+    than min_km are omitted (a body simply lacks that phase)."""
     layers: List[Dict] = []
+    r = float(R_km)  # running OUTER radius, marching inward
+
+    # Ice Ih is the outer skin (the textured surface at R). Emit it as a
+    # legend/label proxy only — its band is the gap from R down to the
+    # next interface. (r moves to its base.)
+    if d_ih > min_km:
+        layers.append({'name': LAYER_LABELS['ice_Ih'], 'r_km': r,
+                       'kind': 'ice_Ih', 'surface_skin': True})
+    r -= d_ih
+
+    for thick, kind in ((d_oc, 'ocean'), (d_iii, 'ice_III'),
+                        (d_v, 'ice_V'), (d_vi, 'ice_VI')):
+        if thick > min_km:
+            layers.append({'name': LAYER_LABELS[kind], 'r_km': r,
+                           'kind': kind})
+        r -= thick
+
+    # Silicate mantle: outer radius = hydrosphere base = R - D_hsphere.
+    layers.append({'name': LAYER_LABELS['silicate'],
+                   'r_km': R_km - d_hs, 'kind': 'silicate'})
     if r_core and r_core > 1.0:
-        layers.append({'name': 'core', 'r_km': r_core, 'kind': 'core'})
-    if d_hs is not None:
-        layers.append({'name': 'silicate (ocean floor)',
-                       'r_km': R_km - d_hs, 'kind': 'silicate'})
-    if d_ih is not None and d_oc is not None and d_oc > 0.5:
-        # ocean top = base of the Ih shell
-        layers.append({'name': 'ocean (top)', 'r_km': R_km - d_ih,
-                       'kind': 'ocean'})
-    # HP-ice shell (III+V+VI aggregate) between the ocean and the silicate
-    # floor: outer radius = base of ocean = R - D_iceIh - D_ocean. No-ocean
-    # bodies (Titan allice) have an empty ocean array -> treat D_ocean as 0
-    # so HP ice sits directly under Ih. Absent when d_hp ~ 0 (Europa).
-    if d_hp is not None and d_hp > 0.5 and d_ih is not None:
-        _d_oc = d_oc if d_oc is not None else 0.0
-        layers.append({'name': 'high-pressure ice (top)',
-                       'r_km': R_km - d_ih - _d_oc, 'kind': 'hp_ice'})
-    return R_km, layers
+        layers.append({'name': LAYER_LABELS['core'], 'r_km': r_core,
+                       'kind': 'core'})
+    return layers
