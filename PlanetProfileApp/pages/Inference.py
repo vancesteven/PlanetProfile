@@ -2225,9 +2225,29 @@ def _render_corner_figure(samples, labels, *, seed=0):
     return fig
 
 
-def _display_corner(fig, *, key):
-    """Show a corner figure inline as crisp SVG + offer PDF/PNG downloads."""
+def _rasterize_heavy_artists(fig):
+    """Rasterize scatter/line-collections + images so the SVG/PDF stay small
+    while text, axes, legends, and colorbars remain crisp vector. Call on
+    figures with tens of thousands of raw points BEFORE _display_vector_fig
+    (a full-figure rasterize would blur the text — collections/images only)."""
+    for ax in fig.get_axes():
+        for coll in ax.collections:   # scatter PathCollections, LineCollections
+            coll.set_rasterized(True)
+        for im in ax.images:
+            im.set_rasterized(True)
+
+
+def _display_vector_fig(fig, *, key, download_label='plot'):
+    """Show a matplotlib figure inline as crisp vector SVG + offer PDF/PNG
+    downloads. SVG text stays sharp at any zoom (unlike st.pyplot's
+    screen-DPI PNG). For heavy figures, call _rasterize_heavy_artists(fig)
+    first so only the 2D density layer is a bitmap. file_name is derived
+    from key; button labels use download_label."""
     import io
+
+    # A rasterized layer at screen DPI looks soft; bump so the bitmap part
+    # stays sharp without exploding the vector text.
+    fig.set_dpi(150)
 
     # st.image renders SVG only when handed the markup as a STRING; raw bytes
     # are routed to PIL, which raises "cannot identify image file". Decode.
@@ -2242,13 +2262,18 @@ def _display_corner(fig, *, key):
 
     c1, c2 = st.columns(2)
     c1.download_button(
-        'Download corner plot (PDF)', pdf_buf.getvalue(),
-        file_name='corner.pdf', mime='application/pdf',
+        f'Download {download_label} (PDF)', pdf_buf.getvalue(),
+        file_name=f'{key}.pdf', mime='application/pdf',
         icon=':material/download:', width='stretch', key=f'{key}_pdf')
     c2.download_button(
-        'Download corner plot (PNG)', png_buf.getvalue(),
-        file_name='corner.png', mime='image/png',
+        f'Download {download_label} (PNG)', png_buf.getvalue(),
+        file_name=f'{key}.png', mime='image/png',
         icon=':material/download:', width='stretch', key=f'{key}_png')
+
+
+def _display_corner(fig, *, key):
+    """Show a corner figure inline as crisp SVG + PDF/PNG downloads."""
+    _display_vector_fig(fig, key=key, download_label='corner plot')
 
 
 def render_results():
@@ -2467,7 +2492,8 @@ def render_results():
                 for ax in axes[len(layers):]:
                     ax.axis('off')
                 fig.tight_layout()
-                st.pyplot(fig)
+                _display_vector_fig(fig, key='layer_thicknesses',
+                                    download_label='layer thicknesses')
                 plt.close(fig)
                 bits = ["Median with 16–84% interval (dotted)."]
                 if any(lbl.startswith('Rock mantle') for lbl, _, _ in layers):
@@ -2552,7 +2578,9 @@ def render_results():
             ax.set_title(r'$k_2$ Posterior')
             if have_ellipse:
                 ax.legend()
-            st.pyplot(fig)
+            _rasterize_heavy_artists(fig)
+            _display_vector_fig(fig, key='k2_scatter',
+                                download_label='k₂ posterior')
             plt.close(fig)
             caption_bits = []
             if have_ellipse:
@@ -2616,7 +2644,9 @@ def render_results():
                     fig.suptitle('Posterior induction response '
                                  '(dotted: $|A_e| = 1$)', fontsize=10)
                     fig.tight_layout()
-                    st.pyplot(fig)
+                    _rasterize_heavy_artists(fig)
+                    _display_vector_fig(fig, key='ae_complex_plane',
+                                        download_label='Aₑ complex plane')
                     plt.close(fig)
                 else:
                     # Per-component induced surface field Bind = Ae * Be
@@ -2655,7 +2685,10 @@ def render_results():
                                      'surface field (red: conditioned value '
                                      '± 1σ)', fontsize=10)
                         fig.tight_layout()
-                        st.pyplot(fig)
+                        _rasterize_heavy_artists(fig)
+                        _display_vector_fig(
+                            fig, key=f'bind_{lab}',
+                            download_label=f'Bind {lab}')
                         plt.close(fig)
 
                 # k2 on the complex plane, organized by the discrete model
@@ -2753,7 +2786,9 @@ def render_results():
                         axk.set_ylabel('Im(signal)')
                         axk.set_title('Complex-plane response signals per '
                                       'posterior sample')
-                        st.pyplot(figk)
+                        _rasterize_heavy_artists(figk)
+                        _display_vector_fig(figk, key='signals_salinity',
+                                            download_label='complex-plane signals')
                         plt.close(figk)
                         st.caption(
                             f"One faint path per posterior sample "
@@ -2821,7 +2856,9 @@ def render_results():
                         axk.set_ylabel('Im(signal)')
                         axk.set_title('Complex-plane response signals per '
                                       'interior model')
-                        st.pyplot(figk)
+                        _rasterize_heavy_artists(figk)
+                        _display_vector_fig(figk, key='signals_fixed',
+                                            download_label='complex-plane signals')
                         plt.close(figk)
                         st.caption(
                             "Each connected path is one interior model "
@@ -3132,7 +3169,8 @@ def render_results():
                                '(unnormalized)')
                 axu.set_ylabel('posterior samples')
                 axu.legend(fontsize=8)
-                st.pyplot(figu)
+                _display_vector_fig(figu, key='nonhydro_u',
+                                    download_label='non-hydrostatic u')
                 plt.close(figu)
                 st.caption(
                     "u is the RATIO-BREAKING combination of the sampled "
@@ -3313,7 +3351,8 @@ def render_results():
                     ax.legend(fontsize=9)
 
                 fig.tight_layout()
-                st.pyplot(fig)
+                _display_vector_fig(fig, key='cmr2_posterior',
+                                    download_label='C/MR² posterior')
                 plt.close(fig)
 
                 # Summary metrics
@@ -3471,7 +3510,8 @@ def render_results():
                 ax_stack.set_xlabel("Samples (sorted by silicate fraction)")
                 ax_stack.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=8)
 
-                st.pyplot(fig_stack)
+                _display_vector_fig(fig_stack, key='reservoir_stack',
+                                    download_label='reservoir fractions')
                 plt.close(fig_stack)
 
                 # Aggregate Reservoir Visualization
@@ -3492,7 +3532,8 @@ def render_results():
                                    colors=['#C8A96E', '#9B59B6', '#AEE1F8'],
                                    startangle=90)
                         ax_pie.axis('equal')
-                        st.pyplot(fig_pie)
+                        _display_vector_fig(fig_pie, key='heating_pie',
+                                            download_label='heating pie')
                         plt.close(fig_pie)
 
                 with col_stats:
@@ -3578,7 +3619,9 @@ def render_results():
 
                 fig.suptitle('Heating Distribution', fontsize=14)
                 fig.tight_layout()
-                st.pyplot(fig)
+                _rasterize_heavy_artists(fig)
+                _display_vector_fig(fig, key='heating_distribution',
+                                    download_label='heating distribution')
                 plt.close(fig)
             except Exception as e:
                 st.warning(f"Heating distribution unavailable: {e}")
