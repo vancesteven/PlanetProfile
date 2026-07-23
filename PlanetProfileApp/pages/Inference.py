@@ -2693,14 +2693,29 @@ def render_results():
                 tb_norm = (tb_vals - tb_vals.min()) / (np.ptp(tb_vals) + 1e-10)
                 pt_size = 4 + 20 * tb_norm  # 4–24 px, larger = warmer = more ocean
 
+            # Keep the scatter VECTOR (crisp markers at any zoom). Rasterizing
+            # it (as heavy figures do) then upscaling the baked-in raster to
+            # container width blurred the individual model points (user
+            # 2026-07-23). This cloud is at most n_derived points; cap the
+            # DISPLAY subset so the vector SVG stays small while staying sharp.
+            _K2_DISPLAY_CAP = 4000
+            if len(Re_arr) > _K2_DISPLAY_CAP:
+                _rng = np.random.default_rng(0)
+                _sub = _rng.choice(len(Re_arr), _K2_DISPLAY_CAP, replace=False)
+            else:
+                _sub = np.arange(len(Re_arr))
+            _pt_size = (pt_size[_sub] if np.ndim(pt_size) else pt_size)
+
             plt.rcParams['text.usetex'] = False
             fig, ax = plt.subplots(figsize=(8, 6))
             if f_sil is not None and len(f_sil) == len(Re_arr):
-                sc = ax.scatter(Re_arr, Im_arr, c=f_sil, cmap='viridis',
-                                s=pt_size, alpha=0.6, vmin=0, vmax=1)
+                sc = ax.scatter(Re_arr[_sub], Im_arr[_sub], c=f_sil[_sub],
+                                cmap='viridis', s=_pt_size, alpha=0.6,
+                                vmin=0, vmax=1)
                 plt.colorbar(sc, ax=ax, label='Silicate heating fraction')
             else:
-                ax.scatter(Re_arr, Im_arr, s=pt_size, alpha=0.6, color='steelblue')
+                ax.scatter(Re_arr[_sub], Im_arr[_sub], s=_pt_size, alpha=0.6,
+                           color='steelblue')
 
             have_ellipse = Re_obs is not None and Im_obs is not None
             if have_ellipse:
@@ -2715,7 +2730,8 @@ def render_results():
             ax.set_title(r'$k_2$ Posterior')
             if have_ellipse:
                 ax.legend()
-            _rasterize_heavy_artists(fig)
+            # No rasterization: keep the ≤4000-point cloud as vector markers
+            # (sharp at any display width; SVG stays small at this count).
             _display_vector_fig(fig, key='k2_scatter',
                                 download_label='k₂ posterior')
             plt.close(fig)
@@ -3116,29 +3132,33 @@ def render_results():
                        if sal_col else None)
 
                 sel_idx = None
-                if tb is not None and d_oc.size == len(samples):
+                # --- X-axis selector (user 2026-07-20): plotting vs ICE
+                # THICKNESS (not Tb) reveals the full salinity distribution
+                # — a uniform-Tb view clusters high salinity at low Tb, an
+                # artifact of the Tb<->thickness<->salinity coupling. Each
+                # candidate is offered only when its array is present and
+                # has some finite values; default to ice thickness. Tb_K is
+                # OPTIONAL: v5/v6 reparameterize to D_iceIh_km and carry no
+                # Tb_K column, so the picker keys off the ocean-thickness
+                # y-array + any available x-choice, never on Tb (which would
+                # otherwise disable the picker entirely for those artifacts).
+                def _finite_ok(a):
+                    return (a is not None and np.size(a) == len(samples)
+                            and np.isfinite(a).any())
+                x_choices = []
+                if _finite_ok(d_ih):
+                    x_choices.append(('Ice thickness', d_ih,
+                                      'Ice thickness (km)',
+                                      'ice %{x:.1f} km'))
+                if tb is not None:
+                    x_choices.append(('T_b', tb, 'T_b (K)',
+                                      'Tb %{x:.2f} K'))
+                if _finite_ok(d_oc):
+                    x_choices.append(('Ocean thickness', d_oc,
+                                      'Ocean thickness (km)',
+                                      'ocean %{x:.1f} km'))
+                if x_choices and _finite_ok(d_oc):
                     import plotly.graph_objects as go_
-                    # --- X-axis selector (user 2026-07-20): plotting vs ICE
-                    # THICKNESS (not Tb) reveals the full salinity distribution
-                    # — a uniform-Tb view clusters high salinity at low Tb, an
-                    # artifact of the Tb<->thickness<->salinity coupling. Each
-                    # candidate is offered only when its array is present and
-                    # has some finite values; default to ice thickness.
-                    def _finite_ok(a):
-                        return (a is not None and np.size(a) == len(samples)
-                                and np.isfinite(a).any())
-                    x_choices = []
-                    if _finite_ok(d_ih):
-                        x_choices.append(('Ice thickness', d_ih,
-                                          'Ice thickness (km)',
-                                          'ice %{x:.1f} km'))
-                    if tb is not None:
-                        x_choices.append(('T_b', tb, 'T_b (K)',
-                                          'Tb %{x:.2f} K'))
-                    if _finite_ok(d_oc):
-                        x_choices.append(('Ocean thickness', d_oc,
-                                          'Ocean thickness (km)',
-                                          'ocean %{x:.1f} km'))
                     x_labels = [c[0] for c in x_choices]
                     x_pick = st.segmented_control(
                         'Sample-picker x-axis', x_labels,
