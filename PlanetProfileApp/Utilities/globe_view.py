@@ -93,6 +93,22 @@ def texture_path(bodyname: str) -> Optional[Path]:
     return p if p.exists() else None
 
 
+_TEXTURE_CACHE: Dict[str, "np.ndarray"] = {}
+
+
+def _load_texture(path: Path):
+    """Decode the texture once per process (textures are static assets;
+    Streamlit reruns rebuild the globe on every widget tick and JPEG
+    decode + array conversion of a 2048x1024 image is measurable)."""
+    key = str(path)
+    img = _TEXTURE_CACHE.get(key)
+    if img is None:
+        from PIL import Image
+        img = np.asarray(Image.open(path).convert('RGB'))
+        _TEXTURE_CACHE[key] = img
+    return img
+
+
 def _sphere_mesh(n_lat: int = 60, n_lon: int = 120):
     theta = np.linspace(1e-3, np.pi - 1e-3, n_lat)   # colatitude
     phi = np.linspace(0.0, 2.0 * np.pi, n_lon)
@@ -273,8 +289,7 @@ def build_globe_figure(
     texture_img = None
     tp = texture_path(bodyname)
     if tp is not None:
-        from PIL import Image
-        texture_img = np.asarray(Image.open(tp).convert('RGB'))
+        texture_img = _load_texture(tp)
 
     _kf = kf if (kf is not None and np.isfinite(kf) and kf > 0.05) else 1.0
     h_amp = (1.0 + _kf) / _kf

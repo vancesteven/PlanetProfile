@@ -919,12 +919,16 @@ def render_run_button(InferenceConfig, MCMCRunner):
     # Validate configuration
     validation = validate_inference_config()
 
-    # Show validation errors
+    # Show validation errors. Do NOT st.stop() here: that kills the whole
+    # script, so an existing result in session state (results panel below)
+    # silently vanished whenever the run-config form was incomplete — e.g.
+    # a fresh Europa session with a loaded/completed run. Skip the run
+    # button only; let the rest of the page (results) render.
     if not validation['valid']:
         st.error("❌ **Configuration errors:**")
         for error in validation['errors']:
             st.error(f"- {error}")
-        st.stop()
+        return
 
     # Show validation warnings
     for warning in validation['warnings']:
@@ -2216,59 +2220,30 @@ def _render_corner_figure(samples, labels, *, seed=0):
 
     for ax in fig.get_axes():
         ax.tick_params(labelsize=10)
-        # rasterize only the heavy 2D density; text/lines stay vector
-        for coll in ax.collections:
-            coll.set_rasterized(True)
-        for im in ax.images:
-            im.set_rasterized(True)
+    # rasterize only the heavy 2D density; text/lines stay vector
+    _rasterize_heavy_artists(fig)
 
     return fig
 
 
-def _rasterize_heavy_artists(fig):
-    """Rasterize scatter/line-collections + images so the SVG/PDF stay small
-    while text, axes, legends, and colorbars remain crisp vector. Call on
-    figures with tens of thousands of raw points BEFORE _display_vector_fig
-    (a full-figure rasterize would blur the text — collections/images only)."""
-    for ax in fig.get_axes():
-        for coll in ax.collections:   # scatter PathCollections, LineCollections
-            coll.set_rasterized(True)
-        for im in ax.images:
-            im.set_rasterized(True)
+from Utilities.crisp_figs import (
+    rasterize_heavy_artists as _rasterize_heavy_artists,
+    display_vector_fig as _crisp_display)
+
+
+def _result_token():
+    """Cache token for figure exports: stable while the same result object
+    sits in session state; changes on any new run / loaded pickle."""
+    res = st.session_state.get('inference_results')
+    return None if res is None else (id(res), len(getattr(res, 'samples', ())))
 
 
 def _display_vector_fig(fig, *, key, download_label='plot'):
-    """Show a matplotlib figure inline as crisp vector SVG + offer PDF/PNG
-    downloads. SVG text stays sharp at any zoom (unlike st.pyplot's
-    screen-DPI PNG). For heavy figures, call _rasterize_heavy_artists(fig)
-    first so only the 2D density layer is a bitmap. file_name is derived
-    from key; button labels use download_label."""
-    import io
-
-    # A rasterized layer at screen DPI looks soft; bump so the bitmap part
-    # stays sharp without exploding the vector text.
-    fig.set_dpi(150)
-
-    # st.image renders SVG only when handed the markup as a STRING; raw bytes
-    # are routed to PIL, which raises "cannot identify image file". Decode.
-    svg_buf = io.BytesIO()
-    fig.savefig(svg_buf, format='svg', bbox_inches='tight')
-    st.image(svg_buf.getvalue().decode('utf-8'), width='stretch')
-
-    pdf_buf = io.BytesIO()
-    fig.savefig(pdf_buf, format='pdf', bbox_inches='tight')
-    png_buf = io.BytesIO()
-    fig.savefig(png_buf, format='png', dpi=200, bbox_inches='tight')
-
-    c1, c2 = st.columns(2)
-    c1.download_button(
-        f'Download {download_label} (PDF)', pdf_buf.getvalue(),
-        file_name=f'{key}.pdf', mime='application/pdf',
-        icon=':material/download:', width='stretch', key=f'{key}_pdf')
-    c2.download_button(
-        f'Download {download_label} (PNG)', png_buf.getvalue(),
-        file_name=f'{key}.png', mime='image/png',
-        icon=':material/download:', width='stretch', key=f'{key}_png')
+    """Crisp SVG + cached PDF/PNG downloads (see Utilities/crisp_figs).
+    Exports are cached per (key, result token): reruns skip all three
+    savefig calls — the dominant per-rerun cost on the results page."""
+    _crisp_display(fig, key=key, download_label=download_label,
+                   token=_result_token())
 
 
 def _display_corner(fig, *, key):
@@ -2422,10 +2397,14 @@ def render_results():
                 if not np.all(row_ok):
                     corner_samples_plot = corner_samples_plot[row_ok]
 
-                fig = _render_corner_figure(
-                    corner_samples_plot, corner_labels_plot)
-                _display_corner(fig, key='corner')
-                plt.close(fig)
+                # builder path: corner() is the most expensive build on
+                # the page (~seconds) — skip BOTH build and exports on
+                # cache hit (token = current result).
+                _crisp_display(
+                    builder=lambda: _render_corner_figure(
+                        corner_samples_plot, corner_labels_plot),
+                    key='corner', download_label='corner plot',
+                    token=_result_token())
         except ImportError:
             st.info("Install the `corner` library to view corner plots: `pip install corner`")
         except Exception as e:

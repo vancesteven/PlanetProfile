@@ -1528,573 +1528,637 @@ with col2:
                     _disp = st.session_state.get('induct_display_mode', 'real_imaginary')
                     if _disp == 'amplitude_phase':
                         st.info("Component selection (Bx/By/Bz) is only supported in the interactive Plotly view for amplitude/phase mode. The matplotlib plot shows the total amplitude.")
-                st.info("📊 Generating matplotlib plots... This may take a moment.")
+                # Rerun cache: every widget tick reruns this script; the
+                # matplotlib pipeline (GenerateExplorationPlots + PDF write)
+                # costs seconds, so replay cached SVG/PDF bytes unless the
+                # results object or a plot-affecting control changed.
+                _mpl_token = (
+                    id(results), zName,
+                    st.session_state.get('exploreogram_induct_component', 'Total'),
+                    st.session_state.get('induct_display_mode', 'real_imaginary'),
+                    tuple(st.session_state.get('selected_excitations', []) or ()),
+                    st.session_state.get('induct_use_contours', True),
+                    st.session_state.get('exploreogram_use_nT_amplitudes', True),
+                    st.session_state.get('exploreogram_show_salinity_axis', False),
+                    st.session_state.get('exploreogram_x_log', False),
+                    st.session_state.get('exploreogram_y_log', False),
+                    st.session_state.get('explore_x_driver', None),
+                    st.session_state.get('explore_y_driver', None),
+                    st.session_state.get('explore_xName', None),
+                    st.session_state.get('explore_yName', None),
+                )
+                _mpl_hit = st.session_state.setdefault('_explore_mpl_cache', {}).get('mpl')
+                if _mpl_hit is not None and _mpl_hit['token'] == _mpl_token:
+                    for _svg in _mpl_hit['svgs']:
+                        st.image(_svg, width='stretch')
+                    for _pn, _pb in _mpl_hit['pdfs']:
+                        st.download_button(f'Download {_pn}', _pb, file_name=_pn,
+                                           mime='application/pdf',
+                                           icon=':material/download:',
+                                           key=f'explore_mpl_pdf_{_pn}')
+                else:
+                    st.info("📊 Generating matplotlib plots... This may take a moment.")
 
-                try:
-                    import matplotlib
-                    matplotlib.use('Agg')  # Non-interactive backend
-                    import matplotlib.pyplot as plt
-                    from PlanetProfile.Plotting.ExplorationPlots import GenerateExplorationPlots
-                    from PlanetProfile.GetConfig import FigMisc
-                    from pdf2image import convert_from_path
+                    try:
+                        import matplotlib
+                        matplotlib.use('Agg')  # Non-interactive backend
+                        import matplotlib.pyplot as plt
+                        from PlanetProfile.Plotting.ExplorationPlots import GenerateExplorationPlots
+                        from PlanetProfile.GetConfig import FigMisc
+                        from pdf2image import convert_from_path
 
-                    # Prepare for plotting
-                    ExplorationList = [Exploration]
+                        # Prepare for plotting
+                        ExplorationList = [Exploration]
 
-                    # Setup figure files
-                    from PlanetProfile.Utilities.defineStructs import FigureFilesSubstruct
-                    output_dir = os.path.join(parent_directory, 'output', 'exploreograms')
-                    os.makedirs(output_dir, exist_ok=True)
+                        # Setup figure files
+                        from PlanetProfile.Utilities.defineStructs import FigureFilesSubstruct
+                        output_dir = os.path.join(parent_directory, 'output', 'exploreograms')
+                        os.makedirs(output_dir, exist_ok=True)
 
-                    fig_basename = f"{results['Planet'].name}_explore_{results['xName']}_vs_{results['yName']}"
-                    _ic_mpl = st.session_state.get('exploreogram_induct_component', 'Total')
-                    _COMP_TO_ZNAME = {'Bx': 'Bi1x_nT', 'By': 'Bi1y_nT', 'Bz': 'Bi1z_nT', 'Total': 'Bi1Tot_nT'}
-                    _pdf_append = results['zName']
-                    FigureFiles = FigureFilesSubstruct(
-                        figPath=output_dir,
-                        figBase=fig_basename,
-                        xtn='.pdf',
-                        exploreAppend=_pdf_append
-                    )
-
-                    FigureFilesList = [FigureFiles]
-
-                    # Assign FigureFiles to Params so GenerateExplorationPlots can access it
-                    Params.FigureFiles = FigureFiles
-
-                    # Ensure contourName is set
-                    if not hasattr(Params.Explore, 'contourName'):
-                        Params.Explore.contourName = None
-
-                    # Always reset excName — stale induction excitation names
-                    # from prior runs would otherwise append to non-induction labels
-                    Exploration.excName = None
-                    if not hasattr(Exploration, 'contourName'):
-                        Exploration.contourName = Params.Explore.contourName
-
-                    # Configure for induction multi-frequency display
-                    is_induction_z = zName in induction_z_vars
-                    if is_induction_z and hasattr(Exploration, 'induction') and Exploration.induction is not None:
-                        # Read display mode from GUI — controls real+imag vs amp+phase
-                        display_mode = st.session_state.get('induct_display_mode', 'real_imaginary')
-
-                        # Map display_mode to appropriate z-variable list
-                        if display_mode == 'amplitude_phase':
-                            # Force amplitude + phase subplots regardless of selected zName
-                            Params.Explore.zName = ['Amp_nT', 'phase_deg']
-                        elif display_mode == 'real_imaginary':
-                            # If user selected Amp or phase, substitute Bi1Tot for real+imag expansion
-                            if zName in ('Amp_nT', 'phase_deg'):
-                                _comp_zname = _COMP_TO_ZNAME.get(_ic_mpl, 'Bi1Tot_nT')
-                                Params.Explore.zName = [_comp_zname]
-                            else:
-                                # zName should be in zNamePlotRealImag for automatic expansion
-                                Params.Explore.zName = [zName]
-                        else:
-                            Params.Explore.zName = [zName]
-
-                        Params.PLOT_COMBO_EXPLORATIONS = True
-
-                        # Ensure Params.Induct is initialized (may be None if loaded from disk cache)
-                        if Params.Induct is None:
-                            try:
-                                from PlanetProfile.MagneticInduction.defaultConfigInduct import inductAssign
-                                _, _, InductParams_display, _ = inductAssign()
-                                Params.Induct = InductParams_display
-                            except Exception:
-                                from PlanetProfile.Utilities.defineStructs import InductOgramParamsStruct
-                                Params.Induct = InductOgramParamsStruct(inductOtype=None, cLevels=None, dftC=None, cfmt=None)
-
-                        # Configure excSelectionPlot to match user-selected frequencies
-                        selected_exc = st.session_state.get('selected_excitations', [])
-                        # Ensure all selected excitations have entries in excSelectionPlot
-                        for exc_name in selected_exc:
-                            if exc_name not in Params.Induct.excSelectionPlot:
-                                Params.Induct.excSelectionPlot[exc_name] = True
-                        for exc_name in Params.Induct.excSelectionPlot.keys():
-                            Params.Induct.excSelectionPlot[exc_name] = exc_name in selected_exc
-
-                        # Rebuild FigureFiles with list-format exploreAppend
+                        fig_basename = f"{results['Planet'].name}_explore_{results['xName']}_vs_{results['yName']}"
+                        _ic_mpl = st.session_state.get('exploreogram_induct_component', 'Total')
+                        _COMP_TO_ZNAME = {'Bx': 'Bi1x_nT', 'By': 'Bi1y_nT', 'Bz': 'Bi1z_nT', 'Total': 'Bi1Tot_nT'}
+                        _pdf_append = results['zName']
                         FigureFiles = FigureFilesSubstruct(
                             figPath=output_dir,
                             figBase=fig_basename,
                             xtn='.pdf',
-                            exploreAppend=Params.Explore.zName
+                            exploreAppend=_pdf_append
                         )
+
                         FigureFilesList = [FigureFiles]
+
+                        # Assign FigureFiles to Params so GenerateExplorationPlots can access it
                         Params.FigureFiles = FigureFiles
-                    else:
-                        # Non-induction: single variable mode
-                        Params.Explore.zName = zName
-                        Params.PLOT_COMBO_EXPLORATIONS = False
 
-                    # Plot flags
-                    if not hasattr(Params, 'PLOT_Zb_D'):
-                        Params.PLOT_Zb_D = False
-                    if not hasattr(Params, 'PLOT_D_SIGMA'):
-                        Params.PLOT_D_SIGMA = False
-                    if not hasattr(Params, 'PLOT_LOVE_COMPARISON'):
-                        Params.PLOT_LOVE_COMPARISON = False
+                        # Ensure contourName is set
+                        if not hasattr(Params.Explore, 'contourName'):
+                            Params.Explore.contourName = None
 
-                    # Propagate contour toggle from GUI checkbox
-                    Params.Explore.DRAW_CONTOURS = st.session_state.get('induct_use_contours', True)
+                        # Always reset excName — stale induction excitation names
+                        # from prior runs would otherwise append to non-induction labels
+                        Exploration.excName = None
+                        if not hasattr(Exploration, 'contourName'):
+                            Exploration.contourName = Params.Explore.contourName
 
-                    # --- GUI log-scale toggles → matplotlib (Task 3) ---
-                    # FigLbl.SetExploration() (called inside GenerateExplorationPlots) reads
-                    # FigLbl.axisLogScalesExplore to decide xScaleExplore/yScaleExplore.
-                    # Force the user's checkbox state by adding/removing xName/yName from
-                    # that list, then restore in a finally-block below.
-                    from PlanetProfile.GetConfig import FigLbl as _FigLbl_modlog
-                    _orig_axisLogScales = list(_FigLbl_modlog.axisLogScalesExplore)
-                    _xname_for_scale = Exploration.xName
-                    _yname_for_scale = Exploration.yName
-                    _new_log_list = [v for v in _orig_axisLogScales
-                                     if v not in (_xname_for_scale, _yname_for_scale)]
-                    if x_log:
-                        _new_log_list.append(_xname_for_scale)
-                    if y_log:
-                        _new_log_list.append(_yname_for_scale)
-                    _FigLbl_modlog.axisLogScalesExplore = _new_log_list
+                        # Configure for induction multi-frequency display
+                        is_induction_z = zName in induction_z_vars
+                        if is_induction_z and hasattr(Exploration, 'induction') and Exploration.induction is not None:
+                            # Read display mode from GUI — controls real+imag vs amp+phase
+                            display_mode = st.session_state.get('induct_display_mode', 'real_imaginary')
 
-                    # --- GUI nT-amplitudes toggle → matplotlib (Task 2 / Bug A) ---
-                    # The matplotlib pipeline reads:
-                    #   * induction.Amp           — for Amp_nT (amplitude+phase mode)
-                    #   * induction.rBi1Tot_nT    — for the real subplot in R+I mode
-                    #   * induction.iBi1Tot_nT    — for the imaginary subplot in R+I mode
-                    # Default (use_nT=True) renders in nT.  When unchecked we
-                    # temporarily override these arrays with the dimensionless
-                    # Aₑ representation:
-                    #     Amp        ← Aₑ                   (already dimensionless)
-                    #     rBi1Tot_nT ← Aₑ·cos(φ)            (Re component, dimensionless)
-                    #     iBi1Tot_nT ← Aₑ·sin(φ)            (Im component, dimensionless)
-                    # The originals are restored in a finally-block below.
-                    use_nT_mpl = st.session_state.get('exploreogram_use_nT_amplitudes', True)
-                    _amp_orig = None
-                    _r_orig = None
-                    _i_orig = None
-                    _orig_amp_label = None
-                    _orig_r_label = None
-                    _orig_i_label = None
-                    _amp_was_overridden = False
-                    _ri_was_overridden = False
-                    # Determine which induction arrays matplotlib will actually read,
-                    # so we only override what is consumed.  Params.Explore.zName has
-                    # already been resolved to the correct list for this display mode.
-                    _plotted_z = list(Params.Explore.zName) if isinstance(Params.Explore.zName, (list, tuple)) else [Params.Explore.zName]
-                    _will_plot_amp     = any(z in _plotted_z for z in ('Amp_nT', 'Bi1Tot_nT', 'Bi1x_nT', 'Bi1y_nT', 'Bi1z_nT'))
-                    _will_plot_ri      = any(z in _plotted_z for z in ('Bi1Tot_nT', 'Bi1x_nT', 'Bi1y_nT', 'Bi1z_nT',
-                                                                        'rBi1Tot_nT', 'iBi1Tot_nT',
-                                                                        'rBi1x_nT', 'iBi1x_nT', 'rBi1y_nT', 'iBi1y_nT',
-                                                                        'rBi1z_nT', 'iBi1z_nT'))
-
-                    _ind = getattr(Exploration, 'induction', None)
-                    if _ind is not None and getattr(_ind, 'Bi1Tot_nT', None) is not None:
-                        if use_nT_mpl and _will_plot_amp:
-                            # nT mode: replace dimensionless Aₑ modulus with |Bⁱ| in nT.
-                            _amp_orig = _ind.Amp
-                            _ind.Amp = np.abs(_ind.Bi1Tot_nT)
-                            _amp_was_overridden = True
-                        elif not use_nT_mpl and _will_plot_ri:
-                            # Dimensionless Aₑ mode: override r/i components so matplotlib
-                            # subplots show Re{Aₑ} and Im{Aₑ} instead of nT values.
-                            _Amp_dimless = getattr(_ind, 'Amp', None)
-                            _Phase_deg   = getattr(_ind, 'Phase', None)
-                            if _Amp_dimless is not None and _Phase_deg is not None:
-                                _phase_rad = np.deg2rad(_Phase_deg)
-                                _r_orig = getattr(_ind, 'rBi1Tot_nT', None)
-                                _i_orig = getattr(_ind, 'iBi1Tot_nT', None)
-                                _ind.rBi1Tot_nT = _Amp_dimless * np.cos(_phase_rad)
-                                _ind.iBi1Tot_nT = _Amp_dimless * np.sin(_phase_rad)
-                                _ri_was_overridden = True
-
-                        # Update axisLabelsExplore so colorbars/titles match the unit
-                        try:
-                            if (hasattr(_FigLbl_modlog, 'axisLabelsExplore') and
-                                    _FigLbl_modlog.axisLabelsExplore is not None):
-                                lbls = _FigLbl_modlog.axisLabelsExplore
-                                if use_nT_mpl:
-                                    if 'Amp_nT' in lbls:
-                                        _orig_amp_label = lbls['Amp_nT']
-                                        lbls['Amp_nT'] = r'$|B^i|$ (nT)'
+                            # Map display_mode to appropriate z-variable list
+                            if display_mode == 'amplitude_phase':
+                                # Force amplitude + phase subplots regardless of selected zName
+                                Params.Explore.zName = ['Amp_nT', 'phase_deg']
+                            elif display_mode == 'real_imaginary':
+                                # If user selected Amp or phase, substitute Bi1Tot for real+imag expansion
+                                if zName in ('Amp_nT', 'phase_deg'):
+                                    _comp_zname = _COMP_TO_ZNAME.get(_ic_mpl, 'Bi1Tot_nT')
+                                    Params.Explore.zName = [_comp_zname]
                                 else:
-                                    if 'rBi1Tot_nT' in lbls:
-                                        _orig_r_label = lbls['rBi1Tot_nT']
-                                        lbls['rBi1Tot_nT'] = r'$\mathrm{Re}\{A_e\}$'
-                                    if 'iBi1Tot_nT' in lbls:
-                                        _orig_i_label = lbls['iBi1Tot_nT']
-                                        lbls['iBi1Tot_nT'] = r'$\mathrm{Im}\{A_e\}$'
-                        except Exception:
-                            pass
+                                    # zName should be in zNamePlotRealImag for automatic expansion
+                                    Params.Explore.zName = [zName]
+                            else:
+                                Params.Explore.zName = [zName]
 
-                    # Monkey-patch Figure.savefig to unconditionally pin axis limits
-                    # to the data range.  PlotExploreOgram's set_xlim([np.min(x), np.max(x)])
-                    # silently no-ops when x contains NaN (derived axes like sigmaMean_Sm),
-                    # and pcolormesh + sharex=True can then re-trigger autoscale.
-                    # Restored in finally.
-                    from matplotlib.figure import Figure as _MplFigure
-                    _orig_savefig = _MplFigure.savefig
+                            Params.PLOT_COMBO_EXPLORATIONS = True
 
-                    _xn = Exploration.xName
-                    _yn = Exploration.yName
-
-                    # Capture log-scale checkbox state in closure.
-                    _force_x_log = bool(x_log)
-                    _force_y_log = bool(y_log)
-
-                    # Capture salinity-axis and derived-label state for secondary-axis logic.
-                    _show_sal_axis   = st.session_state.get('exploreogram_show_salinity_axis', False)
-                    _x_derived_label = x_derived_label   # 'sigmaMean_Sm' or None
-                    _y_derived_label = y_derived_label   # 'sigmaMean_Sm' or None
-
-                    # Substitute Exploration.xData/yData with derived arrays so that
-                    # PlotExploreOgram (called below) positions pcolormesh cells in
-                    # conductivity space instead of salinity space.  Without this,
-                    # nonlinear σ(w) produces unequal column widths (jagged cells).
-                    # Restored unconditionally in the finally block below.
-                    _xdata_substituted = False
-                    _orig_xData = None
-                    _orig_xName = None
-                    _ydata_substituted = False
-                    _orig_yData = None
-                    _orig_yName = None
-                    _SIG_SUBST = 'sigmaMean_Sm'
-                    if (_x_derived_label == _SIG_SUBST and
-                            hasattr(Exploration, 'base') and Exploration.base is not None):
-                        _derived_x_arr = getattr(Exploration.base, _SIG_SUBST, None)
-                        if (_derived_x_arr is not None and
-                                np.shape(_derived_x_arr) == np.shape(Exploration.xData)):
-                            _orig_xData = Exploration.xData.copy()
-                            _orig_xName = Exploration.xName
-                            # Use column-mean conductivity (averaged over D) tiled to (nx, ny).
-                            # The raw 2D sigmaMean_Sm varies with BOTH salinity and D; using it
-                            # directly produces a non-rectilinear pcolormesh grid with staircase
-                            # cell boundaries.  The mean gives a single representative σ per
-                            # salinity column, consistent with the secondary-axis tick mapping.
-                            _sig2d_raw = np.asarray(_derived_x_arr, dtype=float)
-                            _sig1d_rep = np.nanmean(_sig2d_raw, axis=1)            # (nx,)
-                            _sig2d_rect = np.tile(_sig1d_rep[:, np.newaxis],
-                                                  (1, _sig2d_raw.shape[1]))        # (nx, ny)
-                            Exploration.xData = _sig2d_rect
-                            Exploration.xName = _SIG_SUBST
-                            _xdata_substituted = True
-                    if (_y_derived_label == _SIG_SUBST and
-                            hasattr(Exploration, 'base') and Exploration.base is not None):
-                        _derived_y_arr = getattr(Exploration.base, _SIG_SUBST, None)
-                        if (_derived_y_arr is not None and
-                                np.shape(_derived_y_arr) == np.shape(Exploration.yData)):
-                            _orig_yData = Exploration.yData.copy()
-                            _orig_yName = Exploration.yName
-                            # Rectilinearize exactly like the x-branch above: the
-                            # raw 2D sigmaMean_Sm varies with BOTH axes, and
-                            # substituting it directly produced non-rectilinear
-                            # pcolormesh rows — the jagged/oscillatory y-axis
-                            # appearance reported at high salinity (2026-07-12).
-                            # Use one representative sigma per y row (mean over
-                            # the x direction), tiled to (nx, ny).
-                            _sig2d_raw_y = np.asarray(_derived_y_arr, dtype=float)
-                            _sig1d_rep_y = np.nanmean(_sig2d_raw_y, axis=0)
-                            _sig2d_rect_y = np.tile(_sig1d_rep_y[np.newaxis, :],
-                                                    (_sig2d_raw_y.shape[0], 1))
-                            Exploration.yData = _sig2d_rect_y
-                            Exploration.yName = _SIG_SUBST
-                            _ydata_substituted = True
-
-                    # Pre-compute data-driven axis limits from PP-computed arrays.
-                    # When a derived axis is active (e.g. sigmaMean_Sm replacing wOcean_ppt),
-                    # use the DERIVED values for xlim so the axis spans conductivity space,
-                    # not salinity space.
-                    _xdata_arr = None   # valid x values for xlim
-                    _ydata_arr = None   # valid y values for ylim
-                    _SIG = 'sigmaMean_Sm'
-                    if hasattr(Exploration, 'base') and Exploration.base is not None:
-                        _valid_mask = None
-                        if hasattr(Exploration.base, 'VALID') and Exploration.base.VALID is not None:
-                            _vm = np.asarray(Exploration.base.VALID, dtype=bool).ravel()
-                            _valid_mask = _vm
-
-                        # For x: prefer derived quantity when label is set
-                        _raw_x_name = _x_derived_label if _x_derived_label == _SIG else _xn
-                        _raw_x = getattr(Exploration.base, _raw_x_name, None)
-                        _raw_y_name = _y_derived_label if _y_derived_label == _SIG else _yn
-                        _raw_y = getattr(Exploration.base, _raw_y_name, None)
-                        if _raw_x is not None:
-                            _arr = np.asarray(_raw_x, dtype=float).ravel()
-                            _mask = np.isfinite(_arr)
-                            if _valid_mask is not None and _valid_mask.size == _arr.size:
-                                _mask = _mask & _valid_mask
-                            if _force_x_log:
-                                _mask = _mask & (_arr > 0)
-                            _valid = _arr[_mask]
-                            if _valid.size >= 2:
-                                _xdata_arr = _valid
-                        if _raw_y is not None:
-                            _arr = np.asarray(_raw_y, dtype=float).ravel()
-                            _mask = np.isfinite(_arr)
-                            if _valid_mask is not None and _valid_mask.size == _arr.size:
-                                _mask = _mask & _valid_mask
-                            if _force_y_log:
-                                _mask = _mask & (_arr > 0)
-                            _valid = _arr[_mask]
-                            if _valid.size >= 2:
-                                _ydata_arr = _valid
-
-                    def _patched_savefig(self_fig, *args, **kwargs):
-                        try:
-                            _data_axes = [a for a in self_fig.axes
-                                          if getattr(a, '_label', '') != '<colorbar>']
-                            for ax in _data_axes:
-                                # Enforce x/y scale from checkbox state.
+                            # Ensure Params.Induct is initialized (may be None if loaded from disk cache)
+                            if Params.Induct is None:
                                 try:
-                                    target_xscale = 'log' if _force_x_log else 'linear'
-                                    target_yscale = 'log' if _force_y_log else 'linear'
-                                    if ax.get_xscale() != target_xscale:
-                                        ax.set_xscale(target_xscale)
-                                    if ax.get_yscale() != target_yscale:
-                                        ax.set_yscale(target_yscale)
+                                    from PlanetProfile.MagneticInduction.defaultConfigInduct import inductAssign
+                                    _, _, InductParams_display, _ = inductAssign()
+                                    Params.Induct = InductParams_display
                                 except Exception:
-                                    pass
+                                    from PlanetProfile.Utilities.defineStructs import InductOgramParamsStruct
+                                    Params.Induct = InductOgramParamsStruct(inductOtype=None, cLevels=None, dftC=None, cfmt=None)
 
-                                # Unconditionally pin axis limits to the data range.
-                                # PlotExploreOgram's set_xlim([np.min(x), np.max(x)]) silently
-                                # no-ops when x has NaN entries (derived axes like sigmaMean_Sm),
-                                # and pcolormesh + sharex=True can override it even when it
-                                # succeeds.  Data-driven values from _xdata_arr are always correct.
-                                try:
-                                    if _xdata_arr is not None:
-                                        xmin_d = float(_xdata_arr.min())
-                                        xmax_d = float(_xdata_arr.max())
-                                        if np.isfinite(xmin_d) and np.isfinite(xmax_d) and xmax_d > xmin_d:
-                                            ax.set_autoscalex_on(False)
-                                            ax.set_xlim([xmin_d, xmax_d])
-                                except Exception:
-                                    pass
-                                try:
-                                    if _ydata_arr is not None:
-                                        ymin_d = float(_ydata_arr.min())
-                                        ymax_d = float(_ydata_arr.max())
-                                        if np.isfinite(ymin_d) and np.isfinite(ymax_d) and ymax_d > ymin_d:
-                                            ax.set_autoscaley_on(False)
-                                            ax.set_ylim([ymin_d, ymax_d])
-                                except Exception:
-                                    pass
+                            # Configure excSelectionPlot to match user-selected frequencies
+                            selected_exc = st.session_state.get('selected_excitations', [])
+                            # Ensure all selected excitations have entries in excSelectionPlot
+                            for exc_name in selected_exc:
+                                if exc_name not in Params.Induct.excSelectionPlot:
+                                    Params.Induct.excSelectionPlot[exc_name] = True
+                            for exc_name in Params.Induct.excSelectionPlot.keys():
+                                Params.Induct.excSelectionPlot[exc_name] = exc_name in selected_exc
 
-                                # Derived-axis re-mapping: place axis in DERIVED coordinate
-                                # space (conductivity S/m) so the range and tick positions
-                                # are correct.  Then add a secondary axis for the driver
-                                # quantity (salinity ppt).
-                                # Tick hygiene helpers (2026-07-13, user-reported
-                                # overlapping numbers on both conductivity and
-                                # salinity axes):
-                                # (a) on log axes matplotlib auto-labels MINOR
-                                #     ticks when the span is < ~1 decade, stacking
-                                #     extra numbers under the custom majors;
-                                # (b) secondary salinity ticks mapped through
-                                #     sigma(w) cluster where the mapping
-                                #     compresses. Thin any ticks closer than 6%
-                                #     of the axis span (log-space when log).
-                                def _thin_ticks(_positions, _labels, _log_axis, _min_frac=0.06):
-                                    _p = np.asarray(_positions, dtype=float)
-                                    if _p.size == 0:
-                                        return _positions, _labels
-                                    _pt = np.log10(_p) if _log_axis else _p
-                                    _span = (np.nanmax(_pt) - np.nanmin(_pt)) or 1.0
-                                    _kp, _kl, _last = [], [], None
-                                    for _t, _pos, _lab in zip(_pt, _positions, _labels):
-                                        if _last is None or (_t - _last) >= _min_frac * _span:
-                                            _kp.append(_pos)
-                                            _kl.append(_lab)
-                                            _last = _t
-                                    return _kp, _kl
+                            # Rebuild FigureFiles with list-format exploreAppend
+                            FigureFiles = FigureFilesSubstruct(
+                                figPath=output_dir,
+                                figBase=fig_basename,
+                                xtn='.pdf',
+                                exploreAppend=Params.Explore.zName
+                            )
+                            FigureFilesList = [FigureFiles]
+                            Params.FigureFiles = FigureFiles
+                        else:
+                            # Non-induction: single variable mode
+                            Params.Explore.zName = zName
+                            Params.PLOT_COMBO_EXPLORATIONS = False
 
-                                def _kill_minor_labels(_axis_obj):
-                                    from matplotlib.ticker import NullLocator, NullFormatter
-                                    _axis_obj.set_minor_locator(NullLocator())
-                                    _axis_obj.set_minor_formatter(NullFormatter())
+                        # Plot flags
+                        if not hasattr(Params, 'PLOT_Zb_D'):
+                            Params.PLOT_Zb_D = False
+                        if not hasattr(Params, 'PLOT_D_SIGMA'):
+                            Params.PLOT_D_SIGMA = False
+                        if not hasattr(Params, 'PLOT_LOVE_COMPARISON'):
+                            Params.PLOT_LOVE_COMPARISON = False
 
-                                if _show_sal_axis and hasattr(Exploration, 'base') and Exploration.base is not None:
+                        # Propagate contour toggle from GUI checkbox
+                        Params.Explore.DRAW_CONTOURS = st.session_state.get('induct_use_contours', True)
+
+                        # --- GUI log-scale toggles → matplotlib (Task 3) ---
+                        # FigLbl.SetExploration() (called inside GenerateExplorationPlots) reads
+                        # FigLbl.axisLogScalesExplore to decide xScaleExplore/yScaleExplore.
+                        # Force the user's checkbox state by adding/removing xName/yName from
+                        # that list, then restore in a finally-block below.
+                        from PlanetProfile.GetConfig import FigLbl as _FigLbl_modlog
+                        _orig_axisLogScales = list(_FigLbl_modlog.axisLogScalesExplore)
+                        _xname_for_scale = Exploration.xName
+                        _yname_for_scale = Exploration.yName
+                        _new_log_list = [v for v in _orig_axisLogScales
+                                         if v not in (_xname_for_scale, _yname_for_scale)]
+                        if x_log:
+                            _new_log_list.append(_xname_for_scale)
+                        if y_log:
+                            _new_log_list.append(_yname_for_scale)
+                        _FigLbl_modlog.axisLogScalesExplore = _new_log_list
+
+                        # --- GUI nT-amplitudes toggle → matplotlib (Task 2 / Bug A) ---
+                        # The matplotlib pipeline reads:
+                        #   * induction.Amp           — for Amp_nT (amplitude+phase mode)
+                        #   * induction.rBi1Tot_nT    — for the real subplot in R+I mode
+                        #   * induction.iBi1Tot_nT    — for the imaginary subplot in R+I mode
+                        # Default (use_nT=True) renders in nT.  When unchecked we
+                        # temporarily override these arrays with the dimensionless
+                        # Aₑ representation:
+                        #     Amp        ← Aₑ                   (already dimensionless)
+                        #     rBi1Tot_nT ← Aₑ·cos(φ)            (Re component, dimensionless)
+                        #     iBi1Tot_nT ← Aₑ·sin(φ)            (Im component, dimensionless)
+                        # The originals are restored in a finally-block below.
+                        use_nT_mpl = st.session_state.get('exploreogram_use_nT_amplitudes', True)
+                        _amp_orig = None
+                        _r_orig = None
+                        _i_orig = None
+                        _orig_amp_label = None
+                        _orig_r_label = None
+                        _orig_i_label = None
+                        _amp_was_overridden = False
+                        _ri_was_overridden = False
+                        # Determine which induction arrays matplotlib will actually read,
+                        # so we only override what is consumed.  Params.Explore.zName has
+                        # already been resolved to the correct list for this display mode.
+                        _plotted_z = list(Params.Explore.zName) if isinstance(Params.Explore.zName, (list, tuple)) else [Params.Explore.zName]
+                        _will_plot_amp     = any(z in _plotted_z for z in ('Amp_nT', 'Bi1Tot_nT', 'Bi1x_nT', 'Bi1y_nT', 'Bi1z_nT'))
+                        _will_plot_ri      = any(z in _plotted_z for z in ('Bi1Tot_nT', 'Bi1x_nT', 'Bi1y_nT', 'Bi1z_nT',
+                                                                            'rBi1Tot_nT', 'iBi1Tot_nT',
+                                                                            'rBi1x_nT', 'iBi1x_nT', 'rBi1y_nT', 'iBi1y_nT',
+                                                                            'rBi1z_nT', 'iBi1z_nT'))
+
+                        _ind = getattr(Exploration, 'induction', None)
+                        if _ind is not None and getattr(_ind, 'Bi1Tot_nT', None) is not None:
+                            if use_nT_mpl and _will_plot_amp:
+                                # nT mode: replace dimensionless Aₑ modulus with |Bⁱ| in nT.
+                                _amp_orig = _ind.Amp
+                                _ind.Amp = np.abs(_ind.Bi1Tot_nT)
+                                _amp_was_overridden = True
+                            elif not use_nT_mpl and _will_plot_ri:
+                                # Dimensionless Aₑ mode: override r/i components so matplotlib
+                                # subplots show Re{Aₑ} and Im{Aₑ} instead of nT values.
+                                _Amp_dimless = getattr(_ind, 'Amp', None)
+                                _Phase_deg   = getattr(_ind, 'Phase', None)
+                                if _Amp_dimless is not None and _Phase_deg is not None:
+                                    _phase_rad = np.deg2rad(_Phase_deg)
+                                    _r_orig = getattr(_ind, 'rBi1Tot_nT', None)
+                                    _i_orig = getattr(_ind, 'iBi1Tot_nT', None)
+                                    _ind.rBi1Tot_nT = _Amp_dimless * np.cos(_phase_rad)
+                                    _ind.iBi1Tot_nT = _Amp_dimless * np.sin(_phase_rad)
+                                    _ri_was_overridden = True
+
+                            # Update axisLabelsExplore so colorbars/titles match the unit
+                            try:
+                                if (hasattr(_FigLbl_modlog, 'axisLabelsExplore') and
+                                        _FigLbl_modlog.axisLabelsExplore is not None):
+                                    lbls = _FigLbl_modlog.axisLabelsExplore
+                                    if use_nT_mpl:
+                                        if 'Amp_nT' in lbls:
+                                            _orig_amp_label = lbls['Amp_nT']
+                                            lbls['Amp_nT'] = r'$|B^i|$ (nT)'
+                                    else:
+                                        if 'rBi1Tot_nT' in lbls:
+                                            _orig_r_label = lbls['rBi1Tot_nT']
+                                            lbls['rBi1Tot_nT'] = r'$\mathrm{Re}\{A_e\}$'
+                                        if 'iBi1Tot_nT' in lbls:
+                                            _orig_i_label = lbls['iBi1Tot_nT']
+                                            lbls['iBi1Tot_nT'] = r'$\mathrm{Im}\{A_e\}$'
+                            except Exception:
+                                pass
+
+                        # Monkey-patch Figure.savefig to unconditionally pin axis limits
+                        # to the data range.  PlotExploreOgram's set_xlim([np.min(x), np.max(x)])
+                        # silently no-ops when x contains NaN (derived axes like sigmaMean_Sm),
+                        # and pcolormesh + sharex=True can then re-trigger autoscale.
+                        # Restored in finally.
+                        from matplotlib.figure import Figure as _MplFigure
+                        _orig_savefig = _MplFigure.savefig
+
+                        _xn = Exploration.xName
+                        _yn = Exploration.yName
+
+                        # Capture log-scale checkbox state in closure.
+                        _force_x_log = bool(x_log)
+                        _force_y_log = bool(y_log)
+
+                        # Capture salinity-axis and derived-label state for secondary-axis logic.
+                        _show_sal_axis   = st.session_state.get('exploreogram_show_salinity_axis', False)
+                        _x_derived_label = x_derived_label   # 'sigmaMean_Sm' or None
+                        _y_derived_label = y_derived_label   # 'sigmaMean_Sm' or None
+
+                        # Substitute Exploration.xData/yData with derived arrays so that
+                        # PlotExploreOgram (called below) positions pcolormesh cells in
+                        # conductivity space instead of salinity space.  Without this,
+                        # nonlinear σ(w) produces unequal column widths (jagged cells).
+                        # Restored unconditionally in the finally block below.
+                        _xdata_substituted = False
+                        _orig_xData = None
+                        _orig_xName = None
+                        _ydata_substituted = False
+                        _orig_yData = None
+                        _orig_yName = None
+                        _SIG_SUBST = 'sigmaMean_Sm'
+                        if (_x_derived_label == _SIG_SUBST and
+                                hasattr(Exploration, 'base') and Exploration.base is not None):
+                            _derived_x_arr = getattr(Exploration.base, _SIG_SUBST, None)
+                            if (_derived_x_arr is not None and
+                                    np.shape(_derived_x_arr) == np.shape(Exploration.xData)):
+                                _orig_xData = Exploration.xData.copy()
+                                _orig_xName = Exploration.xName
+                                # Use column-mean conductivity (averaged over D) tiled to (nx, ny).
+                                # The raw 2D sigmaMean_Sm varies with BOTH salinity and D; using it
+                                # directly produces a non-rectilinear pcolormesh grid with staircase
+                                # cell boundaries.  The mean gives a single representative σ per
+                                # salinity column, consistent with the secondary-axis tick mapping.
+                                _sig2d_raw = np.asarray(_derived_x_arr, dtype=float)
+                                _sig1d_rep = np.nanmean(_sig2d_raw, axis=1)            # (nx,)
+                                _sig2d_rect = np.tile(_sig1d_rep[:, np.newaxis],
+                                                      (1, _sig2d_raw.shape[1]))        # (nx, ny)
+                                Exploration.xData = _sig2d_rect
+                                Exploration.xName = _SIG_SUBST
+                                _xdata_substituted = True
+                        if (_y_derived_label == _SIG_SUBST and
+                                hasattr(Exploration, 'base') and Exploration.base is not None):
+                            _derived_y_arr = getattr(Exploration.base, _SIG_SUBST, None)
+                            if (_derived_y_arr is not None and
+                                    np.shape(_derived_y_arr) == np.shape(Exploration.yData)):
+                                _orig_yData = Exploration.yData.copy()
+                                _orig_yName = Exploration.yName
+                                # Rectilinearize exactly like the x-branch above: the
+                                # raw 2D sigmaMean_Sm varies with BOTH axes, and
+                                # substituting it directly produced non-rectilinear
+                                # pcolormesh rows — the jagged/oscillatory y-axis
+                                # appearance reported at high salinity (2026-07-12).
+                                # Use one representative sigma per y row (mean over
+                                # the x direction), tiled to (nx, ny).
+                                _sig2d_raw_y = np.asarray(_derived_y_arr, dtype=float)
+                                _sig1d_rep_y = np.nanmean(_sig2d_raw_y, axis=0)
+                                _sig2d_rect_y = np.tile(_sig1d_rep_y[np.newaxis, :],
+                                                        (_sig2d_raw_y.shape[0], 1))
+                                Exploration.yData = _sig2d_rect_y
+                                Exploration.yName = _SIG_SUBST
+                                _ydata_substituted = True
+
+                        # Pre-compute data-driven axis limits from PP-computed arrays.
+                        # When a derived axis is active (e.g. sigmaMean_Sm replacing wOcean_ppt),
+                        # use the DERIVED values for xlim so the axis spans conductivity space,
+                        # not salinity space.
+                        _xdata_arr = None   # valid x values for xlim
+                        _ydata_arr = None   # valid y values for ylim
+                        _SIG = 'sigmaMean_Sm'
+                        if hasattr(Exploration, 'base') and Exploration.base is not None:
+                            _valid_mask = None
+                            if hasattr(Exploration.base, 'VALID') and Exploration.base.VALID is not None:
+                                _vm = np.asarray(Exploration.base.VALID, dtype=bool).ravel()
+                                _valid_mask = _vm
+
+                            # For x: prefer derived quantity when label is set
+                            _raw_x_name = _x_derived_label if _x_derived_label == _SIG else _xn
+                            _raw_x = getattr(Exploration.base, _raw_x_name, None)
+                            _raw_y_name = _y_derived_label if _y_derived_label == _SIG else _yn
+                            _raw_y = getattr(Exploration.base, _raw_y_name, None)
+                            if _raw_x is not None:
+                                _arr = np.asarray(_raw_x, dtype=float).ravel()
+                                _mask = np.isfinite(_arr)
+                                if _valid_mask is not None and _valid_mask.size == _arr.size:
+                                    _mask = _mask & _valid_mask
+                                if _force_x_log:
+                                    _mask = _mask & (_arr > 0)
+                                _valid = _arr[_mask]
+                                if _valid.size >= 2:
+                                    _xdata_arr = _valid
+                            if _raw_y is not None:
+                                _arr = np.asarray(_raw_y, dtype=float).ravel()
+                                _mask = np.isfinite(_arr)
+                                if _valid_mask is not None and _valid_mask.size == _arr.size:
+                                    _mask = _mask & _valid_mask
+                                if _force_y_log:
+                                    _mask = _mask & (_arr > 0)
+                                _valid = _arr[_mask]
+                                if _valid.size >= 2:
+                                    _ydata_arr = _valid
+
+                        _captured_svgs = []  # crisp inline copies, one per saved figure
+                        def _patched_savefig(self_fig, *args, **kwargs):
+                            try:
+                                _data_axes = [a for a in self_fig.axes
+                                              if getattr(a, '_label', '') != '<colorbar>']
+                                for ax in _data_axes:
+                                    # Enforce x/y scale from checkbox state.
                                     try:
-                                        from matplotlib.ticker import MaxNLocator, LogLocator
-                                        _base = Exploration.base
-                                        if _x_derived_label == _SIG:
-                                            _sig2d = getattr(_base, 'sigmaMean_Sm', None)
-                                            _w2d   = getattr(_base, 'wOcean_ppt',   None)
-                                            if _sig2d is not None and _w2d is not None:
-                                                # 1-D σ(w): mean across y (axis=1) → length nx
-                                                _sig1d = np.nanmean(np.asarray(_sig2d, dtype=float), axis=1)
-                                                _w1d   = np.nanmean(np.asarray(_w2d,   dtype=float), axis=1)
-                                                _sort  = np.argsort(_w1d)
-                                                _ss = _sig1d[_sort]; _ws = _w1d[_sort]  # w ascending → σ monotone
-                                                _sig_min = float(np.nanmin(_ss))
-                                                _sig_max = float(np.nanmax(_ss))
-                                                if np.isfinite(_sig_min) and np.isfinite(_sig_max) and _sig_max > _sig_min:
-                                                    # 1. Set xlim to conductivity range
-                                                    ax.set_autoscalex_on(False)
-                                                    ax.set_xlim([_sig_min, _sig_max])
-                                                    # 2. Place ticks in conductivity space
-                                                    if _force_x_log:
-                                                        _loc = LogLocator(base=10, numticks=6)
-                                                        _sig_ticks = np.array([t for t in _loc.tick_values(_sig_min, _sig_max)
-                                                                                if _sig_min <= t <= _sig_max])
-                                                    else:
-                                                        _loc = MaxNLocator(nbins=6, integer=False)
-                                                        _sig_ticks = np.array([t for t in _loc.tick_values(_sig_min, _sig_max)
-                                                                                if _sig_min <= t <= _sig_max])
-                                                    if len(_sig_ticks) == 0:
-                                                        _sig_ticks = np.linspace(_sig_min, _sig_max, 5)
-                                                    _sig_ticks, _sig_lbls = _thin_ticks(
-                                                        _sig_ticks, [f'{t:.3g}' for t in _sig_ticks],
-                                                        _force_x_log)
-                                                    ax.set_xticks(_sig_ticks)
-                                                    ax.set_xticklabels(_sig_lbls)
-                                                    _kill_minor_labels(ax.xaxis)
-                                                    ax.set_xlabel('Mean Conductivity (S/m)')
-                                                    # 3. Secondary axis: use sparse "nice" salinity values mapped
-                                                    # to conductivity positions.  Driving from salinity → σ avoids
-                                                    # crowded low-end labels that appear when conductivity decades
-                                                    # (0.0001, 0.001, 0.01 …) map to very small, overlapping strings.
-                                                    if _show_sal_axis and not getattr(ax, '_pp_secax_x_attached', False):
-                                                        _w_pos = _ws[_ws > 0]
-                                                        _w_min_s = float(np.nanmin(_w_pos)) if _w_pos.size > 0 else 1e-3
-                                                        _w_max_s = float(np.nanmax(_ws))
-                                                        _candidates = [0.001, 0.003, 0.01, 0.03, 0.1,
-                                                                       0.3, 1.0, 3.0, 10.0, 30.0, 100.0]
-                                                        _w_nice = np.array([v for v in _candidates
-                                                                            if _w_min_s <= v <= _w_max_s])
-                                                        if len(_w_nice) < 2:
-                                                            _w_nice = np.logspace(
-                                                                np.log10(max(_w_min_s, 1e-4)),
-                                                                np.log10(_w_max_s), 4)
-                                                        _sig_at_sal = np.interp(_w_nice, _ws, _ss)
-                                                        _in_rng = (_sig_at_sal >= _sig_min) & (_sig_at_sal <= _sig_max)
-                                                        _w_nice = _w_nice[_in_rng]
-                                                        _sig_at_sal = _sig_at_sal[_in_rng]
-                                                        if len(_w_nice) >= 2:
-                                                            _sig_at_sal, _w_lbls = _thin_ticks(
-                                                                _sig_at_sal,
-                                                                [f'{v:.3g}' for v in _w_nice],
-                                                                _force_x_log)
-                                                            _secax = ax.secondary_xaxis('top')
-                                                            _secax.set_xticks(_sig_at_sal)
-                                                            _secax.set_xticklabels(_w_lbls)
-                                                            _kill_minor_labels(_secax.xaxis)
-                                                            _secax.set_xlabel('Salinity (ppt)')
-                                                            ax._pp_secax_x_attached = True
-                                        if _y_derived_label == _SIG:
-                                            _sig2d = getattr(_base, 'sigmaMean_Sm', None)
-                                            _w2d   = getattr(_base, 'wOcean_ppt',   None)
-                                            if _sig2d is not None and _w2d is not None:
-                                                # 1-D σ(w): mean across x (axis=0) → length ny
-                                                _sig1d = np.nanmean(np.asarray(_sig2d, dtype=float), axis=0)
-                                                _w1d   = np.nanmean(np.asarray(_w2d,   dtype=float), axis=0)
-                                                _sort  = np.argsort(_sig1d)
-                                                _ss = _sig1d[_sort]; _ws = _w1d[_sort]
-                                                _sig_min = float(np.nanmin(_ss))
-                                                _sig_max = float(np.nanmax(_ss))
-                                                if np.isfinite(_sig_min) and np.isfinite(_sig_max) and _sig_max > _sig_min:
-                                                    ax.set_autoscaley_on(False)
-                                                    ax.set_ylim([_sig_min, _sig_max])
-                                                    if _force_y_log:
-                                                        _loc = LogLocator(base=10, numticks=6)
-                                                        _sig_ticks = np.array([t for t in _loc.tick_values(_sig_min, _sig_max)
-                                                                                if _sig_min <= t <= _sig_max])
-                                                    else:
-                                                        _loc = MaxNLocator(nbins=6, integer=False)
-                                                        _sig_ticks = np.array([t for t in _loc.tick_values(_sig_min, _sig_max)
-                                                                                if _sig_min <= t <= _sig_max])
-                                                    if len(_sig_ticks) == 0:
-                                                        _sig_ticks = np.linspace(_sig_min, _sig_max, 5)
-                                                    _sig_ticks, _sig_lbls_y = _thin_ticks(
-                                                        _sig_ticks, [f'{t:.3g}' for t in _sig_ticks],
-                                                        _force_y_log)
-                                                    ax.set_yticks(_sig_ticks)
-                                                    ax.set_yticklabels(_sig_lbls_y)
-                                                    _kill_minor_labels(ax.yaxis)
-                                                    ax.set_ylabel('Mean Conductivity (S/m)')
-                                                    if _show_sal_axis and not getattr(ax, '_pp_secax_y_attached', False):
-                                                        _sal_at_sig = np.interp(_sig_ticks, _ss, _ws)
-                                                        _secay = ax.secondary_yaxis('right')
-                                                        _secay.set_yticks(_sig_ticks)
-                                                        _secay.set_yticklabels([f'{v:.3g}' for v in _sal_at_sig])
-                                                        _kill_minor_labels(_secay.yaxis)
-                                                        _secay.set_ylabel('Salinity (ppt)')
-                                                        ax._pp_secax_y_attached = True
+                                        target_xscale = 'log' if _force_x_log else 'linear'
+                                        target_yscale = 'log' if _force_y_log else 'linear'
+                                        if ax.get_xscale() != target_xscale:
+                                            ax.set_xscale(target_xscale)
+                                        if ax.get_yscale() != target_yscale:
+                                            ax.set_yscale(target_yscale)
                                     except Exception:
                                         pass
-                        except Exception:
-                            pass
-                        return _orig_savefig(self_fig, *args, **kwargs)
 
-                    _MplFigure.savefig = _patched_savefig
+                                    # Unconditionally pin axis limits to the data range.
+                                    # PlotExploreOgram's set_xlim([np.min(x), np.max(x)]) silently
+                                    # no-ops when x has NaN entries (derived axes like sigmaMean_Sm),
+                                    # and pcolormesh + sharex=True can override it even when it
+                                    # succeeds.  Data-driven values from _xdata_arr are always correct.
+                                    try:
+                                        if _xdata_arr is not None:
+                                            xmin_d = float(_xdata_arr.min())
+                                            xmax_d = float(_xdata_arr.max())
+                                            if np.isfinite(xmin_d) and np.isfinite(xmax_d) and xmax_d > xmin_d:
+                                                ax.set_autoscalex_on(False)
+                                                ax.set_xlim([xmin_d, xmax_d])
+                                    except Exception:
+                                        pass
+                                    try:
+                                        if _ydata_arr is not None:
+                                            ymin_d = float(_ydata_arr.min())
+                                            ymax_d = float(_ydata_arr.max())
+                                            if np.isfinite(ymin_d) and np.isfinite(ymax_d) and ymax_d > ymin_d:
+                                                ax.set_autoscaley_on(False)
+                                                ax.set_ylim([ymin_d, ymax_d])
+                                    except Exception:
+                                        pass
 
-                    # Temporarily enable plots
-                    old_skip = Params.SKIP_PLOTS
-                    Params.SKIP_PLOTS = False
+                                    # Derived-axis re-mapping: place axis in DERIVED coordinate
+                                    # space (conductivity S/m) so the range and tick positions
+                                    # are correct.  Then add a secondary axis for the driver
+                                    # quantity (salinity ppt).
+                                    # Tick hygiene helpers (2026-07-13, user-reported
+                                    # overlapping numbers on both conductivity and
+                                    # salinity axes):
+                                    # (a) on log axes matplotlib auto-labels MINOR
+                                    #     ticks when the span is < ~1 decade, stacking
+                                    #     extra numbers under the custom majors;
+                                    # (b) secondary salinity ticks mapped through
+                                    #     sigma(w) cluster where the mapping
+                                    #     compresses. Thin any ticks closer than 6%
+                                    #     of the axis span (log-space when log).
+                                    def _thin_ticks(_positions, _labels, _log_axis, _min_frac=0.06):
+                                        _p = np.asarray(_positions, dtype=float)
+                                        if _p.size == 0:
+                                            return _positions, _labels
+                                        _pt = np.log10(_p) if _log_axis else _p
+                                        _span = (np.nanmax(_pt) - np.nanmin(_pt)) or 1.0
+                                        _kp, _kl, _last = [], [], None
+                                        for _t, _pos, _lab in zip(_pt, _positions, _labels):
+                                            if _last is None or (_t - _last) >= _min_frac * _span:
+                                                _kp.append(_pos)
+                                                _kl.append(_lab)
+                                                _last = _t
+                                        return _kp, _kl
 
-                    # Generate matplotlib plots
-                    try:
-                        with st.spinner("Generating publication-quality matplotlib plots..."):
-                            GenerateExplorationPlots(ExplorationList, FigureFilesList, Params)
-                            plt.close('all')
-                    finally:
-                        # Restore monkey-patched savefig
-                        _MplFigure.savefig = _orig_savefig
-                        # Restore Exploration.xData/yData if substituted for derived-axis rendering
-                        if _xdata_substituted and _orig_xData is not None:
-                            Exploration.xData = _orig_xData
-                            Exploration.xName = _orig_xName
-                        if _ydata_substituted and _orig_yData is not None:
-                            Exploration.yData = _orig_yData
-                            Exploration.yName = _orig_yName
-                        # Restore log-scale list
-                        _FigLbl_modlog.axisLogScalesExplore = _orig_axisLogScales
-                        # Restore amplitude/RI overrides
-                        if _amp_was_overridden:
-                            _ind.Amp = _amp_orig
-                        if _ri_was_overridden:
-                            _ind.rBi1Tot_nT = _r_orig
-                            _ind.iBi1Tot_nT = _i_orig
-                        # Restore labels
+                                    def _kill_minor_labels(_axis_obj):
+                                        from matplotlib.ticker import NullLocator, NullFormatter
+                                        _axis_obj.set_minor_locator(NullLocator())
+                                        _axis_obj.set_minor_formatter(NullFormatter())
+
+                                    if _show_sal_axis and hasattr(Exploration, 'base') and Exploration.base is not None:
+                                        try:
+                                            from matplotlib.ticker import MaxNLocator, LogLocator
+                                            _base = Exploration.base
+                                            if _x_derived_label == _SIG:
+                                                _sig2d = getattr(_base, 'sigmaMean_Sm', None)
+                                                _w2d   = getattr(_base, 'wOcean_ppt',   None)
+                                                if _sig2d is not None and _w2d is not None:
+                                                    # 1-D σ(w): mean across y (axis=1) → length nx
+                                                    _sig1d = np.nanmean(np.asarray(_sig2d, dtype=float), axis=1)
+                                                    _w1d   = np.nanmean(np.asarray(_w2d,   dtype=float), axis=1)
+                                                    _sort  = np.argsort(_w1d)
+                                                    _ss = _sig1d[_sort]; _ws = _w1d[_sort]  # w ascending → σ monotone
+                                                    _sig_min = float(np.nanmin(_ss))
+                                                    _sig_max = float(np.nanmax(_ss))
+                                                    if np.isfinite(_sig_min) and np.isfinite(_sig_max) and _sig_max > _sig_min:
+                                                        # 1. Set xlim to conductivity range
+                                                        ax.set_autoscalex_on(False)
+                                                        ax.set_xlim([_sig_min, _sig_max])
+                                                        # 2. Place ticks in conductivity space
+                                                        if _force_x_log:
+                                                            _loc = LogLocator(base=10, numticks=6)
+                                                            _sig_ticks = np.array([t for t in _loc.tick_values(_sig_min, _sig_max)
+                                                                                    if _sig_min <= t <= _sig_max])
+                                                        else:
+                                                            _loc = MaxNLocator(nbins=6, integer=False)
+                                                            _sig_ticks = np.array([t for t in _loc.tick_values(_sig_min, _sig_max)
+                                                                                    if _sig_min <= t <= _sig_max])
+                                                        if len(_sig_ticks) == 0:
+                                                            _sig_ticks = np.linspace(_sig_min, _sig_max, 5)
+                                                        _sig_ticks, _sig_lbls = _thin_ticks(
+                                                            _sig_ticks, [f'{t:.3g}' for t in _sig_ticks],
+                                                            _force_x_log)
+                                                        ax.set_xticks(_sig_ticks)
+                                                        ax.set_xticklabels(_sig_lbls)
+                                                        _kill_minor_labels(ax.xaxis)
+                                                        ax.set_xlabel('Mean Conductivity (S/m)')
+                                                        # 3. Secondary axis: use sparse "nice" salinity values mapped
+                                                        # to conductivity positions.  Driving from salinity → σ avoids
+                                                        # crowded low-end labels that appear when conductivity decades
+                                                        # (0.0001, 0.001, 0.01 …) map to very small, overlapping strings.
+                                                        if _show_sal_axis and not getattr(ax, '_pp_secax_x_attached', False):
+                                                            _w_pos = _ws[_ws > 0]
+                                                            _w_min_s = float(np.nanmin(_w_pos)) if _w_pos.size > 0 else 1e-3
+                                                            _w_max_s = float(np.nanmax(_ws))
+                                                            _candidates = [0.001, 0.003, 0.01, 0.03, 0.1,
+                                                                           0.3, 1.0, 3.0, 10.0, 30.0, 100.0]
+                                                            _w_nice = np.array([v for v in _candidates
+                                                                                if _w_min_s <= v <= _w_max_s])
+                                                            if len(_w_nice) < 2:
+                                                                _w_nice = np.logspace(
+                                                                    np.log10(max(_w_min_s, 1e-4)),
+                                                                    np.log10(_w_max_s), 4)
+                                                            _sig_at_sal = np.interp(_w_nice, _ws, _ss)
+                                                            _in_rng = (_sig_at_sal >= _sig_min) & (_sig_at_sal <= _sig_max)
+                                                            _w_nice = _w_nice[_in_rng]
+                                                            _sig_at_sal = _sig_at_sal[_in_rng]
+                                                            if len(_w_nice) >= 2:
+                                                                _sig_at_sal, _w_lbls = _thin_ticks(
+                                                                    _sig_at_sal,
+                                                                    [f'{v:.3g}' for v in _w_nice],
+                                                                    _force_x_log)
+                                                                _secax = ax.secondary_xaxis('top')
+                                                                _secax.set_xticks(_sig_at_sal)
+                                                                _secax.set_xticklabels(_w_lbls)
+                                                                _kill_minor_labels(_secax.xaxis)
+                                                                _secax.set_xlabel('Salinity (ppt)')
+                                                                ax._pp_secax_x_attached = True
+                                            if _y_derived_label == _SIG:
+                                                _sig2d = getattr(_base, 'sigmaMean_Sm', None)
+                                                _w2d   = getattr(_base, 'wOcean_ppt',   None)
+                                                if _sig2d is not None and _w2d is not None:
+                                                    # 1-D σ(w): mean across x (axis=0) → length ny
+                                                    _sig1d = np.nanmean(np.asarray(_sig2d, dtype=float), axis=0)
+                                                    _w1d   = np.nanmean(np.asarray(_w2d,   dtype=float), axis=0)
+                                                    _sort  = np.argsort(_sig1d)
+                                                    _ss = _sig1d[_sort]; _ws = _w1d[_sort]
+                                                    _sig_min = float(np.nanmin(_ss))
+                                                    _sig_max = float(np.nanmax(_ss))
+                                                    if np.isfinite(_sig_min) and np.isfinite(_sig_max) and _sig_max > _sig_min:
+                                                        ax.set_autoscaley_on(False)
+                                                        ax.set_ylim([_sig_min, _sig_max])
+                                                        if _force_y_log:
+                                                            _loc = LogLocator(base=10, numticks=6)
+                                                            _sig_ticks = np.array([t for t in _loc.tick_values(_sig_min, _sig_max)
+                                                                                    if _sig_min <= t <= _sig_max])
+                                                        else:
+                                                            _loc = MaxNLocator(nbins=6, integer=False)
+                                                            _sig_ticks = np.array([t for t in _loc.tick_values(_sig_min, _sig_max)
+                                                                                    if _sig_min <= t <= _sig_max])
+                                                        if len(_sig_ticks) == 0:
+                                                            _sig_ticks = np.linspace(_sig_min, _sig_max, 5)
+                                                        _sig_ticks, _sig_lbls_y = _thin_ticks(
+                                                            _sig_ticks, [f'{t:.3g}' for t in _sig_ticks],
+                                                            _force_y_log)
+                                                        ax.set_yticks(_sig_ticks)
+                                                        ax.set_yticklabels(_sig_lbls_y)
+                                                        _kill_minor_labels(ax.yaxis)
+                                                        ax.set_ylabel('Mean Conductivity (S/m)')
+                                                        if _show_sal_axis and not getattr(ax, '_pp_secax_y_attached', False):
+                                                            _sal_at_sig = np.interp(_sig_ticks, _ss, _ws)
+                                                            _secay = ax.secondary_yaxis('right')
+                                                            _secay.set_yticks(_sig_ticks)
+                                                            _secay.set_yticklabels([f'{v:.3g}' for v in _sal_at_sig])
+                                                            _kill_minor_labels(_secay.yaxis)
+                                                            _secay.set_ylabel('Salinity (ppt)')
+                                                            ax._pp_secax_y_attached = True
+                                        except Exception:
+                                            pass
+                            except Exception:
+                                pass
+                            _ret = _orig_savefig(self_fig, *args, **kwargs)
+                            # Capture a vector SVG copy for crisp inline display.
+                            # Collections/images rasterized so heatmap SVGs stay
+                            # small; text/axes remain vector. Uses _orig_savefig
+                            # so the axis-pinning above is not re-applied.
+                            try:
+                                import io as _io
+                                for _cax in self_fig.axes:
+                                    for _coll in _cax.collections:
+                                        _coll.set_rasterized(True)
+                                    for _cim in _cax.images:
+                                        _cim.set_rasterized(True)
+                                _sbuf = _io.BytesIO()
+                                _orig_savefig(self_fig, _sbuf, format='svg',
+                                              bbox_inches='tight')
+                                _captured_svgs.append(_sbuf.getvalue().decode('utf-8'))
+                            except Exception:
+                                pass
+                            return _ret
+
+                        _MplFigure.savefig = _patched_savefig
+
+                        # Temporarily enable plots
+                        old_skip = Params.SKIP_PLOTS
+                        Params.SKIP_PLOTS = False
+
+                        # Generate matplotlib plots
                         try:
-                            if _orig_amp_label is not None:
-                                _FigLbl_modlog.axisLabelsExplore['Amp_nT'] = _orig_amp_label
-                            if _orig_r_label is not None:
-                                _FigLbl_modlog.axisLabelsExplore['rBi1Tot_nT'] = _orig_r_label
-                            if _orig_i_label is not None:
-                                _FigLbl_modlog.axisLabelsExplore['iBi1Tot_nT'] = _orig_i_label
-                        except Exception:
-                            pass
+                            with st.spinner("Generating publication-quality matplotlib plots..."):
+                                GenerateExplorationPlots(ExplorationList, FigureFilesList, Params)
+                                plt.close('all')
+                        finally:
+                            # Restore monkey-patched savefig
+                            _MplFigure.savefig = _orig_savefig
+                            # Restore Exploration.xData/yData if substituted for derived-axis rendering
+                            if _xdata_substituted and _orig_xData is not None:
+                                Exploration.xData = _orig_xData
+                                Exploration.xName = _orig_xName
+                            if _ydata_substituted and _orig_yData is not None:
+                                Exploration.yData = _orig_yData
+                                Exploration.yName = _orig_yName
+                            # Restore log-scale list
+                            _FigLbl_modlog.axisLogScalesExplore = _orig_axisLogScales
+                            # Restore amplitude/RI overrides
+                            if _amp_was_overridden:
+                                _ind.Amp = _amp_orig
+                            if _ri_was_overridden:
+                                _ind.rBi1Tot_nT = _r_orig
+                                _ind.iBi1Tot_nT = _i_orig
+                            # Restore labels
+                            try:
+                                if _orig_amp_label is not None:
+                                    _FigLbl_modlog.axisLabelsExplore['Amp_nT'] = _orig_amp_label
+                                if _orig_r_label is not None:
+                                    _FigLbl_modlog.axisLabelsExplore['rBi1Tot_nT'] = _orig_r_label
+                                if _orig_i_label is not None:
+                                    _FigLbl_modlog.axisLabelsExplore['iBi1Tot_nT'] = _orig_i_label
+                            except Exception:
+                                pass
 
-                    Params.SKIP_PLOTS = old_skip
+                        Params.SKIP_PLOTS = old_skip
 
-                    # Display generated plots
-                    explore_path = FigureFiles.explore
-                    if isinstance(explore_path, list):
-                        # Multi-subplot generates one file
-                        explore_path = FigureFiles.exploreMultiSubplot if hasattr(FigureFiles, 'exploreMultiSubplot') else explore_path[0]
-                    if os.path.exists(explore_path):
-                        st.success("Matplotlib plot generated!")
-                        images = convert_from_path(explore_path)
-                        for img in images:
-                            st.image(img, use_container_width=True)
-                    else:
-                        # Try finding any generated PDF in output dir
+                        # Display generated plots: crisp inline SVGs captured
+                        # at savefig time (vector text, rasterized heatmap),
+                        # PDFs as downloads; pdf2image raster only as fallback.
+                        explore_path = FigureFiles.explore
+                        if isinstance(explore_path, list):
+                            # Multi-subplot generates one file
+                            explore_path = FigureFiles.exploreMultiSubplot if hasattr(FigureFiles, 'exploreMultiSubplot') else explore_path[0]
                         import glob
-                        pdfs = glob.glob(os.path.join(output_dir, f"{fig_basename}*.pdf"))
-                        if pdfs:
-                            for pdf_path in pdfs:
-                                images = convert_from_path(pdf_path)
-                                for img in images:
-                                    st.image(img, use_container_width=True, caption=os.path.basename(pdf_path))
+                        if os.path.exists(explore_path):
+                            _pdf_paths = [explore_path]
+                        else:
+                            _pdf_paths = sorted(glob.glob(os.path.join(output_dir, f"{fig_basename}*.pdf")))
+                        if _captured_svgs:
+                            for _svg in _captured_svgs:
+                                st.image(_svg, width='stretch')
+                        elif _pdf_paths:
+                            for pdf_path in _pdf_paths:
+                                for img in convert_from_path(pdf_path):
+                                    st.image(img, width='stretch', caption=os.path.basename(pdf_path))
                         else:
                             st.warning(f"Plot file not found at: {explore_path}")
                             st.info("Try enabling 'Interactive Plots' checkbox for Plotly-based plots instead.")
+                        _pdf_bytes = []
+                        for _pp in _pdf_paths:
+                            try:
+                                with open(_pp, 'rb') as _fh:
+                                    _pdf_bytes.append((os.path.basename(_pp), _fh.read()))
+                            except OSError:
+                                pass
+                        for _pn, _pb in _pdf_bytes:
+                            st.download_button(f'Download {_pn}', _pb, file_name=_pn,
+                                               mime='application/pdf',
+                                               icon=':material/download:',
+                                               key=f'explore_mpl_pdf_{_pn}')
+                        if _captured_svgs or _pdf_bytes:
+                            st.session_state.setdefault('_explore_mpl_cache', {})['mpl'] = {
+                                'token': _mpl_token, 'svgs': list(_captured_svgs),
+                                'pdfs': _pdf_bytes}
 
-                except Exception as e:
-                    st.error(f"Error generating matplotlib plot: {e}")
-                    st.info("💡 Try enabling 'Interactive Plots' instead")
-                    import traceback
-                    with st.expander("Show error details"):
-                        st.code(traceback.format_exc())
+                    except Exception as e:
+                        st.error(f"Error generating matplotlib plot: {e}")
+                        st.info("💡 Try enabling 'Interactive Plots' instead")
+                        import traceback
+                        with st.expander("Show error details"):
+                            st.code(traceback.format_exc())
 
             # Statistics (get zData for stats regardless of plot type)
             if Exploration.base.VALID is not None:
