@@ -307,6 +307,92 @@ def test_support_guard_matches_likelihood_reject_randomized():
     assert n_checked > 0  # the sweep actually exercised the reject branch
 
 
+# --------------------------------------------------------------------------
+# v5 ice-thickness reparameterization: D_iceIh(Tb, w) -> Tb inversion.
+# Pure-numpy on a synthetic monotone-decreasing D field; no cache/EOS import.
+# --------------------------------------------------------------------------
+from PlanetProfile.Inference.grid_interp_2d import (
+    forward_d_iceIh,
+    invert_d_iceIh_to_Tb,
+    d_iceIh_column_at_w,
+)
+
+# 5-node Tb grid × 4-node log-w grid. D decreases with Tb (warmer=thinner) and
+# decreases with w at fixed Tb (saltier=thinner) — the real physics.
+_TB5 = np.array([260.0, 262.0, 264.0, 266.0, 268.0])
+_W4 = np.array([0.1, 1.0, 10.0, 100.0])
+
+
+def _synthetic_D_flat(none_corners=()):
+    """Row-major D_iceIh, D = 40 - 3*(Tb-260) - 2*log10(w), some None corners."""
+    n_w = _W4.size
+    flat = []
+    for i_T, Tb in enumerate(_TB5):
+        for i_w, w in enumerate(_W4):
+            if (i_T, i_w) in none_corners:
+                flat.append(None)
+            else:
+                flat.append(40.0 - 3.0 * (Tb - 260.0) - 2.0 * np.log10(w))
+    return flat
+
+
+def test_v5_forward_matches_bilinear_on_D():
+    """forward_d_iceIh is the same bilinear operator used for other scalars."""
+    D_flat = _synthetic_D_flat()
+    # interior query; D linear in Tb and log10 w so bilinear is exact
+    val = forward_d_iceIh(_TB5, _W4, D_flat, 263.0, 10 ** 0.5)
+    # analytic: 40 - 3*3 - 2*0.5 = 40 - 9 - 1 = 30
+    assert abs(val - 30.0) < 1e-9
+
+
+def test_v5_inversion_round_trip_exact():
+    """forward(invert(D, w), w) == D on the valid band, to bisection tol."""
+    D_flat = _synthetic_D_flat()
+    rng = np.random.default_rng(0)
+    for _ in range(200):
+        Tb = rng.uniform(_TB5[0], _TB5[-1])
+        w = 10 ** rng.uniform(-1, 2)
+        D = forward_d_iceIh(_TB5, _W4, D_flat, Tb, w)
+        Tb_inv = invert_d_iceIh_to_Tb(_TB5, _W4, D_flat, D, w)
+        assert Tb_inv is not None
+        D_re = forward_d_iceIh(_TB5, _W4, D_flat, Tb_inv, w)
+        assert abs(D_re - D) < 1e-5
+
+
+def test_v5_inversion_edge_rejects_not_clips():
+    """Targets outside [D_min(w), D_max(w)] return None (reject), not the edge."""
+    D_flat = _synthetic_D_flat()
+    for w in (0.1, 1.0, 10.0, 100.0):
+        Tbs, Ds = d_iceIh_column_at_w(_TB5, _W4, D_flat, w)
+        dmin, dmax = Ds.min(), Ds.max()
+        assert invert_d_iceIh_to_Tb(_TB5, _W4, D_flat, dmin - 5.0, w) is None
+        assert invert_d_iceIh_to_Tb(_TB5, _W4, D_flat, dmax + 5.0, w) is None
+        mid = invert_d_iceIh_to_Tb(_TB5, _W4, D_flat, 0.5 * (dmin + dmax), w)
+        assert mid is not None and _TB5[0] <= mid <= _TB5[-1]
+
+
+def test_v5_inversion_monotone_thicker_is_colder():
+    """At fixed w, a thicker ice target inverts to a colder Tb."""
+    D_flat = _synthetic_D_flat()
+    Tb_thin = invert_d_iceIh_to_Tb(_TB5, _W4, D_flat, 25.0, 10.0)
+    Tb_thick = invert_d_iceIh_to_Tb(_TB5, _W4, D_flat, 34.0, 10.0)
+    assert Tb_thick < Tb_thin
+
+
+def test_v5_inversion_survives_none_corner():
+    """A None at one tilted-band corner still inverts (nearest-valid in w),
+    and the round-trip stays consistent with the same forward operator."""
+    D_flat = _synthetic_D_flat(none_corners=((0, 0),))  # low-Tb/low-w None
+    w = 0.1
+    Tbs, Ds = d_iceIh_column_at_w(_TB5, _W4, D_flat, w)
+    assert Tbs.size >= 2  # column still usable via nearest-valid in w
+    Dt = 0.5 * (Ds.min() + Ds.max())
+    Tb_inv = invert_d_iceIh_to_Tb(_TB5, _W4, D_flat, Dt, w)
+    assert Tb_inv is not None
+    D_re = forward_d_iceIh(_TB5, _W4, D_flat, Tb_inv, w)
+    assert abs(D_re - Dt) < 1e-4
+
+
 if __name__ == "__main__":
     import sys
     sys.exit(pytest.main([__file__, "-v"]))

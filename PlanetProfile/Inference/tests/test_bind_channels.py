@@ -83,6 +83,12 @@ def _make_bind_ll(observables, ae_grid_cache, be_excitation, structure_data,
     stub.param_groups = {}
     stub.fixed_params = {}
     stub.config = _StubConfig()
+    # v5 reparam: the theta-expansion calls _inject_derived_Tb; these stubs
+    # sample Tb_K directly, so bind the real method with the D_iceIh flag off
+    # (it early-returns, a no-op for Tb-sampled configs).
+    stub._samples_D_iceIh = False
+    stub._inject_derived_Tb = MCMCRunner._inject_derived_Tb.__get__(stub, MCMCRunner)
+    stub._gravity_clairaut_active = MCMCRunner._gravity_clairaut_active.__get__(stub, MCMCRunner)
     stub._ae_grid_cache = ae_grid_cache
     stub._be_excitation = be_excitation
     # The induction Ae lookup lives in MCMCRunner._blended_ae_dict (shared by
@@ -314,3 +320,167 @@ def test_x_obs_vector_does_not_fold_bind():
     # Im_k2 folded to +0.135; Bind imag preserved signed at -42.
     assert abs(vec[0] - 0.135) < 1e-12
     assert abs(vec[1] - (-42.0)) < 1e-12
+
+
+# ---------------------------------------------------------------------------
+# 8. Per-frequency, degree-based induction support cuts (v5 open-interp pivot)
+#
+# The v5 "open interpretation" redesign replaces the single global Ae guard
+# (amp_min 0.7 / im_abs_max 0.4 on the synodic band) with per-label bounds and
+# a *degree-based* phase-delay cap (`phase_deg_max`). The literature basis
+# (Vance et al. 2021, Fig 6 / Table 2) is that the tight synodic constraint
+# (|Ae|>0.70, phase<30 deg) does NOT hold at the longer-period orbital band:
+# low-salinity thick-ice models reach |Ae_orbital| ~= 0.37 at a ~65 deg phase
+# delay. Those samples MUST be admitted by the orbital bound and rejected by
+# the old global bound. The |Im| proxy (im_abs_max) mismaps to phase at low
+# |Ae|; the degree cap is amplitude-independent and is the correct knob.
+#
+# Both the MCMC likelihood (mcmc_runner ~line 1003) and the SBI support guard
+# (_check_induction_bounds ~line 2289) apply the SAME predicate, so the
+# training support == reference-MCMC support. The guard is a closure inside
+# generate_sbi_dataset (not directly callable), so these tests exercise the
+# likelihood site (the code path the reference MCMC actually runs) plus a
+# standalone replica of the shared predicate to assert the two agree.
+# ---------------------------------------------------------------------------
+
+def _make_bound_ll(induction_bounds, ae_by_label, tb_grid=(266.0,),
+                   observables=None):
+    """Log-likelihood stub with `induction_bounds` configured on the config.
+
+    No Ae_/Bind_ observables by default -> chi2 stays 0, so a bound-passing
+    draw yields ll == 0 and a bound-violating draw yields -1e30. This isolates
+    the support cut from any residual term.
+    """
+    class _Stub:
+        pass
+    stub = _Stub()
+    stub.param_names = ['Tb_K']
+    stub.param_groups = {}
+    stub.fixed_params = {}
+    stub.config = _StubConfig(induction_bounds=induction_bounds)
+    stub._samples_D_iceIh = False
+    stub._inject_derived_Tb = MCMCRunner._inject_derived_Tb.__get__(stub, MCMCRunner)
+    # Clairaut gravity is inactive for this stub config -> real predicate
+    # returns False, so the k2/gravity block is skipped and the closure reaches
+    # the induction support cut we are exercising.
+    stub._gravity_clairaut_active = MCMCRunner._gravity_clairaut_active.__get__(stub, MCMCRunner)
+    # One Ae dict, reused at every (single) grid node.
+    ae_grid = {i: dict(ae_by_label) for i in range(len(tb_grid))}
+    stub._ae_grid_cache = ae_grid
+    stub._be_excitation = {}
+    stub.structure_data = _grid_sd(tb_grid)
+    stub._blended_ae_dict = MCMCRunner._blended_ae_dict.__get__(stub, MCMCRunner)
+    ll = MCMCRunner._make_flexible_log_likelihood(
+        stub, observables or {}, stub.structure_data)
+    return ll
+
+
+def _predicate_violates(spec, Ae):
+    """Standalone replica of the shared bound predicate (both call sites).
+
+    Kept byte-faithful to mcmc_runner's amp_min / im_abs_max / phase_deg_max
+    checks so the test fails loudly if the two production sites ever drift from
+    this contract. Returns True when the sample must be rejected.
+    """
+    import numpy as _np
+    Ae = complex(Ae)
+    amp_min = spec.get('amp_min')
+    if amp_min is not None and abs(Ae) < float(amp_min):
+        return True
+    im_abs_max = spec.get('im_abs_max')
+    if im_abs_max is not None and abs(Ae.imag) > float(im_abs_max):
+        return True
+    phase_deg_max = spec.get('phase_deg_max')
+    if (phase_deg_max is not None
+            and abs(float(_np.degrees(_np.angle(Ae)))) > float(phase_deg_max)):
+        return True
+    return False
+
+
+# Vance et al. 2021 low-salinity thick-ice orbital point: |Ae|~=0.374 at a
+# ~65.1 deg phase delay (Ae^{-i phi} convention -> Im < 0).
+_AE_ORBITAL_THICK = 0.374 * np.exp(-1j * np.deg2rad(65.1))
+# A representative synodic point (well inside the tight synodic bound).
+_AE_SYNODIC = 0.853 * np.exp(-1j * np.deg2rad(16.0))
+
+_V5_ORBITAL_BOUND = {'amp_min': 0.3, 'phase_deg_max': 70.0}
+_V5_SYNODIC_BOUND = {'amp_min': 0.7, 'phase_deg_max': 30.0}
+# The retired pre-pivot global guard (synodic-tuned, |Im| proxy).
+_OLD_GLOBAL_BOUND = {'amp_min': 0.7, 'im_abs_max': 0.4}
+
+
+def test_orbital_thick_ice_accepted_under_v5_bound(mock_k2):
+    """|Ae_orbital|~=0.37 @ 65 deg is ACCEPTED by the per-freq orbital bound."""
+    assert not _predicate_violates(_V5_ORBITAL_BOUND, _AE_ORBITAL_THICK)
+    ll = _make_bound_ll({'orbital': _V5_ORBITAL_BOUND},
+                        {'orbital': _AE_ORBITAL_THICK})
+    val = ll(np.array([266.0]))
+    assert val == 0.0, f"expected ll=0 (accepted, no residual terms), got {val}"
+
+
+def test_orbital_thick_ice_rejected_under_old_global_bound(mock_k2):
+    """The SAME point is REJECTED by the retired global 0.7/0.4 guard
+    (|Ae|=0.37 < 0.7). This is exactly the low-salinity support the pivot
+    restores."""
+    assert _predicate_violates(_OLD_GLOBAL_BOUND, _AE_ORBITAL_THICK)
+    ll = _make_bound_ll({'orbital': _OLD_GLOBAL_BOUND},
+                        {'orbital': _AE_ORBITAL_THICK})
+    assert ll(np.array([266.0])) == -1e30
+
+
+def test_synodic_tight_point_accepted_under_v5_bound(mock_k2):
+    """A canonical synodic point (|Ae|=0.85 @ 16 deg) passes the tight
+    synodic bound the pivot keeps."""
+    assert not _predicate_violates(_V5_SYNODIC_BOUND, _AE_SYNODIC)
+    ll = _make_bound_ll({'synodic': _V5_SYNODIC_BOUND},
+                        {'synodic': _AE_SYNODIC})
+    assert ll(np.array([266.0])) == 0.0
+
+
+def test_orbital_thick_ice_rejected_by_synodic_bound(mock_k2):
+    """Applying the tight SYNODIC bound to the orbital point rejects it
+    (|Ae|=0.37 < 0.7 and phase 65 > 30) — i.e. a single global bound cannot
+    serve both bands, which is the whole motivation for per-freq cuts."""
+    assert _predicate_violates(_V5_SYNODIC_BOUND, _AE_ORBITAL_THICK)
+    ll = _make_bound_ll({'orbital': _V5_SYNODIC_BOUND},
+                        {'orbital': _AE_ORBITAL_THICK})
+    assert ll(np.array([266.0])) == -1e30
+
+
+def test_phase_cap_operates_in_degrees_not_radians(mock_k2):
+    """The phase cap is applied to |angle(Ae)| in DEGREES. A 65 deg point sits
+    just under a 70 deg cap (accept) and just over a 60 deg cap (reject). If
+    the code compared radians (|angle|=1.14 rad), a 70 'deg' cap would never
+    bite and the reject case below would spuriously pass."""
+    ae = 0.374 * np.exp(-1j * np.deg2rad(65.1))
+    # 70 deg cap -> accept
+    assert not _predicate_violates({'amp_min': 0.3, 'phase_deg_max': 70.0}, ae)
+    assert _make_bound_ll({'orbital': {'amp_min': 0.3, 'phase_deg_max': 70.0}},
+                          {'orbital': ae})(np.array([266.0])) == 0.0
+    # 60 deg cap -> reject (65.1 > 60)
+    assert _predicate_violates({'amp_min': 0.3, 'phase_deg_max': 60.0}, ae)
+    assert _make_bound_ll({'orbital': {'amp_min': 0.3, 'phase_deg_max': 60.0}},
+                          {'orbital': ae})(np.array([266.0])) == -1e30
+
+
+def test_likelihood_and_guard_predicate_agree(mock_k2):
+    """The likelihood-site accept/reject must match the standalone predicate
+    (which is byte-faithful to the SBI support-guard site) across a grid of
+    (Ae, bound) cases — the reviewer-binding 'training support == likelihood
+    support' contract."""
+    ae_cases = [
+        _AE_ORBITAL_THICK,
+        _AE_SYNODIC,
+        0.374 * np.exp(-1j * np.deg2rad(65.1)),
+        0.20 * np.exp(-1j * np.deg2rad(80.0)),   # below every amp floor
+        0.95 * np.exp(-1j * np.deg2rad(5.0)),    # strong, near-in-phase
+    ]
+    bound_cases = [_V5_ORBITAL_BOUND, _V5_SYNODIC_BOUND, _OLD_GLOBAL_BOUND]
+    for ae in ae_cases:
+        for spec in bound_cases:
+            pred_reject = _predicate_violates(spec, ae)
+            ll = _make_bound_ll({'orbital': spec}, {'orbital': ae})
+            ll_reject = (ll(np.array([266.0])) == -1e30)
+            assert pred_reject == ll_reject, (
+                f"disagreement: Ae={ae:.3f} spec={spec} "
+                f"predicate_reject={pred_reject} likelihood_reject={ll_reject}")

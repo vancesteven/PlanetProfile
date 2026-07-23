@@ -303,6 +303,25 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
         rheology_constraint=None
     ),
 
+    'D_iceIh_km': ParameterDef(
+        id='D_iceIh_km',
+        label='Ice Shell Thickness',
+        latex_label=r'$D_{\rm ice\,Ih}$ (km)',
+        description='Ice-Ih shell thickness (v5 reparameterization). Sampled '
+                    'in place of Tb_K so the informative prior (29 +/- 10 km, '
+                    'truncated Gaussian) is placed on the salinity-INDEPENDENT '
+                    'ice thickness rather than on Tb (a uniform Tb prior is an '
+                    'implicit salinity-dependent thickness prior). Tb is derived '
+                    'per draw by inverting the cached D_iceIh(Tb, w) field at the '
+                    'drawn salinity. Requires a 2D (Tb x w) structure grid.',
+        category='structure',
+        default_prior='truncated_gaussian',
+        default_bounds=[5.0, 60.0],
+        units='km',
+        requires_structure_rebuild=True,
+        rheology_constraint=None
+    ),
+
     'rhoSilInput_kgm3': ParameterDef(
         id='rhoSilInput_kgm3',
         label='Silicate Density',

@@ -1,0 +1,314 @@
+{
+  "mode": "mcmc",
+  "bodyname": "Europa",
+  "gravity_forward_model": "clairaut_hydrostatic",
+  "param_space": {
+    "alpha": {
+      "prior_type": "uniform",
+      "bounds": [
+        0.15,
+        0.45
+      ]
+    },
+    "log10_zeta_Ih": {
+      "prior_type": "uniform",
+      "bounds": [
+        -3.0,
+        2.0
+      ]
+    },
+    "log10_zeta_sil": {
+      "prior_type": "uniform",
+      "bounds": [
+        -3.0,
+        2.0
+      ]
+    },
+    "log10_eta_Ih": {
+      "prior_type": "uniform",
+      "bounds": [
+        10.0,
+        16.0
+      ]
+    },
+    "log10_eta_sil": {
+      "prior_type": "uniform",
+      "bounds": [
+        18.0,
+        22.0
+      ]
+    },
+    "D_iceIh_km": {
+      "prior_type": "uniform",
+      "bounds": [
+        5.0,
+        80.0
+      ]
+    },
+    "log10_wOcean_ppt": {
+      "prior_type": "uniform",
+      "bounds": [
+        -1.0,
+        2.0
+      ]
+    },
+    "R_core_km": {
+      "prior_type": "uniform",
+      "bounds": [
+        0.0,
+        780.5
+      ]
+    },
+    "rho_core_kgm3": {
+      "prior_type": "uniform",
+      "bounds": [
+        5000.0,
+        8000.0
+      ]
+    },
+    "dC20_nh": {
+      "prior_type": "uniform",
+      "bounds": [
+        -0.00039,
+        0.00039
+      ]
+    },
+    "dC22_nh": {
+      "prior_type": "uniform",
+      "bounds": [
+        -5e-05,
+        5e-05
+      ]
+    }
+  },
+  "derived_params": {
+    "rho_sil_kgm3": {
+      "derivation": "mass_conservation",
+      "bounds": [
+        2200.0,
+        3500.0
+      ],
+      "reject_if_outside_bounds": true
+    }
+  },
+  "observables": {
+    "C20": [
+      -0.00043759,
+      7.747e-05
+    ],
+    "C22": [
+      0.00013862,
+      2.44e-06
+    ],
+    "Bind_synodic_x_real": [
+      91.07058126361886,
+      1.5
+    ],
+    "Bind_synodic_x_imag": [
+      -157.85676859240647,
+      1.5
+    ],
+    "Bind_synodic_y_real": [
+      -59.40533696629077,
+      1.5
+    ],
+    "Bind_synodic_y_imag": [
+      -25.61791852141546,
+      1.5
+    ],
+    "Bind_synodic_z_real": [
+      -5.675654206203697,
+      1.5
+    ],
+    "Bind_synodic_z_imag": [
+      -12.364182150469917,
+      1.5
+    ],
+    "Bind_synodic 2nd_x_real": [
+      14.717630809871173,
+      1.5
+    ],
+    "Bind_synodic 2nd_x_imag": [
+      3.1440689462941154,
+      1.5
+    ],
+    "Bind_synodic 2nd_y_real": [
+      1.8561258037971171,
+      1.5
+    ],
+    "Bind_synodic 2nd_y_imag": [
+      -9.87259597254061,
+      1.5
+    ],
+    "Bind_orbital_x_real": [
+      -0.5352738290604214,
+      1.5
+    ],
+    "Bind_orbital_x_imag": [
+      6.386436443696461,
+      1.5
+    ],
+    "Bind_orbital_y_real": [
+      -2.1855594672667733,
+      1.5
+    ],
+    "Bind_orbital_y_imag": [
+      -0.3339307437762303,
+      1.5
+    ]
+  },
+  "sampler_settings": {
+    "n_effective": 500,
+    "n_reeval": 500,
+    "rheology": "andrade",
+    "arrhenius_params": {
+      "activation_energy_kJ_mol": {
+        "Ih": 60.0
+      },
+      "R_J_mol_K": 8.314462
+    }
+  },
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Europa/Test52_seawater_v5/europa_seawater_structure_grid_v5_2d.pkl",
+  "random_state": 43,
+  "planet_template_module": "PlanetProfile.Default.Europa.PPEuropa",
+  "metadata": {
+    "schema_version": "v6 (v5 interior/induction/k2 + FREE-GRAVITY geodesy: CMR2 dropped, C20/C22 = GC21 SOL-A unconstrained, agnostic gravity) \u2014 clipper_v6_freegrav_11D",
+    "description": "[SUPERSEDED FOR v6 2026-07-22 -- describes the v5 design; see v6_freegrav_redesign_2026_07_22. In v6: CMR2 is NOT an observable; gravity is agnostic (widened dC20_nh/dC22_nh boxes -> ~zero interior C/MR2 info); 11 sampled parameters; gravity is conditioned on REAL GC21 SOL-A data, not a synthetic hydrostatic null.] Europa Clipper v4 geodesy campaign: v3 8D (rheology + Tb_K + log10_wOcean_ppt salinity + sampled core, mass-conservation rho_sil) PLUS Mazarico-projected degree-2 gravity. Adds two sampled non-hydrostatic offsets dC20_nh, dC22_nh (uniform [-2e-5, 2e-5]) => 10 sampled parameters. k2 conditioning tightened to the Mazarico et al. (2023) projected precision (Re_k2 0.23+/-0.015, Im_k2 0.0040+/-0.015) replacing v1-v3's requirement-level sigma 0.06. CMR2 is RETAINED but RELABELED as a Galileo-derived MoI PRIOR (GC21 Table 3), not a Clipper observable. C20/C22 modeled directly via a hydrostatic Clairaut forward map (gravity_forward_model='clairaut_hydrostatic') + sampled non-hydrostatic offsets; the posterior of (dC20_nh, dC22_nh) IS the inferred degree of non-hydrostaticity. Same 2D (Tb x w) v3.0 structure cache (NO PP runs). Plan: plans/europa-clipper-v4-geodesy-plan.md.",
+    "ocean_composition": "Seawater (Constants.stdSeawater_ppt)",
+    "gravity_forward_model_2026_07_19": "[SUPERSEDED FOR v6 2026-07-22 -- describes the v5 design; see v6_freegrav_redesign_2026_07_22. In v6: CMR2 is NOT an observable; gravity is agnostic (widened dC20_nh/dC22_nh boxes -> ~zero interior C/MR2 info); 11 sampled parameters; gravity is conditioned on REAL GC21 SOL-A data, not a synthetic hydrostatic null.] gravity_forward_model='clairaut_hydrostatic' (InferenceConfig top-level flag). The C20/C22 observables are COMPUTED per sample by MCMCRunner._derive_gravity_pair: fluid Love number k_f by direct Clairaut integration (gravity_obs.clairaut_kf) over the SAME per-sample composite density profile the CMR2 mass-conservation derivation assembles (sampled core + derived silicate + cached hydrosphere; side-channel _last_composite_layers so they cannot diverge), then C22_h = k_f q_r / 4 rescaled to the GC21 1565 km reference radius, C20_h = -3.324 C22_h (Tricarico 2014 rapid-rotation ratio; classical 10/3 in docstrings only), plus the sampled offsets: C20_model = C20_h + dC20_nh, C22_model = C22_h + dC22_nh. Clairaut (not Radau-Darwin) is used because the ~1% RD systematic (~1e-6 in C22 = 5x sigma(C22)) would alias into the non-hydrostaticity deliverable (scientific review R2, 2026-07-19). RD retained only as a unit-test cross-check and the GUI inverse readout.",
+    "gravity_convention_2026_07_19": "UNNORMALIZED Stokes coefficients (Anderson et al. 1998 / Gomez Casajus et al. 2021 convention), quoted at the GC21 reference radius R_ref = 1565 km (NOT the physical R_body = 1560.8 km; Clm scale as (R/R_ref)^2, a ~0.5% effect on C22 = 3x sigma(C22), applied in gravity_obs.hydrostatic_c20_c22). Fully-normalized conversions: C20_unnorm = sqrt(5) C_bar20; C22_unnorm = sqrt(10/24) C_bar22 ~ 0.6455 C_bar22. Hydrostatic ratio J2_h/C22_h = 3.324 (Tricarico 2014, as applied by GC21), NOT the classical synchronous 10/3.",
+    "gravity_fiducial_2026_07_19": "[SUPERSEDED FOR v6 2026-07-22 -- describes the v5 design; see v6_freegrav_redesign_2026_07_22. In v6: CMR2 is NOT an observable; gravity is agnostic (widened dC20_nh/dC22_nh boxes -> ~zero interior C/MR2 info); 11 sampled parameters; gravity is conditioned on REAL GC21 SOL-A data, not a synthetic hydrostatic null.] C20 = -4.578888e-4, C22 = 1.377523e-4 (unnormalized, 1565 km). RECOMPUTED from the v5 cache (NOT v4-copied) at the identical fiducial interior via MCMCRunner._derive_gravity_pair with dC20_nh = dC22_nh = 0 and the v3/v4 reference interior (alpha 0.31268, log10_zeta -0.19696, log10_eta_Ih 12.938, log10_eta_sil 20.096, Tb 264.5 K, log10_wOcean 1.5460 = 35.165 ppt, R_core 534.67 km, rho_core 6254.1 kg/m^3). Self-consistent hydrostatic NULL fiducial with zero-centered nuisances => the non-hydrostaticity + salinity null test is clean. Verified: -C20/C22 = 3.32400 exactly. The fiducial MUST derive from the SAME v5 cache+sidecar that generates the SBI training set and reference MCMC (see v5_artifact_hashes_2026_07_20 for the pinned sha256). Superseded v4 numbers (C20 = -4.579201e-4, C22 = 1.377618e-4) differed by up to ~0.5 sigma on the synodic Bind channel due to Pfreeze-search rebuild nondeterminism amplified by the near-saturated synodic Ae phase; recomputing removes that fixed offset by construction. Evidence: plans/scripts/v5_fiducial_recompute.py, plans/scripts/v5_fiducial_recompute.json.",
+    "gravity_sigma_convention_risk_2026_07_19": "sigma(C22) = 2.0e-7, sigma(C20) = 8.5e-7 (top of the Mazarico projected (3.5-8.5)e-7 range). Convention risk (USER ANSWER (a), 2026-07-19): if Table 5's sigma is 4-pi-normalized, unnorm sigma(C22) = 1.29e-7 (so 2.0e-7 is CONSERVATIVE) and unnorm sigma(C20) = 13.4e-7 (so 8.5e-7 carries a residual ~1.6x too-tight risk, documented). Non-hydrostaticity is an upper-limit deliverable whose floor is set by the MoI prior (moi_prior below, ~5-9e-6 in C22-equivalent), NOT by sigma(C22)=2e-7, so this residual sigma ambiguity does not drive the science claim.",
+    "moi_prior": {
+      "source": "gomescasajus2021 Table 3 (This Work)",
+      "value": 0.3547,
+      "sigma": 0.0024,
+      "note": "The CMR2 observable [0.3547, 0.0024] IS this Galileo-era MoI, derived from GC21's C22 via Radau + hydrostatic assumption. RELABELED as a PRIOR (user 2026-07-19 (e)), independent of the future Clipper C20/C22 measurement the new observables represent => no double-counting. Restores the interior MoI constraint the review flagged as lost when gravity goes non-hydrostatic (R3). Swap Anderson (0.3475 +/- 0.0026) or Jacobson (0.3405 +/- 0.0022) here for sensitivity.",
+      "v6_status_2026_07_22": "SUPERSEDED in v6: CMR2 is NOT an observable in v6, and gravity is agnostic (widened offset boxes). This Galileo MoI returns ONLY as the OPTIONAL inference-time reweight (plan task D, required before any interior-C/MR2 science claim), never a likelihood term."
+    },
+    "k2_provenance_2026_07_19": "Re_k2 = 0.23 +/- 0.015, Im_k2 = 0.0040 +/- 0.015 (USER 2026-07-19, Mazarico et al. 2023 SSRv 219:30 sec 3.1.1). Central Re_k2 = 0.23 is the ocean-consistent value (Moore & Schubert 2000: 'around 0.23 with an ocean and <0.015 without'); sigma = 0.015 is the mid of the projected (1.4-1.8)e-2 49-flyby precision, REPLACING v1-v3's requirement-level sigma 0.06. Im_k2 central = 0.23 x sin(1 deg) = 0.0040 (1-degree phase-lag equivalent for a non-dissipative mantle; partial melt raises it, 1 deg is the adopted conditioning value); sigma = 0.015 (same as amplitude; the paper projects no separate phase uncertainty). h2 unchanged from v1-v3 (Re_h2 1.2+/-0.1, Im_h2 0+/-0.1).",
+    "primary_constraint": "[SUPERSEDED FOR v6 2026-07-22 -- describes the v5 design; see v6_freegrav_redesign_2026_07_22. In v6: CMR2 is NOT an observable; gravity is agnostic (widened dC20_nh/dC22_nh boxes -> ~zero interior C/MR2 info); 11 sampled parameters; gravity is conditioned on REAL GC21 SOL-A data, not a synthetic hydrostatic null.] k2 (Mazarico-projected, 4x tighter than v3) + induction; CMR2 as Galileo MoI prior. Degree-2 gravity WITHOUT the hydrostatic assumption carries essentially zero interior information after marginalizing the two free nuisances (review R3); the interior comes from k2/h2/induction + the MoI prior.",
+    "non_hydrostaticity_deliverable_2026_07_19": "[SUPERSEDED FOR v6 2026-07-22 -- describes the v5 design; see v6_freegrav_redesign_2026_07_22. In v6: CMR2 is NOT an observable; gravity is agnostic (widened dC20_nh/dC22_nh boxes -> ~zero interior C/MR2 info); 11 sampled parameters; gravity is conditioned on REAL GC21 SOL-A data, not a synthetic hydrostatic null.] The posterior of (dC20_nh, dC22_nh) is 'the degree of non-hydrostaticity implied' (user ask). Only the RATIO-BREAKING combination dC22_nh + (1/3.324) dC20_nh is identifiable; the ratio-preserving combination dC20_nh = -3.324 dC22_nh (hydrostatic-manifold tangent) is exactly degenerate with a C_bar shift. (Uses the Tricarico R=3.324 consistently, NOT the classical 10/3: the forward map is C20 = -3.324 C22_h + dC20_nh, so the identifiable/degenerate directions are set by 3.324; scientific-reviewer binding fix 2026-07-19.) Report: (dC20_nh, dC22_nh) posteriors in absolute units and in units of the Clipper sigmas, the implied -C20/C22 ratio vs 3.324, and the dC22_nh-C_bar posterior correlation. Pre-registered as an upper-limit measurement (GC21 C22=139e-6+/-25e-6 without hydrostatic assumption vs Anderson 131.5e-6 hydrostatic: a 0.36-sigma offset, CONSISTENT with hydrostatic). Prior sensitivity on the [-2e-5, 2e-5] nuisance box pre-registered (as for salinity).",
+    "sbi_seeds_2026_07_19": {
+      "train": 43,
+      "data": 49,
+      "noise": 4949
+    },
+    "salinity_prior_2026_07_18": "log10_wOcean_ppt ~ Uniform[-1, 2] (0.1-100 ppt), log-uniform (Jeffreys). Report dual-space posteriors + prior-sensitivity; expect weak w identification and a Tb<->w degeneracy (synodic Ae saturated; w carried by orbital channels). The tighter v4 k2 sigma sharpens rheology/Tb marginals; the Tb-w ridge is induction-driven and should persist.",
+    "salinity_eos_caveat_2026_07_18": "GSW/PSS-78 seawater EOS calibrated to SP<=42; 42-100 ppt extrapolation. Phase-1 gate (Pan et al. 2021 NaCl): max |dSigma| = 18.5% over a Europa column at w in {35,50,70,100} ppt, composition-dominated, all < the 25% caveat gate => 100 ppt bound KEPT. See plans/europa-clipper-v3-phase1-validation.md.",
+    "salinity_w_interp_caveat_2026_07_18": "16-node log-w grid introduces a 0.285 K support-edge w-interpolation bias at seawater (0.099 K worst-case over supported w); present IDENTICALLY in the reference MCMC and the SBI training set (both route through grid_interp_2d), so it does NOT break the degeneracy gate. Do not over-interpret the w support boundary to better than ~0.3 K / ~0.05 dex. See v3 config + plans/europa-clipper-v3-phase1-validation.md.",
+    "valid_region_2026_07_18": "Valid (Tb, w) region is a TILTED BAND (None in both opposite corners of the 2D cache); bilinear lookup drops None corners and renormalizes, rejecting only when all 4 corners are None. CMR2 is flat (~0.346) across the valid region at all w => CMR2 does NOT constrain salinity; w rests on induction (orbital Ae).",
+    "bind_channels_provenance_2026_07_14": "Induction observables unchanged from v3 (see europa_seawater_andrade_clipper_v3_8D.json). Bind = Ae*Be (UNCONJUGATED Ae, complex Be, FT surface-field path), sigma = 1.5 nT/channel; synodic |Ae|>0.7 support cut is the Galileo prior support, the Bind_synodic Gaussians are the Clipper likelihood.",
+    "core_bounds_rationale": "R_core in [0, 0.5 R_body]; rho_core in [5000, 8000] kg/m^3 (metallic Fe / Fe-S); rho_sil derived from M_total mass conservation, samples outside [2200, 3500] kg/m^3 rejected.",
+    "Tb_bounds_rationale": "Tb_K=[259.5, 271.0] K targets D_iceIh=[~3, ~100] km; see v3 config.",
+    "plan_reference": "plans/europa-clipper-v4-geodesy-plan.md (Machine A 2026-07-19; scientific review PASS WITH CONCERNS, four binding fixes incorporated). Gravity code landed 2026-07-19 (gravity_obs.py + runner channels; tests/gravity_obs_test.py + tests/gravity_channels_test.py 16/16 green).",
+    "zeta_split_2026_07_19": "log10_zeta split into log10_zeta_Ih (ice Ih) and log10_zeta_sil (silicate), both U[-3, 2] (user 2026-07-19): a SINGLE sampled zeta couples the Andrade transient-creep amplification of ice and rock, so any zeta raised to fit ice dissipation (Im k2) simultaneously amplifies silicate dissipation - systematically preferencing silicate heating in the posterior heating budget. Independent zetas let the data set each. No HP-ice zeta: the Europa Tb box has no III/V/VI layers. Forward-model hook apply_andrade_params already supports per-phase zeta (log10_zeta_Ih/log10_zeta_sil override precedence).",
+    "reparameterization_2026_07_20": "v5 replaces the uniform Tb_K prior with an informative prior on ICE-SHELL THICKNESS D_iceIh_km (truncated Gaussian mu=29, sigma=10 km, trunc [5,60]); Tb becomes a derived quantity via a per-salinity monotone (PCHIP) inversion D_iceIh,w -> Tb on this 2D cache. Rationale (scientific-reviewer, 2026-07-20): a uniform Tb box is an implicit, strongly salinity-dependent ice-thickness prior (Phase-0 measured warm-edge ice 22.5 km @0.1ppt vs 0.46 km @100ppt) that contaminates the Tb<->w degeneracy deliverable. Placing the prior on D_iceIh makes the ice-thickness prior salinity-independent. This config still lists Tb_K in param_space for the CACHE BUILD (build_phase_c1_cache reads Tb_K.bounds); Phase 2 swaps param_space Tb_K -> D_iceIh_km for the sampled space. Warm edge extended 271.0 -> 272.5 K so 10 km ice is reachable at low salinity (needs Tb up to 272.29 K per Phase 0); per-column nodes past Tmelt(P_base,w) build to None and are excluded by the inversion edge rejection.",
+    "reparam_coverage_caveat_2026_07_20": "Phase-0 (validation_reports/europa_clipper_v5_phase0/coverage.md): D_iceIh(Tb) strictly monotone-decreasing in all 16 w columns (inversion well-posed). The thin tail of the [5,60] km prior is only partially reachable at LOW salinity, where 10 km ice sits on the pressure-corrected Ih melt curve (~272.3 K, ~0.8 K below bulk 273.15 K). Report the residual per-salinity truncation of the thin tail; the 5 km lower truncation keeps sampling off the near-melt regime.",
+    "sbi_seeds_2026_07_20": {
+      "train": 51,
+      "data": 57,
+      "noise": 5757
+    },
+    "sbi_seeds_authoritative_2026_07_21": "AUTHORITATIVE v5 seeds are sbi_seeds_2026_07_20 (train 51, data 57, noise 5757), hardcoded in plans/scripts/v5_{gen_dataset,train_all,run_gates,reference_mcmc}.py. The earlier sbi_seeds_2026_07_19 block (train 43/data 49/noise 4949) is STALE v4 and superseded. The top-level random_state:43 is a hashed field left UNCHANGED to preserve the v5 config_hash; it is NOT used by the v5 pipeline (the reference MCMC seeds from sampler_settings.random_state if set else CLI default 51; datasets/training seed from the script constants). Do not seed a v5 run from random_state:43 or the 07_19 block.",
+    "v5_build_tb_bounds": {
+      "Tb_K_bounds_used_for_cache_build": [
+        259.5,
+        272.5
+      ],
+      "note": "The 2D cache is Tb-indexed; these are the Tb grid bounds passed to build_phase_c1_cache (--n-grid 105 -> 0.125 K spacing, --n-wgrid 16). Inference samples D_iceIh_km and derives Tb by inversion."
+    },
+    "fiducial_recompute_2026_07_20": "[SUPERSEDED FOR v6 2026-07-22 -- describes the v5 design; see v6_freegrav_redesign_2026_07_22. In v6: CMR2 is NOT an observable; gravity is agnostic (widened dC20_nh/dC22_nh boxes -> ~zero interior C/MR2 info); 11 sampled parameters; gravity is conditioned on REAL GC21 SOL-A data, not a synthetic hydrostatic null.] v5 fiducial conditioning RECOMPUTED from the v5 cache (not v4-copied) at the identical fiducial interior (Tb=264.5 K, w=35.165 ppt, R_core=534.67 km, rho_core=6254.1, dC20_nh=dC22_nh=0) via MCMCRunner._derive_gravity_pair and Bind=Ae*Be (_blended_ae_dict x _be_excitation) \u2014 runtime-identical paths. C20=-4.578888e-4, C22=1.377523e-4 (-C20/C22=3.32400 exact); 14 Bind_* updated. Rationale (scientific-reviewer 2026-07-20): the fiducial is a synthetic self-consistent hydrostatic NULL reference, so its conditioning must be the forward model's own output on the SAME cache+sidecar that generates the SBI training set and reference MCMC. Keeping v4-copied values would inject a fixed ~0.5-sigma synodic offset (Bind_synodic_x_real moved 0.503 sigma on rebuild; root cause: ~1e-4 relative Pfreeze-search nondeterminism in sigma_Sm amplified by the near-saturated synodic Ae phase) into the non-hydrostaticity + salinity null test. CMR2/k2/h2 are external conditioning (Galileo MoI prior + Mazarico projection), NOT cache-derived, so left unchanged. Evidence: plans/scripts/v5_fiducial_recompute.py, /tmp/v5_fiducial_recompute.json.",
+    "open_interpretation_redesign_2026_07_21": "USER-DIRECTED PIVOT (2026-07-21): train a BROAD, open 'Europa-Clipper-alone' artifact; impose literature constraints (Levin 2025 ice thickness; tight Vance/Galileo induction) as SEPARABLE inference-time reweights on the ONE artifact. TWO changes: (1) D_iceIh_km prior truncated_gaussian(29,10,[5,60]) -> UNIFORM[5,80] km. PP D_iceIh = TOTAL Ih shell (models solid-state convection); Levin 29+/-10 km (papers/levin2025europa.pdf, DOI 10.1038/s41550-025-02718-0) is CONDUCTIVE-lid thickness, so a direct N(29,10) reweight on the TOTAL D_iceIh would be physically WRONG (forbids a convecting sublayer) - build a convection-aware conductive->total construction at inference time. Uniform[5,80] is the maximally-agnostic base measure, evenly covers the 45-70 km likelihood-favored region (was 5.4% -> 33% of prior mass), removes the load-bearing 60 km truncation (profile-LL was still rising at 60), and CURES the v5-baseline training-density starvation (old prior put only ~1.4% of mass within +/-2 km of the 51 km reference mode). Upper 80 km: physically << Ih->HP transition (100 km ~120 MPa basal, transition ~210 MPa/~155 km) and <= cache D_max(w) at posterior salinities (16-33 ppt -> D_max~100 km); high-salinity columns have D_max<80 (66 km @100 ppt) so near-80 km draws edge-reject there - report residual per-w truncation in the gate. (2) induction_bounds made PER-FREQUENCY in the complex-Ae basis with a degree-based phase cap (Vance et al. 2021 Fig 6/Table 2): synodic + synodic-2nd |Ae|>0.7/phase<30 deg; orbital |Ae|>0.3/phase<70 deg (low-salinity thick-ice models legitimately reach orbital |Ae|~0.37, phase~65 deg - a single synodic-style 0.7/0.4 cut would wrongly clip them). Replaces the |Im| proxy (im_abs_max) with phase_deg_max (amplitude-independent). The tight literature induction band (synodic 0.92-0.97, <1 deg) folds in as an inference-time reweight, same as Levin. k2-convention question (min reachable Re_k2=0.241 > 0.23 target) is ROBUST to this training design (broad prior commits to no interpretation) but remains a mandatory gate on the SCIENCE CLAIM. Scientific-reviewer a41db4adc1e7f239e: PASS WITH CONCERNS. Fiducial conditioning + cache/sidecar hashes UNCHANGED (external conditioning, not prior-derived).",
+    "v5_artifact_hashes_2026_07_20": {
+      "structure_cache_path": "PlanetProfile/Test/mcmc_results/Europa/Test52_seawater_v5/europa_seawater_structure_grid_v5_2d.pkl",
+      "structure_cache_sha256": "0d3638602b2e313242fd23944ee55a8c6ba26700438707d73546631939d22648",
+      "ae_sidecar_sha256": "a5f6be47ebea96cecd36a59da6fe79749f3429ac96719aabb140fe8ed45f070e",
+      "note": "Training set, reference MCMC, and fiducial conditioning MUST all derive from this exact cache+sidecar pair (reviewer-required hash pin). A rebuilt cache would re-move the near-saturated synodic channel by ~0.5 sigma; this pin makes such drift detectable."
+    },
+    "v6_freegrav_redesign_2026_07_22": "USER-DIRECTED (2026-07-22): eliminate the geodesy double-count. v5 imposed CMR2=[0.3547,0.0024] as a TIGHT independent observable AT THE SAME TIME as tight C20/C22 -- but 0.3547 was itself derived FROM C22 via the hydrostatic Radau relation (GC21 Table 3), so the same physical relation was used twice, biasing the posterior toward hydrostaticity (the very quantity the campaign measures). v6 fix: (1) CMR2 REMOVED from observables (no longer a likelihood term); (2) C20/C22 set to GC21 Table 2 SOL-A UNCONSTRAINED (J2=437.59+/-77.47, C22=138.62+/-2.44, x1e-6, UNNORMALIZED at R_ref=1565 km -- NO sqrt(5)/sqrt(10/24) conversion per reviewer block-level correction, since Table 2 is already unnormalized). SOL-A -C20/C22 = 3.157 (NOT the hydrostatic Tricarico 3.324): the unconstrained solution does not obey the hydrostatic ratio -- that ~0.3-sigma gap IS the (statistically insignificant) non-hydrostatic signal, consistent with GC21's own J2/C22=3.16+/-0.57. RD hydrostatic-reference C/MR2 from SOL-A C22 = 0.3559 (consistent with the v5 fiducial 0.3550). (3) BOTH non-hydrostatic offset boxes widened so gravity carries ~ZERO interior C/MR2 info (USER 'truly agnostic', resolving reviewer MAJOR finding): dC20_nh [-2e-5,2e-5]->[-3.9e-4,3.9e-4] (~5*sigma(C20)); dC22_nh [-2e-5,2e-5]->[-5e-5,5e-5]. The narrow v5 dC22_nh + tight C22 silently boxed interior C/MR2 to ~[0.335,0.373] centered on the hydrostatic reference (a residual hydrostaticity-centered MoI constraint); +/-5e-5 lets C/MR2 span ~[0.30,0.40] freely. The old 'sigma(C22) tiny' rationale conflated C22 measurement precision with the prior width on the physical non-hydrostatic C22 anomaly. CONSEQUENCE: the published HYDROSTATIC C/MR2 (GC21 0.3547+/-0.0024) is NO LONGER an observable; it returns ONLY as the OPTIONAL inference-time reweight on the derived hydrostatic-reference C/MR2 (plan task D), which is therefore REQUIRED before any science claim on the interior C/MR2 (D is inference-time, needs no retraining). The PRIMARY non-hydrostaticity deliverable is UNAFFECTED by the box widening: the identifiable combination dC20_nh + 3.324*dC22_nh is interior-independent (C22_h cancels), central estimate unbiased. Dual C/MR2 deliverable: hydrostatic-reference (RD from C22) vs actual (structure integral); gap = non-hydrostaticity. Plan: fluffy-snacking-fountain. Interior priors, 2D (Tb x w) cache, rheology, induction bounds, and k2/h2 conditioning are BYTE-IDENTICAL to v5; only the gravity channel + the two offset-box widths changed.",
+    "v6_hybrid_conditioning_2026_07_22": "DESIGN NOTE (reviewer MODERATE): v6 conditions the GRAVITY channel (C20/C22) on REAL Galileo-era data (GC21 SOL-A, ratio 3.157), while k2/h2 and the 14 Bind_ induction channels remain the v5 SYNTHETIC fiducial forecast (Re_k2=0.23 Mazarico projection; Bind from the Tb=264.5 K / w=35.165 ppt / R_core=534.67 km fiducial interior). v6 is therefore a real-gravity + forecast-tidal/induction HYBRID, NOT the v5 self-consistent hydrostatic NULL. Verified mutually consistent: the fiducial interior's C22_h=1.3775e-4 sits 0.36 sigma from real SOL-A C22=1.3862e-4, and fiducial C/MR2~=0.355 ~= SOL-A hydrostatic-reference 0.356, so the hybrid does not manufacture tension. The 'hydrostatic NULL' language in superseded v5 fields does NOT apply to the v6 gravity channel.",
+    "v6_gravity_provenance_2026_07_22": {
+      "source": "Gomez Casajus et al. 2021 (GC21) Table 2, SOL-A (unconstrained)",
+      "convention": "unnormalized Stokes coefficients at R_ref = 1565 km; NO sqrt(5)/sqrt(10/24) fully-normalized conversion applied (Table 2 is already unnormalized -- reviewer block-level fix, verified against papers/gomescasajus2021updated.pdf Table 2)",
+      "C20": {
+        "value": -0.00043759,
+        "sigma": 7.747e-05,
+        "note": "= -J2, J2=437.59+/-77.47 x1e-6"
+      },
+      "C22": {
+        "value": 0.00013862,
+        "sigma": 2.44e-06,
+        "note": "138.62+/-2.44 x1e-6"
+      },
+      "ratio_minus_C20_over_C22": 3.1568,
+      "hydrostatic_ref_cmr2_from_C22_rd": 0.35586,
+      "cmr2_removed_reason": "double-count: 0.3547 derived from C22 via hydrostatic Radau; imposing both CMR2 and C22 uses the relation twice",
+      "n_sampled_params": 11,
+      "offset_boxes_widened": {
+        "dC20_nh": {
+          "old": [
+            -2e-05,
+            2e-05
+          ],
+          "new": [
+            -0.00039,
+            0.00039
+          ],
+          "reason": "~5*sigma(C20)=7.747e-5; carries honest C20 uncertainty and the non-hydrostatic upper-limit tail without a ~3-sigma wall"
+        },
+        "dC22_nh": {
+          "old": [
+            -2e-05,
+            2e-05
+          ],
+          "new": [
+            -5e-05,
+            5e-05
+          ],
+          "reason": "removes the hidden C/MR2 box [0.335,0.373]; lets interior C/MR2 span ~[0.30,0.40] so gravity carries ~zero interior info"
+        }
+      },
+      "task_D_required": "With gravity agnostic, the published hydrostatic C/MR2 (GC21 0.3547+/-0.0024; or Anderson 0.3475; Jacobson 0.3405) is applied ONLY as the optional inference-time reweight (plan task D). Task D MUST land before any interior-C/MR2 science claim.",
+      "S22_note": "S22=-6.21+/-2.90, C21/S21 available but degree-2 tesseral, out of current C20/C22-only scope",
+      "correlation_note": "SOL-A rho(C20,C22)=-0.17 (safe, <1); not yet imposed -- diagonal noise retained (effect on the non-hydrostatic-combination sigma ~1.8%, negligible). If adopted, cap rho<1 (mcmc_runner bivariate branch divides by det; SOL-B rho=1.0 would be singular)."
+    },
+    "arm_2026_07_22": {
+      "arm": "europa_clipper_v6_freegrav_nok2_16obs.json",
+      "n_obs": 16,
+      "obs_names": [
+        "C20",
+        "C22",
+        "Bind_synodic_x_real",
+        "Bind_synodic_x_imag",
+        "Bind_synodic_y_real",
+        "Bind_synodic_y_imag",
+        "Bind_synodic_z_real",
+        "Bind_synodic_z_imag",
+        "Bind_synodic 2nd_x_real",
+        "Bind_synodic 2nd_x_imag",
+        "Bind_synodic 2nd_y_real",
+        "Bind_synodic 2nd_y_imag",
+        "Bind_orbital_x_real",
+        "Bind_orbital_x_imag",
+        "Bind_orbital_y_real",
+        "Bind_orbital_y_imag"
+      ],
+      "note": "v6 ablation sibling; identical to v6 geodesy except observable subset. Dataset generated once from the full-obs baseline then NAME-sliced (mirrors plans/scripts/v6_gen_dataset.py). NOTE: the noinduction arm still carries induction_bounds (|Ae|>0.7 synodic support cut) applied at dataset generation, so it is 'no induction LIKELIHOOD', not induction-free -- the ablation contrast is partially conditioned on the residual Galileo induction support prior (mirrors v5)."
+    }
+  },
+  "induction_bounds": {
+    "synodic": {
+      "amp_min": 0.7,
+      "phase_deg_max": 30.0
+    },
+    "synodic 2nd": {
+      "amp_min": 0.7,
+      "phase_deg_max": 30.0
+    },
+    "orbital": {
+      "amp_min": 0.3,
+      "phase_deg_max": 70.0
+    }
+  }
+}

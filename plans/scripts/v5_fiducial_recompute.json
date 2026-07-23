@@ -1,0 +1,35 @@
+{
+  "theta": {
+    "alpha": 0.31268,
+    "log10_zeta_Ih": -0.19696,
+    "log10_zeta_sil": -0.19696,
+    "log10_eta_Ih": 12.938,
+    "log10_eta_sil": 20.096,
+    "Tb_K": 264.5,
+    "log10_wOcean_ppt": 1.546110621749425,
+    "R_core_km": 534.67,
+    "rho_core_kgm3": 6254.1,
+    "dC20_nh": 0.0,
+    "dC22_nh": 0.0
+  },
+  "recomputed": {
+    "C20": -0.000457888786233524,
+    "C22": 0.00013775234242885802,
+    "Bind_synodic_x_real": 91.07058126361886,
+    "Bind_synodic_x_imag": -157.85676859240647,
+    "Bind_synodic_y_real": -59.40533696629077,
+    "Bind_synodic_y_imag": -25.61791852141546,
+    "Bind_synodic_z_real": -5.675654206203697,
+    "Bind_synodic_z_imag": -12.364182150469917,
+    "Bind_synodic 2nd_x_real": 14.717630809871173,
+    "Bind_synodic 2nd_x_imag": 3.1440689462941154,
+    "Bind_synodic 2nd_y_real": 1.8561258037971171,
+    "Bind_synodic 2nd_y_imag": -9.87259597254061,
+    "Bind_orbital_x_real": -0.5352738290604214,
+    "Bind_orbital_x_imag": 6.386436443696461,
+    "Bind_orbital_y_real": -2.1855594672667733,
+    "Bind_orbital_y_imag": -0.3339307437762303
+  },
+  "max_dev_sigma": 0.5028124909207558,
+  "max_dev_channel": "Bind_synodic_x_real"
+}

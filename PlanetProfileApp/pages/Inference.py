@@ -1127,6 +1127,151 @@ _SBI_ARTIFACT_SLOTS = {
                        'details: sbi_artifacts/INDEX.md.'),
         # Trained torch 2.8.0 / sbi 0.26.1 — same runtime; no pair needed.
     },
+    'europa_clipper_v5_geodesy_11D_posterior_1m.pt': {
+        'label': ('1D · Clipper–Europa (Andrade, seawater) — v5 geodesy, '
+                  '11D ice-thickness reparam + non-hydrostatic gravity'),
+        'bodyname': 'Europa',
+        'config_path': ('PlanetProfile/Inference/configs/'
+                        'europa_clipper_v5_geodesy_11D.json'),
+        'cache_path': ('PlanetProfile/Test/mcmc_results/Europa/'
+                       'Test52_seawater_v5/'
+                       'europa_seawater_structure_grid_v5_2d.pkl'),
+        # v5 fiducial conditioning (config observables central values,
+        # recomputed 2026-07-20 from the v5 cache). CMR2 retained here as the
+        # GC21 Galileo MoI for the legacy display; the dual C/MR² readout
+        # (actual structure integral vs RD-from-C22 hydrostatic reference) is
+        # computed per sample regardless.
+        'default_obs': {
+            'CMR2': 0.3547,
+            'C20': -4.578888e-4, 'C22': 1.377523e-4,
+            'Re_k2': 0.23, 'Im_k2': 0.004,
+            'Re_h2': 1.2, 'Im_h2': 0.0,
+            'Bind_synodic_x_real': 91.07058126361886,
+            'Bind_synodic_x_imag': -157.85676859240647,
+            'Bind_synodic_y_real': -59.40533696629077,
+            'Bind_synodic_y_imag': -25.61791852141546,
+            'Bind_synodic_z_real': -5.675654206203697,
+            'Bind_synodic_z_imag': -12.364182150469917,
+            'Bind_synodic 2nd_x_real': 14.717630809871173,
+            'Bind_synodic 2nd_x_imag': 3.1440689462941154,
+            'Bind_synodic 2nd_y_real': 1.8561258037971171,
+            'Bind_synodic 2nd_y_imag': -9.87259597254061,
+            'Bind_orbital_x_real': -0.5352738290604214,
+            'Bind_orbital_x_imag': 6.386436443696461,
+            'Bind_orbital_y_real': -2.1855594672667733,
+            'Bind_orbital_y_imag': -0.3339307437762303,
+        },
+        'x_obs_limits': {'Im_k2': (0.0, 0.15)},
+        'derived_ae_guards': [{
+            'label': 'synodic', 'comp': 'x',
+            'Be_comp': (128.466302323619, -170.084146795136),
+            'ae_range': (0.75, 0.94),
+            'warn_support_below': 0.7,
+        }],
+        'scope_note': ('Clipper v5: v4 geodesy + D_iceIh ice-thickness '
+                       'reparameterization (open uniform[5,80] km prior, '
+                       'pivoted 2026-07-21). Dual C/MR² deliverable: ACTUAL '
+                       '(structure moment integral) vs HYDROSTATIC REFERENCE '
+                       '(Radau–Darwin from C22); the gap is the inferred '
+                       'non-hydrostaticity, read against the ~0.0035 RD floor. '
+                       'v5 ratification FAILED-this-pass (undertraining + '
+                       'gate mis-spec, no model defect); do not cite as '
+                       'ratified. Gate details: sbi_artifacts/INDEX.md.'),
+    },
+    # --- v5 channel-family siblings (reached via the channel selector, not
+    # the dropdown). Same body/priors/cache as geodesy_11D; differ only in
+    # which observable channels the flow conditions on. default_obs reuses
+    # the geodesy central values — only the names present in each config's
+    # observable set are read, so the extra keys are inert. ---
+    'europa_clipper_v5_noinduction_7obs_posterior_1m.pt': {
+        'label': ('1D · Clipper–Europa (Andrade, seawater) — v5 geodesy, '
+                  '11D · channels: gravity + tidal k₂/h₂ (no induction)'),
+        'bodyname': 'Europa',
+        'config_path': ('PlanetProfile/Inference/configs/'
+                        'europa_clipper_v5_noinduction_7obs.json'),
+        'cache_path': ('PlanetProfile/Test/mcmc_results/Europa/'
+                       'Test52_seawater_v5/'
+                       'europa_seawater_structure_grid_v5_2d.pkl'),
+        'default_obs': {
+            'CMR2': 0.3547,
+            'C20': -4.578888e-4, 'C22': 1.377523e-4,
+            'Re_k2': 0.23, 'Im_k2': 0.004,
+            'Re_h2': 1.2, 'Im_h2': 0.0,
+        },
+        'x_obs_limits': {'Im_k2': (0.0, 0.15)},
+        'scope_note': ('Clipper v5 channel ablation: gravity + tidal k₂/h₂, '
+                       'NO magnetic-induction channel (Galileo synodic support '
+                       'still enters as a training-time cut). Same priors and '
+                       '(Tb,w) cache as v5 geodesy. v5 ratification '
+                       'FAILED-this-pass; do not cite as ratified.'),
+    },
+    'europa_clipper_v5_nok2_17obs_posterior_1m.pt': {
+        'label': ('1D · Clipper–Europa (Andrade, seawater) — v5 geodesy, '
+                  '11D · channels: gravity + induction (no tidal k₂/h₂)'),
+        'bodyname': 'Europa',
+        'config_path': ('PlanetProfile/Inference/configs/'
+                        'europa_clipper_v5_nok2_17obs.json'),
+        'cache_path': ('PlanetProfile/Test/mcmc_results/Europa/'
+                       'Test52_seawater_v5/'
+                       'europa_seawater_structure_grid_v5_2d.pkl'),
+        'default_obs': {
+            'CMR2': 0.3547,
+            'C20': -4.578888e-4, 'C22': 1.377523e-4,
+            'Bind_synodic_x_real': 91.07058126361886,
+            'Bind_synodic_x_imag': -157.85676859240647,
+            'Bind_synodic_y_real': -59.40533696629077,
+            'Bind_synodic_y_imag': -25.61791852141546,
+            'Bind_synodic_z_real': -5.675654206203697,
+            'Bind_synodic_z_imag': -12.364182150469917,
+            'Bind_synodic 2nd_x_real': 14.717630809871173,
+            'Bind_synodic 2nd_x_imag': 3.1440689462941154,
+            'Bind_synodic 2nd_y_real': 1.8561258037971171,
+            'Bind_synodic 2nd_y_imag': -9.87259597254061,
+            'Bind_orbital_x_real': -0.5352738290604214,
+            'Bind_orbital_x_imag': 6.386436443696461,
+            'Bind_orbital_y_real': -2.1855594672667733,
+            'Bind_orbital_y_imag': -0.3339307437762303,
+        },
+        'derived_ae_guards': [{
+            'label': 'synodic', 'comp': 'x',
+            'Be_comp': (128.466302323619, -170.084146795136),
+            'ae_range': (0.75, 0.94),
+            'warn_support_below': 0.7,
+        }],
+        'scope_note': ('Clipper v5 channel ablation: gravity + magnetic '
+                       'induction, NO tidal k₂/h₂ channel. Same priors and '
+                       '(Tb,w) cache as v5 geodesy. v5 ratification '
+                       'FAILED-this-pass; do not cite as ratified.'),
+    },
+}
+
+
+# Channel-family groups: artifacts trained on the SAME body/priors/cache that
+# differ ONLY in which observable channels they condition on. The amortized
+# panel offers a mutually-exclusive channel selector that swaps between the
+# members of a family (all three keep the static gravity channel CMR2/C20/C22;
+# there is deliberately no "exclude gravity" member and no "exclude both"
+# option — excluding both tides and induction is not a modelling case we
+# support). Key = the 'all channels' (fullest) member; values map a channel
+# choice to the sibling artifact filename.
+_CHANNEL_FAMILIES = {
+    'europa_clipper_v5_geodesy_11D_posterior_1m.pt': {
+        'all': 'europa_clipper_v5_geodesy_11D_posterior_1m.pt',
+        'no_induction': 'europa_clipper_v5_noinduction_7obs_posterior_1m.pt',
+        'no_k2h2': 'europa_clipper_v5_nok2_17obs_posterior_1m.pt',
+    },
+}
+# Reverse lookup: any family member -> its family key, so selecting a
+# non-'all' member still resolves the full channel selector.
+_CHANNEL_FAMILY_OF = {
+    member: key
+    for key, members in _CHANNEL_FAMILIES.items()
+    for member in members.values()
+}
+_CHANNEL_CHOICE_LABELS = {
+    'all': 'All channels',
+    'no_induction': 'Exclude magnetic induction',
+    'no_k2h2': 'Exclude tidal $k_2$/$h_2$',
 }
 
 
@@ -1154,6 +1299,119 @@ def _europa_excitation_moments():
 
 def _sbi_artifacts_dir():
     return Path(parent_directory) / 'PlanetProfile' / 'Inference' / 'sbi_artifacts'
+
+
+@st.cache_data(show_spinner=False)
+def _body_gravity_constants(cache_path):
+    """(omega, R_body_m, Mtot_kg) for the body of a structure cache.
+
+    These are constant across the (Tb, w) grid, so we read them from the
+    first structure node. Used for the live hydrostatic-C/MR² slider readout
+    (Radau–Darwin needs the rotation parameter). Returns None on any failure
+    so the readout degrades gracefully rather than crashing the config panel.
+    """
+    import pickle
+    import numpy as _np
+    try:
+        p = Path(parent_directory) / cache_path
+        with open(p, 'rb') as f:
+            d = pickle.load(f)
+
+        def _first(o, depth=0):
+            if depth > 4:
+                return None
+            if isinstance(o, dict):
+                if 'R_body_m' in o and 'omega' in o and 'Mtot_kg' in o:
+                    return o
+                for v in o.values():
+                    r = _first(v, depth + 1)
+                    if r:
+                        return r
+            if isinstance(o, (list, tuple)):
+                for v in o:
+                    if v is None:
+                        continue
+                    r = _first(v, depth + 1)
+                    if r:
+                        return r
+            if isinstance(o, _np.ndarray):
+                for v in o.tolist():
+                    if v is None:
+                        continue
+                    r = _first(v, depth + 1)
+                    if r:
+                        return r
+            return None
+
+        s = _first(d)
+        if not s:
+            return None
+        omega = float(s.get('omega'))
+        R = float(s.get('R_body_m'))
+        M = float(s.get('Mtot_kg'))
+        if not all(map(_np.isfinite, (omega, R, M))):
+            return None
+        return (omega, R, M)
+    except Exception:
+        return None
+
+
+# GC21 Table 2 SOL-A (unconstrained), UNNORMALIZED at 1565 km — the plausible
+# Galileo-era band for the live readout shading. C22 = 138.62 ± 2.44 ×10⁻⁶.
+_GC21_SOLA_C22 = (138.62e-6, 2.44e-6)
+
+
+@st.fragment
+def _render_live_hydrostatic_cmr2(x_obs, grav):
+    """Live 'if hydrostatic' C/MR² from the current C22 slider value.
+
+    Isolated in a fragment so it refreshes on C20/C22 edits without rerunning
+    the whole page or touching the posterior (that stays behind the Generate
+    button). ``grav`` = (omega, R_body_m, Mtot_kg) or None.
+    """
+    import numpy as _np
+    from PlanetProfile.Inference.gravity_obs import cmr2_from_c22_rd
+    c22 = x_obs.get('C22')
+    if c22 is None:
+        return
+    if grav is None:
+        st.caption("Live hydrostatic C/MR² readout unavailable "
+                   "(body constants not found in the structure cache).")
+        return
+    omega, R, M = grav
+    lo, hi = _GC21_SOLA_C22
+    in_band = (lo - 2 * hi) <= c22 <= (lo + 2 * hi)
+    try:
+        cmr2_h = float(cmr2_from_c22_rd(float(c22), omega, R, M))
+        if not _np.isfinite(cmr2_h):
+            # RD returns NaN (not a raise) when k_f leaves its physical range.
+            raise ValueError("non-finite RD C/MR²")
+        c1, c2 = st.columns(2)
+        c1.metric("Hydrostatic C/MR² (from current $C_{22}$)",
+                  f"{cmr2_h:.5f}")
+        band_lo = float(cmr2_from_c22_rd(lo - hi, omega, R, M))
+        band_hi = float(cmr2_from_c22_rd(lo + hi, omega, R, M))
+        c2.metric("GC21 SOL-A band (±1σ)",
+                  f"{band_lo:.4f}–{band_hi:.4f}")
+        if not in_band:
+            st.caption(
+                f"⚠️ $C_{{22}}$ = {c22:.3e} is **outside** the GC21 SOL-A "
+                f"plausible band ({lo:.3e} ± {hi:.2e}); the readout still "
+                "shows the corresponding hydrostatic C/MR² for exploration."
+            )
+        else:
+            st.caption(
+                "Hydrostatic reference: the C/MR² this $C_{22}$ implies **if** "
+                "the body is in hydrostatic equilibrium (Radau–Darwin). The "
+                "actual C/MR² is computed from the inferred interior after "
+                "**Generate Posterior**; their gap is the non-hydrostaticity."
+            )
+    except (ValueError, ZeroDivisionError):
+        st.caption(
+            f"⚠️ $C_{{22}}$ = {c22:.3e} is Radau–Darwin-unphysical here "
+            "(would require C/MR² > 2/3). Reduce $C_{22}$ toward the "
+            "plausible band."
+        )
 
 
 @st.cache_resource(show_spinner="Loading SBI artifact...")
@@ -1193,14 +1451,89 @@ def _stale_library_banner():
         )
 
 
+# --- Amortized runtime estimate (rough figure of merit, no extra compute) ---
+# Wall time is dominated by the forward-model recompute loop, which scales with
+# the number of forward passes = 2·(derived-quantity subset) + (heating subset).
+# The factor 2 is because each derived sample does two passes (k2/CMR2 + the
+# true log-likelihood). The Posterior-samples count itself barely matters — the
+# flow draw is ~instant and the recompute is capped by the derived subset — so
+# the estimate keys off the two SUBSET sliders, which are the real cost levers.
+#
+# We do NOT run anything to estimate: seed a rough per-pass figure of merit for
+# a typical laptop, then after the user's first real run replace it with the
+# actually-observed per-pass time (result.metadata['elapsed_time_s']), stored in
+# session_state per artifact. No EWMA, no probe runs — one plain overwrite.
+_AMORT_OVERHEAD_S = 6.0          # rough fixed setup (flow load + packaging)
+_AMORT_PERPASS_SEED_S = 0.008    # rough per-forward-pass, typical laptop
+
+
+def _amort_n_derived_eff(n_post, n_reeval, n_derived):
+    """Effective #samples the derived-quantity loop recomputes (mirrors
+    sbi_runner.infer_from_artifact: superset of the heating subset, capped at
+    n_post; None => all)."""
+    if n_derived is None or int(n_derived) >= n_post:
+        return n_post
+    return min(max(int(n_derived), n_reeval), n_post)
+
+
+def _amort_work_units(n_post, n_reeval, n_derived):
+    """Forward-pass count driving wall time: 2·derived + heating."""
+    n_der_eff = _amort_n_derived_eff(n_post, n_reeval, n_derived)
+    return 2 * n_der_eff + n_reeval, n_der_eff
+
+
+def _fmt_duration(seconds):
+    if seconds < 90:
+        return f"~{seconds:.0f} s"
+    return f"~{seconds / 60:.1f} min"
+
+
+def _estimate_amort_runtime(slot_key, n_post, n_reeval, n_derived):
+    """Rough predicted wall time (s): overhead + per_pass·work_units. per_pass
+    is the typical-laptop seed until the user's first run overwrites it with the
+    observed value for this artifact."""
+    work_units, n_der_eff = _amort_work_units(n_post, n_reeval, n_derived)
+    per_pass = st.session_state.get(f'amort_perpass_{slot_key}',
+                                    _AMORT_PERPASS_SEED_S)
+    return _AMORT_OVERHEAD_S + per_pass * work_units, work_units, n_der_eff
+
+
+def _record_amort_runtime(slot_key, result):
+    """After a real run, overwrite the per-artifact per-pass figure with the
+    observed value (no extra compute — just uses the run we already did)."""
+    meta = result.metadata
+    elapsed = meta.get('elapsed_time_s')
+    if not elapsed:
+        return
+    # len() on numpy index arrays is safe; guard missing keys without truthiness
+    # tests on arrays (an ndarray in a boolean context raises).
+    di = meta.get('derived_indices')
+    hi = meta.get('heating_indices')
+    n_der_eff = len(di) if di is not None else 0
+    n_heat = len(hi) if hi is not None else 0
+    work_units = 2 * n_der_eff + n_heat
+    if work_units <= 0:
+        return
+    measured = max(float(elapsed) - _AMORT_OVERHEAD_S, 0.0) / work_units
+    st.session_state[f'amort_perpass_{slot_key}'] = measured
+
+
 def render_amortized_config():
     """Amortized-mode configuration form. Returns a run-spec dict or None."""
     _stale_library_banner()
     available = []
     for fname, slot in _SBI_ARTIFACT_SLOTS.items():
         p = _sbi_artifacts_dir() / fname
-        if p.exists():
-            available.append((slot['label'], fname))
+        if not p.exists():
+            continue
+        # Collapse channel-family siblings: only the family key (the
+        # 'all channels' member) appears in the dropdown; the reduced-channel
+        # siblings are reached via the mutually-exclusive channel selector
+        # rendered after selection, not as separate dropdown entries.
+        fam = _CHANNEL_FAMILY_OF.get(fname)
+        if fam is not None and fam != fname:
+            continue
+        available.append((slot['label'], fname))
     if not available:
         st.warning("No pretrained SBI artifacts found in "
                    "`PlanetProfile/Inference/sbi_artifacts/`. Train and "
@@ -1211,6 +1544,31 @@ def render_amortized_config():
     labels = [lbl for lbl, _ in available]
     choice = st.selectbox("Pretrained model:", labels, key='amort_artifact_choice')
     fname = dict(available)[choice]
+
+    # Mutually-exclusive channel selector for artifacts that ship a
+    # channel-family (same body/priors/cache, differ only in conditioned
+    # channels). All members keep the static gravity channel; the choice
+    # swaps between the full model and each single-channel-excluded sibling.
+    # A member is only offered if its artifact actually exists on disk.
+    fam = _CHANNEL_FAMILIES.get(fname)
+    if fam:
+        avail_choices = [c for c, mf in fam.items()
+                         if (_sbi_artifacts_dir() / mf).exists()]
+        if len(avail_choices) > 1:
+            ch = st.segmented_control(
+                "Conditioning channels:",
+                options=avail_choices,
+                format_func=lambda c: _CHANNEL_CHOICE_LABELS.get(c, c),
+                default='all' if 'all' in avail_choices else avail_choices[0],
+                key='amort_channel_choice',
+                help="Swap between the sibling artifacts trained on the same "
+                     "priors but different observable channels. All keep the "
+                     "static gravity channel (CMR₂/C₂₀/C₂₂); this toggles the "
+                     "tidal k₂/h₂ and magnetic-induction channels.")
+            if ch is None:
+                ch = 'all' if 'all' in avail_choices else avail_choices[0]
+            fname = fam[ch]
+
     slot = _SBI_ARTIFACT_SLOTS[fname]
     artifact_path = _sbi_artifacts_dir() / fname
 
@@ -1370,24 +1728,89 @@ def render_amortized_config():
             "Enter raw Bind vector components (only for inverting actual "
             "spacecraft measurements)", key='amort_bind_raw')
 
+    # Physical (Radau–Darwin) clamp bounds for the static gravity coefficients.
+    # C20/C22 are O(1e-4) — displayed and entered in scientific notation. Out-
+    # of-range entries are auto-reverted by st.number_input to the nearest
+    # bound (per user request). Bounds are the RD-physical extremes for THIS
+    # body: C22 in (0, q_r·scale] keeps C/MR² in (0, 2/3]; C20 = −J2 spans the
+    # matching negative range. Values inside this range but outside the GC21
+    # plausible band are ALLOWED (and flagged by the live readout) — only truly
+    # RD-unphysical values (C/MR² > 2/3) are refused.
+    _grav_clamp = _body_gravity_constants(slot.get('cache_path'))
+    _gc_bounds = {}
+    if _grav_clamp is not None:
+        from PlanetProfile.Inference.gravity_obs import (
+            rotation_parameter as _rp, R_REF_GC21_M as _RREF,
+            J2_OVER_C22 as _J2OC)
+        _om, _R, _M = _grav_clamp
+        _c22_hi = _rp(_om, _R, _M) * (_R / _RREF) ** 2   # C/MR²=2/3 edge
+        _gc_bounds['C22'] = (0.0, float(_c22_hi))
+        _gc_bounds['C20'] = (float(-_J2OC * _c22_hi), 0.0)
+
+    def _clamp_to_bounds(key, lo, hi):
+        """on_change callback: snap a widget's own session_state value into
+        [lo, hi]. NOTE we deliberately do NOT pass min_value/max_value to the
+        number_input — Streamlit's frontend enforces those by REJECTING an
+        out-of-range typed entry and reverting to the previous value, so the
+        entry never reaches session_state and cannot be snapped to the bound.
+        With no min/max the typed value is accepted, this callback runs before
+        the ensuing rerun, and rewriting the widget's key here makes the
+        display snap to the nearest bound (per user request)."""
+        v = st.session_state.get(key)
+        if v is None:
+            return
+        try:
+            st.session_state[key] = float(min(max(float(v), lo), hi))
+        except (TypeError, ValueError):
+            pass
+
     def _obs_input(name):
         c1, c2 = st.columns(2)
         default = slot.get('default_obs', {}).get(name, 0.0)
+        # Scientific display + physical clamp for the tiny gravity coefficients.
+        is_grav = name in _gc_bounds
+        fmt = "%.4e" if is_grav else "%.4f"
+        lo_hi = _gc_bounds.get(name)
         with c1:
+            key = f'amort_obs_{slot_key}_{name}'
+            kw = {'format': fmt, 'key': key}
+            if lo_hi is not None:
+                lo, hi = lo_hi
+                # No min_value/max_value (see _clamp_to_bounds): they would
+                # block the typed entry from reaching session_state, defeating
+                # the snap. step still gives a sensible +/- increment.
+                kw['step'] = (hi - lo) / 1000.0 or None
+                kw['on_change'] = _clamp_to_bounds
+                kw['args'] = (key, lo, hi)
+                kw['help'] = (
+                    f"Radau–Darwin-physical range for this body: "
+                    f"[{lo:.3e}, {hi:.3e}]. Entries outside snap to the "
+                    "nearest bound (C/MR² must stay ≤ 2/3). Values inside this "
+                    "range but outside the GC21 plausible band are allowed.")
+                default = min(max(float(default), lo), hi)
             x_obs[name] = st.number_input(
-                f"{name}:", value=float(default), format="%.4f",
-                key=f'amort_obs_{slot_key}_{name}')
+                f"{name}:", value=float(default), **kw)
         sig = float(train_sigma.get(name, float('nan')))
         obs_sigma[name] = sig
         with c2:
             st.number_input(
-                "± σ (frozen at training):", value=sig, format="%.4f",
-                key=f'amort_sigma_{slot_key}_{name}', disabled=True,
+                "± σ (frozen at training):", value=sig,
+                format=fmt, disabled=True,
+                key=f'amort_sigma_{slot_key}_{name}',
                 help="The flow was trained with this observation noise; "
                      "changing σ requires retraining (or MCMC mode).")
 
     for name in scalar_names:
         _obs_input(name)
+
+    # Live hydrostatic-C/MR² readout: as the C22 (and C20) inputs change, show
+    # the C/MR² the observed C22 would imply IF the body were hydrostatic
+    # (Radau–Darwin). This is the "hydrostatic reference" — the ACTUAL C/MR²
+    # comes from the inferred structure only after Generate. Works for values
+    # ABOVE/BELOW the plausible band (per user request), flagging RD-unphysical
+    # C22 (would need C/MR² > 2/3).
+    if 'C22' in scalar_names:
+        _render_live_hydrostatic_cmr2(x_obs, _grav_clamp)
 
     if bind_names and bind_raw:
         for name in bind_names:
@@ -1478,6 +1901,29 @@ def render_amortized_config():
              "the k₂/CMR² clouds. 'All' matches the validation-grade run.")
     n_derived = None if n_derived_choice == 'All' else int(n_derived_choice)
     seed = st.number_input("Seed:", value=42, step=1, key='amort_seed')
+
+    # --- Rough estimated conditioning time (no extra compute) ------------
+    # Driven by the two SUBSET sliders (derived recompute + heating), which are
+    # the real cost levers: wall time ≈ overhead + per_pass·(2·derived + heating).
+    # The Posterior-samples slider is intentionally NOT a big lever here — the
+    # flow draw is ~instant and the recompute is capped by the derived subset —
+    # so the estimate mostly moves when you change the recompute subsets. Seeded
+    # with a typical-laptop figure; replaced by the observed time after your
+    # first real run on this server.
+    est_s, work_units, n_der_eff_est = _estimate_amort_runtime(
+        slot_key, int(n_post), int(n_reeval), n_derived)
+    calibrated = f'amort_perpass_{slot_key}' in st.session_state
+    n_der_txt = ("all samples" if (n_derived is None or n_derived >= n_post)
+                 else f"{n_der_eff_est:,} of {int(n_post):,}")
+    st.info(
+        f"⏱️ **Rough conditioning time: {_fmt_duration(est_s)}** "
+        f"(≈ {work_units:,} forward-model passes: 2 × {n_der_txt} derived "
+        f"+ {int(n_reeval):,} heating).  "
+        + ("Based on your last run on this server."
+           if calibrated else
+           "Typical-laptop estimate; replaced by the measured time after your "
+           "first run.")
+        + "  Set mainly by the recompute-subset sliders, not posterior count.")
 
     # --- Validated-domain guard (hard refusal, per deployment conditions) ---
     if slot.get('scope_note'):
@@ -1701,6 +2147,9 @@ def render_amortized_run_button(spec, InferenceConfig):
 
         st.session_state.inference_results = result
         st.session_state.amort_last_run_fp = _amortized_spec_fingerprint(spec)
+        # Self-calibrate the runtime estimator from this run's actual wall time.
+        _slot_key = Path(spec['artifact_path']).name.replace('.', '_').replace(' ', '_')
+        _record_amort_runtime(_slot_key, result)
         kept = result.metadata.get('kept_fraction')
         msg = "✅ Amortized posterior ready."
         if kept is not None:
@@ -1713,6 +2162,93 @@ def render_amortized_run_button(spec, InferenceConfig):
         st.error(f"❌ **Amortized inference failed:** {e}")
         with st.expander("🔍 Full traceback"):
             st.code(st.session_state.inference_error_traceback)
+
+
+# --- Crisp corner-plot rendering (vector inline + vector download) ---------
+#
+# st.pyplot() rasterizes a matplotlib figure to a screen-DPI PNG, then the
+# browser downscales that big bitmap into the ~700 px column — so a 32" corner
+# canvas with 10 pt titles ends up blurry and unreadable. Fix, three parts:
+#   (A) render the figure INLINE as SVG (vector text, crisp at any zoom),
+#   (B) offer PDF + PNG DOWNLOAD buttons (publication-quality vector copy),
+#   (C) larger fonts, capped figure size, and corner's built-in Gaussian
+#       smoothing on filled contours, RASTERIZED inside the vector frame.
+#
+# Why smooth + rasterize: a corner over tens of thousands of posterior samples,
+# left as vector scatter/hist2d, produces a ~10 MB SVG that chokes the browser.
+# corner's own Gaussian smoothing (smooth/smooth1d) gives clean filled contour
+# bands near-instantly; rasterizing only those 2D collections (text/axes stay
+# vector) drops the SVG to ~0.7 MB / PDF ~0.2 MB with no loss of legibility.
+# (A scipy gaussian_kde density looks marginally smoother but adds ~10 s per
+# plot across ~78 panels — not worth it; user chose Gaussian smoothing.)
+_CORNER_MAX_FIGSIZE = 26.0   # inches; cap so fonts stay legible on many-param models
+
+
+def _render_corner_figure(samples, labels, *, seed=0):
+    """Build a crisp, Gaussian-smoothed corner figure (2D density rasterized).
+
+    Returns a matplotlib Figure. Titles/labels/axes stay vector; only the heavy
+    2D density collections are rasterized, so SVG/PDF export stays small.
+    """
+    import matplotlib.pyplot as plt
+    import corner
+
+    n_dim = samples.shape[1]
+    fig_size = min(_CORNER_MAX_FIGSIZE, max(10.0, 2.5 * n_dim))
+    fig = plt.figure(figsize=(fig_size, fig_size))
+
+    corner.corner(
+        samples,
+        labels=labels,
+        quantiles=[0.16, 0.5, 0.84],
+        show_titles=True,
+        title_fmt='.2f',
+        title_kwargs={'fontsize': 15},
+        label_kwargs={'fontsize': 16},
+        color='steelblue',
+        smooth=1.0,             # Gaussian smoothing of the 2D histograms
+        smooth1d=1.0,           # ... and the 1D marginals
+        plot_datapoints=False,  # drop the per-sample scatter (the SVG-bloat source)
+        fill_contours=True,
+        hist_kwargs={'linewidth': 1.5},
+        fig=fig,
+    )
+
+    for ax in fig.get_axes():
+        ax.tick_params(labelsize=10)
+        # rasterize only the heavy 2D density; text/lines stay vector
+        for coll in ax.collections:
+            coll.set_rasterized(True)
+        for im in ax.images:
+            im.set_rasterized(True)
+
+    return fig
+
+
+def _display_corner(fig, *, key):
+    """Show a corner figure inline as crisp SVG + offer PDF/PNG downloads."""
+    import io
+
+    # st.image renders SVG only when handed the markup as a STRING; raw bytes
+    # are routed to PIL, which raises "cannot identify image file". Decode.
+    svg_buf = io.BytesIO()
+    fig.savefig(svg_buf, format='svg', bbox_inches='tight')
+    st.image(svg_buf.getvalue().decode('utf-8'), width='stretch')
+
+    pdf_buf = io.BytesIO()
+    fig.savefig(pdf_buf, format='pdf', bbox_inches='tight')
+    png_buf = io.BytesIO()
+    fig.savefig(png_buf, format='png', dpi=200, bbox_inches='tight')
+
+    c1, c2 = st.columns(2)
+    c1.download_button(
+        'Download corner plot (PDF)', pdf_buf.getvalue(),
+        file_name='corner.pdf', mime='application/pdf',
+        icon=':material/download:', width='stretch', key=f'{key}_pdf')
+    c2.download_button(
+        'Download corner plot (PNG)', png_buf.getvalue(),
+        file_name='corner.png', mime='image/png',
+        icon=':material/download:', width='stretch', key=f'{key}_png')
 
 
 def render_results():
@@ -1861,20 +2397,9 @@ def render_results():
                 if not np.all(row_ok):
                     corner_samples_plot = corner_samples_plot[row_ok]
 
-                n_dim = len(valid_cols)
-                fig_size = max(10, 2.5 * n_dim)
-                fig = plt.figure(figsize=(fig_size, fig_size))
-                corner.corner(
-                    corner_samples_plot,
-                    labels=corner_labels_plot,
-                    quantiles=[0.16, 0.5, 0.84],
-                    show_titles=True,
-                    title_fmt='.2f',
-                    title_kwargs={'fontsize': 10},
-                    color='steelblue',
-                    fig=fig,
-                )
-                st.pyplot(fig)
+                fig = _render_corner_figure(
+                    corner_samples_plot, corner_labels_plot)
+                _display_corner(fig, key='corner')
                 plt.close(fig)
         except ImportError:
             st.info("Install the `corner` library to view corner plots: `pip install corner`")
@@ -2651,17 +3176,33 @@ def render_results():
                      r"C_{22} = \frac{k_f\, q_r}{4},\quad "
                      r"q_r = \frac{\omega^2 R^3}{G M}")
             st.markdown(
-                "The C/MR² value used as an observable here "
-                "(0.3547 ± 0.0024, Gomez Casajus et al. 2021) is exactly "
-                "this hydrostatic reduction of the Galileo-era $C_{22}$. "
-                "Europa Clipper will estimate $C_{20}$ and $C_{22}$ "
-                "**independently** (ratio uncertainty ~0.003) — testing "
-                "hydrostatic equilibrium rather than assuming it. The "
-                "planned v4 inference conditions on $C_{20}$/$C_{22}$ "
-                "directly, with sampled non-hydrostatic offsets, and "
-                "keeps this Galileo-derived C/MR² only as a prior.")
+                "This panel shows **two** C/MR² distributions:\n\n"
+                "- **Actual** (blue) — computed directly from the inferred "
+                "interior density profile by exact moment-of-inertia "
+                "integration; makes **no** hydrostatic assumption.\n"
+                "- **Hydrostatic reference** (green) — the C/MR² the model's "
+                "$C_{22}$ would imply *if* the body were hydrostatic, via the "
+                "Radau–Darwin relation above.\n\n"
+                "The **gap between them is the inferred non-hydrostaticity**. "
+                "Because Radau–Darwin carries a ~1% $k_f$ systematic "
+                "(≈0.0035 in C/MR²), gaps below that floor are the RD "
+                "approximation, not a physical departure — the readout flags "
+                "this. The Galileo-era C/MR² (0.3547 ± 0.0024, Gomez Casajus "
+                "et al. 2021) is itself the hydrostatic reduction of the "
+                "Galileo $C_{22}$; in the free-gravity design it is **not** "
+                "imposed as an independent constraint (that would double-count "
+                "$C_{22}$), but may be applied optionally as a literature "
+                "reweight.")
         cmr2_obs = result.config.observables.get('CMR2')
         cmr2_results = getattr(result, 'cmr2_results', None)
+        # Hydrostatic-REFERENCE C/MR² (Radau–Darwin from the model C22): the
+        # value the body WOULD have if hydrostatic. Paired with the ACTUAL
+        # (structure moment-integral) cmr2_results, the gap between the two is
+        # the inferred non-hydrostaticity. None on older pkls / non-gravity runs.
+        cmr2_hydro_results = getattr(result, 'cmr2_hydro_results', None)
+        # ~1% Radau–Darwin k_f systematic in C/MR² units: an interpretation
+        # FLOOR — gaps below this are the RD approximation, not physics.
+        RD_FLOOR = 0.0035
 
         if cmr2_results is None or not np.any(np.isfinite(cmr2_results)):
             if cmr2_obs is None:
@@ -2733,7 +3274,20 @@ def render_results():
                 else:
                     # Variable CMR2 — full histogram
                     ax.hist(cmr2_vals, bins=40, density=True, alpha=0.7,
-                            color='steelblue', label='Posterior')
+                            color='steelblue',
+                            label='Actual (structure integral)')
+
+                    # Overlay the hydrostatic-reference C/MR² (RD-from-C22):
+                    # what the body would be IF hydrostatic. The separation
+                    # from the actual distribution IS the non-hydrostaticity.
+                    cmr2_hydro_vals = None
+                    if cmr2_hydro_results is not None:
+                        _hm = np.isfinite(cmr2_hydro_results)
+                        if np.any(_hm):
+                            cmr2_hydro_vals = cmr2_hydro_results[_hm]
+                            ax.hist(cmr2_hydro_vals, bins=40, density=True,
+                                    alpha=0.45, color='seagreen',
+                                    label='Hydrostatic reference (RD from $C_{22}$)')
 
                     if obs_val is not None:
                         x_range = np.linspace(
@@ -2784,6 +3338,42 @@ def render_results():
                             f"{n_out} / {len(cmr2_vals)} samples "
                             f"({n_out/len(cmr2_vals):.1%}) fall outside the 2σ constraint."
                         )
+
+                # Non-hydrostaticity: the gap between the ACTUAL C/MR² (from
+                # the interior structure) and the HYDROSTATIC REFERENCE (what
+                # C22 implies if hydrostatic). Reported per-sample (paired) so
+                # the interior/gravity correlation is preserved. Read against
+                # the ~1% Radau–Darwin floor — gaps below it are the RD
+                # approximation, not physics.
+                if (cmr2_hydro_results is not None
+                        and np.any(np.isfinite(cmr2_hydro_results))):
+                    _pair = np.isfinite(cmr2_results) & np.isfinite(cmr2_hydro_results)
+                    if np.any(_pair):
+                        gap = cmr2_results[_pair] - cmr2_hydro_results[_pair]
+                        gap_med = float(np.median(gap))
+                        gap_abs_med = float(np.median(np.abs(gap)))
+                        st.markdown("#### Non-hydrostaticity (actual − hydrostatic reference)")
+                        gc1, gc2, gc3 = st.columns(3)
+                        gc1.metric("Median gap", f"{gap_med:+.5f}")
+                        gc2.metric("Median |gap|", f"{gap_abs_med:.5f}")
+                        gc3.metric("RD floor", f"±{RD_FLOOR:.4f}")
+                        if gap_abs_med < RD_FLOOR:
+                            st.caption(
+                                f"Median |gap| {gap_abs_med:.5f} is **below** the "
+                                f"~{RD_FLOOR:.4f} Radau–Darwin systematic floor — "
+                                "consistent with hydrostatic equilibrium; the "
+                                "residual is the RD closed-form approximation, "
+                                "**not** a measured departure. Do not interpret "
+                                "sub-floor gaps as physical non-hydrostaticity."
+                            )
+                        else:
+                            st.caption(
+                                f"Median |gap| {gap_abs_med:.5f} **exceeds** the "
+                                f"~{RD_FLOOR:.4f} Radau–Darwin floor — a candidate "
+                                "non-hydrostatic signal (the actual moment of "
+                                "inertia departs from the hydrostatic C₂₂ "
+                                "reduction beyond the RD approximation)."
+                            )
 
             except Exception as e:
                 st.warning(f"C/MR² posterior plot unavailable: {e}")

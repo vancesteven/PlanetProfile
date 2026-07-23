@@ -121,6 +121,111 @@ def _import_torch_sbi():
     return torch, sbi
 
 
+# Cache for the lazily-built truncated-normal Distribution subclass. torch is a
+# lazy import in this module (it must import without torch installed), so the
+# class — which must subclass torch.distributions.Distribution — cannot be
+# defined at module-import time. It is built once on first use and cached here.
+_TN_CLASS_CACHE = None
+
+
+def _build_truncated_normal_class():
+    """Build (once) the truncated-normal ``Distribution`` subclass.
+
+    Deferred so torch is imported only when actually constructing a prior.
+    """
+    global _TN_CLASS_CACHE
+    if _TN_CLASS_CACHE is not None:
+        return _TN_CLASS_CACHE
+
+    import torch
+    from torch.distributions import Distribution, Normal, constraints
+
+    class _TN(Distribution):
+        # sbi's MultipleIndependent requires each component to advertise a
+        # batchable interval support and an event_shape of (1,).
+        arg_constraints = {}
+        has_rsample = False
+
+        def __init__(self, mean, std, low, high):
+            self._mean = float(mean)
+            self._std = float(std)
+            self._low = float(low)
+            self._high = float(high)
+            self._m = torch.tensor(self._mean, dtype=torch.float32)
+            self._s = torch.tensor(self._std, dtype=torch.float32)
+            self._lo = torch.tensor(self._low, dtype=torch.float32)
+            self._hi = torch.tensor(self._high, dtype=torch.float32)
+            self._base = Normal(self._m, self._s)
+            # CDF at the truncation points → normalization of the truncated pdf.
+            self._Phi_lo = self._base.cdf(self._lo)
+            self._Phi_hi = self._base.cdf(self._hi)
+            self._Z = (self._Phi_hi - self._Phi_lo).clamp_min(1e-12)
+            super().__init__(batch_shape=torch.Size([]),
+                             event_shape=torch.Size([1]),
+                             validate_args=False)
+
+        def __reduce__(self):
+            # Serialize via the MODULE-LEVEL reconstruction function so pickle
+            # never needs to resolve this lazily-built class by name. Rebuilds
+            # from the four scalars → robust across torch versions and
+            # independent of cached tensor/Normal internals.
+            return (_truncated_normal_from_scalars,
+                    (self._mean, self._std, self._low, self._high))
+
+        @constraints.dependent_property
+        def support(self):
+            return constraints.interval(self._lo, self._hi)
+
+        def sample(self, sample_shape=torch.Size()):
+            # Inverse-CDF (Smirnov) sampling of the truncated normal.
+            shape = torch.Size(sample_shape) + torch.Size([1])
+            u = torch.rand(shape)
+            p = self._Phi_lo + u * (self._Phi_hi - self._Phi_lo)
+            # standard-normal icdf, then rescale; clamp to guard fp edge cases.
+            std_normal = Normal(torch.zeros(()), torch.ones(()))
+            z = std_normal.icdf(p.clamp(1e-12, 1 - 1e-12))
+            x = self._m + self._s * z
+            return x.clamp(self._lo, self._hi)
+
+        def log_prob(self, value):
+            value = torch.as_tensor(value, dtype=torch.float32)
+            lp = self._base.log_prob(value) - torch.log(self._Z)
+            inside = (value >= self._lo) & (value <= self._hi)
+            lp = torch.where(inside, lp,
+                             torch.full_like(lp, float('-inf')))
+            # collapse the event dim (1,) so MultipleIndependent sums correctly
+            return lp.squeeze(-1)
+
+    _TN_CLASS_CACHE = _TN
+    return _TN
+
+
+def _truncated_normal_from_scalars(mean, std, low, high):
+    """Module-level reconstruction hook for pickling a truncated-normal prior.
+
+    Referenced by ``_TN.__reduce__``; pickle stores THIS function's qualified
+    name (``sbi_runner._truncated_normal_from_scalars``), which is always
+    resolvable at import — unlike the lazily-built ``_TN`` class. On unpickle
+    this rebuilds the class (torch is available in any artifact-loading context)
+    and returns a fresh instance from the four constructor scalars.
+    """
+    return _build_truncated_normal_class()(mean, std, low, high)
+
+
+def _TruncatedNormal1D(mean: float, std: float, low: float, high: float):
+    """A 1-D truncated-normal torch Distribution matching scipy.truncnorm.
+
+    v5 ice-thickness prior: N(mean, std) truncated to [low, high]. Built to be
+    numerically identical to MCMCRunner's ``scipy.stats.truncnorm(a, b,
+    loc=mean, scale=std)`` with ``a=(low−mean)/std, b=(high−mean)/std`` — the
+    training thetas are drawn from that MCMC prior, so the SBI joint prior must
+    represent the same density (event_shape (1,)) for the flow's leakage
+    correction. Returned instance plugs into ``sbi.utils.MultipleIndependent``
+    and pickles (via ``__reduce__``) so trained posteriors serialize.
+    """
+    return _truncated_normal_from_scalars(mean, std, low, high)
+
+
 def _git_short_sha() -> Optional[str]:
     """Best-effort short git SHA for artifact provenance (None on failure)."""
     try:
@@ -240,16 +345,22 @@ class SBIRunner:
         return conv
 
     def _param_bounds(self):
-        """(low, high) lists in param_names order; requires uniform priors."""
+        """(low, high) lists in param_names order.
+
+        Supports ``uniform`` and (v5) ``truncated_gaussian`` priors; both are
+        bounded, so the box [low, high] is well-defined for each. The
+        truncated-Gaussian shape itself is applied in :meth:`build_prior`
+        (per-dim torch distribution) — here we only need the support box.
+        """
         lows, highs = [], []
         for name in self.param_names:
             spec = self.config.param_space[name]
             prior_type = spec.get('prior_type', 'uniform')
-            if prior_type != 'uniform':
+            if prior_type not in ('uniform', 'truncated_gaussian'):
                 raise NotImplementedError(
-                    f"SBIRunner currently supports only prior_type='uniform' "
-                    f"(BoxUniform), matching MCMCRunner's "
-                    f"scipy.stats.uniform priors. Parameter '{name}' has "
+                    f"SBIRunner supports prior_type in {{'uniform', "
+                    f"'truncated_gaussian'}} (each maps to an MCMC-matching "
+                    f"torch distribution). Parameter '{name}' has "
                     f"prior_type='{prior_type}'. Extend build_prior() with a "
                     f"provably MCMC-matching torch distribution before using it."
                 )
@@ -263,10 +374,16 @@ class SBIRunner:
     def _prior_spec(self) -> Dict[str, Dict[str, Any]]:
         """Serializable prior description stored in the artifact."""
         lows, highs = self._param_bounds()
-        return {
-            name: {'prior_type': 'uniform', 'bounds': [lo, hi]}
-            for name, lo, hi in zip(self.param_names, lows, highs)
-        }
+        spec = {}
+        for name, lo, hi in zip(self.param_names, lows, highs):
+            pc = self.config.param_space[name]
+            if pc.get('prior_type') == 'truncated_gaussian':
+                spec[name] = {'prior_type': 'truncated_gaussian',
+                              'mean': float(pc['mean']), 'std': float(pc['std']),
+                              'bounds': [lo, hi]}
+            else:
+                spec[name] = {'prior_type': 'uniform', 'bounds': [lo, hi]}
+        return spec
 
     def _get_mcmc_runner(self):
         """Construct (once) the MCMCRunner used for simulation and recompute.
@@ -298,24 +415,50 @@ class SBIRunner:
     # ------------------------------------------------------------------
 
     def build_prior(self):
-        """Build a torch BoxUniform prior from config.param_space.
+        """Build a torch prior over the raw theta space from config.param_space.
 
-        Returns:
-            sbi.utils.torchutils.BoxUniform over the raw theta space (same
-            box the MCMC prior samples; log10_* parameters are already in
-            log space, so no transform is applied).
+        - All-``uniform`` param spaces → a single ``BoxUniform`` (unchanged;
+          log10_* parameters are already in log space, no transform applied).
+        - Any ``truncated_gaussian`` dim (v5 ice-thickness reparameterization)
+          → a ``MultipleIndependent`` joint of per-dimension 1-D priors: a
+          ``Uniform`` for uniform dims and a truncated-normal for the Gaussian
+          dims, built to match MCMCRunner's ``scipy.stats.truncnorm(a, b,
+          loc=mean, scale=std)`` EXACTLY (a=(low−mean)/std, b=(high−mean)/std).
+          The training thetas are drawn from the MCMC prior, so the SBI prior
+          MUST represent the identical density for the flow's leakage
+          correction to be unbiased.
 
         Raises:
-            NotImplementedError: for any prior_type other than 'uniform'.
+            NotImplementedError: for any unsupported prior_type (via
+            :meth:`_param_bounds`).
         """
         torch, _ = _import_torch_sbi()
         from sbi.utils.torchutils import BoxUniform
 
         lows, highs = self._param_bounds()
-        return BoxUniform(
-            low=torch.as_tensor(lows, dtype=torch.float32),
-            high=torch.as_tensor(highs, dtype=torch.float32),
-        )
+        prior_types = [self.config.param_space[n].get('prior_type', 'uniform')
+                       for n in self.param_names]
+
+        if all(pt == 'uniform' for pt in prior_types):
+            return BoxUniform(
+                low=torch.as_tensor(lows, dtype=torch.float32),
+                high=torch.as_tensor(highs, dtype=torch.float32),
+            )
+
+        # Mixed prior: one independent 1-D distribution per dimension.
+        from sbi.utils import MultipleIndependent
+        from torch.distributions import Uniform
+        dists = []
+        for name, lo, hi in zip(self.param_names, lows, highs):
+            pc = self.config.param_space[name]
+            if pc.get('prior_type') == 'truncated_gaussian':
+                dists.append(_TruncatedNormal1D(
+                    float(pc['mean']), float(pc['std']), lo, hi))
+            else:
+                dists.append(Uniform(
+                    torch.tensor([lo], dtype=torch.float32),
+                    torch.tensor([hi], dtype=torch.float32)))
+        return MultipleIndependent(dists)
 
     # ------------------------------------------------------------------
     # Training set
@@ -1044,7 +1187,8 @@ class SBIRunner:
         # SBI results are directly comparable to MCMC results (identical
         # physics, conventions, and guard behavior).
         runner = self._get_mcmc_runner()
-        from .forward_models import forward_model_k2_flexible
+        from .forward_models import (forward_model_k2_flexible,
+                                      UnservableSampleError)
         from .mcmc_runner import _structure_R_body_km
 
         # Derived-quantity + likelihood recompute subset. This is the
@@ -1091,6 +1235,9 @@ class SBIRunner:
         D_iceVI_results = np.full(n_samples, np.nan)
         c20_results = np.full(n_samples, np.nan) if gravity_active else None
         c22_results = np.full(n_samples, np.nan) if gravity_active else None
+        # Hydrostatic-reference C/MR² (RD inverse of the model C22); pairs with
+        # cmr2_results (structure integral) for the non-hydrostaticity gap.
+        cmr2_hydro_results = np.full(n_samples, np.nan) if gravity_active else None
         # True Gaussian chi^2 log-likelihood on the SAME subset, via the exact
         # MCMC likelihood (includes the no-ocean guard, which returns the
         # -1e30 sentinel for guard-violating draws). NaN outside the subset;
@@ -1099,10 +1246,19 @@ class SBIRunner:
         for count, i in enumerate(derived_indices):
             theta = samples[i]
             theta_dict = runner._expand_theta(theta)
-            Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
-                theta_dict, runner.structure_data,
-                return_heating=False, arrhenius_params=runner.arrhenius_params
-            )
+            try:
+                Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
+                    theta_dict, runner.structure_data,
+                    return_heating=False, arrhenius_params=runner.arrhenius_params
+                )
+            except UnservableSampleError:
+                # Posterior draw in an unbuilt 2D-cache corner (rare edge draw,
+                # e.g. a D_iceIh value that inverts to an out-of-grid Tb): report
+                # NaN k2/h2 rather than crash the recompute loop. Mirrors the
+                # MCMC recompute guard (mcmc_runner.py) and the likelihood REJECT.
+                # Surfaced when the induction channel is dropped (noinduction
+                # artifact) — induction otherwise pins Tb into built regions.
+                Re_k2 = Im_k2 = Re_h2 = Im_h2 = np.nan
             k2_results[i] = (Re_k2, Im_k2)
             h2_results[i] = (Re_h2, Im_h2)
             # CMR2 must use the same dispatch as the likelihood/reporting fix
@@ -1126,6 +1282,11 @@ class SBIRunner:
                 pair = runner._derive_gravity_pair(theta_dict)
                 c20_results[i] = pair[0] if pair is not None else np.nan
                 c22_results[i] = pair[1] if pair is not None else np.nan
+                # _derive_gravity_pair stashes the hydrostatic-reference C/MR²
+                # (same geometry as the pair) on _last_cmr2_hydro; None if the
+                # pair rejected or C22 was RD-unphysical.
+                _h = getattr(runner, '_last_cmr2_hydro', None)
+                cmr2_hydro_results[i] = _h if _h is not None else np.nan
             log_likelihoods[i] = float(runner.log_likelihood_fn(theta))
             if (count + 1) % 100 == 0:
                 log.info(f"  {count+1}/{n_der_eff} samples recomputed")
@@ -1137,10 +1298,13 @@ class SBIRunner:
         heating_results = []
         for si in idx_heat:
             theta_dict = runner._expand_theta(samples[si])
-            _, _, _, _, perPhase_W = forward_model_k2_flexible(
-                theta_dict, runner.structure_data,
-                return_heating=True, arrhenius_params=runner.arrhenius_params
-            )
+            try:
+                _, _, _, _, perPhase_W = forward_model_k2_flexible(
+                    theta_dict, runner.structure_data,
+                    return_heating=True, arrhenius_params=runner.arrhenius_params
+                )
+            except UnservableSampleError:
+                perPhase_W = None
             heating_results.append(perPhase_W if perPhase_W is not None else {})
         _progress(4, n_samples)
 
@@ -1175,6 +1339,7 @@ class SBIRunner:
                                 'VI': D_iceVI_results},
             c20_results=c20_results,
             c22_results=c22_results,
+            cmr2_hydro_results=cmr2_hydro_results,
             heating_results=heating_results,
             convergence_metrics=convergence_metrics,
             metadata={

@@ -290,6 +290,16 @@ class InferenceResult:
     # sampled non-hydrostatic offsets). None otherwise / on older pkls.
     c20_results: Optional[np.ndarray] = None
     c22_results: Optional[np.ndarray] = None
+    # Hydrostatic-REFERENCE C/MR² per sample: the C/MR² the model's
+    # (offset-included) C22 would imply IF the body were hydrostatic, via
+    # the Radau–Darwin inverse (gravity_obs.cmr2_from_c22_rd), computed with
+    # the SAME omega/R_body/M/ref-radius the forward gravity map used. Pairs
+    # with cmr2_results (the ACTUAL C/MR² from the structure moment integral):
+    # the gap between the two is the inferred non-hydrostaticity. RD carries a
+    # ~1% k_f systematic (≈0.0035 in C/MR²) — a floor the display must annotate
+    # rather than read as physical. None unless the gravity forward model is
+    # active / on pkls predating 2026-07-22.
+    cmr2_hydro_results: Optional[np.ndarray] = None
     heating_results: Optional[List[Dict[str, float]]] = None
     convergence_metrics: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -474,7 +484,8 @@ def validate_config(config: InferenceConfig) -> Tuple[bool, List[str]]:
     for param, spec in config.param_space.items():
         prior_type = spec.get('prior_type', 'uniform')
 
-        if prior_type not in ['uniform', 'normal', 'log-uniform']:
+        if prior_type not in ['uniform', 'normal', 'log-uniform',
+                               'truncated_gaussian']:
             errors.append(f"Parameter '{param}': invalid prior_type '{prior_type}'")
 
         if prior_type in ['uniform', 'log-uniform']:
@@ -489,6 +500,20 @@ def validate_config(config: InferenceConfig) -> Tuple[bool, List[str]]:
                 errors.append(f"Parameter '{param}': missing mean or std for normal prior")
             elif spec.get('std', 1) <= 0:
                 errors.append(f"Parameter '{param}': std must be positive")
+
+        elif prior_type == 'truncated_gaussian':
+            # v5 ice-thickness prior: needs mean, std, and [low, high] bounds.
+            if spec.get('mean') is None or spec.get('std') is None:
+                errors.append(f"Parameter '{param}': missing mean or std for "
+                              "truncated_gaussian prior")
+            elif spec.get('std', 1) <= 0:
+                errors.append(f"Parameter '{param}': std must be positive")
+            bounds = spec.get('bounds')
+            if bounds is None or len(bounds) != 2:
+                errors.append(f"Parameter '{param}': truncated_gaussian requires "
+                              "[low, high] bounds")
+            elif bounds[0] >= bounds[1]:
+                errors.append(f"Parameter '{param}': bounds min >= max")
 
     # Check observables
     if not config.observables:

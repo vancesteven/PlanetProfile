@@ -12,6 +12,7 @@ The following is a non-comprehensive list of capabilities offered in PlanetProfi
 - Temperature-dependent (Arrhenius) viscosity for ice phases — see [ARRHENIUS_VISCOSITY_GUIDE.md](ARRHENIUS_VISCOSITY_GUIDE.md)
 - Forward model tidal Love numbers with PyALMA3 or TidalPy (Andrade, Maxwell, and other rheologies) — see [TIDAL_LOVE_NUMBERS_GUIDE.md](TIDAL_LOVE_NUMBERS_GUIDE.md)
 - **Bayesian inference (MCMC) for rheology parameter constraints** using TidalPy and observed tidal Love numbers (Petricca et al. 2025) — see [MCMC_INFERENCE_GUIDE.md](MCMC_INFERENCE_GUIDE.md)
+- **Amortized simulation-based inference (SBI)** with inference-time reweighting to literature constraints — moon-agnostic methodology + reproduction guide in [docs_ai/AMORTIZED_SBI_METHODOLOGY.md](docs_ai/AMORTIZED_SBI_METHODOLOGY.md)
 - Forward model spherical harmonic and asymmetric magnetic induction responses (MoonMag is included in the repository)
 - Large scale model explorations that forward model across 2 different properties (ExploreOgrams) or via MCMC/Bayesian inference
 - Export model data via .txt files, .pkl files, and .mat files

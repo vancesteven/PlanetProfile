@@ -25,6 +25,7 @@ from PlanetProfile.Inference.grid_interp_2d import (
     resolve_none_corners,
     blend_complex,
     wOcean_ppt_from_theta,
+    invert_d_iceIh_to_Tb,
 )
 
 log = logging.getLogger('PlanetProfile')
@@ -151,8 +152,15 @@ class MCMCRunner:
         # derivation used (reviewer-binding, v4 geodesy plan).
         self._last_composite_layers: Optional[tuple] = None
 
-        # Route to grid cache when Tb_K is a free parameter OR fixed via fixed_params
-        self._use_flexible = 'Tb_K' in self.param_names or 'Tb_K' in self.fixed_params
+        # Route to grid cache when Tb_K is a free parameter OR fixed via
+        # fixed_params, OR when v5 samples ice thickness D_iceIh_km (Tb is then
+        # DERIVED per draw by inverting the cached D_iceIh field — the grid
+        # cache is still required for that inversion + all (Tb, w) lookups).
+        self._samples_D_iceIh = 'D_iceIh_km' in self.param_names
+        self._use_flexible = (
+            'Tb_K' in self.param_names or 'Tb_K' in self.fixed_params
+            or self._samples_D_iceIh
+        )
 
         # Load cached structure (skip bodyname validation for Test* files).
         # Paths in configs are repo-relative; resolve against the repo root
@@ -166,6 +174,24 @@ class MCMCRunner:
             self.structure_data = load_structure_cache(
                 str(self._resolved_cache_path), validate_bodyname=None
             )
+
+        # v5 ice-thickness reparameterization: precompute the row-major flat
+        # D_iceIh_km array once so the per-draw D_iceIh -> Tb inversion (in the
+        # theta expanders) does not re-walk the structures list every sample.
+        # Only populated when D_iceIh_km is sampled AND the cache is 2D.
+        self._d_iceIh_flat: Optional[list] = None
+        if self._samples_D_iceIh:
+            if not is_2d_cache(self.structure_data):
+                raise ValueError(
+                    "Sampling 'D_iceIh_km' requires a 2D (Tb x w) structure "
+                    "cache (schema v3.0); the loaded cache is 1D. The D->Tb "
+                    "inversion needs the (Tb, w) grid."
+                )
+            structs = self.structure_data['structures']
+            self._d_iceIh_flat = [
+                (None if s is None else s.get('D_iceIh_km', None))
+                for s in structs
+            ]
 
         # Resolve arrhenius_params: prefer config.arrhenius_params, fallback to
         # sampler_settings, and mirror back to config for self-describing pickles.
@@ -568,7 +594,7 @@ class MCMCRunner:
         """Build pocoMC Prior object from parameter space configuration."""
         try:
             import pocomc as pc
-            from scipy.stats import uniform, norm, loguniform
+            from scipy.stats import uniform, norm, loguniform, truncnorm
         except ImportError as e:
             raise ImportError("pocoMC not installed. Run: pip install pocomc") from e
 
@@ -584,6 +610,16 @@ class MCMCRunner:
                 mean = param_cfg['mean']
                 std = param_cfg['std']
                 priors.append(norm(loc=mean, scale=std))
+            elif prior_type == 'truncated_gaussian':
+                # v5 ice-thickness prior: N(mean, std) truncated to [low, high].
+                # Used for D_iceIh_km ~ N(29, 10) trunc [5, 60] (reviewer). The
+                # truncation keeps sampling off the near-melt regime (thin tail)
+                # and out of unphysically thick shells.
+                mean = param_cfg['mean']
+                std = param_cfg['std']
+                low, high = param_cfg['bounds']
+                a, b = (low - mean) / std, (high - mean) / std
+                priors.append(truncnorm(a=a, b=b, loc=mean, scale=std))
             elif prior_type == 'log-uniform':
                 low, high = param_cfg['bounds']
                 priors.append(loguniform(a=10**low, b=10**high))
@@ -608,6 +644,7 @@ class MCMCRunner:
             'log10_eta_sil': r'$\log_{10}\eta_\mathrm{sil}$',
             'log10_mu_Ih': r'$\log_{10}(\mu_{\rm Ih})$',
             'Tb_K': r'$T_b$ (K)',
+            'D_iceIh_km': r'$D_{\rm ice\,Ih}$ (km)',
         }
         return label_map.get(param_name, param_name)
 
@@ -690,6 +727,8 @@ class MCMCRunner:
                         theta_dict[m] = theta_dict[group_key]
             # Inject fixed params (constants not in the prior)
             theta_dict.update(fixed_params)
+            # v5: derive Tb_K from sampled (D_iceIh_km, w) when reparameterized.
+            self._inject_derived_Tb(theta_dict)
             return theta_dict
 
         def _check_no_ocean(modified_structure) -> bool:
@@ -969,6 +1008,15 @@ class MCMCRunner:
                         im_abs_max = bounds_spec.get('im_abs_max')
                         if im_abs_max is not None and abs(Ae.imag) > float(im_abs_max):
                             return -1e30
+                        # Degree-based phase-delay cap. |angle(Ae)| is the phase
+                        # delay magnitude in the Ae^(-i phi) convention (PP stores
+                        # Im<0 for a delay); a proper degree cap is amplitude-
+                        # independent, unlike the |Im| proxy which mismaps to phase
+                        # at low |Ae| (per-frequency induction, Vance et al. 2021).
+                        phase_deg_max = bounds_spec.get('phase_deg_max')
+                        if (phase_deg_max is not None
+                                and abs(float(np.degrees(np.angle(Ae)))) > float(phase_deg_max)):
+                            return -1e30
                     re_key = f'Ae_{label}_real'
                     im_key = f'Ae_{label}_imag'
                     amp_key = f'BiAmp_{label}'
@@ -1010,6 +1058,32 @@ class MCMCRunner:
 
         return log_likelihood
 
+    def _inject_derived_Tb(self, theta_dict: Dict[str, float]) -> None:
+        """v5: derive Tb_K from the sampled (D_iceIh_km, w) and inject it.
+
+        In place. When ``D_iceIh_km`` is a sampled parameter, Tb is NOT sampled;
+        it is obtained by inverting the cached D_iceIh(Tb, w) field at the drawn
+        salinity via :func:`grid_interp_2d.invert_d_iceIh_to_Tb` — the exact
+        inverse of the same bilinear operator every downstream (Tb, w) consumer
+        uses (byte-identical support; reviewer-binding). If the drawn thickness
+        is outside the achievable band at this salinity (melt edge / cold-floor
+        edge), the inversion returns None and we inject ``Tb_K = NaN`` so the 2D
+        structural hook raises ``UnservableSampleError`` and the likelihood
+        rejects the draw (−1e30) — never clip to the edge (reviewer). No-op when
+        D_iceIh_km is not sampled (v1–v4 configs keep sampling Tb_K directly).
+        """
+        if not self._samples_D_iceIh:
+            return
+        w_ppt = wOcean_ppt_from_theta(theta_dict)
+        Tb = invert_d_iceIh_to_Tb(
+            self.structure_data['Tb_K_grid'],
+            self.structure_data['wOcean_ppt_grid'],
+            self._d_iceIh_flat,
+            float(theta_dict['D_iceIh_km']),
+            w_ppt,
+        )
+        theta_dict['Tb_K'] = float('nan') if Tb is None else float(Tb)
+
     def _expand_theta(self, theta: np.ndarray) -> Dict[str, float]:
         """Expand sampled array with groups and fixed params into a dict."""
         theta_dict = dict(zip(self.param_names, theta))
@@ -1018,6 +1092,7 @@ class MCMCRunner:
                 for m in members:
                     theta_dict[m] = theta_dict[group_key]
         theta_dict.update(self.fixed_params)
+        self._inject_derived_Tb(theta_dict)
         return theta_dict
 
     def _collect_posterior_Ae(self, samples: np.ndarray) -> Optional[Dict[str, Any]]:
@@ -1433,6 +1508,9 @@ class MCMCRunner:
         """
         from .gravity_obs import clairaut_kf, hydrostatic_c20_c22
 
+        # Reset the hydrostatic-reference C/MR² side channel; filled below on
+        # success (see _last_cmr2_hydro doc). None => not computed this call.
+        self._last_cmr2_hydro = None
         derived_params_cfg = getattr(self.config, 'derived_params', {}) or {}
         rho_sil_cfg = derived_params_cfg.get('rho_sil_kgm3', {}) or {}
         if rho_sil_cfg.get('derivation') == 'mass_conservation':
@@ -1480,6 +1558,21 @@ class MCMCRunner:
                                            M_total_kg, **kwargs)
         c20 = c20_h + float(theta_dict.get('dC20_nh', 0.0))
         c22 = c22_h + float(theta_dict.get('dC22_nh', 0.0))
+        # Hydrostatic-reference C/MR²: the C/MR² this model C22 would imply IF
+        # the body were hydrostatic (Radau–Darwin inverse of the SAME map used
+        # above — identical omega/R/M/R_ref — so it cannot diverge from the
+        # forward gravity channel). Stored on a side channel like
+        # _last_composite_layers; the caller pairs it with the structure
+        # moment-integral C/MR² so the gap is the inferred non-hydrostaticity.
+        from .gravity_obs import cmr2_from_c22_rd
+        try:
+            self._last_cmr2_hydro = float(
+                cmr2_from_c22_rd(c22, omega, R_body_m, M_total_kg,
+                                 **({'R_ref_m': kwargs['R_ref_m']}
+                                    if 'R_ref_m' in kwargs else {})))
+        except (ValueError, ZeroDivisionError):
+            # C22 outside the RD-physical range (C/MR² > 2/3) — leave None.
+            self._last_cmr2_hydro = None
         return (c20, c22)
 
     def _derive_libration_deg(
@@ -1776,6 +1869,7 @@ class MCMCRunner:
         gravity_active = self._gravity_clairaut_active()
         c20_results = [] if gravity_active else None
         c22_results = [] if gravity_active else None
+        cmr2_hydro_results = [] if gravity_active else None
         for i, theta in enumerate(samples):
             theta_dict = self._expand_theta(theta)
             try:
@@ -1802,6 +1896,8 @@ class MCMCRunner:
                 pair = self._derive_gravity_pair(theta_dict)
                 c20_results.append(pair[0] if pair is not None else np.nan)
                 c22_results.append(pair[1] if pair is not None else np.nan)
+                _h = getattr(self, '_last_cmr2_hydro', None)
+                cmr2_hydro_results.append(_h if _h is not None else np.nan)
             if (i + 1) % 100 == 0:
                 log.info(f"  {i+1}/{n_samples} samples recomputed")
 
@@ -1818,6 +1914,7 @@ class MCMCRunner:
         if gravity_active:
             c20_results = np.array(c20_results)
             c22_results = np.array(c22_results)
+            cmr2_hydro_results = np.array(cmr2_hydro_results)
 
         # Recompute heating on subset — same dict-based approach
         n_reeval = min(self.n_reeval, n_samples)
@@ -1856,6 +1953,7 @@ class MCMCRunner:
             D_icePhase_results=D_icePhase_results,
             c20_results=c20_results,
             c22_results=c22_results,
+            cmr2_hydro_results=cmr2_hydro_results,
             heating_results=heating_results,
             convergence_metrics=convergence_metrics,
             metadata={
@@ -2221,6 +2319,12 @@ class MCMCRunner:
                     return True
                 im_abs_max = spec.get('im_abs_max')
                 if im_abs_max is not None and abs(Ae.imag) > float(im_abs_max):
+                    return True
+                # Degree-based phase-delay cap (see the likelihood site): must be
+                # IDENTICAL here so SBI training support == MCMC likelihood support.
+                phase_deg_max = spec.get('phase_deg_max')
+                if (phase_deg_max is not None
+                        and abs(float(np.degrees(np.angle(Ae)))) > float(phase_deg_max)):
                     return True
             return False
 
