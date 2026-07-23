@@ -116,6 +116,8 @@ IONOS_PARAMS = {
 DERIVED_PARAMS = {
     'D_km': {'label': 'Ocean Thickness (km)', 'default_range': [10, 100], 'desc': 'Ocean layer thickness (derived — requires a driver parameter)',
              'default_driver': 'Tb_K'},
+    'rhoOceanMean_kgm3': {'label': 'Mean Ocean Density (kg/m³)', 'default_range': [950, 1250], 'desc': 'Model-computed mean ocean density (derived — requires a driver parameter)',
+                          'default_driver': 'wOcean_ppt'},
     'rhoSilMean_kgm3': {'label': 'Mean Silicate Density (kg/m³)', 'default_range': [2500, 3600], 'desc': 'Model-computed mean rock density (derived — requires a driver parameter)',
                          'default_driver': 'rhoSilInput_kgm3'},
     'sigmaMean_Sm': {'label': 'Mean Ocean Conductivity (S/m)', 'default_range': [0.1, 10], 'desc': 'Model-computed mean ocean electrical conductivity (derived — requires a driver parameter)',
@@ -126,6 +128,10 @@ DERIVED_PARAMS = {
 INPUT_PARAMS = {**HYDRO_PARAMS, **INNER_PARAMS, **IONOS_PARAMS}
 
 ALL_PARAMS = {**INPUT_PARAMS, **DERIVED_PARAMS}
+
+# Pull-down orderings: alphabetical by displayed label
+ALL_PARAM_KEYS = sorted(ALL_PARAMS, key=lambda k: ALL_PARAMS[k]['label'].lower())
+INPUT_PARAM_KEYS = sorted(INPUT_PARAMS, key=lambda k: INPUT_PARAMS[k]['label'].lower())
 
 # Clear excitation selection when the planet changes between sessions.
 # This prevents stale frequency selections from carrying over to a new body.
@@ -211,8 +217,8 @@ with col1:
     st.markdown("#### X-Axis Parameter")
     x_param = st.selectbox(
         "Select X parameter",
-        options=list(ALL_PARAMS.keys()),
-        index=list(ALL_PARAMS.keys()).index(st.session_state.explore_xName),
+        options=ALL_PARAM_KEYS,
+        index=ALL_PARAM_KEYS.index(st.session_state.explore_xName),
         format_func=lambda x: ALL_PARAMS[x]['label'],
         key='x_param_select'
     )
@@ -225,8 +231,8 @@ with col1:
         x_driver_default = DERIVED_PARAMS[x_param].get('default_driver', list(INPUT_PARAMS.keys())[0])
         x_driver = st.selectbox(
             "X driver parameter (varied during exploration)",
-            options=list(INPUT_PARAMS.keys()),
-            index=list(INPUT_PARAMS.keys()).index(x_driver_default),
+            options=INPUT_PARAM_KEYS,
+            index=INPUT_PARAM_KEYS.index(x_driver_default),
             format_func=lambda k: INPUT_PARAMS[k]['label'],
             key='x_driver_select'
         )
@@ -264,8 +270,8 @@ with col1:
     st.markdown("#### Y-Axis Parameter")
     y_param = st.selectbox(
         "Select Y parameter",
-        options=list(ALL_PARAMS.keys()),
-        index=list(ALL_PARAMS.keys()).index(st.session_state.explore_yName),
+        options=ALL_PARAM_KEYS,
+        index=ALL_PARAM_KEYS.index(st.session_state.explore_yName),
         format_func=lambda x: ALL_PARAMS[x]['label'],
         key='y_param_select'
     )
@@ -278,8 +284,8 @@ with col1:
         y_driver_default = DERIVED_PARAMS[y_param].get('default_driver', list(INPUT_PARAMS.keys())[0])
         y_driver = st.selectbox(
             "Y driver parameter (varied during exploration)",
-            options=list(INPUT_PARAMS.keys()),
-            index=list(INPUT_PARAMS.keys()).index(y_driver_default),
+            options=INPUT_PARAM_KEYS,
+            index=INPUT_PARAM_KEYS.index(y_driver_default),
             format_func=lambda k: INPUT_PARAMS[k]['label'],
             key='y_driver_select'
         )
@@ -335,12 +341,13 @@ with col1:
         'Tmean_K': 'Mean Ocean Temperature (K)',
         'Pseafloor_MPa': 'Seafloor Pressure (MPa)',
         'sigmaMean_Sm': 'Mean Ocean Conductivity (S/m)',
+        'rhoOceanMean_kgm3': 'Mean Ocean Density (kg/m³)',
         'Amp_nT': 'Induced Magnetic Field (nT)',
         'kLoveAmp': 'k₂ Love Number Amplitude',
         'Rcore_km': 'Core Radius (km)',
     }
 
-    _z_options = list(Z_VARIABLES.keys())
+    _z_options = sorted(Z_VARIABLES, key=lambda k: Z_VARIABLES[k].lower())
     z_param = st.selectbox(
         "Select color variable",
         options=_z_options,

@@ -1,8 +1,8 @@
 import numpy as np
 import seafreeze.seafreeze as sfz
 # Use direct seafreeze import for efficiency
-from seafreeze.seafreeze import defpath, _get_tdvs, _is_scatter, phases as seafreeze_phases
-from mlbspline import load
+from seafreeze.seafreeze import defpath, _get_tdvs, _is_scatter, _load_spline, \
+    phases as seafreeze_phases
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 def IceSeaFreezeProps(PTgrid, phaseName):
     # Get boundarys of P_MPa and T_K grid to generate a unique tag
@@ -99,8 +99,9 @@ def GenerateSeafreezeChemicalPotentials(P_MPa, T_K, doPureWater = False):
                 sfz_PT = np.array([P_MPa, T_K], dtype=object)
                 sfzMu = sfz.getProp(sfz_PT, name).G * Constants.m_gmol['H2O'] / 1000
             else:
-                phasedesc = seafreeze_phases[name]
-                sp = load.loadSpline(defpath, phasedesc.sp_name)
+                # SeaFreeze >= 1.1 resolves spline files internally by
+                # material key (PhaseDesc no longer carries sp_name)
+                sp = _load_spline(defpath, name)
                 isscatter = _is_scatter(evalPts_sfz)
                 sfzMu = _get_tdvs(sp, evalPts_sfz, isscatter, 'G').G * Constants.m_gmol['H2O'] / 1000
             # Save pure water chemical potential separately

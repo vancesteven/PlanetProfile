@@ -38,7 +38,7 @@ except PackageNotFoundError:
 
 # Compatible version tag numbers
 compatNums = {
-    'seafreeze': '1.0.0',
+    'seafreeze': '1.1.3',
     'gsw': '3.6.20',
     'obspy': '1.4.2',
 

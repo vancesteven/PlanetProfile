@@ -2581,6 +2581,60 @@ def render_results():
                     "in the silicate interior (viridis: dark = ice-dominated, "
                     "yellow = rock-dominated dissipation).")
             st.caption(" ".join(caption_bits))
+
+            # Component panes: marginal posteriors of both k₂ components,
+            # as (Re, Im) or equivalently (amplitude, phase lag).
+            pane_mode = st.radio(
+                'k₂ component view', ['Re / Im', 'Amplitude / Phase'],
+                horizontal=True, key='k2_pane_mode')
+
+            def _build_k2_panes():
+                figp, (axl, axr) = plt.subplots(1, 2, figsize=(10, 3.8))
+                if pane_mode == 'Re / Im':
+                    panes = [
+                        (axl, Re_arr, r'Re$(k_2)$', Re_obs, Re_err),
+                        (axr, Im_arr, r'$|$Im$(k_2)|$',
+                         abs(Im_obs) if Im_obs is not None else None, Im_err),
+                    ]
+                else:
+                    amp = np.hypot(Re_arr, Im_arr)
+                    phase = np.degrees(np.arctan2(Im_arr, Re_arr))
+                    if Re_obs is not None and Im_obs is not None:
+                        amp_obs = float(np.hypot(Re_obs, Im_obs))
+                        ph_obs = float(np.degrees(
+                            np.arctan2(abs(Im_obs), Re_obs)))
+                        # first-order error propagation from (σ_Re, σ_Im)
+                        amp_err = float(np.hypot(Re_obs * Re_err,
+                                                 Im_obs * Im_err) / amp_obs
+                                        ) if amp_obs > 0 else None
+                        ph_err = float(np.degrees(np.hypot(
+                            Im_obs * Re_err, Re_obs * Im_err)
+                            / amp_obs ** 2)) if amp_obs > 0 else None
+                    else:
+                        amp_obs = ph_obs = amp_err = ph_err = None
+                    panes = [
+                        (axl, amp, r'$|k_2|$', amp_obs, amp_err),
+                        (axr, phase, r'phase lag $\arg(k_2)$ (deg)',
+                         ph_obs, ph_err),
+                    ]
+                for axi, arr, lab, obs, err in panes:
+                    axi.hist(arr, bins=40, color='steelblue', alpha=0.8)
+                    if obs is not None:
+                        axi.axvline(obs, color='red', linestyle='--',
+                                    linewidth=1.5, label='observed')
+                        if err:
+                            axi.axvspan(obs - err, obs + err, color='red',
+                                        alpha=0.12, label=r'1$\sigma$')
+                        axi.legend(fontsize=8)
+                    axi.set_xlabel(lab)
+                axl.set_ylabel('posterior samples')
+                figp.suptitle(r'$k_2$ component posteriors', y=1.02)
+                figp.tight_layout()
+                return figp
+
+            _crisp_display(builder=_build_k2_panes, key='k2_panes',
+                           download_label='k₂ components',
+                           token=(_result_token(), pane_mode))
         except Exception as e:
             st.warning(f"k₂ scatter unavailable: {e}")
 

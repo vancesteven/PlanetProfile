@@ -24,7 +24,7 @@ TidalPy==0.7.4
 CyRK==0.17.1
 pocomc==1.2.6
 
-SeaFreeze==1.0.0
+SeaFreeze==1.1.3
 gsw==3.6.21
 spiceypy==8.1.0
 obspy==1.5.0
