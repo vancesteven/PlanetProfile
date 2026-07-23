@@ -224,6 +224,25 @@ BODY_OBS_DEFAULTS = {
                  'CMR2': (0.3549, 0.0042)},  # theory / Anderson 2001
 }
 
+# Published (literature) Europa C/MR² values, for the C/MR² panel comparison
+# overlay. These are HYDROSTATIC reductions of the Galileo-era C22 (the
+# hydrostatic Radau assumption), NOT interior-structure moment integrals — so
+# on the panel they are drawn as a *display reference*, never as an imposed
+# constraint. In the v6 free-gravity design C/MR² is not an observable; the
+# published value is applied to the posterior only via the optional
+# inference-time reweight (plan task D, #36), which is NOT this overlay.
+# (central, 1σ). Sources cross-checked against the v6 config moi_prior note.
+_EUROPA_PUBLISHED_CMR2 = {
+    'GC21 (Gomez Casajus et al. 2021)': (0.3547, 0.0024),
+    'Anderson et al. (1998)': (0.3475, 0.0026),
+    'Jacobson et al. (1999)': (0.3405, 0.0022),
+}
+_EUROPA_PUBLISHED_CMR2_COLORS = {
+    'GC21 (Gomez Casajus et al. 2021)': 'darkorange',
+    'Anderson et al. (1998)': 'purple',
+    'Jacobson et al. (1999)': 'saddlebrown',
+}
+
 # Observable-panel widget keys: keyed-widget-state WINS over value= on
 # rerun, so a config load must clear these for the loaded values to show
 # (same reseed pattern as the amortized slot switch).
@@ -1247,6 +1266,140 @@ _SBI_ARTIFACT_SLOTS = {
                        '(Tb,w) cache as v5 geodesy. v5 ratification '
                        'FAILED-this-pass; do not cite as ratified.'),
     },
+    # --- v6 "free-gravity" trio (2026-07-22 compute; reviewer PASS-WITH-
+    # CONCERNS 2026-07-23). Two decisive changes vs v5: (1) CMR2 DROPPED from
+    # the observables entirely — 0.3547 was itself derived FROM C22 via the
+    # hydrostatic Radau relation, so imposing it alongside C22 double-counted
+    # and biased the posterior toward hydrostaticity (the quantity measured);
+    # (2) C20/C22 set to GC21 Table 2 SOL-A UNCONSTRAINED (unnormalized at
+    # R_ref 1565 km) with widened agnostic non-hydrostatic offset boxes
+    # (dC20_nh ±3.9e-4, dC22_nh ±5e-5), so gravity carries ~zero interior
+    # C/MR² information. The interior is constrained by k2/h2 + induction.
+    # Same 2D (Tb,w) cache as v5 (identical sha256). The published/observed
+    # C/MR² returns ONLY as an optional inference-time reweight (Task D, #36,
+    # NOT yet built) — the C/MR² panel shows it as a DISPLAY REFERENCE, not a
+    # constraint. Same channel-family slicing as v5 (paired column slices of
+    # one 1M dataset). ---
+    'europa_clipper_v6_freegrav_11D_posterior_1m.pt': {
+        'label': ('1D · Clipper–Europa (Andrade, seawater) — v6 free-gravity, '
+                  '11D · free C₂₀/C₂₂ (agnostic), CMR₂ dropped'),
+        'bodyname': 'Europa',
+        'config_path': ('PlanetProfile/Inference/configs/'
+                        'europa_clipper_v6_freegrav_11D.json'),
+        'cache_path': ('PlanetProfile/Test/mcmc_results/Europa/'
+                       'Test52_seawater_v5/'
+                       'europa_seawater_structure_grid_v5_2d.pkl'),
+        # v6 fiducial conditioning = config observable central values.
+        # C20/C22 = GC21 Table 2 SOL-A (unconstrained, unnormalized @1565 km);
+        # k2/h2 + 14 Bind identical to v5. NO CMR2 key — dropped by design.
+        'default_obs': {
+            'C20': -4.3759e-4, 'C22': 1.3862e-4,
+            'Re_k2': 0.23, 'Im_k2': 0.004,
+            'Re_h2': 1.2, 'Im_h2': 0.0,
+            'Bind_synodic_x_real': 91.07058126361886,
+            'Bind_synodic_x_imag': -157.85676859240647,
+            'Bind_synodic_y_real': -59.40533696629077,
+            'Bind_synodic_y_imag': -25.61791852141546,
+            'Bind_synodic_z_real': -5.675654206203697,
+            'Bind_synodic_z_imag': -12.364182150469917,
+            'Bind_synodic 2nd_x_real': 14.717630809871173,
+            'Bind_synodic 2nd_x_imag': 3.1440689462941154,
+            'Bind_synodic 2nd_y_real': 1.8561258037971171,
+            'Bind_synodic 2nd_y_imag': -9.87259597254061,
+            'Bind_orbital_x_real': -0.5352738290604214,
+            'Bind_orbital_x_imag': 6.386436443696461,
+            'Bind_orbital_y_real': -2.1855594672667733,
+            'Bind_orbital_y_imag': -0.3339307437762303,
+        },
+        'x_obs_limits': {'Im_k2': (0.0, 0.15)},
+        'derived_ae_guards': [{
+            'label': 'synodic', 'comp': 'x',
+            'Be_comp': (128.466302323619, -170.084146795136),
+            'ae_range': (0.75, 0.94),
+            'warn_support_below': 0.7,
+        }],
+        'scope_note': ('Clipper v6 (free-gravity): CMR₂ DROPPED (removes the '
+                       'hydrostatic double-count of C₂₂); C₂₀/C₂₂ = GC21 '
+                       'SOL-A unconstrained with widened agnostic '
+                       'non-hydrostatic offsets, so gravity carries ~zero '
+                       'interior C/MR² information — the interior is '
+                       'constrained by k₂/h₂ + induction. Reviewer '
+                       'PASS-WITH-CONCERNS 2026-07-23 (gate "failures" are '
+                       'benign design consequences: OOD limits sweep; '
+                       'fine-shape crosscheck on weakly-identified params; '
+                       'multiplicity-expected marginal SBC). The dual C/MR² '
+                       'panel shows ACTUAL (structure integral) vs '
+                       'HYDROSTATIC REFERENCE (RD from C₂₂); the published '
+                       'literature C/MR² is a DISPLAY reference only. NO '
+                       'interior-C/MR² claim until the Task D reweighter '
+                       'lands (#36). Gate details: sbi_artifacts/INDEX.md.'),
+    },
+    # --- v6 channel-family siblings (reached via the channel selector). Same
+    # body/priors/cache as v6 freegrav_11D; differ only in conditioning
+    # channels. default_obs reuses the baseline centrals — only names present
+    # in each config's observable set are read, so extra keys are inert. ---
+    'europa_clipper_v6_freegrav_noinduction_6obs_posterior_1m.pt': {
+        'label': ('1D · Clipper–Europa (Andrade, seawater) — v6 free-gravity, '
+                  '11D · channels: gravity + tidal k₂/h₂ (no induction)'),
+        'bodyname': 'Europa',
+        'config_path': ('PlanetProfile/Inference/configs/'
+                        'europa_clipper_v6_freegrav_noinduction_6obs.json'),
+        'cache_path': ('PlanetProfile/Test/mcmc_results/Europa/'
+                       'Test52_seawater_v5/'
+                       'europa_seawater_structure_grid_v5_2d.pkl'),
+        'default_obs': {
+            'C20': -4.3759e-4, 'C22': 1.3862e-4,
+            'Re_k2': 0.23, 'Im_k2': 0.004,
+            'Re_h2': 1.2, 'Im_h2': 0.0,
+        },
+        'x_obs_limits': {'Im_k2': (0.0, 0.15)},
+        'scope_note': ('Clipper v6 channel ablation: free-gravity + tidal '
+                       'k₂/h₂, NO magnetic-induction channel. Least-'
+                       'constrained arm; calibrated by SBC only (no reference '
+                       'MCMC crosscheck for this ablation), per reviewer '
+                       '2026-07-23. Same priors and (Tb,w) cache as v6 '
+                       'freegrav_11D. Published C/MR² is a display reference '
+                       'only (no interior-C/MR² claim until Task D, #36).'),
+    },
+    'europa_clipper_v6_freegrav_nok2_16obs_posterior_1m.pt': {
+        'label': ('1D · Clipper–Europa (Andrade, seawater) — v6 free-gravity, '
+                  '11D · channels: gravity + induction (no tidal k₂/h₂)'),
+        'bodyname': 'Europa',
+        'config_path': ('PlanetProfile/Inference/configs/'
+                        'europa_clipper_v6_freegrav_nok2_16obs.json'),
+        'cache_path': ('PlanetProfile/Test/mcmc_results/Europa/'
+                       'Test52_seawater_v5/'
+                       'europa_seawater_structure_grid_v5_2d.pkl'),
+        'default_obs': {
+            'C20': -4.3759e-4, 'C22': 1.3862e-4,
+            'Bind_synodic_x_real': 91.07058126361886,
+            'Bind_synodic_x_imag': -157.85676859240647,
+            'Bind_synodic_y_real': -59.40533696629077,
+            'Bind_synodic_y_imag': -25.61791852141546,
+            'Bind_synodic_z_real': -5.675654206203697,
+            'Bind_synodic_z_imag': -12.364182150469917,
+            'Bind_synodic 2nd_x_real': 14.717630809871173,
+            'Bind_synodic 2nd_x_imag': 3.1440689462941154,
+            'Bind_synodic 2nd_y_real': 1.8561258037971171,
+            'Bind_synodic 2nd_y_imag': -9.87259597254061,
+            'Bind_orbital_x_real': -0.5352738290604214,
+            'Bind_orbital_x_imag': 6.386436443696461,
+            'Bind_orbital_y_real': -2.1855594672667733,
+            'Bind_orbital_y_imag': -0.3339307437762303,
+        },
+        'derived_ae_guards': [{
+            'label': 'synodic', 'comp': 'x',
+            'Be_comp': (128.466302323619, -170.084146795136),
+            'ae_range': (0.75, 0.94),
+            'warn_support_below': 0.7,
+        }],
+        'scope_note': ('Clipper v6 channel ablation: free-gravity + magnetic '
+                       'induction, NO tidal k₂/h₂ channel. Same priors and '
+                       '(Tb,w) cache as v6 freegrav_11D. Calibrated by SBC '
+                       'only (no reference MCMC crosscheck for this '
+                       'ablation). Published C/MR² is a display reference '
+                       'only (no interior-C/MR² claim until Task D, #36).'),
+    },
 }
 
 
@@ -1263,6 +1416,11 @@ _CHANNEL_FAMILIES = {
         'all': 'europa_clipper_v5_geodesy_11D_posterior_1m.pt',
         'no_induction': 'europa_clipper_v5_noinduction_7obs_posterior_1m.pt',
         'no_k2h2': 'europa_clipper_v5_nok2_17obs_posterior_1m.pt',
+    },
+    'europa_clipper_v6_freegrav_11D_posterior_1m.pt': {
+        'all': 'europa_clipper_v6_freegrav_11D_posterior_1m.pt',
+        'no_induction': 'europa_clipper_v6_freegrav_noinduction_6obs_posterior_1m.pt',
+        'no_k2h2': 'europa_clipper_v6_freegrav_nok2_16obs_posterior_1m.pt',
     },
 }
 # Reverse lookup: any family member -> its family key, so selecting a
@@ -3304,6 +3462,37 @@ def render_results():
                              if _obs_err_for_scale else 1e-4)
                 is_fixed = cmr2_range < max(fixed_tol, 1e-8)
 
+                # Published-literature C/MR² comparison overlay (Europa only).
+                # DISPLAY REFERENCE, not a constraint: these are hydrostatic
+                # reductions of the Galileo C22, drawn so the eye can compare
+                # them against the green hydrostatic-reference distribution and
+                # the blue actual (structure integral). The posterior is NOT
+                # reweighted here — that is the optional inference-time reweight
+                # (plan task D, #36), which this overlay does not perform.
+                _is_europa = (getattr(result.config, 'bodyname', None)
+                              == 'Europa')
+                cmr2_pub_choice = None
+                cmr2_pub_selected = {}
+                if _is_europa and not is_fixed:
+                    _pub_opts = list(_EUROPA_PUBLISHED_CMR2.keys()) + ['All three']
+                    cmr2_pub_choice = st.selectbox(
+                        "Published C/MR² reference (display only — not a "
+                        "constraint):",
+                        _pub_opts, index=0, key='cmr2_published_choice',
+                        help="Literature C/MR² values (hydrostatic reductions "
+                             "of the Galileo C₂₂). Drawn for visual comparison "
+                             "against the hydrostatic-reference (green) and "
+                             "actual (blue) distributions. In the v6 "
+                             "free-gravity design C/MR² is not an observable; "
+                             "narrowing the posterior to a published value is "
+                             "the optional Task D reweight, not this overlay.")
+                    if cmr2_pub_choice == 'All three':
+                        cmr2_pub_selected = dict(_EUROPA_PUBLISHED_CMR2)
+                    else:
+                        cmr2_pub_selected = {
+                            cmr2_pub_choice:
+                            _EUROPA_PUBLISHED_CMR2[cmr2_pub_choice]}
+
                 fig, ax = plt.subplots(figsize=(7, 4))
 
                 if cmr2_obs is not None:
@@ -3378,14 +3567,34 @@ def render_results():
                         ax.axvspan(obs_val - 2 * obs_err, obs_val + 2 * obs_err,
                                    alpha=0.06, color='red', label=r'2$\sigma$')
 
+                    # Published-literature C/MR² comparison line(s) + ±1σ band.
+                    # Distinct dashed color, clearly NOT the red "observed"
+                    # style: a literature REFERENCE, not an imposed constraint.
+                    for _pi, (_pname, (_pval, _perr)) in enumerate(
+                            cmr2_pub_selected.items()):
+                        _pcol = _EUROPA_PUBLISHED_CMR2_COLORS.get(
+                            _pname, 'darkorange')
+                        ax.axvline(_pval, color=_pcol, linestyle=(0, (6, 3)),
+                                   linewidth=2.0,
+                                   label=f'Published {_pname}: '
+                                         f'{_pval:.4f} ± {_perr:.4f}')
+                        ax.axvspan(_pval - _perr, _pval + _perr,
+                                   color=_pcol, alpha=0.10,
+                                   label=(r'literature 1$\sigma$'
+                                          if _pi == 0 else None))
+
                     ax.set_xlabel(r'$C/MR^2$')
                     ax.set_ylabel('Probability density')
                     ax.set_title(r'Moment-of-Inertia Posterior')
-                    ax.legend(fontsize=9)
+                    ax.legend(fontsize=8)
 
                 fig.tight_layout()
-                _display_vector_fig(fig, key='cmr2_posterior',
-                                    download_label='C/MR² posterior')
+                # Extend the export cache token with the published-reference
+                # choice so switching the selectbox redraws (the base
+                # _result_token alone is stable across widget changes).
+                _crisp_display(fig, key='cmr2_posterior',
+                               download_label='C/MR² posterior',
+                               token=(_result_token(), cmr2_pub_choice))
                 plt.close(fig)
 
                 # Summary metrics
@@ -3446,6 +3655,37 @@ def render_results():
                                 "inertia departs from the hydrostatic C₂₂ "
                                 "reduction beyond the RD approximation)."
                             )
+
+                # Hydrostatic-reference vs published literature C/MR² offset —
+                # the direct "does the C₂₀/C₂₂-implied C/MR² match the published
+                # number?" readout. Compares the MEDIAN hydrostatic-reference
+                # (green, RD from this model's C₂₂) against each selected
+                # published value. DISPLAY comparison only; no reweighting.
+                if (cmr2_pub_selected and not is_fixed
+                        and cmr2_hydro_results is not None
+                        and np.any(np.isfinite(cmr2_hydro_results))):
+                    _hv = cmr2_hydro_results[np.isfinite(cmr2_hydro_results)]
+                    if _hv.size:
+                        _hydro_med = float(np.median(_hv))
+                        st.markdown("#### Hydrostatic reference vs published "
+                                    "C/MR² (display comparison)")
+                        st.caption(
+                            f"Median hydrostatic-reference C/MR² (RD from this "
+                            f"model's $C_{{22}}$) = **{_hydro_med:.5f}**. "
+                            "Offset from each published literature value "
+                            "(hydrostatic reductions of the Galileo $C_{22}$; "
+                            "shown for comparison, **not** imposed):")
+                        _pcols = st.columns(len(cmr2_pub_selected))
+                        for _ci, (_pname, (_pval, _perr)) in enumerate(
+                                cmr2_pub_selected.items()):
+                            _off = _hydro_med - _pval
+                            _short = _pname.split(' (')[0]
+                            _pcols[_ci].metric(
+                                f"vs {_short}",
+                                f"{_pval:.4f}",
+                                delta=f"{_off:+.5f}"
+                                      f" ({_off/_perr:+.1f}σ_lit)",
+                                delta_color="off")
 
             except Exception as e:
                 st.warning(f"C/MR² posterior plot unavailable: {e}")
