@@ -190,7 +190,7 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
     'log10_eta_Ih': ParameterDef(
         id='log10_eta_Ih',
         label='Log₁₀(Ice Ih Viscosity)',
-        latex_label=r'$\log_{10}(\eta_{\rm Ih})$',
+        latex_label=r'$\log_{10}(\eta_{\rm Ih}\,/\,\mathrm{Pa\,s})$',
         description='Ice Ih shell viscosity. Dominant control on k₂ response '
                     'at Saturnian tidal periods.',
         category='rheology',
@@ -204,7 +204,7 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
     'log10_eta_HP': ParameterDef(
         id='log10_eta_HP',
         label='Log₁₀(HP Ice Viscosity)',
-        latex_label=r'$\log_{10}(\eta_{\rm HP})$',
+        latex_label=r'$\log_{10}(\eta_{\rm HP}\,/\,\mathrm{Pa\,s})$',
         description='High-pressure ice (III, V, VI) viscosity. Affects deep '
                     'layer contribution to tidal Love number.',
         category='rheology',
@@ -218,7 +218,7 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
     'log10_eta_III': ParameterDef(
         id='log10_eta_III',
         label='Log₁₀(Ice III Viscosity)',
-        latex_label=r'$\log_{10}(\eta_{\rm III})$',
+        latex_label=r'$\log_{10}(\eta_{\rm III}\,/\,\mathrm{Pa\,s})$',
         description='Ice III viscosity.',
         category='rheology',
         default_prior='uniform',
@@ -231,7 +231,7 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
     'log10_eta_V': ParameterDef(
         id='log10_eta_V',
         label='Log₁₀(Ice V Viscosity)',
-        latex_label=r'$\log_{10}(\eta_{\rm V})$',
+        latex_label=r'$\log_{10}(\eta_{\rm V}\,/\,\mathrm{Pa\,s})$',
         description='Ice V viscosity.',
         category='rheology',
         default_prior='uniform',
@@ -244,7 +244,7 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
     'log10_eta_VI': ParameterDef(
         id='log10_eta_VI',
         label='Log₁₀(Ice VI Viscosity)',
-        latex_label=r'$\log_{10}(\eta_{\rm VI})$',
+        latex_label=r'$\log_{10}(\eta_{\rm VI}\,/\,\mathrm{Pa\,s})$',
         description='Ice VI viscosity.',
         category='rheology',
         default_prior='uniform',
@@ -257,7 +257,7 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
     'log10_eta_sil': ParameterDef(
         id='log10_eta_sil',
         label='Log₁₀(Silicate Viscosity)',
-        latex_label=r'$\log_{10}(\eta_{\rm sil})$',
+        latex_label=r'$\log_{10}(\eta_{\rm sil}\,/\,\mathrm{Pa\,s})$',
         description='Silicate mantle viscosity. Negligible for tidal response '
                     'at satellite periods, but affects long-term evolution.',
         category='rheology',

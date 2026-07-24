@@ -604,6 +604,26 @@ class SBIRunner:
         elapsed = time.time() - t0
         log.info(f"NPE training complete in {elapsed/60:.1f} min")
 
+        # Capture the sbi training summary (training/validation log-prob
+        # curve, epochs trained, best validation log-prob) for auditability
+        # and under-training diagnosis. Defensive: sbi's summary schema has
+        # varied across versions, so we copy only scalar/list-of-number
+        # entries and never fail training if the attribute is absent.
+        train_summary = {}
+        _summary = getattr(inference, 'summary', None) or getattr(
+            inference, '_summary', None)
+        if isinstance(_summary, dict):
+            for k, v in _summary.items():
+                try:
+                    if isinstance(v, (int, float)):
+                        train_summary[k] = v
+                    elif isinstance(v, (list, tuple)) and all(
+                            isinstance(e, (int, float)) for e in v):
+                        train_summary[k] = [float(e) for e in v]
+                except Exception:
+                    continue
+        self._last_train_summary = train_summary
+
         self._posterior = posterior
         # Informational normalization constants (z-scoring itself lives
         # inside the saved estimator; these are recorded for auditability).
@@ -616,6 +636,7 @@ class SBIRunner:
             'x_norm': {'mean': x.mean(axis=0).tolist(),
                        'std': x.std(axis=0).tolist()},
             'train_elapsed_s': elapsed,
+            'train_summary': train_summary,
         })
         return posterior
 
@@ -1227,6 +1248,7 @@ class SBIRunner:
         h2_results = np.full((n_samples, 2), np.nan)
         cmr2_results = np.full(n_samples, np.nan)
         D_ocean_results = np.full(n_samples, np.nan)
+        D_clath_results = np.full(n_samples, np.nan)
         D_iceIh_results = np.full(n_samples, np.nan)
         D_hsphere_results = np.full(n_samples, np.nan)
         D_iceHP_results = np.full(n_samples, np.nan)
@@ -1270,7 +1292,12 @@ class SBIRunner:
             # Gaussian the flow was conditioned on (user-reported 2026-07-13:
             # Europa MoI 'far left of the Gaussian' in the GUI).
             cmr2_results[i] = runner._compute_model_cmr2(theta_dict)
-            D_ocean_results[i] = runner._get_cache_scalar(theta_dict, 'D_ocean_km')
+            # Ocean/clathrate from the structure's phase layers directly (not
+            # the cache's mis-derived D_ocean_km scalar — see
+            # MCMCRunner._ocean_clath_thickness_km); correct on pre-fix caches.
+            _oc = runner._ocean_clath_thickness_km(theta_dict)
+            D_ocean_results[i] = _oc['ocean']
+            D_clath_results[i] = _oc['clath']
             D_iceIh_results[i] = runner._get_cache_scalar(theta_dict, 'D_iceIh_km')
             D_hsphere_results[i] = runner._get_cache_scalar(theta_dict, 'D_hsphere_km')
             _phases = runner._ice_phase_thicknesses_km(theta_dict)
@@ -1331,6 +1358,7 @@ class SBIRunner:
             h2_results=h2_results,
             cmr2_results=cmr2_results,
             D_ocean_results=D_ocean_results,
+            D_clath_results=D_clath_results,
             D_iceIh_results=D_iceIh_results,
             D_hsphere_results=D_hsphere_results,
             D_iceHP_results=D_iceHP_results,

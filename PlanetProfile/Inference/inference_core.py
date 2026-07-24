@@ -285,6 +285,13 @@ class InferenceResult:
     # shell (Ih is the textured surface; ocean uses D_ocean_results). None
     # on results predating 2026-07-20.
     D_icePhase_results: Optional[Dict[str, np.ndarray]] = None
+    # Clathrate shell thickness (km) per sample, summed directly from the
+    # structure's clathrate (Constants.phaseClath) layers. 0.0 for bodies with
+    # no clathrate; relevant for Titan. Distinct from D_ocean_results (liquid
+    # only) — the old D_hsphere − Σ(4 ice phases) formula mislumped clathrate
+    # (and node gaps) into a phantom "ocean". None on results predating
+    # 2026-07-24.
+    D_clath_results: Optional[np.ndarray] = None
     # Model-predicted unnormalized C20/C22 per sample (v4 geodesy configs
     # with gravity_forward_model='clairaut_hydrostatic'; includes the
     # sampled non-hydrostatic offsets). None otherwise / on older pkls.

@@ -1185,6 +1185,44 @@ class MCMCRunner:
             out[phase] = float(v) if np.isfinite(v) else 0.0
         return out
 
+    def _ocean_clath_thickness_km(self, theta_dict: Dict[str, float]
+                                  ) -> Dict[str, float]:
+        """Ocean + clathrate thicknesses (km) computed DIRECTLY from the
+        interpolated structure's phase layers, as {'ocean','clath'}.
+
+        Returns the sum of liquid (phase 0) and clathrate (Constants.phaseClath)
+        layer thicknesses — the same direct-sum convention as
+        find_tb_bounds.py:156-157. Preferred over the cache's D_ocean_km scalar,
+        which older caches computed as D_hsphere − Σ(4 ice phases): that formula
+        omitted the clathrate shell and inter-layer node gaps, so a fully frozen
+        hydrosphere reported a spurious ~16 km ocean (scientific-reviewer
+        2026-07-24). Computing from phase layers here makes the DISPLAY correct
+        even on caches built before the cache_builder fix (no rebuild needed).
+        Degrades to NaN if the structure lacks the phase arrays."""
+        from .forward_models import apply_parameters, UnservableSampleError
+        from PlanetProfile.Utilities.defineStructs import Constants
+        try:
+            modified = apply_parameters(theta_dict, self.structure_data)
+        except UnservableSampleError:
+            return {'ocean': np.nan, 'clath': np.nan}
+        r_m = modified.get('r_m')
+        ci = modified.get('changeIndices')
+        ph = modified.get('phases')
+        n_layers = modified.get('n_layers')
+        if r_m is None or ci is None or ph is None or n_layers is None:
+            return {'ocean': np.nan, 'clath': np.nan}
+        r_m = np.asarray(r_m); ci = np.asarray(ci); ph = np.asarray(ph)
+        d_ocean = d_clath = 0.0
+        for k in range(int(n_layers)):
+            s = int(ci[k]); e = int(ci[k + 1])
+            p = int(ph[s])
+            thick_km = (r_m[e - 1] - r_m[s]) / 1e3
+            if p == 0:
+                d_ocean += thick_km
+            elif p == Constants.phaseClath:
+                d_clath += thick_km
+        return {'ocean': float(d_ocean), 'clath': float(d_clath)}
+
     def _hp_ice_thickness_km(self, theta_dict: Dict[str, float]) -> float:
         """Aggregate high-pressure-ice (III + V + VI) shell thickness (km).
         Sums the per-phase thicknesses (all coalesced to 0.0 when absent)."""
@@ -1862,6 +1900,7 @@ class MCMCRunner:
         h2_results = []
         cmr2_results = []
         D_ocean_results = []
+        D_clath_results = []
         D_iceIh_results = []
         D_hsphere_results = []
         D_iceHP_results = []
@@ -1884,7 +1923,13 @@ class MCMCRunner:
             k2_results.append((Re_k2, Im_k2))
             h2_results.append((Re_h2, Im_h2))
             cmr2_results.append(self._compute_model_cmr2(theta_dict))
-            D_ocean_results.append(self._get_cache_scalar(theta_dict, 'D_ocean_km'))
+            # Compute ocean/clathrate thicknesses DIRECTLY from the structure's
+            # phase layers (not the cache's D_ocean_km scalar, which older
+            # caches mis-derived — see _ocean_clath_thickness_km). Correct even
+            # on pre-fix caches without a rebuild.
+            _oc = self._ocean_clath_thickness_km(theta_dict)
+            D_ocean_results.append(_oc['ocean'])
+            D_clath_results.append(_oc['clath'])
             D_iceIh_results.append(self._get_cache_scalar(theta_dict, 'D_iceIh_km'))
             D_hsphere_results.append(self._get_cache_scalar(theta_dict, 'D_hsphere_km'))
             _phases = self._ice_phase_thicknesses_km(theta_dict)
@@ -1905,6 +1950,7 @@ class MCMCRunner:
         h2_results = np.array(h2_results)
         cmr2_results = np.array(cmr2_results)
         D_ocean_results = np.array(D_ocean_results)
+        D_clath_results = np.array(D_clath_results)
         D_iceIh_results = np.array(D_iceIh_results)
         D_hsphere_results = np.array(D_hsphere_results)
         D_iceHP_results = np.array(D_iceHP_results)
@@ -1947,6 +1993,7 @@ class MCMCRunner:
             h2_results=h2_results,
             cmr2_results=cmr2_results,
             D_ocean_results=D_ocean_results,
+            D_clath_results=D_clath_results,
             D_iceIh_results=D_iceIh_results,
             D_hsphere_results=D_hsphere_results,
             D_iceHP_results=D_iceHP_results,
@@ -2214,6 +2261,28 @@ class MCMCRunner:
             and bool(_rho_sil_cfg.get('density_inversion_guard', False))
         )
 
+        # Physical-k2 support guard (Titan free-gravity, plan Phase A
+        # re-gate 2026-07-24, scientific-reviewer a2d7f121 ruling). Drops
+        # forward-model outputs whose Love numbers are numerically
+        # degenerate (near-zero-rigidity interiors / the tidal integrator on
+        # its unstable branch — the same rows that emit Re_k2~82, |Im_k2|~62
+        # while physical Titan k2 ~ 0.1-0.6). These pass drop_nonfinite
+        # because they are finite, but their extreme tail stretches the NSF
+        # spline knot range and destroys calibration (sbi's ">10x IQR
+        # z-scoring precision loss" warning). This is training-set hygiene
+        # analogous to drop_nonfinite, NOT a changed assumption: the MCMC
+        # likelihood already assigns these interiors ~1e-200 weight, so the
+        # target posterior at any physical x_obs is unchanged (reviewer
+        # verified). Bounds anchored on physics (fluid-limit secular Love
+        # ceiling k2 <= 3/2; dissipation cannot exceed elastic response),
+        # NOT tuned to pass. Active ONLY when apply_support_guard=True AND
+        # the config sets sampler_settings.k2_support_bounds — every
+        # pre-existing config (no key) is byte-identical, exactly like the
+        # induction / density-inversion guards above.
+        _k2_bounds_cfg = (self.config.sampler_settings.get('k2_support_bounds', {})
+                          or {}) if apply_support_guard else {}
+        k2_support_guard_active = bool(_k2_bounds_cfg)
+
         def _check_no_ocean(modified_structure) -> bool:
             """Return True if sample should be rejected (ocean would form)."""
             if not no_ocean_guard:
@@ -2381,6 +2450,28 @@ class MCMCRunner:
                     n_rejected_nonfinite += 1
                     continue
                 Re_k2 = Im_k2 = Re_h2 = Im_h2 = np.nan
+
+            # Physical-k2 support guard on the NOISELESS forward output (must
+            # precede any noise added below). Degenerate-interior rows are
+            # support-rejected exactly like the no-ocean guard, so the SBI
+            # training support == the reference-MCMC effective support. Only
+            # applied to whichever k2 channels the config bounds; a finite
+            # but out-of-physical-range k2 is dropped, NaN is left to
+            # drop_nonfinite below.
+            if k2_support_guard_active:
+                _rej = False
+                _re_b = _k2_bounds_cfg.get('Re_k2')
+                _im_b = _k2_bounds_cfg.get('Im_k2')
+                if _re_b is not None and np.isfinite(Re_k2) and (
+                        Re_k2 < _re_b[0] or Re_k2 > _re_b[1]):
+                    _rej = True
+                _im_val = abs(Im_k2) if imag_convention == 'abs' else Im_k2
+                if (not _rej) and _im_b is not None and np.isfinite(_im_val) and (
+                        _im_val < _im_b[0] or _im_val > _im_b[1]):
+                    _rej = True
+                if _rej:
+                    n_rejected_support += 1
+                    continue
 
             # v4 geodesy: compute the gravity pair once per sample when any
             # gravity channel is present under the Clairaut forward model.

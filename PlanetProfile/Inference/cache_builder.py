@@ -357,6 +357,7 @@ def build_single_structure(
     a_m = (Constants.G * host_mass / omega ** 2) ** (1.0 / 3.0)
 
     D_iceIh_km = D_iceIII_km = D_iceV_km = D_iceVI_km = 0.0
+    D_ocean_km_direct = D_clath_km = 0.0
     for i_layer in range(n_layers):
         s = changeIndices[i_layer]
         e = changeIndices[i_layer + 1]
@@ -370,6 +371,10 @@ def build_single_structure(
             D_iceV_km += thick_km
         elif ph == 6:
             D_iceVI_km += thick_km
+        elif ph == 0:
+            D_ocean_km_direct += thick_km
+        elif ph == Constants.phaseClath:
+            D_clath_km += thick_km
 
     CMR2_pp = Planet.Bulk.Cmeasured if hasattr(Planet.Bulk, "Cmeasured") else np.nan
     try:
@@ -515,15 +520,22 @@ def build_single_structure(
         "D_iceIII_km": D_iceIII_km,
         "D_iceV_km": D_iceV_km,
         "D_iceVI_km": D_iceVI_km,
-        # Ocean thickness = total hydrosphere − all ice phases. Required by
-        # mcmc_plots.plot_layers_vs_docean and the per-sample D_ocean_km
-        # extracted in the runner's recomputation pass. Without this key, the
-        # plotter falls through to its `pt.get('D_ocean_km', 0.0)` default and
-        # renders the (incorrect) "no-ocean: 100%" panel for Europa.
-        "D_ocean_km": max(
-            0.0,
-            D_hsphere_km - D_iceIh_km - D_iceIII_km - D_iceV_km - D_iceVI_km,
-        ),
+        # Clathrate shell thickness (phase code Constants.phaseClath). Summed
+        # directly from clathrate layers; 0.0 when the model has none.
+        "D_clath_km": D_clath_km,
+        # Ocean thickness = SUM of actual liquid (phase-0) layer thicknesses,
+        # matching find_tb_bounds.py:156-157 and hybrid_structure_cache.py.
+        # Previously this was D_hsphere − Σ(4 ice phases), which (a) omitted the
+        # clathrate shell and (b) dropped the ~few-km radial gaps between
+        # adjacent layers' boundary nodes — so a FULLY FROZEN hydrosphere (no
+        # phase-0 layer) reported a spurious ~16 km "ocean" (scientific-reviewer
+        # 2026-07-24: verified the residual = clathrate 1.9 km + 14.8 km node
+        # gaps, NOT liquid). Summing liquid layers gives a true 0 for no-ocean
+        # models and the correct thickness for ocean-bearing ones. This is a
+        # real computed 0, NOT the pt.get('D_ocean_km', 0.0) missing-key
+        # fallback that caused the Europa "no-ocean 100%" panel — the key is
+        # still present, so mcmc_plots (855/1069) reads a valid value.
+        "D_ocean_km": D_ocean_km_direct,
         # C2-B induction layered representation
         "rSigChange_m": rSigChange_m,
         "sigmaLayers_Sm": sigmaLayers_Sm,

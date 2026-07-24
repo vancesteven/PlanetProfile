@@ -1071,6 +1071,55 @@ _SBI_ARTIFACT_SLOTS = {
         # torch 2.8 (artifact trained on 2.11). See sbi_artifacts/INDEX.md.
         'validated_version_pairs': (('torch', '2.11.0', '2.8.0'),),
     },
+    'titan_freegrav_noocean_posterior_1m.pt': {
+        'label': ('1D · Cassini–Titan (Andrade, no ocean) — free-gravity, '
+                  '12D · free C₂₀/C₂₂ (agnostic) + measured k₂, CMR₂ dropped'),
+        'bodyname': 'Titan',
+        'config_path': ('PlanetProfile/Inference/configs/'
+                        'titan_freegrav_noocean.json'),
+        'cache_path': ('PlanetProfile/Test/mcmc_results/Titan/'
+                       'Test52_andrade_noocean_diff/'
+                       'titan_diff_noocean_structure_grid.pkl'),
+        # Fiducial conditioning = config observable centrals. C20/C22 =
+        # Petricca et al. 2025 (J2 = 33.511e-6 → C20 = -3.3511e-5;
+        # C22 = 10.107e-6) at R_ref = 2575 km; Re_k2/Im_k2 = measured Titan
+        # tidal Love numbers. NO CMR2 key — dropped by design (it would
+        # double-count C22 through the hydrostatic Radau–Darwin reduction).
+        # NO induction / h2 — Saturn's field is spin-aligned and the
+        # ionosphere screens the signal; there is no measured Titan h2.
+        'default_obs': {
+            'C20': -3.3511e-05, 'C22': 1.0107e-05,
+            'Re_k2': 0.608, 'Im_k2': 0.135,
+        },
+        # Same physical-k2 support guard as training (fluid-limit secular
+        # Love ceiling): refuse Im_k2 outside the validated conditioning band.
+        'x_obs_limits': {'Im_k2': (0.0, 0.30)},
+        'scope_note': ('Titan free-gravity (no ocean): CMR₂ DROPPED (removes '
+                       'the hydrostatic double-count of C₂₂); C₂₀/C₂₂ = '
+                       'Petricca et al. 2025. ΔC₂₀ⁿʰ/ΔC₂₂ⁿʰ are FREELY SAMPLED '
+                       'non-hydrostatic offsets (additive departures from the '
+                       'hydrostatic Clairaut prediction) — hydrostatic '
+                       'equilibrium is NOT enforced on the training data; the '
+                       'offset priors are wide (±2e-5 / ±5e-6) and their '
+                       'posteriors ARE the inferred non-hydrostaticity. This '
+                       'makes gravity interior-agnostic (carries ~zero interior '
+                       'C/MR² information). For Titan the measured C₂₀/C₂₂ '
+                       'happen to be hydrostatic-consistent (−C₂₀/C₂₂ ≈ 10/3), '
+                       'so the offset posteriors sit near zero (a null RESULT, '
+                       'not an assumption); the interior is constrained by the '
+                       'MEASURED tidal k₂ (primary constraint). Induction + h₂ '
+                       'dropped (no clean Cassini signal). Reviewer VERIFIED '
+                       '2026-07-24 for the '
+                       'interior-agnostic gravity deliverable (identifiable '
+                       'dC20_nh+3.333·dC22_nh agrees MCMC↔SBI to 0.019σ, both '
+                       'consistent with zero). Two gate exits are '
+                       'FAIL-adjudicated-acceptable: crosscheck = conservative '
+                       'dC22_nh nuisance limitation; limits = genuine Titan '
+                       'physics (reference MCMC is also non-monotone at low '
+                       'Im_k2). Gate details: validation_reports/'
+                       'titan_freegrav_noocean_1m/. NO interior-C/MR² claim '
+                       'until the Task D reweighter lands (#36).'),
+    },
     'europa_galileo_v1p1_8D_posterior_1m.pt': {
         'label': '1D · Galileo–Europa (Andrade, seawater) — v1.1 honest observables, 8D',
         'bodyname': 'Europa',
@@ -1904,10 +1953,30 @@ def render_amortized_config():
         from PlanetProfile.Inference.gravity_obs import (
             rotation_parameter as _rp, R_REF_GC21_M as _RREF,
             J2_OVER_C22 as _J2OC)
+        # The reference radius and J2/C22 ratio are BODY-SPECIFIC (the GC21
+        # module constants are Europa's: R_ref = 1565 km, J2/C22 = 3.324). A
+        # non-Europa slot whose config carries its own gravity metadata
+        # (gravity_ref_radius_m, gravity_j2_over_c22 — e.g. Titan's 2575 km,
+        # 10/3) must use those, or the C/MR²=2/3 clamp ceiling is computed at
+        # the wrong scale and lets through RD-unphysical entries. Fall back to
+        # the Europa constants when the config omits them.
+        _rref = float(_RREF)
+        _j2oc = float(_J2OC)
+        try:
+            import json as _json
+            _cfg_meta = (_json.loads(
+                (Path(parent_directory) / slot['config_path']).read_text())
+                .get('metadata', {}) or {})
+            if _cfg_meta.get('gravity_ref_radius_m'):
+                _rref = float(_cfg_meta['gravity_ref_radius_m'])
+            if _cfg_meta.get('gravity_j2_over_c22'):
+                _j2oc = float(_cfg_meta['gravity_j2_over_c22'])
+        except Exception:
+            pass
         _om, _R, _M = _grav_clamp
-        _c22_hi = _rp(_om, _R, _M) * (_R / _RREF) ** 2   # C/MR²=2/3 edge
+        _c22_hi = _rp(_om, _R, _M) * (_R / _rref) ** 2   # C/MR²=2/3 edge
         _gc_bounds['C22'] = (0.0, float(_c22_hi))
-        _gc_bounds['C20'] = (float(-_J2OC * _c22_hi), 0.0)
+        _gc_bounds['C20'] = (float(-_j2oc * _c22_hi), 0.0)
 
     def _clamp_to_bounds(key, lo, hi):
         """on_change callback: snap a widget's own session_state value into
@@ -2346,6 +2415,34 @@ def render_amortized_run_button(spec, InferenceConfig):
 _CORNER_MAX_FIGSIZE = 26.0   # inches; cap so fonts stay legible on many-param models
 
 
+def _registry_labels(param_names, fallback_labels=None):
+    """Map sampled parameter names to the registry's canonical LaTeX labels.
+
+    The trained artifact stores param_labels built by MCMCRunner._make_label,
+    a small hardcoded map that (a) lacks entries for R_core_km / rho_core_kgm3 /
+    dC20_nh / dC22_nh (they fell through to the raw name) and (b) omits units on
+    the viscosities. parameter_registry.PARAMETER_REGISTRY is the single source
+    of truth for labels and carries units, so re-derive at display time — this
+    corrects existing artifacts without retraining. Falls back to the stored
+    label (then the raw name) for any parameter absent from the registry.
+    """
+    try:
+        from PlanetProfile.Inference.parameter_registry import PARAMETER_REGISTRY
+    except Exception:
+        PARAMETER_REGISTRY = {}
+    fb = list(fallback_labels) if fallback_labels is not None else None
+    out = []
+    for i, name in enumerate(param_names):
+        pdef = PARAMETER_REGISTRY.get(name)
+        if pdef is not None and getattr(pdef, 'latex_label', None):
+            out.append(pdef.latex_label)
+        elif fb is not None and i < len(fb):
+            out.append(fb[i])
+        else:
+            out.append(name)
+    return out
+
+
 def _render_corner_figure(samples, labels, *, seed=0):
     """Build a crisp, Gaussian-smoothed corner figure (2D density rasterized).
 
@@ -2520,17 +2617,28 @@ def render_results():
             # off-diagonal panels reveal which ocean/ice thickness range the posterior
             # prefers, and the diagonal panels give the marginal distributions.
             corner_samples = result.samples
-            corner_labels = list(result.param_labels)
+            # Re-derive labels from the registry (single source of truth, with
+            # units) rather than the artifact's stored param_labels, which used
+            # a stale hardcoded map missing R_core/rho_core/dC20/dC22 and units.
+            corner_labels = _registry_labels(
+                result.param_names, fallback_labels=result.param_labels)
 
             D_ocean = getattr(result, 'D_ocean_results', None)
             D_iceIh = getattr(result, 'D_iceIh_results', None)
+            D_clath = getattr(result, 'D_clath_results', None)
 
+            # D_ocean is the actual liquid-layer thickness (0 for a frozen
+            # no-ocean model — it then has no dynamic range and is dropped by
+            # the zero-variance filter below, so no phantom "ocean" panel).
             if D_ocean is not None and np.any(np.isfinite(D_ocean)):
                 corner_samples = np.column_stack([corner_samples, D_ocean])
                 corner_labels.append(r'$D_{\rm ocean}$ (km)')
             if D_iceIh is not None and np.any(np.isfinite(D_iceIh)):
                 corner_samples = np.column_stack([corner_samples, D_iceIh])
                 corner_labels.append(r'$D_{\rm IceIh}$ (km)')
+            if D_clath is not None and np.any(np.isfinite(D_clath)):
+                corner_samples = np.column_stack([corner_samples, D_clath])
+                corner_labels.append(r'$D_{\rm clath}$ (km)')
 
             # Filter out columns with no dynamic range (zero variance)
             # corner.corner fails if any column is constant.
@@ -2576,6 +2684,7 @@ def render_results():
             layers = []  # (label, values_km, color)
             D_ice = getattr(result, 'D_iceIh_results', None)
             D_oc = getattr(result, 'D_ocean_results', None)
+            D_cl = getattr(result, 'D_clath_results', None)
             D_hs = getattr(result, 'D_hsphere_results', None)
             R_body = (result.metadata or {}).get('R_body_km')
             R_core = None
@@ -2586,7 +2695,15 @@ def render_results():
             if D_ice is not None and np.any(np.isfinite(D_ice)):
                 layers.append(('Ice Ih shell thickness',
                                np.asarray(D_ice, float), '#AEE1F8'))
-            if D_oc is not None and np.any(np.isfinite(D_oc)):
+            # Clathrate shell (Titan). Show only when a clathrate layer is
+            # actually present (finite and > 0 somewhere).
+            if D_cl is not None and np.any(np.asarray(D_cl, float) > 1e-9):
+                layers.append(('Clathrate shell thickness',
+                               np.asarray(D_cl, float), '#D6C7F0'))
+            # Ocean = actual liquid layers. Suppress the panel for a frozen
+            # (no-ocean) model, where D_ocean is 0 everywhere — plotting a
+            # constant-0 histogram would falsely imply an "ocean" distribution.
+            if D_oc is not None and np.any(np.asarray(D_oc, float) > 1e-9):
                 layers.append(('Ocean thickness',
                                np.asarray(D_oc, float), '#1E90FF'))
             # Rock mantle thickness = R_body - hydrosphere - core radius.
