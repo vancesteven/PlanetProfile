@@ -3291,47 +3291,132 @@ def render_results():
                     figure_src = ("hydrostatic figure from the posterior "
                                   "k_f (no C20/C22 in this run)")
 
-                dev = abs(c20 or 0.0) + 3 * abs(c22 or 0.0)
-                default_ex = (min(500.0, max(1.0, 0.03 / dev))
-                              if dev > 0 else 1.0)
-                exagg = st.slider(
-                    "Shape exaggeration (1 = true figure)", 1.0, 500.0,
-                    float(round(default_ex)), 1.0, key='globe_exagg')
+                # Tabs (user 2026-07-23): the sample picker doubles as a
+                # radial-structure explorer — the same selected draw feeds
+                # the 3D globe, standard property profiles, and a
+                # proportional layer stack.
+                _tab_globe, _tab_prof, _tab_stack = st.tabs(
+                    ['🌐 Globe', '📈 Radial profiles', '🧅 Layer stack'])
+                with _tab_globe:
+                    dev = abs(c20 or 0.0) + 3 * abs(c22 or 0.0)
+                    default_ex = (min(500.0, max(1.0, 0.03 / dev))
+                                  if dev > 0 else 1.0)
+                    exagg = st.slider(
+                        "Shape exaggeration (1 = true figure)", 1.0, 500.0,
+                        float(round(default_ex)), 1.0, key='globe_exagg')
 
-                fig3d = build_globe_figure(
-                    body, R_km, glayers, c20=c20, c22=c22, kf=kf,
-                    exaggeration=exagg)
-                st.plotly_chart(fig3d, width='stretch', key='globe_chart')
-                from Utilities.globe_view import triaxial_semiaxes
-                _kf_amp = (1.0 + (kf or 1.0)) / (kf or 1.0)
-                _a, _b, _c = triaxial_semiaxes(
-                    R_km, (c20 or 0.0), (c22 or 0.0), _kf_amp, 1.0)
-                st.caption(
-                    f"Principal axes (true figure, no exaggeration): "
-                    f"a = {_a:.2f} km (sub-parent, moment A), "
-                    f"b = {_b:.2f} km (orbital, B), "
-                    f"c = {_c:.2f} km (spin, C); "
-                    f"a − c = {(_a - _c) * 1000:.0f} m. "
-                    f"Figure source: {figure_src}.")
-                tex_note = ("NASA/USGS global mosaic (public domain)"
-                            if texture_path(body) else
-                            "no shipped texture for this body yet — "
-                            "shaded sphere")
-                shape_note = (
-                    "Surface deformed by the degree-2 figure implied by "
-                    "C20/C22 (tidal bulge along the sub-parent x-axis, "
-                    "polar flattening) with fluid amplification "
-                    "(1+k_f)/k_f — the non-spherical shape the "
-                    "spherically averaged C/MR² never captures."
-                    if (c20 or c22) else
-                    "No C20/C22 in this run — sphere shown; gravity-pair "
-                    "configs deform the figure.")
-                st.caption(
-                    f"Showing {which}. Drag to rotate, scroll to zoom. "
-                    f"Texture: {tex_note}. Cutaway wedge exposes the "
-                    f"interior; the innermost body is solid. {shape_note} "
-                    "Lateral (3D) structure becomes per-layer r(θ, φ) "
-                    "fields on this same mesh — roadmap.")
+                    fig3d = build_globe_figure(
+                        body, R_km, glayers, c20=c20, c22=c22, kf=kf,
+                        exaggeration=exagg)
+                    st.plotly_chart(fig3d, width='stretch', key='globe_chart')
+                    from Utilities.globe_view import triaxial_semiaxes
+                    _kf_amp = (1.0 + (kf or 1.0)) / (kf or 1.0)
+                    _a, _b, _c = triaxial_semiaxes(
+                        R_km, (c20 or 0.0), (c22 or 0.0), _kf_amp, 1.0)
+                    st.caption(
+                        f"Principal axes (true figure, no exaggeration): "
+                        f"a = {_a:.2f} km (sub-parent, moment A), "
+                        f"b = {_b:.2f} km (orbital, B), "
+                        f"c = {_c:.2f} km (spin, C); "
+                        f"a − c = {(_a - _c) * 1000:.0f} m. "
+                        f"Figure source: {figure_src}.")
+                    tex_note = ("NASA/USGS global mosaic (public domain)"
+                                if texture_path(body) else
+                                "no shipped texture for this body yet — "
+                                "shaded sphere")
+                    shape_note = (
+                        "Surface deformed by the degree-2 figure implied by "
+                        "C20/C22 (tidal bulge along the sub-parent x-axis, "
+                        "polar flattening) with fluid amplification "
+                        "(1+k_f)/k_f — the non-spherical shape the "
+                        "spherically averaged C/MR² never captures."
+                        if (c20 or c22) else
+                        "No C20/C22 in this run — sphere shown; gravity-pair "
+                        "configs deform the figure.")
+                    st.caption(
+                        f"Showing {which}. Drag to rotate, scroll to zoom. "
+                        f"Texture: {tex_note}. Cutaway wedge exposes the "
+                        f"interior; the innermost body is solid. {shape_note} "
+                        "Lateral (3D) structure becomes per-layer r(θ, φ) "
+                        "fields on this same mesh — roadmap.")
+
+                with _tab_prof:
+                    from Utilities.radial_profiles import (
+                        profile_for_sample, build_profile_figure)
+                    prof, _note = profile_for_sample(
+                        result, sel_idx, parent_directory)
+                    if prof is None:
+                        st.info(f"Radial profiles unavailable: {_note}")
+                    else:
+                        _ttl = (f"sample #{sel_idx}" if sel_idx is not None
+                                else "posterior median")
+                        if prof.get('Tb_K'):
+                            _ttl += f" (T_b = {prof['Tb_K']:.1f} K)"
+                        _crisp_display(
+                            builder=lambda: build_profile_figure(
+                                prof, f"Radial structure — {_ttl}"),
+                            key='globe_radial_prof',
+                            download_label='radial profiles',
+                            token=(_result_token(), sel_idx))
+                        st.caption(
+                            "Standard PlanetProfile property profiles for "
+                            "the selected draw, rebuilt through the same "
+                            "(T_b, w) structure-cache interpolation the "
+                            "likelihood used. Phase bands share the globe "
+                            "colors. Click a different sample above to "
+                            "explore how the interior changes.")
+
+                with _tab_stack:
+                    from Utilities.radial_profiles import build_stack_figure
+
+                    def _th(a):
+                        if a is None or not np.size(a):
+                            return 0.0
+                        _arr = np.asarray(a, float)
+                        if sel_idx is None:
+                            _f = _arr[np.isfinite(_arr)]
+                            return float(np.median(_f)) if _f.size else 0.0
+                        _v = _arr[sel_idx] if _arr.size > sel_idx else np.nan
+                        return float(_v) if np.isfinite(_v) else 0.0
+
+                    _phd = getattr(result, 'D_icePhase_results', None) or {}
+                    _ih = _th(d_ih)
+                    _ocn = _th(d_oc)
+                    _hs = _th(d_hs)
+                    _d3, _d5, _d6 = (_th(_phd.get('III')),
+                                     _th(_phd.get('V')),
+                                     _th(_phd.get('VI')))
+                    _hp = _th(d_hp)
+                    if _d3 + _d5 + _d6 < 0.5 and _hp > 0.5:
+                        _hp_items = [('hp_ice', _hp)]
+                    else:
+                        _hp_items = [('ice_III', _d3), ('ice_V', _d5),
+                                     ('ice_VI', _d6)]
+                    _rc = (_th(samples[:, names.index('R_core_km')])
+                           if 'R_core_km' in names else 0.0)
+                    _sil = max(0.0, (R_km - _hs) - _rc)
+                    _items = ([('ice_Ih', _ih), ('ocean', _ocn)]
+                              + _hp_items
+                              + [('silicate', _sil), ('core', _rc)])
+                    _sttl = (f"sample #{sel_idx}" if sel_idx is not None
+                             else "posterior median")
+                    _crisp_display(
+                        builder=lambda: build_stack_figure(
+                            R_km, _items, f"Layer stack — {_sttl}"),
+                        key='globe_layer_stack',
+                        download_label='layer stack',
+                        token=(_result_token(), sel_idx))
+                    from Utilities.globe_view import LAYER_LABELS as _LL
+                    _rows, _rtop = [], float(R_km)
+                    for _k, _d in _items:
+                        if _d <= 0:
+                            continue
+                        _rows.append({'Layer': _LL.get(_k, _k),
+                                      'Outer radius (km)': round(_rtop, 1),
+                                      'Thickness (km)': round(_d, 1)})
+                        _rtop -= _d
+                    st.dataframe(_rows, hide_index=True,
+                                 width='stretch')
         except Exception as e:
             st.warning(f"Globe unavailable: {e}")
 
