@@ -1,0 +1,297 @@
+{
+  "check": "sbc",
+  "gate": "per-parameter rank-uniformity KS p >= 0.05",
+  "verdict": "PASS",
+  "results": {
+    "n_sbc_pairs": 108,
+    "num_posterior_samples": 1000,
+    "ks_alpha": 0.05,
+    "per_parameter": [
+      {
+        "param": "$\\alpha$",
+        "ks_pval": 0.369518905878067,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.472093023255814
+      },
+      {
+        "param": "$\\log_{10}(\\zeta_{\\rm Ih})$",
+        "ks_pval": 0.6750298738479614,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.5004228329809726
+      },
+      {
+        "param": "$\\log_{10}(\\zeta_{\\rm sil})$",
+        "ks_pval": 0.5696156620979309,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.48615221987315016
+      },
+      {
+        "param": "$\\log_{10}\\eta_\\mathrm{Ih}$",
+        "ks_pval": 0.9915149211883545,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.4858350951374207
+      },
+      {
+        "param": "$\\log_{10}\\eta_\\mathrm{sil}$",
+        "ks_pval": 0.1978129893541336,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.45359408033826637
+      },
+      {
+        "param": "$D_{\\rm ice\\,Ih}$ (km)",
+        "ks_pval": 0.40977123379707336,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.5321353065539112
+      },
+      {
+        "param": "log10_wOcean_ppt",
+        "ks_pval": 0.7874075174331665,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.4675475687103594
+      },
+      {
+        "param": "R_core_km",
+        "ks_pval": 0.06929624825716019,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.4583509513742072
+      },
+      {
+        "param": "rho_core_kgm3",
+        "ks_pval": 0.4658735394477844,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.4719873150105709
+      },
+      {
+        "param": "dC20_nh",
+        "ks_pval": 0.699630618095398,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.5414376321353066
+      },
+      {
+        "param": "dC22_nh",
+        "ks_pval": 0.21576212346553802,
+        "ks_pass": true,
+        "c2st_rank_accuracy": 0.45338266384778014
+      }
+    ],
+    "all_pass": true,
+    "min_ks_pval": 0.06929624825716019
+  },
+  "source": {
+    "mode": "generated",
+    "config": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/configs/europa_clipper_v5_geodesy_11D.json",
+    "gen_stats": {
+      "n_requested": 300,
+      "n_rejected_support": 187,
+      "n_rejected_nonfinite": 5,
+      "rejection_rate": 0.64,
+      "imag_convention": "abs",
+      "seed": 51,
+      "obs_noise": {
+        "type": "gaussian_diagonal",
+        "sigma": {
+          "CMR2": 0.0024,
+          "C20": 8.5e-07,
+          "C22": 2e-07,
+          "Re_k2": 0.015,
+          "Im_k2": 0.015,
+          "Re_h2": 0.1,
+          "Im_h2": 0.1,
+          "Bind_synodic_x_real": 1.5,
+          "Bind_synodic_x_imag": 1.5,
+          "Bind_synodic_y_real": 1.5,
+          "Bind_synodic_y_imag": 1.5,
+          "Bind_synodic_z_real": 1.5,
+          "Bind_synodic_z_imag": 1.5,
+          "Bind_synodic 2nd_x_real": 1.5,
+          "Bind_synodic 2nd_x_imag": 1.5,
+          "Bind_synodic 2nd_y_real": 1.5,
+          "Bind_synodic 2nd_y_imag": 1.5,
+          "Bind_orbital_x_real": 1.5,
+          "Bind_orbital_x_imag": 1.5,
+          "Bind_orbital_y_real": 1.5,
+          "Bind_orbital_y_imag": 1.5
+        },
+        "correlations": null,
+        "noise_seed": null,
+        "refold_im": false
+      },
+      "apply_support_guard": true,
+      "n_kept": 108
+    }
+  },
+  "artifact": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/sbi_artifacts/europa_clipper_v5_geodesy_11D_posterior_1m.pt",
+  "artifact_meta": {
+    "schema_version": 1,
+    "config_hash": "0781749945edc44b",
+    "bodyname": "Europa",
+    "git_sha": "ec711672",
+    "seed": 51,
+    "n_train_effective": 381734,
+    "sbi_version": "0.26.1",
+    "torch_version": "2.8.0",
+    "created_utc": "2026-07-21T21:13:06Z",
+    "density_estimator": "nsf",
+    "imag_convention": "abs",
+    "param_names": [
+      "alpha",
+      "log10_zeta_Ih",
+      "log10_zeta_sil",
+      "log10_eta_Ih",
+      "log10_eta_sil",
+      "D_iceIh_km",
+      "log10_wOcean_ppt",
+      "R_core_km",
+      "rho_core_kgm3",
+      "dC20_nh",
+      "dC22_nh"
+    ],
+    "param_bounds": [
+      [
+        0.15,
+        0.45
+      ],
+      [
+        -3.0,
+        2.0
+      ],
+      [
+        -3.0,
+        2.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        18.0,
+        22.0
+      ],
+      [
+        5.0,
+        80.0
+      ],
+      [
+        -1.0,
+        2.0
+      ],
+      [
+        0.0,
+        780.5
+      ],
+      [
+        5000.0,
+        8000.0
+      ],
+      [
+        -2e-05,
+        2e-05
+      ],
+      [
+        -2e-05,
+        2e-05
+      ]
+    ],
+    "obs_names": [
+      "CMR2",
+      "C20",
+      "C22",
+      "Re_k2",
+      "Im_k2",
+      "Re_h2",
+      "Im_h2",
+      "Bind_synodic_x_real",
+      "Bind_synodic_x_imag",
+      "Bind_synodic_y_real",
+      "Bind_synodic_y_imag",
+      "Bind_synodic_z_real",
+      "Bind_synodic_z_imag",
+      "Bind_synodic 2nd_x_real",
+      "Bind_synodic 2nd_x_imag",
+      "Bind_synodic 2nd_y_real",
+      "Bind_synodic 2nd_y_imag",
+      "Bind_orbital_x_real",
+      "Bind_orbital_x_imag",
+      "Bind_orbital_y_real",
+      "Bind_orbital_y_imag"
+    ],
+    "rejection_stats": {
+      "n_requested": 1000000,
+      "n_rejected_support": 606999,
+      "n_rejected_nonfinite": 11267,
+      "rejection_rate": 0.618266,
+      "imag_convention": "abs",
+      "seed": 57,
+      "obs_noise": {
+        "type": "gaussian_diagonal",
+        "sigma": {
+          "CMR2": 0.0024,
+          "C20": 8.5e-07,
+          "C22": 2e-07,
+          "Re_k2": 0.015,
+          "Im_k2": 0.015,
+          "Re_h2": 0.1,
+          "Im_h2": 0.1,
+          "Bind_synodic_x_real": 1.5,
+          "Bind_synodic_x_imag": 1.5,
+          "Bind_synodic_y_real": 1.5,
+          "Bind_synodic_y_imag": 1.5,
+          "Bind_synodic_z_real": 1.5,
+          "Bind_synodic_z_imag": 1.5,
+          "Bind_synodic 2nd_x_real": 1.5,
+          "Bind_synodic 2nd_x_imag": 1.5,
+          "Bind_synodic 2nd_y_real": 1.5,
+          "Bind_synodic 2nd_y_imag": 1.5,
+          "Bind_orbital_x_real": 1.5,
+          "Bind_orbital_x_imag": 1.5,
+          "Bind_orbital_y_real": 1.5,
+          "Bind_orbital_y_imag": 1.5
+        },
+        "correlations": null,
+        "noise_seed": 5757,
+        "refold_im": false
+      },
+      "apply_support_guard": true,
+      "n_kept": 381734,
+      "arm": "baseline",
+      "sliced_from": "baseline_21obs",
+      "obs_names": [
+        "CMR2",
+        "C20",
+        "C22",
+        "Re_k2",
+        "Im_k2",
+        "Re_h2",
+        "Im_h2",
+        "Bind_synodic_x_real",
+        "Bind_synodic_x_imag",
+        "Bind_synodic_y_real",
+        "Bind_synodic_y_imag",
+        "Bind_synodic_z_real",
+        "Bind_synodic_z_imag",
+        "Bind_synodic 2nd_x_real",
+        "Bind_synodic 2nd_x_imag",
+        "Bind_synodic 2nd_y_real",
+        "Bind_synodic 2nd_y_imag",
+        "Bind_orbital_x_real",
+        "Bind_orbital_x_imag",
+        "Bind_orbital_y_real",
+        "Bind_orbital_y_imag"
+      ],
+      "n_obs": 21,
+      "subset_finite_frac_among_kept": 1.0
+    }
+  },
+  "rank_plot": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/europa_clipper_v5_baseline_1m/sbc/sbc_rank_cdf.png",
+  "provenance": {
+    "seed": 51,
+    "timestamp_utc": "2026-07-21T22:51:03Z",
+    "git_sha": "ec711672",
+    "versions": {
+      "torch": "2.8.0",
+      "sbi": "0.26.1",
+      "scipy": "1.16.3",
+      "numpy": "2.4.3"
+    }
+  }
+}

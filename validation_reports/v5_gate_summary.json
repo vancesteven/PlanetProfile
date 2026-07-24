@@ -1,0 +1,47 @@
+{
+  "seed": 51,
+  "arms": {
+    "baseline": {
+      "sbc": 0,
+      "limits": 2,
+      "crosscheck": 2
+    },
+    "noinduction": {
+      "sbc": 0,
+      "limits": 2,
+      "crosscheck": "n/a (no reference MCMC for this ablation)"
+    },
+    "nok2": {
+      "sbc": 2,
+      "limits": "skipped (no k2 channel to sweep)",
+      "crosscheck": "n/a (no reference MCMC for this ablation)"
+    }
+  },
+  "ablation_comparison": {
+    "baseline": {
+      "n_draw": 20000,
+      "D_iceIh_median_km": 62.369937896728516,
+      "D_iceIh_q16_km": 57.15738754272461,
+      "D_iceIh_q84_km": 67.5384292602539,
+      "corr_D_logw": 0.9228246313643304,
+      "logw_median": 1.562347173690796
+    },
+    "noinduction": {
+      "n_draw": 20000,
+      "D_iceIh_median_km": 54.92933464050293,
+      "D_iceIh_q16_km": 35.30688659667969,
+      "D_iceIh_q84_km": 70.28364379882812,
+      "corr_D_logw": 0.5387698285534129,
+      "logw_median": 1.3458619713783264
+    },
+    "nok2": {
+      "n_draw": 20000,
+      "D_iceIh_median_km": 62.34015083312988,
+      "D_iceIh_q16_km": 56.937845916748046,
+      "D_iceIh_q84_km": 67.47126434326172,
+      "corr_D_logw": 0.9141462832215491,
+      "logw_median": 1.5606387257575989
+    }
+  },
+  "ref_mcmc": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Test/mcmc_results/Europa/Test52_seawater_v5/europa_clipper_v5_reference_result.pkl"
+}

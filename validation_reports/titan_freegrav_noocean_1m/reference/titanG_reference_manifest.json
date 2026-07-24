@@ -1,0 +1,35 @@
+{
+  "kind": "titanG_noocean_reference_mcmc",
+  "config": "PlanetProfile/Inference/configs/titan_freegrav_noocean.json",
+  "config_hash": "d5e8ffad710e3ecb",
+  "seed": 71,
+  "n_effective": 500,
+  "n_samples": 4468,
+  "log_Z": -11.290031528802473,
+  "log_Z_err": 0.11876198100107954,
+  "elapsed_time_s": 572.0220260620117,
+  "obs_names": [
+    "C20",
+    "C22",
+    "Re_k2",
+    "Im_k2"
+  ],
+  "param_names": [
+    "alpha",
+    "log10_zeta",
+    "log10_eta_Ih",
+    "log10_eta_III",
+    "log10_eta_V",
+    "log10_eta_VI",
+    "log10_eta_sil",
+    "Tb_K",
+    "R_core_km",
+    "rho_core_kgm3",
+    "dC20_nh",
+    "dC22_nh"
+  ],
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Titan/Test52_andrade_noocean_diff/titan_diff_noocean_structure_grid.pkl",
+  "structure_cache_sha256": "d56e0c9351a276e9ac5fe828d06eabf3b1643dfbac7c043cee4c4be0ab9429f1",
+  "git_sha": "aa083ab214e57e497f3bc9e0003a0b48912f4999",
+  "note": "Titan free-gravity no-ocean reference. Observable set {C20,C22,Re_k2,Im_k2} (induction+h2 dropped). Distinct from the test52 production_run pickle, which conditions on {Re_k2,Im_k2,CMR2}."
+}

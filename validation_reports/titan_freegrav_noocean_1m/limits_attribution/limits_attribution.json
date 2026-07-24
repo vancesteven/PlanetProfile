@@ -1,0 +1,77 @@
+{
+  "kind": "titanG_limits_attribution",
+  "sweep_obs": "Im_k2",
+  "sweep_values": [
+    0.05,
+    0.1,
+    0.15,
+    0.2,
+    0.25,
+    0.3
+  ],
+  "fixed_obs": {
+    "C20": -3.3511e-05,
+    "C22": 1.0107e-05,
+    "Re_k2": 0.608
+  },
+  "monotone_param": "log10_eta_Ih",
+  "seed": 71,
+  "grid": [
+    {
+      "sweep_value": 0.05,
+      "log10_eta_Ih_median": 12.255456897609488,
+      "n_samples": 4468
+    },
+    {
+      "sweep_value": 0.1,
+      "log10_eta_Ih_median": 12.554601223155698,
+      "n_samples": 4400
+    },
+    {
+      "sweep_value": 0.15,
+      "log10_eta_Ih_median": 12.7181778770304,
+      "n_samples": 4430
+    },
+    {
+      "sweep_value": 0.2,
+      "log10_eta_Ih_median": 12.539067574884823,
+      "n_samples": 4332
+    },
+    {
+      "sweep_value": 0.25,
+      "log10_eta_Ih_median": 12.818437734681357,
+      "n_samples": 4428
+    },
+    {
+      "sweep_value": 0.3,
+      "log10_eta_Ih_median": 11.505926799897143,
+      "n_samples": 4614
+    }
+  ],
+  "mcmc_medians": [
+    12.255456897609488,
+    12.554601223155698,
+    12.7181778770304,
+    12.539067574884823,
+    12.818437734681357,
+    11.505926799897143
+  ],
+  "mcmc_diffs": [
+    0.2991443255462105,
+    0.163576653874701,
+    -0.17911030214557577,
+    0.27937015979653346,
+    -1.312510934784214
+  ],
+  "sbi_medians": [
+    12.196,
+    12.546,
+    12.607,
+    12.452,
+    11.529,
+    10.961
+  ],
+  "mcmc_low_end_increasing_0p05_to_0p15": true,
+  "mcmc_monotone_decreasing": false,
+  "attribution": "PHYSICS (reference also non-monotone at low Im_k2; gate monotonicity premise wrong for Titan)"
+}

@@ -1,0 +1,11 @@
+{
+  "seed": 71,
+  "artifact": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/sbi_artifacts/titan_freegrav_noocean_posterior_1m.pt",
+  "config": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/configs/titan_freegrav_noocean.json",
+  "ref_mcmc": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/titan_freegrav_noocean_1m/reference/titan_freegrav_noocean_reference_result.pkl",
+  "gates": {
+    "sbc": 0,
+    "limits": 2,
+    "crosscheck": 2
+  }
+}

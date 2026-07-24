@@ -1,0 +1,205 @@
+{
+  "check": "limits",
+  "gate": "log10_eta_Ih posterior median monotone decreasing vs Im_k2 (<= 1 tie); prior-box containment == 1.0",
+  "verdict": "FAIL",
+  "results": {
+    "sweep_obs": "Im_k2",
+    "sweep_values": [
+      0.05,
+      0.1,
+      0.15,
+      0.2,
+      0.25,
+      0.3
+    ],
+    "fixed_obs": {
+      "C20": -3.3511e-05,
+      "C22": 1.0107e-05,
+      "Re_k2": 0.608
+    },
+    "monotone_param": "log10_eta_Ih",
+    "grid": [
+      {
+        "sweep_value": 0.05,
+        "log10_eta_Ih_median": 12.196457862854004,
+        "n_samples": 2000,
+        "n_inside_box": 1951
+      },
+      {
+        "sweep_value": 0.1,
+        "log10_eta_Ih_median": 12.546049118041992,
+        "n_samples": 2000,
+        "n_inside_box": 1960
+      },
+      {
+        "sweep_value": 0.15,
+        "log10_eta_Ih_median": 12.60677433013916,
+        "n_samples": 2000,
+        "n_inside_box": 1960
+      },
+      {
+        "sweep_value": 0.2,
+        "log10_eta_Ih_median": 12.451996803283691,
+        "n_samples": 2000,
+        "n_inside_box": 1960
+      },
+      {
+        "sweep_value": 0.25,
+        "log10_eta_Ih_median": 11.529338836669922,
+        "n_samples": 2000,
+        "n_inside_box": 1932
+      },
+      {
+        "sweep_value": 0.3,
+        "log10_eta_Ih_median": 10.960958480834961,
+        "n_samples": 2000,
+        "n_inside_box": 1937
+      }
+    ],
+    "medians": [
+      12.196457862854004,
+      12.546049118041992,
+      12.60677433013916,
+      12.451996803283691,
+      11.529338836669922,
+      10.960958480834961
+    ],
+    "monotonicity": {
+      "direction": "decreasing",
+      "tol": 0.006,
+      "diffs": [
+        0.3495912551879883,
+        0.06072521209716797,
+        -0.15477752685546875,
+        -0.9226579666137695,
+        -0.5683803558349609
+      ],
+      "n_strict_violations": 2,
+      "n_ties": 0,
+      "max_ties_allowed": 1,
+      "monotone_pass": false
+    },
+    "containment_fraction": 0.975,
+    "containment_required": 1.0,
+    "containment_pass": false,
+    "all_pass": false
+  },
+  "artifact": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/sbi_artifacts/titan_freegrav_noocean_posterior_1m.pt",
+  "artifact_meta": {
+    "schema_version": 1,
+    "config_hash": "9600b13e519baea6",
+    "bodyname": "Titan",
+    "git_sha": "aa083ab2",
+    "seed": 71,
+    "n_train_effective": 877227,
+    "sbi_version": "0.26.1",
+    "torch_version": "2.8.0",
+    "created_utc": "2026-07-24T09:14:46Z",
+    "density_estimator": "nsf",
+    "imag_convention": "abs",
+    "param_names": [
+      "alpha",
+      "log10_zeta",
+      "log10_eta_Ih",
+      "log10_eta_III",
+      "log10_eta_V",
+      "log10_eta_VI",
+      "log10_eta_sil",
+      "Tb_K",
+      "R_core_km",
+      "rho_core_kgm3",
+      "dC20_nh",
+      "dC22_nh"
+    ],
+    "param_bounds": [
+      [
+        0.15,
+        0.45
+      ],
+      [
+        -3.0,
+        2.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        18.0,
+        22.0
+      ],
+      [
+        249.0,
+        250.965
+      ],
+      [
+        0.0,
+        2000.0
+      ],
+      [
+        2591.0,
+        3600.0
+      ],
+      [
+        -2e-05,
+        2e-05
+      ],
+      [
+        -5e-06,
+        5e-06
+      ]
+    ],
+    "obs_names": [
+      "C20",
+      "C22",
+      "Re_k2",
+      "Im_k2"
+    ],
+    "rejection_stats": {
+      "n_requested": 1000000,
+      "n_rejected_support": 2008,
+      "n_rejected_nonfinite": 120765,
+      "rejection_rate": 0.122773,
+      "imag_convention": "abs",
+      "seed": 71,
+      "obs_noise": {
+        "type": "gaussian_diagonal",
+        "sigma": {
+          "C20": 4.71e-07,
+          "C22": 6.2e-08,
+          "Re_k2": 0.048,
+          "Im_k2": 0.035
+        },
+        "correlations": null,
+        "noise_seed": 7171,
+        "refold_im": false
+      },
+      "apply_support_guard": true,
+      "n_kept": 877227
+    }
+  },
+  "limits_plot": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/titan_freegrav_noocean_1m/limits/limits_median_trend.png",
+  "provenance": {
+    "seed": 71,
+    "timestamp_utc": "2026-07-24T13:05:25Z",
+    "git_sha": "aa083ab2",
+    "versions": {
+      "torch": "2.8.0",
+      "sbi": "0.26.1",
+      "scipy": "1.16.3",
+      "numpy": "2.4.3"
+    }
+  }
+}
