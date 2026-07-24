@@ -90,6 +90,21 @@ def profile_for_sample(result, sel_idx: Optional[int], parent_directory
 
     theta = _theta_for(result, sel_idx)
 
+    # Mirror the runner's _expand_theta: broadcast group keys to their
+    # members, then overlay fixed (non-sampled) parameters — without this
+    # a fixed-Tb config (Titan no-ocean) never reaches the structural
+    # hook and yields no radial grid.
+    cfg = result.config
+    for _gkey, _members in (getattr(cfg, 'param_groups', {}) or {}).items():
+        if _gkey in theta:
+            for _m in _members:
+                theta[_m] = theta[_gkey]
+    for _k, _v in (getattr(cfg, 'fixed_params', {}) or {}).items():
+        try:
+            theta[_k] = float(_v)
+        except (TypeError, ValueError):
+            pass
+
     # v5/v6 thick-ice reparameterization: Tb_K is not sampled; derive it
     # by inverting the cached D_iceIh(Tb, w) field — the same inversion
     # the runner uses (grid_interp_2d).
@@ -126,10 +141,42 @@ def profile_for_sample(result, sel_idx: Optional[int], parent_directory
         return None, ("cache did not yield a radial structure for this "
                       "parameterization")
 
+    # Effective viscosity — the SAME eta the tidal-heating forward model
+    # uses (forward_model_k2_flexible): the cache's base profile, replaced
+    # per-phase by any sampled log10_eta_* (hook writes 'eta_Pa'), then
+    # Arrhenius-scaled eta(T) = eta_ref exp(E/R (1/T - 1/T_ref)) with
+    # T_ref = the draw's basal temperature when the run configures
+    # arrhenius_params.
+    try:
+        _eta = modified.get('eta_Pa')
+        if _eta is None and modified.get('eta_Pa_base') is not None:
+            _eta = np.asarray(modified['eta_Pa_base'], float).copy()
+        _ap = (getattr(cfg, 'arrhenius_params', None)
+               or (getattr(cfg, 'sampler_settings', {}) or {}).get(
+                   'arrhenius_params'))
+        if (_eta is not None and _ap
+                and all(k in modified for k in
+                        ('phases', 'changeIndices', 'n_layers'))):
+            from PlanetProfile.Inference.forward_models import (
+                apply_arrhenius_viscosity)
+            _ape = dict(_ap)
+            if ('Tb_K_sampled' in modified
+                    and 'reference_temp_K' not in _ap):
+                _ape['reference_temp_K'] = float(modified['Tb_K_sampled'])
+            _eta = apply_arrhenius_viscosity(
+                np.asarray(_eta, float).copy(), modified['phases'],
+                modified['changeIndices'], modified['n_layers'],
+                modified.get('T_K'), _ape)
+        if _eta is not None:
+            modified = dict(modified)
+            modified['eta_Pa'] = _eta
+    except Exception:
+        pass  # fall back to the base profile below
+
     order = np.argsort(np.asarray(r_m, float))  # plot outward
     prof = {'r_km': np.asarray(r_m, float)[order] / 1e3}
     for key in ('rho', 'T_K', 'P_MPa', 'sigma_Sm', 'eta_Pa_base',
-                'mu_Pa', 'K_Pa', 'phases'):
+                'eta_Pa', 'mu_Pa', 'K_Pa', 'phases'):
         v = modified.get(key)
         prof[key] = (np.asarray(v, float)[order]
                      if v is not None and np.size(v) == order.size else None)
@@ -232,8 +279,9 @@ def _phase_bands(r_km, phases) -> List[Tuple[float, float, str]]:
 def build_profile_figure(prof: Dict, title: str):
     """Standard-property profiles with RADIUS ON THE Y-AXIS, surface at
     the top of the figure (user 2026-07-23): density, temperature,
-    pressure, and conductivity — or sound speeds when the cache carries
-    no conductivity data."""
+    pressure, viscosity and shear modulus (the tidal-heating rheology
+    inputs, user 2026-07-24), and conductivity — or sound speeds when
+    the cache carries no conductivity data."""
     import matplotlib.pyplot as plt
 
     r = prof['r_km']
@@ -243,18 +291,23 @@ def build_profile_figure(prof: Dict, title: str):
     has_sigma = sig is not None and np.any(
         np.isfinite(sig) & (np.asarray(sig) > 1e-12))
     if has_sigma:
-        last = [('sigma_Sm', r'Conductivity $\sigma$ (S m$^{-1}$)', 'log')]
+        last = [('sigma_Sm', r'Conductivity $\sigma$ (S m$^{-1}$)',
+                 'log', 1.0)]
     else:
-        last = [('VP_kms', r'$V_P$, $V_S$ (km s$^{-1}$)', 'linear')]
+        last = [('VP_kms', r'$V_P$, $V_S$ (km s$^{-1}$)', 'linear', 1.0)]
+    eta_key = 'eta_Pa' if prof.get('eta_Pa') is not None else 'eta_Pa_base'
     panels = [
-        ('rho', r'Density $\rho$ (kg m$^{-3}$)', 'linear'),
-        ('T_K', r'Temperature $T$ (K)', 'linear'),
-        ('P_MPa', r'Pressure $P$ (MPa)', 'linear'),
+        ('rho', r'Density $\rho$ (kg m$^{-3}$)', 'linear', 1.0),
+        ('T_K', r'Temperature $T$ (K)', 'linear', 1.0),
+        ('P_MPa', r'Pressure $P$ (MPa)', 'linear', 1.0),
+        (eta_key, r'Viscosity $\eta$ (Pa s)', 'log', 1.0),
+        ('mu_Pa', r'Shear modulus $\mu$ (GPa)', 'linear', 1e-9),
     ] + last
-    fig, axes = plt.subplots(1, 4, figsize=(11, 5.6), sharey=True)
+    fig, axes = plt.subplots(1, len(panels), figsize=(15.5, 5.6),
+                             sharey=True)
     bands = _phase_bands(r, prof.get('phases'))
     seen_kinds: List[str] = []
-    for (key, xlab, xscale), ax in zip(panels, axes):
+    for (key, xlab, xscale, xfac), ax in zip(panels, axes):
         for lo, hi, kind in bands:
             ax.axhspan(lo, hi, color=_rgb01(LAYER_COLORS[kind]),
                        alpha=0.25, linewidth=0)
@@ -265,8 +318,9 @@ def build_profile_figure(prof: Dict, title: str):
             ax.text(0.5, 0.5, 'not in cache', transform=ax.transAxes,
                     ha='center', color='0.5')
         else:
-            vv = np.where(np.asarray(v) > 0, v, np.nan) \
-                if xscale == 'log' else v
+            vv = np.asarray(v, float) * xfac
+            if xscale == 'log':
+                vv = np.where(vv > 0, vv, np.nan)
             ax.plot(vv, r, color='k', linewidth=1.4, label=r'$V_P$'
                     if key == 'VP_kms' else None)
             if key == 'VP_kms' and prof.get('VS_kms') is not None:
@@ -451,7 +505,7 @@ _PP_COLUMNS = [
     ('Ppore (MPa)', None), ('rhoMatrix (kg/m3)', None),
     ('rhoPore (kg/m3)', None), ('MLayer (kg)', 'MLayer_kg'),
     ('VLayer (m3)', 'VLayer_m3'), ('Htidal (W/m3)', None),
-    ('eta (Pa s)', 'eta_Pa_base'),
+    ('eta (Pa s)', '_eta_eff'),
 ]
 
 
@@ -465,6 +519,10 @@ def profile_table(prof: Dict) -> "list[dict]":
                     if prof.get('K_Pa') is not None else None),
         '_GS_GPa': (np.asarray(prof['mu_Pa']) / 1e9
                     if prof.get('mu_Pa') is not None else None),
+        # Effective viscosity (sampled overrides + Arrhenius) when the
+        # profile carries it; the cache's base profile otherwise.
+        '_eta_eff': (prof['eta_Pa'] if prof.get('eta_Pa') is not None
+                     else prof.get('eta_Pa_base')),
     }
     rows = []
     for i in idx:

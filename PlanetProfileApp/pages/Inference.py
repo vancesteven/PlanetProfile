@@ -2489,7 +2489,7 @@ from Utilities.crisp_figs import (
 # Bump when the globe-panel figure/table code changes shape: cached
 # export bytes in live sessions carry the version, so a code update
 # invalidates them instead of replaying stale figures.
-_GLOBE_FIG_VER = 3
+_GLOBE_FIG_VER = 4
 
 
 def _result_token():
@@ -2592,6 +2592,15 @@ def render_results():
                            "x_obs recording).")
             else:
                 st.info("No observable record on this result.")
+
+    # Modeling assumptions, stated per run from the run's own config
+    # (user 2026-07-24: "every run needs to clearly describe assumptions").
+    with st.expander("📜 Model assumptions for this run", expanded=False):
+        try:
+            from Utilities.run_assumptions import describe_assumptions
+            st.markdown(describe_assumptions(result))
+        except Exception as _ae:
+            st.warning(f"Assumption summary unavailable: {_ae}")
 
     # Summary statistics
     with st.expander("📋 Parameter Summary", expanded=True):
@@ -3257,56 +3266,107 @@ def render_results():
                        if sal_col else None)
 
                 sel_idx = None
-                # --- X-axis selector (user 2026-07-20): plotting vs ICE
-                # THICKNESS (not Tb) reveals the full salinity distribution
-                # — a uniform-Tb view clusters high salinity at low Tb, an
-                # artifact of the Tb<->thickness<->salinity coupling. Each
-                # candidate is offered only when its array is present and
-                # has some finite values; default to ice thickness. Tb_K is
+                # --- Axis selectors (user 2026-07-20 / 2026-07-24): plotting
+                # vs ICE THICKNESS (not Tb) reveals the full salinity
+                # distribution — a uniform-Tb view clusters high salinity at
+                # low Tb, an artifact of the Tb<->thickness<->salinity
+                # coupling. Each candidate is offered only when its array is
+                # present with finite values; the ocean-thickness axis is
+                # DROPPED entirely for no-ocean posteriors (Titan free-grav)
+                # instead of collapsing every point onto y = 0. Tb_K is
                 # OPTIONAL: v5/v6 reparameterize to D_iceIh_km and carry no
-                # Tb_K column, so the picker keys off the ocean-thickness
-                # y-array + any available x-choice, never on Tb (which would
-                # otherwise disable the picker entirely for those artifacts).
+                # Tb_K column.
                 def _finite_ok(a):
                     return (a is not None and np.size(a) == len(samples)
-                            and np.isfinite(a).any())
-                x_choices = []
+                            and np.isfinite(np.asarray(a, float)).any())
+                lls = np.asarray(getattr(result, 'log_likelihoods', []),
+                                 float)
+                # (label, array, axis title, hover fragment with {ax} slot)
+                axis_choices = []
                 if _finite_ok(d_ih):
-                    x_choices.append(('Ice thickness', d_ih,
-                                      'Ice thickness (km)',
-                                      'ice %{x:.1f} km'))
+                    axis_choices.append(('Ice thickness', d_ih,
+                                         'Ice thickness (km)',
+                                         'ice %{{{ax}:.1f}} km'))
                 if tb is not None:
-                    x_choices.append(('T_b', tb, 'T_b (K)',
-                                      'Tb %{x:.2f} K'))
-                if _finite_ok(d_oc):
-                    x_choices.append(('Ocean thickness', d_oc,
-                                      'Ocean thickness (km)',
-                                      'ocean %{x:.1f} km'))
+                    axis_choices.append(('T_b', tb, 'T_b (K)',
+                                         'Tb %{{{ax}:.2f}} K'))
+                if _finite_ok(d_oc) and np.nanmax(d_oc) > 0.5:
+                    axis_choices.append(('Ocean thickness', d_oc,
+                                         'Ocean thickness (km)',
+                                         'ocean %{{{ax}:.1f}} km'))
                 # Clathrate thickness (Titan) — offered only when a clathrate
                 # shell is actually present (> 0 somewhere), so it appears for
                 # Titan and stays hidden for bodies with no clathrate layer.
                 if _finite_ok(d_cl) and np.nanmax(d_cl) > 1e-9:
-                    x_choices.append(('Clathrate thickness', d_cl,
-                                      'Clathrate thickness (km)',
-                                      'clath %{x:.2f} km'))
-                if x_choices and _finite_ok(d_oc):
+                    axis_choices.append(('Clathrate thickness', d_cl,
+                                         'Clathrate thickness (km)',
+                                         'clathrate %{{{ax}:.2f}} km'))
+                if _finite_ok(d_hs) and np.nanmax(d_hs) > 0.5:
+                    axis_choices.append(('Hydrosphere thickness', d_hs,
+                                         'Hydrosphere thickness (km)',
+                                         'hydro %{{{ax}:.1f}} km'))
+                if _finite_ok(cmr2s):
+                    axis_choices.append(('C/MR²', cmr2s, 'C/MR²',
+                                         'C/MR² %{{{ax}:.4f}}'))
+                if _finite_ok(lls):
+                    axis_choices.append(('log likelihood', lls,
+                                         'log likelihood',
+                                         'lnL %{{{ax}:.1f}}'))
+                if len(axis_choices) >= 2:
                     import plotly.graph_objects as go_
-                    x_labels = [c[0] for c in x_choices]
-                    x_pick = st.segmented_control(
-                        'Sample-picker x-axis', x_labels,
-                        default=x_labels[0], key='globe_xaxis',
-                        label_visibility='collapsed')
-                    if x_pick not in x_labels:
-                        x_pick = x_labels[0]
-                    _lab, x_arr, x_title, x_hover = x_choices[
-                        x_labels.index(x_pick)]
+                    ax_labels = [c[0] for c in axis_choices]
+                    cx, cy = st.columns(2)
+                    x_pick = cx.segmented_control(
+                        'Explorer x-axis', ax_labels,
+                        default=ax_labels[0], key='globe_xaxis')
+                    if x_pick not in ax_labels:
+                        x_pick = ax_labels[0]
+                    y_labels = [l_ for l_ in ax_labels if l_ != x_pick]
+                    # Default y: ocean thickness where an ocean exists,
+                    # otherwise the first remaining quantity.
+                    y_default = ('Ocean thickness'
+                                 if 'Ocean thickness' in y_labels
+                                 else y_labels[0])
+                    y_prev = st.session_state.get('globe_yaxis')
+                    y_pick = cy.segmented_control(
+                        'Explorer y-axis', y_labels,
+                        default=(y_prev if y_prev in y_labels
+                                 else y_default), key='globe_yaxis')
+                    if y_pick not in y_labels:
+                        y_pick = y_default
+                    _, x_arr, x_title, x_hover = axis_choices[
+                        ax_labels.index(x_pick)]
+                    _, y_arr, y_title, y_hover = axis_choices[
+                        ax_labels.index(y_pick)]
+                    xv = np.asarray(x_arr, float)
+                    yv = np.asarray(y_arr, float)
 
-                    n_show = min(len(samples), 1500)
+                    # Thicknesses/C-MR2/lnL are recomputed for only a subset
+                    # of posterior draws (NaN-padded outside it) — restrict
+                    # the picker to draws finite on BOTH axes and say so,
+                    # rather than letting plotly drop points silently
+                    # (user 2026-07-24: "clathrate axis only shows three
+                    # models").
+                    idx_ok = np.flatnonzero(np.isfinite(xv)
+                                            & np.isfinite(yv))
+                    n_show = min(len(idx_ok), 1500)
                     rng = np.random.default_rng(0)
-                    idx_show = (rng.choice(len(samples), n_show,
-                                           replace=False)
-                                if len(samples) > n_show
-                                else np.arange(len(samples)))
+                    idx_show = (rng.choice(idx_ok, n_show, replace=False)
+                                if len(idx_ok) > n_show else idx_ok)
+                    _subset_notes = []
+                    if len(idx_ok) < len(samples):
+                        _subset_notes.append(
+                            f"{len(idx_ok)} of {len(samples)} posterior "
+                            "draws carry derived values on these axes "
+                            "(interior thicknesses, C/MR² and lnL are "
+                            "recomputed for a subset of draws after "
+                            "sampling)")
+                    _n_ux = np.unique(xv[idx_ok]).size if len(idx_ok) else 0
+                    if 0 < _n_ux <= 12:
+                        _subset_notes.append(
+                            f"the {x_pick} values collapse onto {_n_ux} "
+                            "distinct nodes of the structure-cache grid — "
+                            "overlapping draws plot as a single point")
                     marker = dict(size=5, opacity=0.6)
                     if sal is not None:
                         marker.update(color=sal[idx_show],
@@ -3314,15 +3374,16 @@ def render_results():
                                       colorbar=dict(title=sal_col,
                                                     thickness=12))
                     figsel = go_.Figure(go_.Scattergl(
-                        x=np.asarray(x_arr, float)[idx_show],
-                        y=d_oc[idx_show], mode='markers',
+                        x=xv[idx_show],
+                        y=yv[idx_show], mode='markers',
                         marker=marker, customdata=idx_show,
-                        hovertemplate=(x_hover + ', ocean %{y:.1f} km'
-                                       '<extra>click to view</extra>')))
+                        hovertemplate=(x_hover.format(ax='x') + ', '
+                                       + y_hover.format(ax='y')
+                                       + '<extra>click to view</extra>')))
                     figsel.update_layout(
                         height=260, margin=dict(l=0, r=0, t=24, b=0),
                         xaxis_title=x_title,
-                        yaxis_title='Ocean thickness (km)',
+                        yaxis_title=y_title,
                         title=dict(text='Click a posterior sample to view '
                                         'its interior', font=dict(size=12)))
                     ev = st.plotly_chart(
@@ -3348,6 +3409,8 @@ def render_results():
                             sel_idx = int(cd) if cd is not None else None
                     except Exception:
                         sel_idx = None
+                    if _subset_notes:
+                        st.caption('Note: ' + '; '.join(_subset_notes) + '.')
 
                 def _sample_layers(i):
                     lays = []
@@ -3497,8 +3560,18 @@ def render_results():
                             "the selected draw, rebuilt through the same "
                             "(T_b, w) structure-cache interpolation the "
                             "likelihood used. Phase bands share the globe "
-                            "colors. Click a different sample above to "
-                            "explore how the interior changes.")
+                            "colors. Viscosity η and shear modulus μ are "
+                            "the rheology inputs to the tidal-heating "
+                            "solve: η starts from the cache's base "
+                            "profile, sampled log10_eta parameters "
+                            "replace it within their phase layers, and "
+                            "when the run configures Arrhenius scaling "
+                            "η(T) = η_ref·exp[(E/R)(1/T − 1/T_ref)] is "
+                            "applied with T_ref at the draw's basal ice "
+                            "temperature (details under 'Model "
+                            "assumptions for this run'). Click a "
+                            "different sample above to explore how the "
+                            "interior changes.")
 
                 with _tab_wedge:
                     from Utilities.radial_profiles import build_wedge_figure
@@ -3619,6 +3692,14 @@ def render_results():
                         _tbl = profile_table(_dprof)
                         import pandas as _pd
                         _df = _pd.DataFrame(_tbl)
+                        # Force numeric dtypes: object columns render
+                        # missing cells as the literal string "None" in
+                        # st.dataframe, while float NaN renders blank
+                        # (user 2026-07-24).
+                        for _c in _df.columns:
+                            if _c != 'phase ID':
+                                _df[_c] = _pd.to_numeric(_df[_c],
+                                                         errors='coerce')
                         # Hide columns with no data at all (porosity, QS,
                         # pore/tidal quantities the inference cache never
                         # carries); the .txt/CSV downloads keep the full
@@ -3643,12 +3724,20 @@ def render_results():
                         if _dprof.get('thermo_notes'):
                             st.warning("Cp/α note: "
                                        f"{_dprof['thermo_notes']}")
-                        _e_cols = ['eta (Pa s)', 'sigma (S/m)',
-                                    'alpha (1/K)', 'MLayer (kg)',
-                                    'VLayer (m3)']
+                        # e-notation for any wide-range column (viscosity,
+                        # conductivity, layer mass/volume, r in m, ...):
+                        # magnitudes above 1e5 or below 1e-3 are unreadable
+                        # in fixed decimal (user 2026-07-24: "columns with
+                        # large numbers such as mass").
+                        def _wide_range(col):
+                            v = np.abs(_shown[col].to_numpy(float))
+                            v = v[np.isfinite(v) & (v > 0)]
+                            return v.size and (v.max() >= 1e5
+                                               or v.min() < 1e-3)
                         _colcfg = {c: st.column_config.NumberColumn(
                                        c, format='%.3e')
-                                   for c in _e_cols if c in _shown.columns}
+                                   for c in _shown.columns
+                                   if c != 'phase ID' and _wide_range(c)}
                         st.dataframe(_shown, hide_index=True,
                                      width='stretch', height=340,
                                      column_config=_colcfg)
