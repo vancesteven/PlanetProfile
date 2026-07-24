@@ -177,6 +177,7 @@ def _augment_thermo(prof):
     if P is not None and T is not None and ph is not None:
         Cp = np.full(n, np.nan)
         al = np.full(n, np.nan)
+        notes = []
         try:
             import seafreeze.seafreeze as sf
             phi = np.asarray(ph, float).astype(int)
@@ -191,12 +192,14 @@ def _augment_thermo(prof):
                     out = sf.getProp(pts, mat)
                     Cp[m] = np.ravel(out.Cp)
                     al[m] = np.ravel(out.alpha)
-                except Exception:
-                    pass
-        except Exception:
-            pass
+                except Exception as e:
+                    notes.append(f'SeaFreeze {mat}: {e}')
+        except Exception as e:
+            notes.append(f'SeaFreeze unavailable: {e}')
         prof['Cp_JkgK'] = Cp
         prof['alpha_pK'] = al
+        if notes:
+            prof['thermo_notes'] = '; '.join(notes)
 
 
 def _phase_bands(r_km, phases) -> List[Tuple[float, float, str]]:

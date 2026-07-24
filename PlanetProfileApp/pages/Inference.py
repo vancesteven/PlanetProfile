@@ -3301,6 +3301,7 @@ def render_results():
                 # radial-structure explorer — the same selected draw feeds
                 # the 3D globe, standard property profiles, and a
                 # proportional layer stack.
+                st.caption(f"globe panel code v{_GLOBE_FIG_VER}")
                 _tab_globe, _tab_prof, _tab_wedge, _tab_data = st.tabs(
                     ['🌐 Globe', '📈 Radial profiles', '🧀 Wedge',
                      '📄 Data table'])
@@ -3440,9 +3441,12 @@ def render_results():
                                        'pdf': _pdf, 'png': _png}
                             _wcache['globe_wedge'] = _wentry
                         except Exception as _we:
-                            st.caption(f"PlanetProfile PlotWedge "
-                                       f"unavailable ({_we}); simplified "
-                                       f"wedge shown.")
+                            import traceback as _tb
+                            st.warning(f"PlanetProfile PlotWedge failed "
+                                       f"({type(_we).__name__}: {_we}); "
+                                       f"simplified wedge shown.")
+                            with st.expander("PlotWedge error detail"):
+                                st.code(_tb.format_exc())
                             _wentry = None
                     if _wentry is not None:
                         from Utilities.crisp_figs import _render as \
@@ -3498,6 +3502,9 @@ def render_results():
                             "Porosity, k, QS, pore and tidal-heating "
                             "columns are not carried by the inference "
                             "cache and stay nan.")
+                        if _dprof.get('thermo_notes'):
+                            st.warning("Cp/α lookup failed: "
+                                       f"{_dprof['thermo_notes']}")
                         st.dataframe(_tbl, hide_index=True,
                                      width='stretch', height=340)
                         _txt = profile_txt(_dprof, body or 'body', _dttl)
