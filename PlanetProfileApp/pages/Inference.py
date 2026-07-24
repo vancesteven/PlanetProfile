@@ -2392,7 +2392,7 @@ from Utilities.crisp_figs import (
 # Bump when the globe-panel figure/table code changes shape: cached
 # export bytes in live sessions carry the version, so a code update
 # invalidates them instead of replaying stale figures.
-_GLOBE_FIG_VER = 2
+_GLOBE_FIG_VER = 3
 
 
 def _result_token():
@@ -3491,6 +3491,17 @@ def render_results():
                                  if sel_idx is not None
                                  else "posterior median")
                         _tbl = profile_table(_dprof)
+                        import pandas as _pd
+                        _df = _pd.DataFrame(_tbl)
+                        # Hide columns with no data at all (porosity, QS,
+                        # pore/tidal quantities the inference cache never
+                        # carries); the .txt/CSV downloads keep the full
+                        # PlanetProfile column set.
+                        _empty_cols = [c for c in _df.columns
+                                       if c != 'phase ID'
+                                       and not np.isfinite(
+                                           _df[c].astype(float)).any()]
+                        _shown = _df.drop(columns=_empty_cols)
                         st.caption(
                             f"Radial data for {_dttl} in standard "
                             "PlanetProfile profile form (surface inward). "
@@ -3499,13 +3510,14 @@ def render_results():
                             "SeaFreeze for the H₂O phases (the ocean uses "
                             "the pure-water spline — a few-percent "
                             "approximation at seawater salinities). "
-                            "Porosity, k, QS, pore and tidal-heating "
-                            "columns are not carried by the inference "
-                            "cache and stay nan.")
+                            + ("Columns with no data are hidden here but "
+                               "kept in the downloads: "
+                               + ", ".join(_empty_cols) + "."
+                               if _empty_cols else ""))
                         if _dprof.get('thermo_notes'):
-                            st.warning("Cp/α lookup failed: "
+                            st.warning("Cp/α note: "
                                        f"{_dprof['thermo_notes']}")
-                        st.dataframe(_tbl, hide_index=True,
+                        st.dataframe(_shown, hide_index=True,
                                      width='stretch', height=340)
                         _txt = profile_txt(_dprof, body or 'body', _dttl)
                         _fn = (f"{body or 'body'}_inference_"

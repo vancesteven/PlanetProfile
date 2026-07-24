@@ -174,6 +174,12 @@ def _augment_thermo(prof):
         prof['VLayer_m3'] = np.concatenate([[V0], dV])
         prof['MLayer_kg'] = dM
     P, T, ph = prof.get('P_MPa'), prof.get('T_K'), prof.get('phases')
+    _missing = [k for k, v in (('P_MPa', P), ('T_K', T), ('phases', ph))
+                if v is None]
+    if _missing:
+        prof['thermo_notes'] = (
+            'Cp/α skipped: cache lacks ' + ', '.join(_missing)
+            + ' on the radial grid (absent or length-mismatched)')
     if P is not None and T is not None and ph is not None:
         Cp = np.full(n, np.nan)
         al = np.full(n, np.nan)
@@ -196,6 +202,11 @@ def _augment_thermo(prof):
                     notes.append(f'SeaFreeze {mat}: {e}')
         except Exception as e:
             notes.append(f'SeaFreeze unavailable: {e}')
+        if not np.any(np.isfinite(Cp)) and not notes:
+            codes = sorted(set(np.asarray(ph)[np.isfinite(ph)].astype(int)
+                               .tolist()))
+            notes.append('no H2O-phase layers matched the SeaFreeze set '
+                         f'(phase codes present: {codes})')
         prof['Cp_JkgK'] = Cp
         prof['alpha_pK'] = al
         if notes:
@@ -398,6 +409,7 @@ def pp_wedge_exports(geo: Dict, parent_directory, bodyname: str,
     outs = {}
     tmpdir = tempfile.mkdtemp(prefix='ppwedge_')
     old_fmt = _PPplots.FigMisc.figFormat
+    old_transparent = getattr(_PPplots.FigMisc, 'TRANSPARENT', False)
     # The Inference page forces text.usetex=False for its crisp figures,
     # but when TeX is installed GetConfig builds FigLbl labels with
     # siunitx macros (\si{km}) that mathtext cannot parse — render the
@@ -407,6 +419,7 @@ def pp_wedge_exports(geo: Dict, parent_directory, bodyname: str,
     try:
         plt.rcParams['text.usetex'] = bool(
             getattr(_PPplots.FigMisc, 'TEX_INSTALLED', False))
+        _PPplots.FigMisc.TRANSPARENT = False  # white background in the app
         for fmt in ('svg', 'pdf', 'png'):
             path = os.path.join(tmpdir, f'wedge.{fmt}')
             params = SimpleNamespace(
@@ -418,6 +431,7 @@ def pp_wedge_exports(geo: Dict, parent_directory, bodyname: str,
                 outs[fmt] = f.read()
     finally:
         _PPplots.FigMisc.figFormat = old_fmt
+        _PPplots.FigMisc.TRANSPARENT = old_transparent
         plt.rcParams['text.usetex'] = old_usetex
     return outs['svg'], outs['pdf'], outs['png']
 
