@@ -4,16 +4,16 @@ The sample picker selects one posterior draw; this module rebuilds that
 draw's full radial structure by pushing its parameter vector through the
 SAME bilinear (Tb x w) cache interpolation the likelihood used
 (`forward_models.apply_parameters`), then renders standard
-PlanetProfile-style property profiles (rho, T, P, sigma) and a
-proportional layer-stack figure. All figures are matplotlib and are meant
+PlanetProfile-style property profiles (rho, T, P, sigma or sound
+speeds), a wedge diagram, and a PP-format radial data table. All figures are matplotlib and are meant
 to be displayed through Utilities.crisp_figs (vector SVG + cached
 exports).
 
 The structure cache is the file named by
 ``result.config.structure_cache_path`` (shipped with the app for the
-amortized slots). When it is missing the profile view degrades to the
-layer-stack figure, which needs only the per-sample derived arrays every
-result already carries.
+amortized slots). When it is missing the profile/table views degrade
+to the wedge figure, which needs only the per-sample derived arrays
+every result already carries.
 """
 from __future__ import annotations
 
@@ -129,10 +129,20 @@ def profile_for_sample(result, sel_idx: Optional[int], parent_directory
     order = np.argsort(np.asarray(r_m, float))  # plot outward
     prof = {'r_km': np.asarray(r_m, float)[order] / 1e3}
     for key in ('rho', 'T_K', 'P_MPa', 'sigma_Sm', 'eta_Pa_base',
-                'mu_Pa', 'phases'):
+                'mu_Pa', 'K_Pa', 'phases'):
         v = modified.get(key)
         prof[key] = (np.asarray(v, float)[order]
                      if v is not None and np.size(v) == order.size else None)
+    # Seismic velocities from the cached elastic moduli:
+    # VP = sqrt((K + 4/3 mu)/rho), VS = sqrt(mu/rho) (liquid: mu=0 -> VS=0)
+    rho, mu, K = prof.get('rho'), prof.get('mu_Pa'), prof.get('K_Pa')
+    if rho is not None and mu is not None and K is not None:
+        with np.errstate(invalid='ignore', divide='ignore'):
+            prof['VP_kms'] = np.sqrt((K + 4.0 * mu / 3.0)
+                                     / np.where(rho > 0, rho, np.nan)) / 1e3
+            prof['VS_kms'] = np.sqrt(mu / np.where(rho > 0, rho, np.nan)) / 1e3
+    else:
+        prof['VP_kms'] = prof['VS_kms'] = None
     prof['Tb_K'] = theta.get('Tb_K')
     return prof, ''
 
@@ -154,39 +164,53 @@ def _phase_bands(r_km, phases) -> List[Tuple[float, float, str]]:
 
 
 def build_profile_figure(prof: Dict, title: str):
-    """2x2 standard-property profiles vs radius, phase-banded like the
-    CLI hydrosphere plots: density, temperature, pressure, electrical
-    conductivity."""
+    """Standard-property profiles with RADIUS ON THE Y-AXIS, surface at
+    the top of the figure (user 2026-07-23): density, temperature,
+    pressure, and conductivity — or sound speeds when the cache carries
+    no conductivity data."""
     import matplotlib.pyplot as plt
 
     r = prof['r_km']
+    sig = prof.get('sigma_Sm')
+    # "No conductivity data": nothing above the numerical floor the cache
+    # uses for non-conducting layers (1e-16 S/m)
+    has_sigma = sig is not None and np.any(
+        np.isfinite(sig) & (np.asarray(sig) > 1e-12))
+    if has_sigma:
+        last = [('sigma_Sm', r'Conductivity $\sigma$ (S m$^{-1}$)', 'log')]
+    else:
+        last = [('VP_kms', r'$V_P$, $V_S$ (km s$^{-1}$)', 'linear')]
     panels = [
         ('rho', r'Density $\rho$ (kg m$^{-3}$)', 'linear'),
         ('T_K', r'Temperature $T$ (K)', 'linear'),
         ('P_MPa', r'Pressure $P$ (MPa)', 'linear'),
-        ('sigma_Sm', r'Conductivity $\sigma$ (S m$^{-1}$)', 'log'),
-    ]
-    fig, axes = plt.subplots(2, 2, figsize=(9.5, 7), sharex=True)
+    ] + last
+    fig, axes = plt.subplots(1, 4, figsize=(11, 5.6), sharey=True)
     bands = _phase_bands(r, prof.get('phases'))
     seen_kinds: List[str] = []
-    for (key, ylab, yscale), ax in zip(panels, axes.ravel()):
-        v = prof.get(key)
+    for (key, xlab, xscale), ax in zip(panels, axes):
         for lo, hi, kind in bands:
-            ax.axvspan(lo, hi, color=_rgb01(LAYER_COLORS[kind]),
+            ax.axhspan(lo, hi, color=_rgb01(LAYER_COLORS[kind]),
                        alpha=0.25, linewidth=0)
             if kind not in seen_kinds:
                 seen_kinds.append(kind)
+        v = prof.get(key)
         if v is None:
             ax.text(0.5, 0.5, 'not in cache', transform=ax.transAxes,
                     ha='center', color='0.5')
         else:
             vv = np.where(np.asarray(v) > 0, v, np.nan) \
-                if yscale == 'log' else v
-            ax.plot(r, vv, color='k', linewidth=1.4)
-            ax.set_yscale(yscale)
-        ax.set_ylabel(ylab)
-    for ax in axes[1]:
-        ax.set_xlabel('Radius $r$ (km)')
+                if xscale == 'log' else v
+            ax.plot(vv, r, color='k', linewidth=1.4, label=r'$V_P$'
+                    if key == 'VP_kms' else None)
+            if key == 'VP_kms' and prof.get('VS_kms') is not None:
+                ax.plot(prof['VS_kms'], r, color='k', linewidth=1.1,
+                        linestyle='--', label=r'$V_S$')
+                ax.legend(fontsize=8, loc='lower right')
+            ax.set_xscale(xscale)
+        ax.set_xlabel(xlab)
+    axes[0].set_ylabel('Radius $r$ (km)')
+    axes[0].set_ylim(0, float(np.nanmax(r)) * 1.02)  # surface at top
     handles = [plt.Rectangle((0, 0), 1, 1,
                              color=_rgb01(LAYER_COLORS[k]), alpha=0.45)
                for k in seen_kinds]
@@ -194,43 +218,141 @@ def build_profile_figure(prof: Dict, title: str):
                loc='lower center', ncol=min(4, len(seen_kinds) or 1),
                fontsize=8, frameon=False)
     fig.suptitle(title, fontsize=11)
-    fig.tight_layout(rect=(0, 0.05, 1, 1))
+    fig.tight_layout(rect=(0, 0.06, 1, 1))
     return fig
 
 
-def build_stack_figure(R_km: float, thicknesses: List[Tuple[str, float]],
-                       title: str):
-    """One proportional radial column, surface at top: each present
-    material drawn to scale with its thickness labeled (globe colors)."""
+def build_wedge_figure(R_km: float, thicknesses: List[Tuple[str, float]],
+                       title: str, wedge_angle_deg: float = 25.0):
+    """Standard PlanetProfile-style wedge diagram (interior structure as
+    an angular wedge, surface arc at top) built from per-sample layer
+    thicknesses, using the globe layer colors. Mirrors the CLI PlotWedge
+    convention: wedge opens upward, angles 90 +/- wedge_angle_deg."""
     import matplotlib.pyplot as plt
+    from matplotlib.patches import Wedge
 
-    fig, ax = plt.subplots(figsize=(4.2, 6.4))
-    top = float(R_km)
+    ang1, ang2 = 90.0 - wedge_angle_deg, 90.0 + wedge_angle_deg
+    fig, ax = plt.subplots(figsize=(5.6, 6.0))
+    # outer radii, marching inward; draw outermost first so inner layers
+    # overplot the wedge center region
+    r_out = float(R_km)
+    bands = []
     for kind, d in thicknesses:
         if d <= 0:
             continue
-        ax.bar(0, d, width=0.9, bottom=top - d,
-               color=_rgb01(LAYER_COLORS[kind]), edgecolor='white',
-               linewidth=0.6)
+        bands.append((kind, r_out, d))
+        r_out -= d
+    for kind, r_o, d in bands:
+        ax.add_patch(Wedge((0.5, 0), r_o / R_km, ang1, ang2,
+                           fc=_rgb01(LAYER_COLORS[kind]),
+                           ec='white', linewidth=0.6))
+    # innermost fill (below the last labeled layer, e.g. residual core gap)
+    if bands and (bands[-1][1] - bands[-1][2]) > 0:
+        ax.add_patch(Wedge((0.5, 0), (bands[-1][1] - bands[-1][2]) / R_km,
+                           ang1, ang2,
+                           fc=_rgb01(LAYER_COLORS[bands[-1][0]]),
+                           ec='none'))
+    # Labels along the wedge centerline; thin layers get side callouts
+    side_y = 1.02
+    for kind, r_o, d in bands:
+        y_mid = (r_o - d / 2) / R_km
         label = f"{LAYER_LABELS.get(kind, kind)}  {d:.0f} km"
-        # annotate inside when the band is wide enough, else beside it
-        if d > 0.045 * R_km:
-            ax.text(0, top - d / 2, label, ha='center', va='center',
+        if d / R_km > 0.05:
+            ax.text(0.5, y_mid, label, ha='center', va='center',
                     fontsize=8)
         else:
-            y = top - d / 2
-            ax.plot([0.46, 0.56], [y, y], color='0.4', linewidth=0.6)
-            ax.text(0.58, y, label, ha='left', va='center', fontsize=7)
-        top -= d
-    ax.set_xlim(-0.6, 1.4)
-    ax.set_ylim(0, R_km * 1.02)
-    ax.set_xticks([])
-    ax.set_ylabel('Radius (km)')
+            x_edge = 0.5 + (r_o / R_km) * np.cos(np.radians(ang1))
+            ax.plot([x_edge, 0.98], [y_mid, side_y], color='0.4',
+                    linewidth=0.6)
+            ax.text(0.99, side_y, label, ha='left', va='center',
+                    fontsize=7)
+            side_y -= 0.06
+    ax.set_xlim(-0.05, 1.45)
+    ax.set_ylim(-0.02, 1.1)
+    ax.set_aspect('equal')
+    ax.axis('off')
     ax.set_title(title, fontsize=10)
-    for s in ('top', 'right', 'bottom'):
-        ax.spines[s].set_visible(False)
     fig.tight_layout()
     return fig
+
+
+# --- PlanetProfile-form radial data table -------------------------------
+# Column set and row format follow Main.WriteProfile so the download can
+# be read like a standard PlanetProfile output profile. Quantities the
+# inference cache does not carry are written as nan.
+_PP_COLUMNS = [
+    ('P (MPa)', 'P_MPa'), ('T (K)', 'T_K'), ('r (m)', '_r_m'),
+    ('phase ID', 'phases'), ('rho (kg/m3)', 'rho'),
+    ('Cp (J/kg/K)', None), ('alpha (1/K)', None), ('g (m/s2)', None),
+    ('phi (void/solid frac)', None), ('sigma (S/m)', 'sigma_Sm'),
+    ('k (W/m/K)', None), ('VP (km/s)', 'VP_kms'), ('VS (km/s)', 'VS_kms'),
+    ('QS', None), ('KS (GPa)', '_KS_GPa'), ('GS (GPa)', '_GS_GPa'),
+    ('Ppore (MPa)', None), ('rhoMatrix (kg/m3)', None),
+    ('rhoPore (kg/m3)', None), ('MLayer (kg)', None),
+    ('VLayer (m3)', None), ('Htidal (W/m3)', None),
+    ('eta (Pa s)', 'eta_Pa_base'),
+]
+
+
+def profile_table(prof: Dict) -> "list[dict]":
+    """PP-ordered (surface inward, P ascending) rows of the radial data."""
+    idx = np.argsort(-np.asarray(prof['r_km']))  # surface first
+    n = idx.size
+    derived = {
+        '_r_m': np.asarray(prof['r_km']) * 1e3,
+        '_KS_GPa': (np.asarray(prof['K_Pa']) / 1e9
+                    if prof.get('K_Pa') is not None else None),
+        '_GS_GPa': (np.asarray(prof['mu_Pa']) / 1e9
+                    if prof.get('mu_Pa') is not None else None),
+    }
+    rows = []
+    for i in idx:
+        row = {}
+        for name, key in _PP_COLUMNS:
+            if key is None:
+                v = np.nan
+            else:
+                arr = derived.get(key, prof.get(key))
+                v = (float(np.asarray(arr)[i])
+                     if arr is not None and np.size(arr) == n else np.nan)
+            row[name] = int(v) if name == 'phase ID' and np.isfinite(v) \
+                else v
+        rows.append(row)
+    return rows
+
+
+def profile_txt(prof: Dict, bodyname: str, sample_label: str) -> str:
+    """Render the radial table in Main.WriteProfile's on-disk format
+    (24-char right-aligned %.17e columns, 8-char phase ID) with a short
+    provenance header. nHeadLines counts as in the CLI writer so generic
+    skip-header readers work."""
+    header = [
+        f'PlanetProfile inference profile ({bodyname}, {sample_label})',
+        'Source = PlanetProfileApp inference globe panel '
+        '(structure-cache interpolation of one posterior draw)',
+        'Note = columns not carried by the inference cache are nan',
+    ]
+    if prof.get('Tb_K') is not None:
+        header.append(f'Tb_K = {prof["Tb_K"]:.3f}')
+    n_head = len(header) + 3
+    header = [f'  nHeadLines = {n_head:d}'] + header
+    col_widths = [24] * len(_PP_COLUMNS)
+    col_widths[3] = 8  # phase ID
+    col_line = ' '.join(
+        (' ' + name).ljust(w) if j == 0 else name.ljust(w)
+        for j, ((name, _), w) in enumerate(zip(_PP_COLUMNS, col_widths)))
+    lines = [f'{bodyname} inference sample profile',
+             '\n  '.join(header), col_line]
+    for row in profile_table(prof):
+        parts = []
+        for (name, _), w in zip(_PP_COLUMNS, col_widths):
+            v = row[name]
+            if name == 'phase ID':
+                parts.append(f'{int(v) if np.isfinite(float(v)) else 0:8d}')
+            else:
+                parts.append(f'{float(v):24.17e}')
+        lines.append(' '.join(parts))
+    return '\n'.join(lines) + '\n'
 
 
 def _rgb01(rgb_str: str):

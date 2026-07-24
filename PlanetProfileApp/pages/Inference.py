@@ -3295,8 +3295,9 @@ def render_results():
                 # radial-structure explorer — the same selected draw feeds
                 # the 3D globe, standard property profiles, and a
                 # proportional layer stack.
-                _tab_globe, _tab_prof, _tab_stack = st.tabs(
-                    ['🌐 Globe', '📈 Radial profiles', '🧅 Layer stack'])
+                _tab_globe, _tab_prof, _tab_wedge, _tab_data = st.tabs(
+                    ['🌐 Globe', '📈 Radial profiles', '🧀 Wedge',
+                     '📄 Data table'])
                 with _tab_globe:
                     dev = abs(c20 or 0.0) + 3 * abs(c22 or 0.0)
                     default_ex = (min(500.0, max(1.0, 0.03 / dev))
@@ -3366,8 +3367,8 @@ def render_results():
                             "colors. Click a different sample above to "
                             "explore how the interior changes.")
 
-                with _tab_stack:
-                    from Utilities.radial_profiles import build_stack_figure
+                with _tab_wedge:
+                    from Utilities.radial_profiles import build_wedge_figure
 
                     def _th(a):
                         if a is None or not np.size(a):
@@ -3401,10 +3402,10 @@ def render_results():
                     _sttl = (f"sample #{sel_idx}" if sel_idx is not None
                              else "posterior median")
                     _crisp_display(
-                        builder=lambda: build_stack_figure(
-                            R_km, _items, f"Layer stack — {_sttl}"),
-                        key='globe_layer_stack',
-                        download_label='layer stack',
+                        builder=lambda: build_wedge_figure(
+                            R_km, _items, f"Interior wedge — {_sttl}"),
+                        key='globe_wedge',
+                        download_label='wedge diagram',
                         token=(_result_token(), sel_idx))
                     from Utilities.globe_view import LAYER_LABELS as _LL
                     _rows, _rtop = [], float(R_km)
@@ -3417,6 +3418,49 @@ def render_results():
                         _rtop -= _d
                     st.dataframe(_rows, hide_index=True,
                                  width='stretch')
+
+                with _tab_data:
+                    from Utilities.radial_profiles import (
+                        profile_for_sample as _pfs, profile_table,
+                        profile_txt)
+                    _dprof, _dnote = _pfs(result, sel_idx, parent_directory)
+                    if _dprof is None:
+                        st.info(f"Radial data unavailable: {_dnote}")
+                    else:
+                        _dttl = (f"sample #{sel_idx}"
+                                 if sel_idx is not None
+                                 else "posterior median")
+                        _tbl = profile_table(_dprof)
+                        st.caption(
+                            f"Radial data for {_dttl} in standard "
+                            "PlanetProfile profile form (surface inward; "
+                            "columns the inference cache does not carry "
+                            "are nan).")
+                        st.dataframe(_tbl, hide_index=True,
+                                     width='stretch', height=340)
+                        _txt = profile_txt(_dprof, body or 'body', _dttl)
+                        _fn = (f"{body or 'body'}_inference_"
+                               f"{'median' if sel_idx is None else f'sample{sel_idx}'}"
+                               ".txt")
+                        c1_, c2_ = st.columns(2)
+                        c1_.download_button(
+                            'Download profile (PlanetProfile .txt)', _txt,
+                            file_name=_fn, mime='text/plain',
+                            icon=':material/download:', width='stretch',
+                            key='globe_pp_txt')
+                        import io as _io
+                        import csv as _csv
+                        _buf = _io.StringIO()
+                        _w = _csv.DictWriter(_buf,
+                                             fieldnames=list(_tbl[0]))
+                        _w.writeheader()
+                        _w.writerows(_tbl)
+                        c2_.download_button(
+                            'Download profile (CSV)', _buf.getvalue(),
+                            file_name=_fn.replace('.txt', '.csv'),
+                            mime='text/csv',
+                            icon=':material/download:', width='stretch',
+                            key='globe_pp_csv')
         except Exception as e:
             st.warning(f"Globe unavailable: {e}")
 
