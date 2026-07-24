@@ -3401,12 +3401,62 @@ def render_results():
                               + [('silicate', _sil), ('core', _rc)])
                     _sttl = (f"sample #{sel_idx}" if sel_idx is not None
                              else "posterior median")
-                    _crisp_display(
-                        builder=lambda: build_wedge_figure(
-                            R_km, _items, f"Interior wedge — {_sttl}"),
-                        key='globe_wedge',
-                        download_label='wedge diagram',
-                        token=(_result_token(), sel_idx))
+                    # PlanetProfile's own PlotWedge (user 2026-07-23):
+                    # body config Planet + this draw's geometry. Cached
+                    # per (result, sample) alongside the crisp figures.
+                    _wcache = st.session_state.setdefault(
+                        '_crisp_fig_cache', {})
+                    _wtok = (_result_token(), sel_idx)
+                    _wentry = _wcache.get('globe_wedge')
+                    if _wentry is None or _wentry['token'] != _wtok:
+                        try:
+                            from Utilities.radial_profiles import \
+                                pp_wedge_exports
+                            _w_ppt = None
+                            try:
+                                from PlanetProfile.Inference.grid_interp_2d \
+                                    import wOcean_ppt_from_theta
+                                from Utilities.radial_profiles import \
+                                    _theta_for
+                                _w_ppt = wOcean_ppt_from_theta(
+                                    _theta_for(result, sel_idx))
+                            except Exception:
+                                _w_ppt = None
+                            _geo = dict(R_km=R_km, d_ih=_ih, d_oc=_ocn,
+                                        d3=_d3, d5=_d5, d6=_d6,
+                                        d_hs=_hs, r_core=_rc)
+                            if _hp_items and _hp_items[0][0] == 'hp_ice':
+                                _geo['d6'] = _hp  # lumped HP: draw as VI
+                            _svg, _pdf, _png = pp_wedge_exports(
+                                _geo, parent_directory, body or 'Europa',
+                                w_ppt=_w_ppt)
+                            _wentry = {'token': _wtok, 'svg': _svg,
+                                       'pdf': _pdf, 'png': _png}
+                            _wcache['globe_wedge'] = _wentry
+                        except Exception as _we:
+                            st.caption(f"PlanetProfile PlotWedge "
+                                       f"unavailable ({_we}); simplified "
+                                       f"wedge shown.")
+                            _wentry = None
+                    if _wentry is not None:
+                        from Utilities.crisp_figs import _render as \
+                            _crisp_render
+                        _crisp_render(_wentry, key='globe_wedge',
+                                      download_label='wedge diagram')
+                        st.caption(
+                            f"PlanetProfile PlotWedge for {_sttl}. Shell "
+                            "drawn fully conductive (the inference "
+                            "carries no convection partition); mantle/"
+                            "core composition labels are the body's PP "
+                            "defaults, not inferred.")
+                    else:
+                        _crisp_display(
+                            builder=lambda: build_wedge_figure(
+                                R_km, _items,
+                                f"Interior wedge — {_sttl}"),
+                            key='globe_wedge_fallback',
+                            download_label='wedge diagram',
+                            token=(_result_token(), sel_idx))
                     from Utilities.globe_view import LAYER_LABELS as _LL
                     _rows, _rtop = [], float(R_km)
                     for _k, _d in _items:

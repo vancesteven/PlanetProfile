@@ -328,6 +328,87 @@ def build_wedge_figure(R_km: float, thicknesses: List[Tuple[str, float]],
     return fig
 
 
+def pp_wedge_exports(geo: Dict, parent_directory, bodyname: str,
+                     w_ppt: Optional[float] = None):
+    """Render the interior wedge with PlanetProfile's OWN PlotWedge
+    (Plotting/ProfilePlots.py), not a lookalike: deepcopy the body's PP
+    config Planet, inject the selected draw's layer geometry, and let the
+    CLI plotting code draw it. Returns (svg_str, pdf_bytes, png_bytes).
+
+    Inference carries no ice-convection partition, so the shell is drawn
+    fully conductive (eLid = zb, Dconv = 0); mantle/core composition
+    labels come from the body's PP defaults, not the inference.
+    """
+    import os
+    import tempfile
+    from copy import deepcopy
+    from types import SimpleNamespace
+
+    from Utilities.PlanetLoader import load_planet_module
+    mod = load_planet_module(parent_directory, bodyname)
+    Planet = deepcopy(mod.Planet)
+
+    R_km = float(geo['R_km'])
+    d_ih = float(geo.get('d_ih', 0.0))
+    d_oc = float(geo.get('d_oc', 0.0))
+    d3, d5, d6 = (float(geo.get(k, 0.0)) for k in ('d3', 'd5', 'd6'))
+    d_hs = float(geo.get('d_hs', 0.0))
+    rc = float(geo.get('r_core', 0.0) or 0.0)
+
+    Planet.Bulk.R_m = R_km * 1e3
+    Planet.zb_km = d_ih
+    Planet.zIceI_m = 0.0
+    Planet.dzIceI_km = d_ih
+    Planet.eLid_m = d_ih * 1e3      # fully conductive (no convection info)
+    Planet.Dconv_m = 0.0
+    Planet.deltaTBL_m = 0.0
+    Planet.D_km = d_oc
+    z_km = d_ih + d_oc
+    Planet.dzIceII_km = 0.0
+    Planet.zIceII_m = 0.0
+    Planet.dzIceIIIund_km = 0.0
+    Planet.zIceIIIund_m = 0.0
+    Planet.dzIceVund_km = 0.0
+    Planet.zIceVund_m = 0.0
+    Planet.zIceIII_m = z_km * 1e3
+    Planet.dzIceIII_km = d3
+    z_km += d3
+    Planet.zIceV_m = z_km * 1e3
+    Planet.dzIceV_km = d5
+    z_km += d5
+    Planet.zIceVI_m = z_km * 1e3
+    Planet.dzIceVI_km = d6
+    Planet.Sil.Rmean_m = (R_km - d_hs) * 1e3
+    Planet.Core.Rmean_m = rc * 1e3
+    Planet.Do.Fe_CORE = rc > 1.0
+    Planet.dzFeS_km = 0.0
+    Planet.dzSilPorous_km = 0.0
+    Planet.Do.POROUS_ROCK = False
+    Planet.Do.CLATHRATE = False
+    Planet.Bulk.asymIce = None
+    Planet.Magnetic.ionosBounds_m = None
+    if w_ppt is not None and np.isfinite(w_ppt):
+        Planet.Ocean.wOcean_ppt = float(w_ppt)
+
+    from PlanetProfile.Plotting import ProfilePlots as _PPplots
+    outs = {}
+    tmpdir = tempfile.mkdtemp(prefix='ppwedge_')
+    old_fmt = _PPplots.FigMisc.figFormat
+    try:
+        for fmt in ('svg', 'pdf', 'png'):
+            path = os.path.join(tmpdir, f'wedge.{fmt}')
+            params = SimpleNamespace(
+                ALL_ONE_BODY=True, TITLES=False,
+                FigureFiles=SimpleNamespace(vwedg=path))
+            _PPplots.FigMisc.figFormat = fmt
+            _PPplots.PlotWedge([Planet], params)
+            with open(path, 'r' if fmt == 'svg' else 'rb') as f:
+                outs[fmt] = f.read()
+    finally:
+        _PPplots.FigMisc.figFormat = old_fmt
+    return outs['svg'], outs['pdf'], outs['png']
+
+
 # --- PlanetProfile-form radial data table -------------------------------
 # Column set and row format follow Main.WriteProfile so the download can
 # be read like a standard PlanetProfile output profile. Quantities the
