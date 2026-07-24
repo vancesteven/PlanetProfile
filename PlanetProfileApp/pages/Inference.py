@@ -3517,8 +3517,15 @@ def render_results():
                         if _dprof.get('thermo_notes'):
                             st.warning("Cp/α note: "
                                        f"{_dprof['thermo_notes']}")
+                        _e_cols = ['eta (Pa s)', 'sigma (S/m)',
+                                    'alpha (1/K)', 'MLayer (kg)',
+                                    'VLayer (m3)']
+                        _colcfg = {c: st.column_config.NumberColumn(
+                                       c, format='%.3e')
+                                   for c in _e_cols if c in _shown.columns}
                         st.dataframe(_shown, hide_index=True,
-                                     width='stretch', height=340)
+                                     width='stretch', height=340,
+                                     column_config=_colcfg)
                         _txt = profile_txt(_dprof, body or 'body', _dttl)
                         _fn = (f"{body or 'body'}_inference_"
                                f"{'median' if sel_idx is None else f'sample{sel_idx}'}"
