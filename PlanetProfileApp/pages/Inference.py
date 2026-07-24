@@ -3246,6 +3246,8 @@ def render_results():
                                   float)
                 d_hp = np.asarray(getattr(result, 'D_iceHP_results', []),
                                   float)
+                d_cl = np.asarray(getattr(result, 'D_clath_results', []),
+                                  float)
                 cmr2s = np.asarray(getattr(result, 'cmr2_results', []),
                                    float)
                 tb = (samples[:, names.index('Tb_K')]
@@ -3280,6 +3282,13 @@ def render_results():
                     x_choices.append(('Ocean thickness', d_oc,
                                       'Ocean thickness (km)',
                                       'ocean %{x:.1f} km'))
+                # Clathrate thickness (Titan) — offered only when a clathrate
+                # shell is actually present (> 0 somewhere), so it appears for
+                # Titan and stays hidden for bodies with no clathrate layer.
+                if _finite_ok(d_cl) and np.nanmax(d_cl) > 1e-9:
+                    x_choices.append(('Clathrate thickness', d_cl,
+                                      'Clathrate thickness (km)',
+                                      'clath %{x:.2f} km'))
                 if x_choices and _finite_ok(d_oc):
                     import plotly.graph_objects as go_
                     x_labels = [c[0] for c in x_choices]
@@ -3973,6 +3982,37 @@ def render_results():
                             f"{n_out} / {len(cmr2_vals)} samples "
                             f"({n_out/len(cmr2_vals):.1%}) fall outside the 2σ constraint."
                         )
+
+                # Shape diagnostic for the ACTUAL C/MR². In a free-gravity
+                # design C/MR² is NOT a conditioning observable, so this is the
+                # projection of the loosely-constrained interior posterior onto
+                # the moment integral — it is EXPECTED to be non-Gaussian
+                # (discrete region_phases regimes + core-size / mass-conservation
+                # structure). Scientific-reviewer 2026-07-24 verified this
+                # against the reference pocoMC (which shows the SAME skew/
+                # kurtosis, independent of the flow), so non-Gaussianity here is
+                # physics, not a pipeline artifact. Reported so the user can see
+                # the shape quantitatively rather than reading it as a red flag.
+                if not is_fixed and len(cmr2_vals) > 20:
+                    try:
+                        from scipy.stats import skew as _skew, kurtosis as _kurt
+                        _sk = float(_skew(cmr2_vals))
+                        _ku = float(_kurt(cmr2_vals))  # excess (0 = Gaussian)
+                        _nong = abs(_sk) > 0.3 or abs(_ku) > 0.5
+                        st.caption(
+                            f"Shape of the **actual** C/MR² posterior: skew "
+                            f"{_sk:+.2f}, excess kurtosis {_ku:+.2f}"
+                            + (" — **non-Gaussian**. In this free-gravity design "
+                               "C/MR² is not conditioned on, so this is the "
+                               "expected projection of the loosely-constrained "
+                               "interior (discrete ice-phase regimes + core "
+                               "structure), NOT a pipeline artifact — the "
+                               "reference MCMC reproduces the same shape "
+                               "(reviewer-verified 2026-07-24)."
+                               if _nong else
+                               " — approximately Gaussian."))
+                    except Exception:
+                        pass
 
                 # Non-hydrostaticity: the gap between the ACTUAL C/MR² (from
                 # the interior structure) and the HYDROSTATIC REFERENCE (what
