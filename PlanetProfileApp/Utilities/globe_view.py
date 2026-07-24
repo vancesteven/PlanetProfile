@@ -78,6 +78,7 @@ LAYER_COLORS = {
 
 # Friendly legend/hover names per layer kind.
 LAYER_LABELS = {
+    'hp_ice': 'High-pressure ice',
     'core': 'Metallic core',
     'silicate': 'Silicate mantle',
     'ocean': 'Liquid ocean',

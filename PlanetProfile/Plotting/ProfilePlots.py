@@ -1364,6 +1364,60 @@ def PlotWedge(PlanetList, Params):
         ax.add_patch(Wedge((0.5,0), Planet.Core.Rmean_m/1e3/rMax_km, ang1, ang2,
                            fc=Color.none, lw=Style.LW_wedgeMajor, ec=Color.wedgeBd))
 
+        # Phase-name labels (FigMisc.LABEL_WEDGE_PHASES): centered on each
+        # layer band when it is thick enough, otherwise printed just to the
+        # right of the wedge at the layer's mid-radius (no arrows).
+        if getattr(FigMisc, 'LABEL_WEDGE_PHASES', False):
+            def _f(x):
+                return 0.0 if x is None else float(x)
+            phaseBands = []
+            if not Planet.Do.NO_H2O:
+                if _f(Planet.dzIceI_km) > 0:
+                    phaseBands.append(('Ice I', R_km - _f(Planet.zIceI_m)/1e3, _f(Planet.dzIceI_km)))
+                if Planet.Do.CLATHRATE and _f(Planet.dzClath_km) > 0:
+                    phaseBands.append(('Clathrate', R_km - _f(Planet.zClath_km), _f(Planet.dzClath_km)))
+                if _f(Planet.dzIceIIIund_km) > 0:
+                    phaseBands.append(('Ice III', R_km - _f(Planet.zIceIIIund_m)/1e3, _f(Planet.dzIceIIIund_km)))
+                if _f(Planet.dzIceVund_km) > 0:
+                    phaseBands.append(('Ice V', R_km - _f(Planet.zIceVund_m)/1e3, _f(Planet.dzIceVund_km)))
+                if _f(Planet.D_km) > 0:
+                    phaseBands.append(('Ocean', R_km - _f(Planet.zb_km), _f(Planet.D_km)))
+                if _f(Planet.dzIceII_km) > 0:
+                    phaseBands.append(('Ice II', R_km - _f(Planet.zIceII_m)/1e3, _f(Planet.dzIceII_km)))
+                if _f(Planet.dzIceIII_km) > 0:
+                    phaseBands.append(('Ice III', R_km - _f(Planet.zIceIII_m)/1e3, _f(Planet.dzIceIII_km)))
+                if _f(Planet.dzIceV_km) > 0:
+                    phaseBands.append(('Ice V', R_km - _f(Planet.zIceV_m)/1e3, _f(Planet.dzIceV_km)))
+                if _f(Planet.dzIceVI_km) > 0:
+                    phaseBands.append(('Ice VI', R_km - _f(Planet.zIceVI_m)/1e3, _f(Planet.dzIceVI_km)))
+            rCore_km = _f(Planet.Core.Rmean_m)/1e3
+            rSil_km = _f(Planet.Sil.Rmean_m)/1e3
+            if rSil_km - rCore_km > 0:
+                phaseBands.append(('Silicates', rSil_km, rSil_km - rCore_km))
+            if Planet.Do.Fe_CORE and rCore_km > 0:
+                phaseBands.append(('Core', rCore_km, rCore_km))
+            thetaEdge = np.radians(90 - Style.wedgeAngle_deg)
+            sideLabels = []
+            for phName, rOut_km, dz_km in phaseBands:
+                fMid = (rOut_km - dz_km/2) / rMax_km
+                if dz_km / rMax_km > 0.06:
+                    ax.text(0.5, fMid, phName, ha='center', va='center',
+                            fontsize=Style.TS_ticks, zorder=200)
+                else:
+                    sideLabels.append((fMid, phName))
+            if np.size(sideLabels) > 0:
+                yPrev = None
+                for fMid, phName in sorted(sideLabels, key=lambda t: -t[0]):
+                    x = 0.5 + fMid*np.cos(thetaEdge) + 0.02
+                    y = fMid*np.sin(thetaEdge)
+                    if yPrev is not None and yPrev - y < 0.045:
+                        y = yPrev - 0.045
+                    yPrev = y
+                    ax.text(x, y, phName, ha='left', va='center',
+                            fontsize=Style.TS_ticks, zorder=200)
+                xlo, xhi = ax.get_xlim()
+                ax.set_xlim(xlo, max(xhi, 0.5 + np.cos(thetaEdge) + 0.35))
+
         # Adjust plots to look nice
         ax.set_yticks(rTickRefs)
         if FigMisc.MARK_RADII:

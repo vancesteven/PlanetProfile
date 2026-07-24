@@ -2924,6 +2924,7 @@ class FigMiscStruct:
         self.minzbRratio_frac = None  # Fraction of total body radius for ice shell and ocean thickness, above which ice shell ticks will automatically switch on (overrides WEDGE_ICE_TICKS)
         self.MARK_RADII = False  # Whether to add a marker line from radius labels to layer arc
         self.LABEL_RADII = False  # Whether to add a label to radius km numbers
+        self.LABEL_WEDGE_PHASES = True  # Whether to print phase names on wedge diagrams (centered on each layer, or beside the wedge for thin layers)
 
         # Hydrosphere PT diagrams
         self.PT_RASTER = False  # Whether to rasterize gridded information in PT plots and phase diagrams. Dramatically speeds up figure creation time and reduces file size, but renders gridded data grainy upon zoom-in.

@@ -2486,6 +2486,12 @@ from Utilities.crisp_figs import (
     display_vector_fig as _crisp_display)
 
 
+# Bump when the globe-panel figure/table code changes shape: cached
+# export bytes in live sessions carry the version, so a code update
+# invalidates them instead of replaying stale figures.
+_GLOBE_FIG_VER = 3
+
+
 def _result_token():
     """Cache token for figure exports: stable while the same result object
     sits in session state; changes on any new run / loaded pickle."""
@@ -3408,47 +3414,258 @@ def render_results():
                     figure_src = ("hydrostatic figure from the posterior "
                                   "k_f (no C20/C22 in this run)")
 
-                dev = abs(c20 or 0.0) + 3 * abs(c22 or 0.0)
-                default_ex = (min(500.0, max(1.0, 0.03 / dev))
-                              if dev > 0 else 1.0)
-                exagg = st.slider(
-                    "Shape exaggeration (1 = true figure)", 1.0, 500.0,
-                    float(round(default_ex)), 1.0, key='globe_exagg')
+                # Tabs (user 2026-07-23): the sample picker doubles as a
+                # radial-structure explorer — the same selected draw feeds
+                # the 3D globe, standard property profiles, and a
+                # proportional layer stack.
+                st.caption(f"globe panel code v{_GLOBE_FIG_VER}")
+                _tab_globe, _tab_prof, _tab_wedge, _tab_data = st.tabs(
+                    ['🌐 Globe', '📈 Radial profiles', '🧀 Wedge',
+                     '📄 Data table'])
+                with _tab_globe:
+                    dev = abs(c20 or 0.0) + 3 * abs(c22 or 0.0)
+                    default_ex = (min(500.0, max(1.0, 0.03 / dev))
+                                  if dev > 0 else 1.0)
+                    exagg = st.slider(
+                        "Shape exaggeration (1 = true figure)", 1.0, 500.0,
+                        float(round(default_ex)), 1.0, key='globe_exagg')
 
-                fig3d = build_globe_figure(
-                    body, R_km, glayers, c20=c20, c22=c22, kf=kf,
-                    exaggeration=exagg)
-                st.plotly_chart(fig3d, width='stretch', key='globe_chart')
-                from Utilities.globe_view import triaxial_semiaxes
-                _kf_amp = (1.0 + (kf or 1.0)) / (kf or 1.0)
-                _a, _b, _c = triaxial_semiaxes(
-                    R_km, (c20 or 0.0), (c22 or 0.0), _kf_amp, 1.0)
-                st.caption(
-                    f"Principal axes (true figure, no exaggeration): "
-                    f"a = {_a:.2f} km (sub-parent, moment A), "
-                    f"b = {_b:.2f} km (orbital, B), "
-                    f"c = {_c:.2f} km (spin, C); "
-                    f"a − c = {(_a - _c) * 1000:.0f} m. "
-                    f"Figure source: {figure_src}.")
-                tex_note = ("NASA/USGS global mosaic (public domain)"
-                            if texture_path(body) else
-                            "no shipped texture for this body yet — "
-                            "shaded sphere")
-                shape_note = (
-                    "Surface deformed by the degree-2 figure implied by "
-                    "C20/C22 (tidal bulge along the sub-parent x-axis, "
-                    "polar flattening) with fluid amplification "
-                    "(1+k_f)/k_f — the non-spherical shape the "
-                    "spherically averaged C/MR² never captures."
-                    if (c20 or c22) else
-                    "No C20/C22 in this run — sphere shown; gravity-pair "
-                    "configs deform the figure.")
-                st.caption(
-                    f"Showing {which}. Drag to rotate, scroll to zoom. "
-                    f"Texture: {tex_note}. Cutaway wedge exposes the "
-                    f"interior; the innermost body is solid. {shape_note} "
-                    "Lateral (3D) structure becomes per-layer r(θ, φ) "
-                    "fields on this same mesh — roadmap.")
+                    fig3d = build_globe_figure(
+                        body, R_km, glayers, c20=c20, c22=c22, kf=kf,
+                        exaggeration=exagg)
+                    st.plotly_chart(fig3d, width='stretch', key='globe_chart')
+                    from Utilities.globe_view import triaxial_semiaxes
+                    _kf_amp = (1.0 + (kf or 1.0)) / (kf or 1.0)
+                    _a, _b, _c = triaxial_semiaxes(
+                        R_km, (c20 or 0.0), (c22 or 0.0), _kf_amp, 1.0)
+                    st.caption(
+                        f"Principal axes (true figure, no exaggeration): "
+                        f"a = {_a:.2f} km (sub-parent, moment A), "
+                        f"b = {_b:.2f} km (orbital, B), "
+                        f"c = {_c:.2f} km (spin, C); "
+                        f"a − c = {(_a - _c) * 1000:.0f} m. "
+                        f"Figure source: {figure_src}.")
+                    tex_note = ("NASA/USGS global mosaic (public domain)"
+                                if texture_path(body) else
+                                "no shipped texture for this body yet — "
+                                "shaded sphere")
+                    shape_note = (
+                        "Surface deformed by the degree-2 figure implied by "
+                        "C20/C22 (tidal bulge along the sub-parent x-axis, "
+                        "polar flattening) with fluid amplification "
+                        "(1+k_f)/k_f — the non-spherical shape the "
+                        "spherically averaged C/MR² never captures."
+                        if (c20 or c22) else
+                        "No C20/C22 in this run — sphere shown; gravity-pair "
+                        "configs deform the figure.")
+                    st.caption(
+                        f"Showing {which}. Drag to rotate, scroll to zoom. "
+                        f"Texture: {tex_note}. Cutaway wedge exposes the "
+                        f"interior; the innermost body is solid. {shape_note} "
+                        "Lateral (3D) structure becomes per-layer r(θ, φ) "
+                        "fields on this same mesh — roadmap.")
+
+                with _tab_prof:
+                    from Utilities.radial_profiles import (
+                        profile_for_sample, build_profile_figure)
+                    prof, _note = profile_for_sample(
+                        result, sel_idx, parent_directory)
+                    if prof is None:
+                        st.info(f"Radial profiles unavailable: {_note}")
+                    else:
+                        _ttl = (f"sample #{sel_idx}" if sel_idx is not None
+                                else "posterior median")
+                        if prof.get('Tb_K'):
+                            _ttl += f" (T_b = {prof['Tb_K']:.1f} K)"
+                        _crisp_display(
+                            builder=lambda: build_profile_figure(
+                                prof, f"Radial structure — {_ttl}"),
+                            key='globe_radial_prof',
+                            download_label='radial profiles',
+                            token=(_result_token(), sel_idx, _GLOBE_FIG_VER))
+                        st.caption(
+                            "Standard PlanetProfile property profiles for "
+                            "the selected draw, rebuilt through the same "
+                            "(T_b, w) structure-cache interpolation the "
+                            "likelihood used. Phase bands share the globe "
+                            "colors. Click a different sample above to "
+                            "explore how the interior changes.")
+
+                with _tab_wedge:
+                    from Utilities.radial_profiles import build_wedge_figure
+
+                    def _th(a):
+                        if a is None or not np.size(a):
+                            return 0.0
+                        _arr = np.asarray(a, float)
+                        if sel_idx is None:
+                            _f = _arr[np.isfinite(_arr)]
+                            return float(np.median(_f)) if _f.size else 0.0
+                        _v = _arr[sel_idx] if _arr.size > sel_idx else np.nan
+                        return float(_v) if np.isfinite(_v) else 0.0
+
+                    _phd = getattr(result, 'D_icePhase_results', None) or {}
+                    _ih = _th(d_ih)
+                    _ocn = _th(d_oc)
+                    _hs = _th(d_hs)
+                    _d3, _d5, _d6 = (_th(_phd.get('III')),
+                                     _th(_phd.get('V')),
+                                     _th(_phd.get('VI')))
+                    _hp = _th(d_hp)
+                    if _d3 + _d5 + _d6 < 0.5 and _hp > 0.5:
+                        _hp_items = [('hp_ice', _hp)]
+                    else:
+                        _hp_items = [('ice_III', _d3), ('ice_V', _d5),
+                                     ('ice_VI', _d6)]
+                    _rc = (_th(samples[:, names.index('R_core_km')])
+                           if 'R_core_km' in names else 0.0)
+                    _sil = max(0.0, (R_km - _hs) - _rc)
+                    _items = ([('ice_Ih', _ih), ('ocean', _ocn)]
+                              + _hp_items
+                              + [('silicate', _sil), ('core', _rc)])
+                    _sttl = (f"sample #{sel_idx}" if sel_idx is not None
+                             else "posterior median")
+                    # PlanetProfile's own PlotWedge (user 2026-07-23):
+                    # body config Planet + this draw's geometry. Cached
+                    # per (result, sample) alongside the crisp figures.
+                    _wcache = st.session_state.setdefault(
+                        '_crisp_fig_cache', {})
+                    _wtok = (_result_token(), sel_idx, _GLOBE_FIG_VER)
+                    _wentry = _wcache.get('globe_wedge')
+                    if _wentry is None or _wentry['token'] != _wtok:
+                        try:
+                            from Utilities.radial_profiles import \
+                                pp_wedge_exports
+                            _w_ppt = None
+                            try:
+                                from PlanetProfile.Inference.grid_interp_2d \
+                                    import wOcean_ppt_from_theta
+                                from Utilities.radial_profiles import \
+                                    _theta_for
+                                _w_ppt = wOcean_ppt_from_theta(
+                                    _theta_for(result, sel_idx))
+                            except Exception:
+                                _w_ppt = None
+                            _geo = dict(R_km=R_km, d_ih=_ih, d_oc=_ocn,
+                                        d3=_d3, d5=_d5, d6=_d6,
+                                        d_hs=_hs, r_core=_rc)
+                            if _hp_items and _hp_items[0][0] == 'hp_ice':
+                                _geo['d6'] = _hp  # lumped HP: draw as VI
+                            _svg, _pdf, _png = pp_wedge_exports(
+                                _geo, parent_directory, body or 'Europa',
+                                w_ppt=_w_ppt)
+                            _wentry = {'token': _wtok, 'svg': _svg,
+                                       'pdf': _pdf, 'png': _png}
+                            _wcache['globe_wedge'] = _wentry
+                        except Exception as _we:
+                            import traceback as _tb
+                            st.warning(f"PlanetProfile PlotWedge failed "
+                                       f"({type(_we).__name__}: {_we}); "
+                                       f"simplified wedge shown.")
+                            with st.expander("PlotWedge error detail"):
+                                st.code(_tb.format_exc())
+                            _wentry = None
+                    if _wentry is not None:
+                        from Utilities.crisp_figs import _render as \
+                            _crisp_render
+                        _crisp_render(_wentry, key='globe_wedge',
+                                      download_label='wedge diagram')
+                        st.caption(
+                            f"PlanetProfile PlotWedge for {_sttl}. Shell "
+                            "drawn fully conductive (the inference "
+                            "carries no convection partition); mantle/"
+                            "core composition labels are the body's PP "
+                            "defaults, not inferred.")
+                    else:
+                        _crisp_display(
+                            builder=lambda: build_wedge_figure(
+                                R_km, _items,
+                                f"Interior wedge — {_sttl}"),
+                            key='globe_wedge_fallback',
+                            download_label='wedge diagram',
+                            token=(_result_token(), sel_idx, _GLOBE_FIG_VER))
+                    from Utilities.globe_view import LAYER_LABELS as _LL
+                    _rows, _rtop = [], float(R_km)
+                    for _k, _d in _items:
+                        if _d <= 0:
+                            continue
+                        _rows.append({'Layer': _LL.get(_k, _k),
+                                      'Outer radius (km)': round(_rtop, 1),
+                                      'Thickness (km)': round(_d, 1)})
+                        _rtop -= _d
+                    st.dataframe(_rows, hide_index=True,
+                                 width='stretch')
+
+                with _tab_data:
+                    from Utilities.radial_profiles import (
+                        profile_for_sample as _pfs, profile_table,
+                        profile_txt)
+                    _dprof, _dnote = _pfs(result, sel_idx, parent_directory)
+                    if _dprof is None:
+                        st.info(f"Radial data unavailable: {_dnote}")
+                    else:
+                        _dttl = (f"sample #{sel_idx}"
+                                 if sel_idx is not None
+                                 else "posterior median")
+                        _tbl = profile_table(_dprof)
+                        import pandas as _pd
+                        _df = _pd.DataFrame(_tbl)
+                        # Hide columns with no data at all (porosity, QS,
+                        # pore/tidal quantities the inference cache never
+                        # carries); the .txt/CSV downloads keep the full
+                        # PlanetProfile column set.
+                        _empty_cols = [c for c in _df.columns
+                                       if c != 'phase ID'
+                                       and not np.isfinite(
+                                           _df[c].astype(float)).any()]
+                        _shown = _df.drop(columns=_empty_cols)
+                        st.caption(
+                            f"Radial data for {_dttl} in standard "
+                            "PlanetProfile profile form (surface inward). "
+                            "g, MLayer, VLayer are integrated from the "
+                            "cached density profile; Cp and α come from "
+                            "SeaFreeze for the H₂O phases (the ocean uses "
+                            "the pure-water spline — a few-percent "
+                            "approximation at seawater salinities). "
+                            + ("Columns with no data are hidden here but "
+                               "kept in the downloads: "
+                               + ", ".join(_empty_cols) + "."
+                               if _empty_cols else ""))
+                        if _dprof.get('thermo_notes'):
+                            st.warning("Cp/α note: "
+                                       f"{_dprof['thermo_notes']}")
+                        _e_cols = ['eta (Pa s)', 'sigma (S/m)',
+                                    'alpha (1/K)', 'MLayer (kg)',
+                                    'VLayer (m3)']
+                        _colcfg = {c: st.column_config.NumberColumn(
+                                       c, format='%.3e')
+                                   for c in _e_cols if c in _shown.columns}
+                        st.dataframe(_shown, hide_index=True,
+                                     width='stretch', height=340,
+                                     column_config=_colcfg)
+                        _txt = profile_txt(_dprof, body or 'body', _dttl)
+                        _fn = (f"{body or 'body'}_inference_"
+                               f"{'median' if sel_idx is None else f'sample{sel_idx}'}"
+                               ".txt")
+                        c1_, c2_ = st.columns(2)
+                        c1_.download_button(
+                            'Download profile (PlanetProfile .txt)', _txt,
+                            file_name=_fn, mime='text/plain',
+                            icon=':material/download:', width='stretch',
+                            key='globe_pp_txt')
+                        import io as _io
+                        import csv as _csv
+                        _buf = _io.StringIO()
+                        _w = _csv.DictWriter(_buf,
+                                             fieldnames=list(_tbl[0]))
+                        _w.writeheader()
+                        _w.writerows(_tbl)
+                        c2_.download_button(
+                            'Download profile (CSV)', _buf.getvalue(),
+                            file_name=_fn.replace('.txt', '.csv'),
+                            mime='text/csv',
+                            icon=':material/download:', width='stretch',
+                            key='globe_pp_csv')
         except Exception as e:
             st.warning(f"Globe unavailable: {e}")
 
