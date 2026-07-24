@@ -394,10 +394,19 @@ def pp_wedge_exports(geo: Dict, parent_directory, bodyname: str,
         Planet.Ocean.wOcean_ppt = float(w_ppt)
 
     from PlanetProfile.Plotting import ProfilePlots as _PPplots
+    import matplotlib.pyplot as plt
     outs = {}
     tmpdir = tempfile.mkdtemp(prefix='ppwedge_')
     old_fmt = _PPplots.FigMisc.figFormat
+    # The Inference page forces text.usetex=False for its crisp figures,
+    # but when TeX is installed GetConfig builds FigLbl labels with
+    # siunitx macros (\si{km}) that mathtext cannot parse — render the
+    # wedge exactly as the CLI does (usetex iff TEX_INSTALLED), restore
+    # after.
+    old_usetex = plt.rcParams.get('text.usetex', False)
     try:
+        plt.rcParams['text.usetex'] = bool(
+            getattr(_PPplots.FigMisc, 'TEX_INSTALLED', False))
         for fmt in ('svg', 'pdf', 'png'):
             path = os.path.join(tmpdir, f'wedge.{fmt}')
             params = SimpleNamespace(
@@ -409,6 +418,7 @@ def pp_wedge_exports(geo: Dict, parent_directory, bodyname: str,
                 outs[fmt] = f.read()
     finally:
         _PPplots.FigMisc.figFormat = old_fmt
+        plt.rcParams['text.usetex'] = old_usetex
     return outs['svg'], outs['pdf'], outs['png']
 
 
