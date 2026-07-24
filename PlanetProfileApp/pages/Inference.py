@@ -3433,9 +3433,15 @@ def render_results():
                         _tbl = profile_table(_dprof)
                         st.caption(
                             f"Radial data for {_dttl} in standard "
-                            "PlanetProfile profile form (surface inward; "
-                            "columns the inference cache does not carry "
-                            "are nan).")
+                            "PlanetProfile profile form (surface inward). "
+                            "g, MLayer, VLayer are integrated from the "
+                            "cached density profile; Cp and α come from "
+                            "SeaFreeze for the H₂O phases (the ocean uses "
+                            "the pure-water spline — a few-percent "
+                            "approximation at seawater salinities). "
+                            "Porosity, k, QS, pore and tidal-heating "
+                            "columns are not carried by the inference "
+                            "cache and stay nan.")
                         st.dataframe(_tbl, hide_index=True,
                                      width='stretch', height=340)
                         _txt = profile_txt(_dprof, body or 'body', _dttl)

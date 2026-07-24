@@ -143,8 +143,60 @@ def profile_for_sample(result, sel_idx: Optional[int], parent_directory
             prof['VS_kms'] = np.sqrt(mu / np.where(rho > 0, rho, np.nan)) / 1e3
     else:
         prof['VP_kms'] = prof['VS_kms'] = None
+    _augment_thermo(prof)
     prof['Tb_K'] = theta.get('Tb_K')
     return prof, ''
+
+
+_G_GRAV = 6.674e-11
+# phase code -> SeaFreeze material for Cp/alpha (H2O phases only; the
+# ocean uses the pure-water spline — a few-percent approximation at
+# seawater salinities. Silicate/core thermodynamics are not in the
+# inference cache and stay nan.)
+_SF_PHASE = {0: 'water1', 1: 'Ih', 2: 'II', 3: 'III', 5: 'V', 6: 'VI'}
+
+
+def _augment_thermo(prof):
+    """Fill the derivable PP-profile quantities the cache omits:
+    g(r), shell volumes/masses (from the density profile), and Cp/alpha
+    (SeaFreeze, H2O phases)."""
+    r_m = np.asarray(prof['r_km'], float) * 1e3   # ascending
+    n = r_m.size
+    rho = prof.get('rho')
+    if rho is not None:
+        r3 = r_m ** 3
+        dV = 4.0 / 3.0 * np.pi * np.diff(r3)
+        V0 = 4.0 / 3.0 * np.pi * r3[0]
+        rho_mid = 0.5 * (np.asarray(rho)[1:] + np.asarray(rho)[:-1])
+        dM = np.concatenate([[V0 * rho[0]], dV * rho_mid])
+        with np.errstate(invalid='ignore', divide='ignore'):
+            prof['g_ms2'] = _G_GRAV * np.cumsum(dM) / r_m ** 2
+        prof['VLayer_m3'] = np.concatenate([[V0], dV])
+        prof['MLayer_kg'] = dM
+    P, T, ph = prof.get('P_MPa'), prof.get('T_K'), prof.get('phases')
+    if P is not None and T is not None and ph is not None:
+        Cp = np.full(n, np.nan)
+        al = np.full(n, np.nan)
+        try:
+            import seafreeze.seafreeze as sf
+            phi = np.asarray(ph, float).astype(int)
+            for code, mat in _SF_PHASE.items():
+                m = (phi == code) & np.isfinite(P) & np.isfinite(T)
+                if not m.any():
+                    continue
+                pts = np.array(list(zip(np.asarray(P, float)[m],
+                                        np.asarray(T, float)[m])),
+                               dtype='f,f').astype(object)
+                try:
+                    out = sf.getProp(pts, mat)
+                    Cp[m] = np.ravel(out.Cp)
+                    al[m] = np.ravel(out.alpha)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        prof['Cp_JkgK'] = Cp
+        prof['alpha_pK'] = al
 
 
 def _phase_bands(r_km, phases) -> List[Tuple[float, float, str]]:
@@ -283,13 +335,14 @@ def build_wedge_figure(R_km: float, thicknesses: List[Tuple[str, float]],
 _PP_COLUMNS = [
     ('P (MPa)', 'P_MPa'), ('T (K)', 'T_K'), ('r (m)', '_r_m'),
     ('phase ID', 'phases'), ('rho (kg/m3)', 'rho'),
-    ('Cp (J/kg/K)', None), ('alpha (1/K)', None), ('g (m/s2)', None),
+    ('Cp (J/kg/K)', 'Cp_JkgK'), ('alpha (1/K)', 'alpha_pK'),
+    ('g (m/s2)', 'g_ms2'),
     ('phi (void/solid frac)', None), ('sigma (S/m)', 'sigma_Sm'),
     ('k (W/m/K)', None), ('VP (km/s)', 'VP_kms'), ('VS (km/s)', 'VS_kms'),
     ('QS', None), ('KS (GPa)', '_KS_GPa'), ('GS (GPa)', '_GS_GPa'),
     ('Ppore (MPa)', None), ('rhoMatrix (kg/m3)', None),
-    ('rhoPore (kg/m3)', None), ('MLayer (kg)', None),
-    ('VLayer (m3)', None), ('Htidal (W/m3)', None),
+    ('rhoPore (kg/m3)', None), ('MLayer (kg)', 'MLayer_kg'),
+    ('VLayer (m3)', 'VLayer_m3'), ('Htidal (W/m3)', None),
     ('eta (Pa s)', 'eta_Pa_base'),
 ]
 
