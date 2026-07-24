@@ -2389,6 +2389,12 @@ from Utilities.crisp_figs import (
     display_vector_fig as _crisp_display)
 
 
+# Bump when the globe-panel figure/table code changes shape: cached
+# export bytes in live sessions carry the version, so a code update
+# invalidates them instead of replaying stale figures.
+_GLOBE_FIG_VER = 2
+
+
 def _result_token():
     """Cache token for figure exports: stable while the same result object
     sits in session state; changes on any new run / loaded pickle."""
@@ -3358,7 +3364,7 @@ def render_results():
                                 prof, f"Radial structure — {_ttl}"),
                             key='globe_radial_prof',
                             download_label='radial profiles',
-                            token=(_result_token(), sel_idx))
+                            token=(_result_token(), sel_idx, _GLOBE_FIG_VER))
                         st.caption(
                             "Standard PlanetProfile property profiles for "
                             "the selected draw, rebuilt through the same "
@@ -3406,7 +3412,7 @@ def render_results():
                     # per (result, sample) alongside the crisp figures.
                     _wcache = st.session_state.setdefault(
                         '_crisp_fig_cache', {})
-                    _wtok = (_result_token(), sel_idx)
+                    _wtok = (_result_token(), sel_idx, _GLOBE_FIG_VER)
                     _wentry = _wcache.get('globe_wedge')
                     if _wentry is None or _wentry['token'] != _wtok:
                         try:
@@ -3456,7 +3462,7 @@ def render_results():
                                 f"Interior wedge — {_sttl}"),
                             key='globe_wedge_fallback',
                             download_label='wedge diagram',
-                            token=(_result_token(), sel_idx))
+                            token=(_result_token(), sel_idx, _GLOBE_FIG_VER))
                     from Utilities.globe_view import LAYER_LABELS as _LL
                     _rows, _rtop = [], float(R_km)
                     for _k, _d in _items:
