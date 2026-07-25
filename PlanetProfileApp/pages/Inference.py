@@ -1775,16 +1775,23 @@ def render_amortized_config():
                    "INDEX.md), then reload.")
         return None
 
-    labels = [lbl for lbl, _ in available]
-
-    def _slot_display(lbl):
-        # Body first (user 2026-07-25), dropping the constant "1D · "
-        # prefix that ate the truncation budget; the full label is
-        # captioned below the widget.
-        head, sep, tail = lbl.partition(' — ')
+    # Two-level selection (user 2026-07-25): one entry per MISSION-BODY
+    # analysis (Cassini-Titan, Galileo-Europa, Clipper-Europa), then a
+    # version pulldown within it defaulting to the newest. Analysis and
+    # version are parsed from the slot label ("1D · Mission-Body (…) —
+    # version details"); slots are registered chronologically, so the
+    # LAST registered member of an analysis is its most recent version.
+    def _split(lbl):
+        head, _, tail = lbl.partition(' — ')
         if head.startswith('1D · '):
             head = head[len('1D · '):]
-        return f'{head} — {tail}' if sep else head
+        analysis = head.partition(' (')[0]
+        return analysis, (tail if tail else head)
+
+    groups = {}
+    for lbl, fn_ in available:
+        a_, v_ = _split(lbl)
+        groups.setdefault(a_, []).append((lbl, v_, fn_))
 
     # Let long option labels WRAP in the dropdown menu instead of
     # ellipsizing (user 2026-07-25: variants were hard to tell apart).
@@ -1797,11 +1804,16 @@ def render_amortized_config():
             line-height: 1.3;
         }
         </style>""", unsafe_allow_html=True)
-    choice = st.selectbox("Pretrained model:", labels,
-                          key='amort_artifact_choice',
-                          format_func=_slot_display)
+    ca_, cv_ = st.columns(2)
+    sel_analysis = ca_.selectbox(
+        "Mission–body analysis:", list(groups), key='amort_analysis')
+    _vers = list(reversed(groups[sel_analysis]))  # newest first
+    _vlabels = [v_ for _, v_, _ in _vers]
+    sel_version = cv_.selectbox(
+        "Model version:", _vlabels, index=0,
+        key=f'amort_version_{sel_analysis}')
+    choice, _, fname = _vers[_vlabels.index(sel_version)]
     st.caption(choice)
-    fname = dict(available)[choice]
 
     # Mutually-exclusive channel selector for artifacts that ship a
     # channel-family (same body/priors/cache, differ only in conditioned

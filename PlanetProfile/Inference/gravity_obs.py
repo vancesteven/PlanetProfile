@@ -190,9 +190,12 @@ def radau_darwin_kf(cmr2: float) -> float:
 
 
 def radau_darwin_cmr2(kf: float) -> float:
-    """Inverse of radau_darwin_kf: C/MR^2 from a fluid Love number."""
+    """Inverse of radau_darwin_kf: C/MR^2 from a fluid Love number.
+    Returns NaN (silently) for RD-unphysical kf > 4 rather than emitting
+    a RuntimeWarning into the server log."""
     kf = float(kf)
-    y = np.sqrt((4.0 - kf) / (1.0 + kf))
+    with np.errstate(invalid='ignore'):
+        y = np.sqrt((4.0 - kf) / (1.0 + kf))
     return (2.0 / 3.0) * (1.0 - 0.4 * y)
 
 
