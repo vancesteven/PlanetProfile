@@ -43,7 +43,8 @@ compatNums = {
     'obspy': '1.4.2',
 
     'reaktoro': '2.13.0',
-    'pyalma3': '1.0.1'
+    'pyalma3': '1.0.1',
+    'CoolProp': '8.0.0'
 }
 # Printable package names
 pkgNames = {
@@ -52,7 +53,8 @@ pkgNames = {
     'obspy': 'ObsPy.TauP',
 
     'reaktoro': 'reaktoro',
-    'pyalma3': 'pyALMA3'
+    'pyalma3': 'pyALMA3',
+    'CoolProp': 'CoolProp'
 }
 # Instructions for installation
 installInstruct = {
@@ -61,7 +63,8 @@ installInstruct = {
     'obspy': 'conda install -c conda-forge obspy',
 
     'reaktoro': 'pip install reaktoro',
-    'pyalma3': 'pip install pyalma3'
+    'pyalma3': 'pip install pyalma3',
+    'CoolProp': 'pip install CoolProp'
 }
 # Instructions for upgrading
 upgradeInstruct = {
@@ -70,7 +73,8 @@ upgradeInstruct = {
     'obspy': 'conda update obspy',
 
     'reaktoro': 'pip install --upgrade reaktoro',
-    'pyalma3': 'pip install --upgrade pyalma3'
+    'pyalma3': 'pip install --upgrade pyalma3',
+    'CoolProp': 'pip install --upgrade CoolProp'
 }
 
 

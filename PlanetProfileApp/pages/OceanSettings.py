@@ -78,7 +78,7 @@ if user_wants_ocean:
 
     # ----- Predefined ocean Options and Settings -----
     # Predefined options list
-    predefined_ocean_options = ("PureH2O", "Seawater", "MgSO4", "NaCl")
+    predefined_ocean_options = ("PureH2O", "Seawater", "MgSO4", "NaCl", "NH3")
 
     if user_ocean_type == "Use pre-defined ocean composition":
         try:

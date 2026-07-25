@@ -181,15 +181,15 @@ class OceanEOSStruct:
                 self.EOSdeltaP = None
                 self.EOSdeltaT = None
                 self.propsPmax = 0
-            elif self.comp in ['PureH2O', 'NH3', 'NaCl','NaCl_loP','NaCl_hiP']:
+            elif self.comp in ['PureH2O', 'NaCl','NaCl_loP','NaCl_hiP']:
                 self.type = 'SeaFreeze'
                 self.m_gmol = Constants.m_gmol[self.comp]
 
                 # Set extrapolation boundaries to limits defined in SeaFreeze
-                Pmax = {'PureH2O':   2300.6, 'NH3': 2228.4, 'NaCl': 1000.1}
-                Tmin = {'PureH2O':    239,   'NH3':  241,   'NaCl':  229.0}
-                Tmax = {'PureH2O':    501,   'NH3':  399.2, 'NaCl':  501.0}
-                wMax = {'PureH2O': np.nan,   'NH3':  290.1, 'NaCl':  290.3} # upper NaCl concentration is 7mol/kgH2O
+                Pmax = {'PureH2O':   2300.6, 'NaCl': 1000.1}
+                Tmin = {'PureH2O':    239,   'NaCl':  229.0}
+                Tmax = {'PureH2O':    501,   'NaCl':  501.0}
+                wMax = {'PureH2O': np.nan,   'NaCl':  290.3} # upper NaCl concentration is 7mol/kgH2O
                 self.Pmax = np.minimum(self.Pmax, Pmax[self.comp])
                 self.Tmin = np.maximum(self.Tmin, Tmin[self.comp])
                 self.Tmax = np.minimum(self.Tmax, Tmax[self.comp])
@@ -269,6 +269,62 @@ class OceanEOSStruct:
                 else:
                     # Placeholder until we get other species
                     Ocean_Speciation_Info = {'ppt_reference_g_kg': None, 'pH': None, 'species': None}
+                self.ufn_species = ReturnConstantSpecies(wOcean_ppt, Ocean_Speciation_Info['ppt_reference_g_kg'],
+                    Ocean_Speciation_Info['pH'], Ocean_Speciation_Info['species'])
+
+            elif self.comp == 'NH3':
+                # Aqueous ammonia via CoolProp (HEOS mixture; estimated
+                # binary pair validated vs Melinder INCOMP::MAM) with the
+                # Leliwa-Kopystynski et al. (2002) liquidus depression
+                # applied to the SeaFreeze pure-water phase diagram.
+                # Reinstates the 2018 (REFPROP-based) NH3 capability.
+                # See Thermodynamics/NH3/NH3Props.py for provenance,
+                # accuracy, and validity limits.
+                from PlanetProfile.Utilities.PPversion import CheckCompat
+                CheckCompat('CoolProp')
+                from PlanetProfile.Thermodynamics.NH3.NH3Props import (
+                    NH3Props, NH3Seismic, NH3liquidusShift_K,
+                    NH3_PMAX_MPA, NH3_TMIN_K, NH3_TMAX_K, NH3_WMAX_PPT)
+                self.type = 'CoolProp'
+                self.m_gmol = Constants.m_gmol['NH3']
+                self.Pmax = np.minimum(self.Pmax, NH3_PMAX_MPA)
+                self.Tmin = np.maximum(self.Tmin, NH3_TMIN_K)
+                self.Tmax = np.minimum(self.Tmax, NH3_TMAX_K)
+                self.propsPmax = self.Pmax
+                if np.max(P_MPa) > self.Pmax:
+                    log.warning(f'Input Pmax greater than CoolProp NH3 limit. Resetting to {self.Pmax} MPa.')
+                    P_MPa = np.linspace(np.min(P_MPa), self.Pmax, np.size(P_MPa))
+                    PropsP_MPa, PropsT_K, Pphase_MPa, Tphase_K = ReAssignPT(P_MPa, T_K, P_MPa[0], self.Pmax, T_K[0], T_K[-1], MELT=MELT, propsStepReductionFactor=propsStepReductionFactor)
+                if np.min(T_K) < self.Tmin:
+                    log.warning(f'Input Tmin less than CoolProp NH3 limit. Resetting to {self.Tmin} K.')
+                    T_K = np.linspace(self.Tmin, np.max(T_K), np.size(T_K))
+                    PropsP_MPa, PropsT_K, Pphase_MPa, Tphase_K = ReAssignPT(P_MPa, T_K, P_MPa[0], P_MPa[-1], T_K[0], T_K[-1], MELT=MELT, propsStepReductionFactor=propsStepReductionFactor)
+                if np.max(T_K) > self.Tmax:
+                    log.warning(f'Input Tmax greater than CoolProp NH3 limit. Resetting to {self.Tmax} K.')
+                    T_K = np.linspace(np.min(T_K), self.Tmax, np.size(T_K))
+                    PropsP_MPa, PropsT_K, Pphase_MPa, Tphase_K = ReAssignPT(P_MPa, T_K, P_MPa[0], P_MPa[-1], T_K[0], T_K[-1], MELT=MELT, propsStepReductionFactor=propsStepReductionFactor)
+                if self.w_ppt > NH3_WMAX_PPT:
+                    log.warning(f'Input wOcean_ppt greater than the NH3 liquidus-fit limit '
+                                f'({NH3_WMAX_PPT} ppt, Leliwa-Kopystynski et al. 2002). Resetting to that limit.')
+                    self.w_ppt = NH3_WMAX_PPT
+
+                rho_kgm3, Cp_JkgK, alpha_pK, VP_kms, KS_GPa = NH3Props(
+                    PropsP_MPa, PropsT_K, self.w_ppt)
+
+                # Phase: pure-H2O SeaFreeze diagram at T + dT(X) — ices
+                # are pure H2O, NH3 is rejected into the liquid.
+                dTliq_K = NH3liquidusShift_K(self.w_ppt)
+                PTshiftGrid = sfPTgrid(Pphase_MPa, Tphase_K + dTliq_K)
+                self.phase = WhichPhase(deepcopy(PTshiftGrid))
+                self.ufn_phase = PhaseInterpolator(Pphase_MPa, Tphase_K, self.phase)
+                self.EOSdeltaP = self.deltaP
+                self.EOSdeltaT = self.deltaT
+
+                self.ufn_Seismic = NH3Seismic(PropsP_MPa, PropsT_K, VP_kms, KS_GPa, self.EXTRAP)
+                # NH3(aq) is a nonelectrolyte — near-pure-water electrical
+                # conductivity is the appropriate placeholder.
+                self.ufn_sigma_Sm = H2Osigma_Sm(sigmaFixed_Sm)
+                Ocean_Speciation_Info = {'ppt_reference_g_kg': None, 'pH': None, 'species': None}
                 self.ufn_species = ReturnConstantSpecies(wOcean_ppt, Ocean_Speciation_Info['ppt_reference_g_kg'],
                     Ocean_Speciation_Info['pH'], Ocean_Speciation_Info['species'])
 
