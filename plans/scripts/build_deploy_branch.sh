@@ -54,12 +54,20 @@ echo "Staging deploy snapshot of ${SRC_SHA} in ${STAGE}"
 for f in \
   "PlanetProfile/Test/mcmc_results/Europa/Test51_seawater/europa_seawater_structure_grid.pkl" \
   "PlanetProfile/Test/mcmc_results/Europa/Test52_seawater_v3/europa_seawater_structure_grid_v3_2d.pkl" \
+  "PlanetProfile/Test/mcmc_results/Europa/Test52_seawater_v5/europa_seawater_structure_grid_v5_2d.pkl" \
   "PlanetProfile/Test/mcmc_results/Titan/Test50_andrade_noocean_yao2014/titan_allice_yao2014_structure_grid.pkl" \
+  "PlanetProfile/Test/mcmc_results/Titan/Test52_andrade_noocean_diff/titan_diff_noocean_structure_grid.pkl" \
   ; do
   mkdir -p "$STAGE/$(dirname "$f")"
   cp "$REPO_ROOT/$f" "$STAGE/$f"
+  # Optional sidecars; the trailing `|| true` keeps set -e from killing
+  # the build when a cache legitimately has none (e.g. the Titan diff
+  # 1D cache carries no Ae sidecar).
   [ -f "$REPO_ROOT/$f.ae_sidecar.pkl" ] && \
-    cp "$REPO_ROOT/$f.ae_sidecar.pkl" "$STAGE/$f.ae_sidecar.pkl"
+    cp "$REPO_ROOT/$f.ae_sidecar.pkl" "$STAGE/$f.ae_sidecar.pkl" || true
+  # Offsets sidecar (Titan diff cache): JSON next to the pkl.
+  _off="${f%.pkl}_offsets.json"
+  [ -f "$REPO_ROOT/$_off" ] && cp "$REPO_ROOT/$_off" "$STAGE/$_off" || true
 done
 
 # README with Hugging Face Spaces YAML frontmatter (harmless on GitHub).
