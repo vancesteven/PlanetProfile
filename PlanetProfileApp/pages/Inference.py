@@ -3785,14 +3785,18 @@ def render_results():
                         # conductivity, layer mass/volume, r in m, ...):
                         # magnitudes above 1e5 or below 1e-3 are unreadable
                         # in fixed decimal (user 2026-07-24: "columns with
-                        # large numbers such as mass").
+                        # large numbers such as mass"). Use the NATIVE
+                        # 'scientific' format — the sprintf '%.3e' string
+                        # rendered inconsistently in the frontend (user
+                        # 2026-07-25: eta at full precision, MLayer/VLayer
+                        # not converted at all).
                         def _wide_range(col):
                             v = np.abs(_shown[col].to_numpy(float))
                             v = v[np.isfinite(v) & (v > 0)]
                             return v.size and (v.max() >= 1e5
                                                or v.min() < 1e-3)
                         _colcfg = {c: st.column_config.NumberColumn(
-                                       c, format='%.3e')
+                                       c, format='scientific')
                                    for c in _shown.columns
                                    if c != 'phase ID' and _wide_range(c)}
                         st.dataframe(_shown, hide_index=True,
