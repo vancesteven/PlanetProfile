@@ -53,13 +53,26 @@ def _cache() -> dict:
 
 
 def _export(fig):
-    fig.set_dpi(150)
-    svg_buf = io.BytesIO()
-    fig.savefig(svg_buf, format='svg', bbox_inches='tight')
-    pdf_buf = io.BytesIO()
-    fig.savefig(pdf_buf, format='pdf', bbox_inches='tight')
-    png_buf = io.BytesIO()
-    fig.savefig(png_buf, format='png', dpi=200, bbox_inches='tight')
+    # App figures use plain-text/mathtext labels with unicode (±, σ) and
+    # raw underscores; PlanetProfile's config import flips the GLOBAL
+    # text.usetex to True when TeX is installed (first wedge render), and
+    # any app figure exported after that would be fed to real LaTeX and
+    # crash (user 2026-07-24: Europa v4 "u panel unavailable"). Text is
+    # rendered at savefig time, so pin usetex off around the exports;
+    # PlanetProfile's own plot exports manage usetex themselves.
+    import matplotlib.pyplot as plt
+    old_usetex = plt.rcParams.get('text.usetex', False)
+    try:
+        plt.rcParams['text.usetex'] = False
+        fig.set_dpi(150)
+        svg_buf = io.BytesIO()
+        fig.savefig(svg_buf, format='svg', bbox_inches='tight')
+        pdf_buf = io.BytesIO()
+        fig.savefig(pdf_buf, format='pdf', bbox_inches='tight')
+        png_buf = io.BytesIO()
+        fig.savefig(png_buf, format='png', dpi=200, bbox_inches='tight')
+    finally:
+        plt.rcParams['text.usetex'] = old_usetex
     return (svg_buf.getvalue().decode('utf-8'), pdf_buf.getvalue(),
             png_buf.getvalue())
 
@@ -102,7 +115,17 @@ def display_vector_fig(fig=None, *, key, download_label='plot',
         return
 
     if fig is None:
-        fig = builder()
+        # Text objects capture usetex at creation — pin it off during the
+        # build so a PlanetProfile import earlier in the rerun (which
+        # flips the global rcParam when TeX is installed) can't route
+        # app-figure labels through real LaTeX.
+        import matplotlib.pyplot as plt
+        old_usetex = plt.rcParams.get('text.usetex', False)
+        try:
+            plt.rcParams['text.usetex'] = False
+            fig = builder()
+        finally:
+            plt.rcParams['text.usetex'] = old_usetex
         if heavy:
             rasterize_heavy_artists(fig)
     svg, pdf, png = _export(fig)

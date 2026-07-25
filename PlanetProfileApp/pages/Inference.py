@@ -2485,6 +2485,17 @@ from Utilities.crisp_figs import (
     rasterize_heavy_artists as _rasterize_heavy_artists,
     display_vector_fig as _crisp_display)
 
+# App figures use plain-text/mathtext labels (unicode ±/σ, raw
+# underscores). PlanetProfile's config import sets the GLOBAL
+# text.usetex=True when TeX is installed, and matplotlib Text objects
+# capture usetex at CREATION time — any app figure built after a PP
+# import would be fed to real LaTeX and crash (Europa v4 u panel,
+# user 2026-07-24). Pin it off at the top of every rerun; the globe
+# panel re-pins after its PP-importing tabs, and pp_wedge_exports
+# manages usetex itself for PlanetProfile's own plots.
+import matplotlib as _mpl
+_mpl.rcParams['text.usetex'] = False
+
 
 # Bump when the globe-panel figure/table code changes shape: cached
 # export bytes in live sessions carry the version, so a code update
@@ -3766,6 +3777,13 @@ def render_results():
                             key='globe_pp_csv')
         except Exception as e:
             st.warning(f"Globe unavailable: {e}")
+
+    # The globe tabs import PlanetProfile (profiles/wedge/table), whose
+    # config import flips text.usetex on when TeX is installed; re-pin it
+    # off so the panels below (u, C/MR², heating) build mathtext-safe
+    # figures on the FIRST run too (see the module-top pin).
+    import matplotlib as _mpl_repin
+    _mpl_repin.rcParams['text.usetex'] = False
 
     # v4 geodesy: the reviewer-binding REPORTABLE quantity — the
     # identifiable non-hydrostatic combination u = dC22_nh + dC20_nh/R.

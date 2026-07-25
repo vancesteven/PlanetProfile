@@ -467,9 +467,7 @@ def pp_wedge_exports(geo: Dict, parent_directory, bodyname: str,
     # The Inference page forces text.usetex=False for its crisp figures,
     # but when TeX is installed GetConfig builds FigLbl labels with
     # siunitx macros (\si{km}) that mathtext cannot parse — render the
-    # wedge exactly as the CLI does (usetex iff TEX_INSTALLED), restore
-    # after.
-    old_usetex = plt.rcParams.get('text.usetex', False)
+    # wedge exactly as the CLI does (usetex iff TEX_INSTALLED).
     try:
         plt.rcParams['text.usetex'] = bool(
             getattr(_PPplots.FigMisc, 'TEX_INSTALLED', False))
@@ -486,7 +484,12 @@ def pp_wedge_exports(geo: Dict, parent_directory, bodyname: str,
     finally:
         _PPplots.FigMisc.figFormat = old_fmt
         _PPplots.FigMisc.TRANSPARENT = old_transparent
-        plt.rcParams['text.usetex'] = old_usetex
+        # NOT old_usetex: the snapshot above ran AFTER the PlanetProfile
+        # imports, which set usetex=True when TeX is installed — restoring
+        # it would leave LaTeX on for the app figures built later in the
+        # same rerun (Europa v4 u-panel crash, user 2026-07-24). App
+        # policy: matplotlib text is mathtext-only outside this function.
+        plt.rcParams['text.usetex'] = False
     return outs['svg'], outs['pdf'], outs['png']
 
 
