@@ -652,14 +652,99 @@ def forward_model_k2_flexible(
         from the same ``radial_solver`` result; the h₂ extraction is
         essentially free.
     """
+    result, modified_structure = _solve_draw(
+        theta_dict, structure_data, arrhenius_params)
+    if result is None:
+        return np.nan, np.nan, np.nan, np.nan, None
+
+    # Extract k2 and h2 from the same RadialSolver result.
+    k2 = complex(result.k)
+    Re_k2 = k2.real
+    Im_k2 = k2.imag
+    try:
+        h2 = complex(result.h)
+        Re_h2 = h2.real
+        Im_h2 = h2.imag
+    except AttributeError:
+        log.debug("RadialSolver result has no .h attribute; h2 unavailable.")
+        Re_h2 = np.nan
+        Im_h2 = np.nan
+
+    # Compute per-phase heating if requested. Guard separately so a
+    # heating-only failure (a) does not silently nuke the k2/h2 result and
+    # (b) is LOUD — a broken heating import chain previously vanished into
+    # a log.debug and returned empty heating with no visible symptom.
+    perPhase_W = None
+    if return_heating and modified_structure['eccentricity'] > 0:
+        try:
+            perPhase_W = compute_heating(result, modified_structure)
+        except Exception as heat_exc:
+            log.warning(f"Per-phase heating computation failed "
+                        f"(k2/h2 unaffected): {heat_exc}")
+
+    return Re_k2, Im_k2, Re_h2, Im_h2, perPhase_W
+
+
+def forward_model_radial_heating(
+    theta_dict: Dict[str, float],
+    structure_data: Dict[str, Any],
+    arrhenius_params: Optional[Dict[str, Any]] = None
+) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    """Radial volumetric tidal heating for one draw.
+
+    Runs the IDENTICAL per-draw pipeline as ``forward_model_k2_flexible``
+    (shared ``_solve_draw``: hooks -> Arrhenius -> rheology -> TidalPy
+    radial_solver), then evaluates the radial volumetric heating profile
+    the per-phase heating integrals are built from.
+
+    Returns:
+        ``(radius_m, H_Wm3)`` arrays on the solver's radial grid, or
+        ``None`` if the solver failed or the cache carries no eccentricity.
+    """
+    result, modified_structure = _solve_draw(
+        theta_dict, structure_data, arrhenius_params)
+    if (result is None or not modified_structure
+            or modified_structure.get('eccentricity', 0) <= 0):
+        return None
+    try:
+        H = _TPheating(
+            modified_structure['eccentricity'],
+            modified_structure['omega'],
+            modified_structure['a_m'],
+            modified_structure['host_mass'],
+            result,
+            perform_checks=False
+        )
+    except Exception as e:
+        log.warning(f"Radial heating evaluation failed: {e}")
+        return None
+    return (np.asarray(result.radius_array, float),
+            np.asarray(H, float))
+
+
+def _solve_draw(
+    theta_dict: Dict[str, float],
+    structure_data: Dict[str, Any],
+    arrhenius_params: Optional[Dict[str, Any]] = None
+):
+    """Shared per-draw pipeline: parameter hooks -> Arrhenius viscosity ->
+    per-layer rheology assembly -> TidalPy radial_solver.
+
+    The SINGLE implementation behind both the k2/h2 likelihood path
+    (``forward_model_k2_flexible``) and radial-heating diagnostics
+    (``forward_model_radial_heating``) so the two can never drift.
+
+    Returns ``(rs_result, modified_structure)``; ``rs_result`` is None on
+    solver failure. Hook exceptions (notably ``UnservableSampleError``)
+    propagate, exactly as before the refactor.
+    """
     # TidalPy is imported at module top (eager) — see header comment.
     if not _TIDALPY_OK:
         log.error(f"TidalPy not available: {_TIDALPY_ERR}")
-        return np.nan, np.nan, np.nan, np.nan, None
+        return None, None
     Andrade, Maxwell, Elastic, Newton = _TPAndrade, _TPMaxwell, _TPElastic, _TPNewton
     radial_solver = _TPradial_solver
     build_rs_input_from_data = _TPbuild_rs_input
-    calc_radial_volumetric_tidal_heating_from_rs_solution = _TPheating
 
     # Apply parameter hooks
     modified_structure = apply_parameters(theta_dict, structure_data)
@@ -772,39 +857,13 @@ def forward_model_k2_flexible(
         )
 
         if not result.success:
-            return np.nan, np.nan, np.nan, np.nan, None
+            return None, modified_structure
 
-        # Extract k2 and h2 from the same RadialSolver result.
-        k2 = complex(result.k)
-        Re_k2 = k2.real
-        Im_k2 = k2.imag
-        try:
-            h2 = complex(result.h)
-            Re_h2 = h2.real
-            Im_h2 = h2.imag
-        except AttributeError:
-            log.debug("RadialSolver result has no .h attribute; h2 unavailable.")
-            Re_h2 = np.nan
-            Im_h2 = np.nan
-
-        # Compute per-phase heating if requested. Guard separately from the
-        # outer except so a heating-only failure (a) does not silently nuke
-        # the k2/h2 result and (b) is LOUD — a broken heating import chain
-        # previously vanished into the outer log.debug and returned empty
-        # heating for every sample with no visible symptom.
-        perPhase_W = None
-        if return_heating and modified_structure['eccentricity'] > 0:
-            try:
-                perPhase_W = compute_heating(result, modified_structure)
-            except Exception as heat_exc:
-                log.warning(f"Per-phase heating computation failed "
-                            f"(k2/h2 unaffected): {heat_exc}")
-
-        return Re_k2, Im_k2, Re_h2, Im_h2, perPhase_W
+        return result, modified_structure
 
     except Exception as e:
         log.debug(f"Forward model failed: {e}")
-        return np.nan, np.nan, np.nan, np.nan, None
+        return None, modified_structure
 
 
 # ============================================================================

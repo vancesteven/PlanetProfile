@@ -13,6 +13,13 @@ Date: 2026-04-29
 import os
 import sys
 import warnings
+
+# Result/cache pickles produced under NumPy < 2 reference numpy.core
+# internals that NumPy 2 renamed to numpy._core; the compatibility alias
+# emits a DeprecationWarning on every pickle.load. Harmless — silence it
+# so real warnings stay visible in the server log (user 2026-07-25).
+warnings.filterwarnings('ignore', category=DeprecationWarning,
+                        message=r'numpy\.core')
 import streamlit as st
 import numpy as np
 from pathlib import Path
@@ -1953,10 +1960,33 @@ def render_amortized_config():
             dlo, dhi = default_trunc.get(name, (None, None))
             init = (float(dlo) if dlo is not None else lo,
                     float(dhi) if dhi is not None else hi)
-            sel = st.slider(name, min_value=lo, max_value=hi,
-                            value=init, key=f'amort_trunc_{slot_key}_{name}')
-            if sel != (lo, hi):
-                truncate_bounds[name] = (float(sel[0]), float(sel[1]))
+            span = hi - lo
+            if 0 < span < 1e-2:
+                # Tiny-magnitude parameters (non-hydrostatic Stokes
+                # offsets, O(1e-5)): the raw float slider displays the
+                # whole range as 0.0 and its display rounding throws
+                # out-of-bounds on adjustment (user 2026-07-25). Rescale
+                # to ×10^exp units so the slider operates on O(1)-O(100)
+                # numbers, then convert back.
+                exp = int(np.floor(np.log10(span))) - 1
+                scale = 10.0 ** exp
+                sel_s = st.slider(
+                    f'{name}  (×1e{exp:+d})',
+                    min_value=lo / scale, max_value=hi / scale,
+                    value=(init[0] / scale, init[1] / scale),
+                    key=f'amort_trunc_{slot_key}_{name}')
+                sel = (max(lo, float(sel_s[0]) * scale),
+                       min(hi, float(sel_s[1]) * scale))
+                at_edges = (abs(sel[0] - lo) < scale * 1e-6
+                            and abs(sel[1] - hi) < scale * 1e-6)
+                if not at_edges:
+                    truncate_bounds[name] = sel
+            else:
+                sel = st.slider(name, min_value=lo, max_value=hi,
+                                value=init,
+                                key=f'amort_trunc_{slot_key}_{name}')
+                if sel != (lo, hi):
+                    truncate_bounds[name] = (float(sel[0]), float(sel[1]))
 
     # --- Observables: values live, sigmas locked ---
     st.markdown("#### 🔭 Observables (condition the posterior)")
@@ -2540,7 +2570,7 @@ _mpl.rcParams['text.usetex'] = False
 # Bump when the globe-panel figure/table code changes shape: cached
 # export bytes in live sessions carry the version, so a code update
 # invalidates them instead of replaying stale figures.
-_GLOBE_FIG_VER = 4
+_GLOBE_FIG_VER = 5
 
 
 def _result_token():
@@ -3542,9 +3572,10 @@ def render_results():
                 # the 3D globe, standard property profiles, and a
                 # proportional layer stack.
                 st.caption(f"globe panel code v{_GLOBE_FIG_VER}")
-                _tab_globe, _tab_prof, _tab_wedge, _tab_data = st.tabs(
+                (_tab_globe, _tab_prof, _tab_wedge, _tab_heat,
+                 _tab_geo, _tab_data) = st.tabs(
                     ['🌐 Globe', '📈 Radial profiles', '🧀 Wedge',
-                     '📄 Data table'])
+                     '🔥 Heating', '🌋 Geotherm', '📄 Data table'])
                 with _tab_globe:
                     dev = abs(c20 or 0.0) + 3 * abs(c22 or 0.0)
                     default_ex = (min(500.0, max(1.0, 0.03 / dev))
@@ -3685,9 +3716,20 @@ def render_results():
                                         d_hs=_hs, r_core=_rc)
                             if _hp_items and _hp_items[0][0] == 'hp_ice':
                                 _geo['d6'] = _hp  # lumped HP: draw as VI
+                            # Silicate density free (sampled or derived
+                            # by mass conservation)? Then the mantle
+                            # mineralogy table is not asserted — draw the
+                            # wedge with a neutral rock label.
+                            _rho_free = (
+                                'rho_sil_kgm3' in
+                                (getattr(result.config, 'derived_params',
+                                         {}) or {})
+                                or 'rho_sil_kgm3' in
+                                (getattr(result.config, 'param_space',
+                                         {}) or {}))
                             _svg, _pdf, _png, _wnotes = pp_wedge_exports(
                                 _geo, parent_directory, body or 'Europa',
-                                w_ppt=_w_ppt)
+                                w_ppt=_w_ppt, neutral_mantle=_rho_free)
                             _wentry = {'token': _wtok, 'svg': _svg,
                                        'pdf': _pdf, 'png': _png,
                                        'notes': _wnotes}
@@ -3734,6 +3776,108 @@ def render_results():
                         _rtop -= _d
                     st.dataframe(_rows, hide_index=True,
                                  width='stretch')
+
+                with _tab_heat:
+                    from Utilities.radial_profiles import (
+                        heating_for_sample, build_heating_figure)
+                    _heat, _hnote = heating_for_sample(
+                        result, sel_idx, parent_directory)
+                    if _heat is None:
+                        st.info(f"Heating unavailable: {_hnote}")
+                    else:
+                        _httl = (f"sample #{sel_idx}"
+                                 if sel_idx is not None
+                                 else "posterior median")
+                        hc1, hc2 = st.columns(2)
+                        hc1.metric("Total tidal power",
+                                   f"{_heat['P_tidal_W']:.2e} W")
+                        if _heat.get('P_rad_W') is not None:
+                            hc2.metric("Total radiogenic power",
+                                       f"{_heat['P_rad_W']:.2e} W")
+                        _crisp_display(
+                            builder=lambda: build_heating_figure(
+                                _heat, f"Radial heat production — {_httl}"),
+                            key='globe_heating',
+                            download_label='heating profiles',
+                            token=(_result_token(), sel_idx,
+                                   _GLOBE_FIG_VER))
+                        _qr = _heat.get('Qrad_Wkg')
+                        st.caption(
+                            "Tidal heating is the TidalPy radial "
+                            "volumetric profile from the SAME per-draw "
+                            "solve as the k₂/h₂ likelihood (identical "
+                            "structure, rheology, Arrhenius viscosity, "
+                            "and orbital e, ω, a from the cache). "
+                            "Radiogenic heating is the body config's "
+                            "constant specific heating rate "
+                            + (f"Q_rad = {_qr:.3g} W/kg " if _qr else "")
+                            + "applied to the draw's silicate density "
+                            "profile — an assumption of the PlanetProfile "
+                            "body model, NOT a quantity this inference "
+                            "constrains.")
+                        for _n in _heat.get('notes') or []:
+                            st.warning(_n)
+
+                with _tab_geo:
+                    from Utilities.radial_profiles import (
+                        build_geotherm_figure)
+                    _gprof, _gnote = profile_for_sample(
+                        result, sel_idx, parent_directory)
+                    if _gprof is None or _gprof.get('T_K') is None \
+                            or _gprof.get('P_MPa') is None:
+                        st.info("Geotherm unavailable: "
+                                f"{_gnote or 'cache lacks T/P profiles'}")
+                    else:
+                        _gttl = (f"sample #{sel_idx}"
+                                 if sel_idx is not None
+                                 else "posterior median")
+                        _crisp_display(
+                            builder=lambda: build_geotherm_figure(
+                                _gprof, f"Geotherm — {_gttl}"),
+                            key='globe_geotherm',
+                            download_label='geotherm',
+                            token=(_result_token(), sel_idx,
+                                   _GLOBE_FIG_VER))
+                        try:
+                            from Utilities.PlanetLoader import \
+                                load_planet_module as _lpm
+                            _meos = str(_lpm(parent_directory,
+                                             body).Planet.Sil.mantleEOS
+                                        or '')
+                        except Exception:
+                            _meos = ''
+                        _rho_free_g = (
+                            'rho_sil_kgm3' in
+                            (getattr(result.config, 'derived_params', {})
+                             or {})
+                            or 'rho_sil_kgm3' in
+                            (getattr(result.config, 'param_space', {})
+                             or {}))
+                        st.caption(
+                            "T(P) path through the draw's cached radial "
+                            "structure, surface at top; the shaded bands "
+                            "mark the phase regions the path crosses. "
+                            "Mantle mineralogy provenance: the structure "
+                            "cache was built by full PlanetProfile runs "
+                            + (f"using the mantle EOS table `{_meos}` "
+                               "(evaluated via Perple_X at cache-build "
+                               "time only — the inference itself never "
+                               "re-evaluates Perple_X). "
+                               if _meos else
+                               "with the body's default mantle EOS. ")
+                            + ("This run samples/derives the silicate "
+                               "density independently, so the mantle "
+                               "DENSITY is decoupled from that table "
+                               "and no mineralogy is asserted — the "
+                               "wedge accordingly labels the mantle "
+                               "plain 'rock'. "
+                               if _rho_free_g else "")
+                            + "In the PlanetProfile body model the "
+                            "radionuclide budget is the constant "
+                            "Sil.Qrad_Wkg (see Heating tab), set by "
+                            "config, not derived from the mineralogy. "
+                            "Overlaying Perple_X phase boundaries on "
+                            "this plot is roadmap.")
 
                 with _tab_data:
                     from Utilities.radial_profiles import (
@@ -3784,21 +3928,27 @@ def render_results():
                         # e-notation for any wide-range column (viscosity,
                         # conductivity, layer mass/volume, r in m, ...):
                         # magnitudes above 1e5 or below 1e-3 are unreadable
-                        # in fixed decimal (user 2026-07-24: "columns with
-                        # large numbers such as mass"). Use the NATIVE
-                        # 'scientific' format — the sprintf '%.3e' string
-                        # rendered inconsistently in the frontend (user
-                        # 2026-07-25: eta at full precision, MLayer/VLayer
-                        # not converted at all).
+                        # in fixed decimal (user 2026-07-24). Both the
+                        # sprintf '%.3e' string AND format='scientific'
+                        # failed to render in the user's frontend
+                        # (2026-07-25 ×2), so format the VALUES themselves
+                        # as text — display cannot diverge from the data
+                        # sent. Downloads keep full numeric precision.
                         def _wide_range(col):
                             v = np.abs(_shown[col].to_numpy(float))
                             v = v[np.isfinite(v) & (v > 0)]
                             return v.size and (v.max() >= 1e5
                                                or v.min() < 1e-3)
-                        _colcfg = {c: st.column_config.NumberColumn(
-                                       c, format='scientific')
-                                   for c in _shown.columns
-                                   if c != 'phase ID' and _wide_range(c)}
+                        _e_cols = [c for c in _shown.columns
+                                   if c != 'phase ID' and _wide_range(c)]
+                        _shown = _shown.copy()
+                        for _c in _e_cols:
+                            _shown[_c] = _shown[_c].map(
+                                lambda v: '' if not np.isfinite(v)
+                                else f'{v:.3e}')
+                        _colcfg = {c: st.column_config.TextColumn(
+                                       c, alignment='right')
+                                   for c in _e_cols}
                         st.dataframe(_shown, hide_index=True,
                                      width='stretch', height=340,
                                      column_config=_colcfg)

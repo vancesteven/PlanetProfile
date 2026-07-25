@@ -73,27 +73,13 @@ def _theta_for(result, sel_idx: Optional[int]) -> Dict[str, float]:
     return {n: float(row[j]) for j, n in enumerate(names)}
 
 
-def profile_for_sample(result, sel_idx: Optional[int], parent_directory
-                       ) -> Tuple[Optional[Dict], str]:
-    """Radial structure for one posterior draw (or the marginal median
-    when sel_idx is None). Returns (profile dict, note) — profile None
-    with the reason in note when the cache can't serve it."""
-    cache_path = resolve_cache_path(result, parent_directory)
-    if cache_path is None:
-        return None, ("structure cache not found for this result "
-                      "(config.structure_cache_path missing or not "
-                      "shipped) — layer stack only")
-    try:
-        structure_data = _load_structure_cache(str(cache_path))
-    except Exception as e:
-        return None, f"structure cache unreadable: {e}"
-
+def _expanded_theta(result, sel_idx: Optional[int], structure_data
+                    ) -> Tuple[Optional[Dict[str, float]], str]:
+    """Full theta dict for one draw: mirror the runner's _expand_theta
+    (group broadcast + fixed params) and derive Tb_K for the v5/v6
+    thick-ice reparameterization by inverting the cached D_iceIh(Tb, w)
+    field. Returns (theta, '') or (None, reason)."""
     theta = _theta_for(result, sel_idx)
-
-    # Mirror the runner's _expand_theta: broadcast group keys to their
-    # members, then overlay fixed (non-sampled) parameters — without this
-    # a fixed-Tb config (Titan no-ocean) never reaches the structural
-    # hook and yields no radial grid.
     cfg = result.config
     for _gkey, _members in (getattr(cfg, 'param_groups', {}) or {}).items():
         if _gkey in theta:
@@ -104,10 +90,6 @@ def profile_for_sample(result, sel_idx: Optional[int], parent_directory
             theta[_k] = float(_v)
         except (TypeError, ValueError):
             pass
-
-    # v5/v6 thick-ice reparameterization: Tb_K is not sampled; derive it
-    # by inverting the cached D_iceIh(Tb, w) field — the same inversion
-    # the runner uses (grid_interp_2d).
     if 'D_iceIh_km' in theta and 'Tb_K' not in theta:
         try:
             from PlanetProfile.Inference.grid_interp_2d import (
@@ -125,6 +107,35 @@ def profile_for_sample(result, sel_idx: Optional[int], parent_directory
             theta['Tb_K'] = float(Tb)
         except Exception as e:
             return None, f"D_iceIh → Tb inversion unavailable: {e}"
+    return theta, ''
+
+
+def _arrhenius_of(result):
+    cfg = result.config
+    return (getattr(cfg, 'arrhenius_params', None)
+            or (getattr(cfg, 'sampler_settings', {}) or {}).get(
+                'arrhenius_params') or None)
+
+
+def profile_for_sample(result, sel_idx: Optional[int], parent_directory
+                       ) -> Tuple[Optional[Dict], str]:
+    """Radial structure for one posterior draw (or the marginal median
+    when sel_idx is None). Returns (profile dict, note) — profile None
+    with the reason in note when the cache can't serve it."""
+    cache_path = resolve_cache_path(result, parent_directory)
+    if cache_path is None:
+        return None, ("structure cache not found for this result "
+                      "(config.structure_cache_path missing or not "
+                      "shipped) — layer stack only")
+    try:
+        structure_data = _load_structure_cache(str(cache_path))
+    except Exception as e:
+        return None, f"structure cache unreadable: {e}"
+
+    theta, _terr = _expanded_theta(result, sel_idx, structure_data)
+    if theta is None:
+        return None, _terr
+    cfg = result.config
 
     try:
         from PlanetProfile.Inference.forward_models import (
@@ -342,6 +353,182 @@ def build_profile_figure(prof: Dict, title: str):
     return fig
 
 
+def heating_for_sample(result, sel_idx: Optional[int], parent_directory
+                       ) -> Tuple[Optional[Dict], str]:
+    """Radial heating budget for one draw.
+
+    Tidal: TidalPy radial volumetric heating from the SAME per-draw solve
+    the k2/h2 likelihood used (forward_models._solve_draw via
+    forward_model_radial_heating) — structure, rheology, Arrhenius
+    viscosity and orbital parameters (e, omega, a) all identical.
+
+    Radiogenic: the body's PlanetProfile config constant Sil.Qrad_Wkg
+    times the draw's silicate density profile — a modeling ASSUMPTION,
+    not an inferred quantity (the inference carries no radiogenic
+    observable).
+    """
+    cache_path = resolve_cache_path(result, parent_directory)
+    if cache_path is None:
+        return None, "structure cache not found for this result"
+    try:
+        structure_data = _load_structure_cache(str(cache_path))
+    except Exception as e:
+        return None, f"structure cache unreadable: {e}"
+    theta, _terr = _expanded_theta(result, sel_idx, structure_data)
+    if theta is None:
+        return None, _terr
+
+    prof, note = profile_for_sample(result, sel_idx, parent_directory)
+    if prof is None:
+        return None, note
+
+    try:
+        from PlanetProfile.Inference.forward_models import (
+            forward_model_radial_heating)
+        rh = forward_model_radial_heating(
+            theta, structure_data, arrhenius_params=_arrhenius_of(result))
+    except Exception as e:
+        return None, f"tidal heating solve unavailable: {e}"
+    if rh is None:
+        return None, ("tidal radial solve failed for this draw (or the "
+                      "cache carries no eccentricity)")
+    r_solver_m, H_solver = rh
+
+    r_km = np.asarray(prof['r_km'], float)
+    r_m = r_km * 1e3
+    H_tid = np.interp(r_m, r_solver_m, H_solver, left=0.0, right=0.0)
+    P_tidal_W = float(np.trapezoid(
+        H_solver * 4.0 * np.pi * r_solver_m ** 2, r_solver_m))
+
+    heat = {'r_km': r_km, 'H_tidal_Wm3': H_tid, 'P_tidal_W': P_tidal_W,
+            'phases': prof.get('phases')}
+    notes = []
+    ph = prof.get('phases')
+    rho = prof.get('rho')
+    Qrad = None
+    try:
+        from Utilities.PlanetLoader import load_planet_module
+        body = getattr(result.config, 'bodyname', '') or ''
+        Qrad = float(load_planet_module(
+            parent_directory, body).Planet.Sil.Qrad_Wkg)
+    except Exception as e:
+        notes.append(f'radiogenic skipped: body config unavailable ({e})')
+    if Qrad is not None and ph is not None and rho is not None:
+        sil = (np.asarray(ph) >= 50) & (np.asarray(ph) < 100)
+        H_rad = np.where(sil, np.asarray(rho, float) * Qrad, 0.0)
+        heat['H_rad_Wm3'] = H_rad
+        heat['Qrad_Wkg'] = Qrad
+        ml = prof.get('MLayer_kg')
+        if ml is not None:
+            heat['P_rad_W'] = float(np.sum(np.asarray(ml)[sil]) * Qrad)
+        heat['H_total_Wm3'] = H_tid + H_rad
+    else:
+        heat['H_rad_Wm3'] = None
+        heat['H_total_Wm3'] = H_tid
+    heat['notes'] = notes
+    return heat, ''
+
+
+def build_heating_figure(heat: Dict, title: str):
+    """Radial heat production: volumetric rates (log) and the cumulative
+    power they integrate to, radius on Y with the surface at the top
+    (matching the property profiles)."""
+    import matplotlib.pyplot as plt
+
+    r = heat['r_km']
+    r_m = np.asarray(r, float) * 1e3
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9.5, 5.6), sharey=True)
+    bands = _phase_bands(r, heat.get('phases'))
+    seen: List[str] = []
+    for ax in (ax1, ax2):
+        for lo, hi, kind in bands:
+            ax.axhspan(lo, hi, color=_rgb01(LAYER_COLORS[kind]),
+                       alpha=0.2, linewidth=0)
+            if kind not in seen:
+                seen.append(kind)
+
+    def _cum_W(H):
+        integrand = np.asarray(H, float) * 4.0 * np.pi * r_m ** 2
+        out = np.zeros_like(r_m)
+        out[1:] = np.cumsum(0.5 * (integrand[1:] + integrand[:-1])
+                            * np.diff(r_m))
+        return out
+
+    series = [('H_tidal_Wm3', 'tidal', 'crimson', '-'),
+              ('H_rad_Wm3', 'radiogenic', 'steelblue', '-'),
+              ('H_total_Wm3', 'total', 'k', '--')]
+    for key, lab, color, ls in series:
+        H = heat.get(key)
+        if H is None:
+            continue
+        Hp = np.where(np.asarray(H, float) > 0, H, np.nan)
+        ax1.plot(Hp, r, color=color, linestyle=ls, linewidth=1.4,
+                 label=lab)
+        ax2.plot(_cum_W(H), r, color=color, linestyle=ls, linewidth=1.4)
+    ax1.set_xscale('log')
+    ax1.set_xlabel(r'Volumetric heating $H$ (W m$^{-3}$)')
+    ax1.set_ylabel('Radius $r$ (km)')
+    ax1.legend(fontsize=8, loc='lower left')
+    ax2.set_xlabel(r'Cumulative power $\int_0^r H\,4\pi r^2\,dr$ (W)')
+    ax1.set_ylim(0, float(np.nanmax(r)) * 1.02)
+    fig.suptitle(title, fontsize=11)
+    fig.tight_layout()
+    return fig
+
+
+def build_geotherm_figure(prof: Dict, title: str):
+    """Geotherm T(P) from the draw's cached radial structure: pressure on
+    Y increasing downward (surface at top), phase bands along the path.
+    The mantle segment is where the mineralogy assumption (mantle EOS
+    table, evaluated by Perple_X at cache-build time) lives."""
+    import matplotlib.pyplot as plt
+
+    T = prof.get('T_K')
+    P = prof.get('P_MPa')
+    if T is None or P is None:
+        return None
+    T = np.asarray(T, float)
+    P = np.asarray(P, float)
+    r = np.asarray(prof['r_km'], float)
+    order = np.argsort(-r)  # surface first
+    T, P, r_s = T[order], P[order], r[order]
+    ph = prof.get('phases')
+    ph_s = np.asarray(ph)[order] if ph is not None else None
+
+    fig, ax = plt.subplots(figsize=(6.4, 5.8))
+    # Phase bands as P-intervals along the path
+    if ph_s is not None:
+        kinds = [phase_kind(p) for p in ph_s]
+        lo_i = 0
+        seen: List[str] = []
+        for i in range(1, len(kinds) + 1):
+            if i == len(kinds) or kinds[i] != kinds[i - 1]:
+                p_lo = P[lo_i]
+                p_hi = P[i - 1] if i == len(kinds) else P[i]
+                ax.axhspan(min(p_lo, p_hi), max(p_lo, p_hi),
+                           color=_rgb01(LAYER_COLORS[kinds[i - 1]]),
+                           alpha=0.2, linewidth=0)
+                if kinds[i - 1] not in seen:
+                    seen.append(kinds[i - 1])
+                if i < len(kinds):
+                    lo_i = i
+        handles = [plt.Rectangle((0, 0), 1, 1,
+                                 color=_rgb01(LAYER_COLORS[k]), alpha=0.45)
+                   for k in seen]
+        ax.legend(handles, [LAYER_LABELS.get(k, k) for k in seen],
+                  fontsize=8, loc='lower left', frameon=False)
+    ax.plot(T, P, color='k', linewidth=1.6)
+    ax.set_xlabel('Temperature $T$ (K)')
+    ax.set_ylabel('Pressure $P$ (MPa)')
+    ax.set_yscale('log')
+    Ppos = P[P > 0]
+    if Ppos.size:
+        ax.set_ylim(float(np.nanmax(P)) * 1.1, float(Ppos.min()) * 0.9)
+    ax.set_title(title, fontsize=11)
+    fig.tight_layout()
+    return fig
+
+
 def build_wedge_figure(R_km: float, thicknesses: List[Tuple[str, float]],
                        title: str, wedge_angle_deg: float = 25.0):
     """Standard PlanetProfile-style wedge diagram (interior structure as
@@ -397,7 +584,8 @@ def build_wedge_figure(R_km: float, thicknesses: List[Tuple[str, float]],
 
 
 def pp_wedge_exports(geo: Dict, parent_directory, bodyname: str,
-                     w_ppt: Optional[float] = None):
+                     w_ppt: Optional[float] = None,
+                     neutral_mantle: bool = False):
     """Render the interior wedge with PlanetProfile's OWN PlotWedge
     (Plotting/ProfilePlots.py), not a lookalike: deepcopy the body's PP
     config Planet, inject the selected draw's layer geometry, and let the
@@ -477,6 +665,15 @@ def pp_wedge_exports(geo: Dict, parent_directory, bodyname: str,
     Planet.Magnetic.ionosBounds_m = None
     if w_ppt is not None and np.isfinite(w_ppt):
         Planet.Ocean.wOcean_ppt = float(w_ppt)
+    if neutral_mantle:
+        # Silicate density is a sampled/derived parameter in this run —
+        # the mantle mineralogy (Perple_X EOS table named in the body
+        # config) is not asserted; PlotWedge labels the layer plain
+        # 'rock' when mantleEOS is empty.
+        Planet.Sil.mantleEOS = ''
+        notes.append('silicate density is a free parameter of this run — '
+                     'the mantle is drawn without a mineralogy '
+                     '(Perple_X table) label')
 
     from PlanetProfile.Plotting import ProfilePlots as _PPplots
     import matplotlib.pyplot as plt

@@ -1095,7 +1095,12 @@ def PlotWedge(PlanetList, Params):
             RmantLbl = ''
             RcoreLbl = ''
 
-        if 'Comet' in Planet.Sil.mantleEOS:
+        if not Planet.Sil.mantleEOS:
+            # No mantle EOS asserted (e.g. inference draws where silicate
+            # density is a sampled parameter): label the layer plainly
+            # rather than naming a mineralogy the model does not claim.
+            silLine = 'rock'
+        elif 'Comet' in Planet.Sil.mantleEOS:
             silLine = 'Comet 67P'
         else:
             silLine = f'{Planet.Sil.mantleEOS[:2]} chondrite'

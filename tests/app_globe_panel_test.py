@@ -171,6 +171,22 @@ def test_apptest_europa_v4_globe_panel():
     assert any('globe_pp_txt' in k for k in btn_keys)
     assert any('globe_pp_csv' in k for k in btn_keys)
 
+    # Heating + geotherm tabs (2026-07-25): totals rendered, provenance
+    # captions state the Qrad assumption and Perple_X cache-build-only use.
+    mets = [str(getattr(m, 'label', '')) for m in at.main
+            if type(m).__name__ == 'Metric']
+    assert 'Total tidal power' in mets and 'Total radiogenic power' in mets
+    caps_all = ' '.join(str(c.value) for c in at.main
+                        if type(c).__name__ == 'Caption')
+    assert 'TidalPy radial' in caps_all and 'Q_rad' in caps_all
+    assert 'Perple_X at cache-build time only' in caps_all
+    # wide-range table cells ship as pre-formatted e-notation strings
+    dfs = [el for el in at.main if type(el).__name__ == 'Dataframe']
+    tbl = next(d.value for d in dfs if 'eta (Pa s)' in d.value.columns)
+    assert isinstance(tbl['eta (Pa s)'].iloc[0], str) \
+        and 'e+' in tbl['eta (Pa s)'].iloc[0]
+    assert isinstance(tbl['MLayer (kg)'].iloc[0], str)
+
 
 @pytest.mark.skipif(not EUROPA_V4_PKL.exists(),
                     reason='Europa v4 reference result not present')
