@@ -3729,7 +3729,7 @@ def render_results():
                                          {}) or {}))
                             _svg, _pdf, _png, _wnotes = pp_wedge_exports(
                                 _geo, parent_directory, body or 'Europa',
-                                w_ppt=_w_ppt, neutral_mantle=_rho_free)
+                                w_ppt=_w_ppt, rho_sil_free=_rho_free)
                             _wentry = {'token': _wtok, 'svg': _svg,
                                        'pdf': _pdf, 'png': _png,
                                        'notes': _wnotes}
@@ -3867,10 +3867,10 @@ def render_results():
                                "with the body's default mantle EOS. ")
                             + ("This run samples/derives the silicate "
                                "density independently, so the mantle "
-                               "DENSITY is decoupled from that table "
-                               "and no mineralogy is asserted — the "
-                               "wedge accordingly labels the mantle "
-                               "plain 'rock'. "
+                               "DENSITY is rescaled relative to that "
+                               "table; a self-consistent post-hoc "
+                               "Perple_X refit requires invoking "
+                               "porosity (roadmap). "
                                if _rho_free_g else "")
                             + "In the PlanetProfile body model the "
                             "radionuclide budget is the constant "

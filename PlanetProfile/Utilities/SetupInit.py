@@ -62,6 +62,13 @@ def SetupInit(Planet, Params):
         CheckCompat('reaktoro')
         Planet, Params = SetupCustomSolution(Planet, Params)
 
+    # Optional radiogenic heating from a radionuclide inventory
+    # (McDonough et al. 2020 LLR systems) instead of the constant
+    # Sil.Qrad_Wkg. Opt-in: only runs when an inventory is set.
+    if getattr(Planet.Sil, 'radionuclideInventory', None) is not None:
+        from PlanetProfile.Thermodynamics.RadiogenicHeating import qrad_from_inventory
+        Planet.Sil.Qrad_Wkg = qrad_from_inventory(Planet)
+
     if Planet.Do.SPECIFY_HYDROSPHERE_SEAFLOOR_PRESSURE:
         # Set uncertainty to be 0 since we are calculating MoI
         Planet.Bulk.CuncertaintyUpper = 0

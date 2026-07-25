@@ -585,7 +585,7 @@ def build_wedge_figure(R_km: float, thicknesses: List[Tuple[str, float]],
 
 def pp_wedge_exports(geo: Dict, parent_directory, bodyname: str,
                      w_ppt: Optional[float] = None,
-                     neutral_mantle: bool = False):
+                     rho_sil_free: bool = False):
     """Render the interior wedge with PlanetProfile's OWN PlotWedge
     (Plotting/ProfilePlots.py), not a lookalike: deepcopy the body's PP
     config Planet, inject the selected draw's layer geometry, and let the
@@ -665,15 +665,18 @@ def pp_wedge_exports(geo: Dict, parent_directory, bodyname: str,
     Planet.Magnetic.ionosBounds_m = None
     if w_ppt is not None and np.isfinite(w_ppt):
         Planet.Ocean.wOcean_ppt = float(w_ppt)
-    if neutral_mantle:
-        # Silicate density is a sampled/derived parameter in this run —
-        # the mantle mineralogy (Perple_X EOS table named in the body
-        # config) is not asserted; PlotWedge labels the layer plain
-        # 'rock' when mantleEOS is empty.
-        Planet.Sil.mantleEOS = ''
-        notes.append('silicate density is a free parameter of this run — '
-                     'the mantle is drawn without a mineralogy '
-                     '(Perple_X table) label')
+    # State WHICH mantle EOS database the structure came from (user
+    # 2026-07-25): the cache build ran full PlanetProfile with the body
+    # config's Perple_X-derived table, so name it rather than hide it —
+    # with the caveat that a rho_sil-sampling run rescales the density.
+    _meos = str(getattr(Planet.Sil, 'mantleEOS', '') or '')
+    if _meos:
+        notes.append(
+            f"mantle structure from Perple_X EOS table '{_meos}' "
+            "(evaluated at structure-cache build)"
+            + ("; this run's sampled/derived silicate density RESCALES "
+               "that structure — a self-consistent Perple_X refit "
+               "(requires porosity) is roadmap" if rho_sil_free else ""))
 
     from PlanetProfile.Plotting import ProfilePlots as _PPplots
     import matplotlib.pyplot as plt

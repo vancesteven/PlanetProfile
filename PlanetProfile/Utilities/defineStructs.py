@@ -305,6 +305,8 @@ class SilSubstruct:
         self.alphaPeff = 0.95  # Scaling factor by which the hydrostatic pressure of pore-filling fluids reduces pore closure pressure. Value taken from the high end of Vitovtova et al. (2014), based on Bernabe (1987). Vitovtova et al. also note that granites vary from 0.56-1.05 and sandstones from 0.35-0.75.
         self.sigmaSil_Sm = 1e-16  # Assumed conductivity of silicate rock
         self.Qrad_Wkg = 0  # Average radiogenic heating rate for silicates in W/kg.
+        self.radionuclideInventory = None  # Optional element mass fractions {El: kg/kg} or preset name ('BSE', 'CI'); when set, SetupInit derives Qrad_Wkg from it via Thermodynamics.RadiogenicHeating (McDonough et al. 2020 LLR systems), overriding the constant above.
+        self.inventoryTime_Ga = 0.0  # Time before present (Ga) at which to evaluate the radionuclide inventory heating (0 = present day). Element mass fractions are interpreted as present-day values.
         self.Htidal_Wm3 = 0  # Average tidal heating rate for silicates in W/m^3.
         self.HtidalMin_Wm3 = 1e-12  # Minimum average tidal heating rate in silicates in W/m^3 above zero to start with for finding MoI match with no core.
         self.HtidalMax_Wm3 = 1e-7  # Maximum average tidal heating to stop MoI search
