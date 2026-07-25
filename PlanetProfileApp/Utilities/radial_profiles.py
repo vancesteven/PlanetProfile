@@ -258,6 +258,24 @@ def _augment_thermo(prof):
                     al[m] = np.ravel(out.alpha)
                 except Exception as e:
                     notes.append(f'SeaFreeze {mat}: {e}')
+            # Clathrate layers (phase 30-39): PP's own parameterization
+            # (ClathProps — Ning et al. 2015 Cp, thermal expansivity;
+            # user 2026-07-25: Titan's surface clathrate lid left the
+            # visible top of the table empty). ClathProps meshgrids
+            # (P, T); the paired-point values are its diagonal.
+            mcl = ((phi >= 30) & (phi < 40)
+                   & np.isfinite(P) & np.isfinite(T))
+            if mcl.any():
+                try:
+                    from PlanetProfile.Thermodynamics.Clathrates. \
+                        ClathrateProps import ClathProps
+                    _, Cp_cl, al_cl, _ = ClathProps(
+                        np.asarray(P, float)[mcl],
+                        np.asarray(T, float)[mcl])
+                    Cp[mcl] = np.diagonal(Cp_cl)
+                    al[mcl] = np.diagonal(al_cl)
+                except Exception as e:
+                    notes.append(f'clathrate Cp/α unavailable: {e}')
         except Exception as e:
             notes.append(f'SeaFreeze unavailable: {e}')
         if not np.any(np.isfinite(Cp)) and not notes:
