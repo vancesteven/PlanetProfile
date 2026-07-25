@@ -415,12 +415,53 @@ def heating_for_sample(result, sel_idx: Optional[int], parent_directory
         notes.append(f'radiogenic skipped: body config unavailable ({e})')
     if Qrad is not None and ph is not None and rho is not None:
         sil = (np.asarray(ph) >= 50) & (np.asarray(ph) < 100)
-        H_rad = np.where(sil, np.asarray(rho, float) * Qrad, 0.0)
+        rho_sil_used = np.asarray(rho, float)
+        # Mass-conservation configs (sampled core + derived rho_sil):
+        # the draw's silicate density is the UNIFORM derived value, not
+        # the cache's Perple_X profile — use it so radiogenic heating is
+        # consistent with the inferred mantle density (user 2026-07-25).
+        rho_sil_draw = None
+        _dp = (getattr(result.config, 'derived_params', {}) or {}).get(
+            'rho_sil_kgm3', {})
+        if (_dp.get('derivation') == 'mass_conservation'
+                and 'R_core_km' in theta and 'rho_core_kgm3' in theta):
+            try:
+                from PlanetProfile.Inference.forward_models import (
+                    apply_parameters)
+                from PlanetProfile.Inference.structure_derivation import (
+                    extract_hydrosphere_layers, derive_silicate_density)
+                _struct = apply_parameters(dict(theta), structure_data)
+                _hl, _R_ob_m, _M_hyd = extract_hydrosphere_layers(_struct)
+                _R_c_m = float(theta['R_core_km']) * 1e3
+                _rho_c = float(theta['rho_core_kgm3'])
+                _rs, _ok = derive_silicate_density(
+                    float(_struct['Mtot_kg']), _M_hyd, _R_ob_m,
+                    _R_c_m, _rho_c,
+                    bounds=tuple(_dp.get('bounds', (2200.0, 3500.0))))
+                if _ok and np.isfinite(_rs):
+                    rho_sil_draw = float(_rs)
+                    rho_sil_used = np.where(sil, rho_sil_draw,
+                                            rho_sil_used)
+                    heat['P_rad_W'] = float(
+                        (float(_struct['Mtot_kg']) - _M_hyd
+                         - 4.0 / 3.0 * np.pi * _R_c_m ** 3 * _rho_c)
+                        * Qrad)
+                    heat['rho_sil_draw_kgm3'] = rho_sil_draw
+            except Exception as e:
+                notes.append(f'derived rho_sil unavailable for '
+                             f'radiogenic scaling ({e}); using the '
+                             'cache density profile instead')
+        # Zero OUTSIDE the silicate shell by assumption: U/Th/K reside
+        # in the rock; ices/ocean carry none and the Fe core is taken
+        # radionuclide-free.
+        H_rad = np.where(sil, rho_sil_used * Qrad, 0.0)
         heat['H_rad_Wm3'] = H_rad
         heat['Qrad_Wkg'] = Qrad
-        ml = prof.get('MLayer_kg')
-        if ml is not None:
-            heat['P_rad_W'] = float(np.sum(np.asarray(ml)[sil]) * Qrad)
+        if heat.get('P_rad_W') is None:
+            ml = prof.get('MLayer_kg')
+            if ml is not None:
+                heat['P_rad_W'] = float(np.sum(np.asarray(ml)[sil])
+                                        * Qrad)
         heat['H_total_Wm3'] = H_tid + H_rad
     else:
         heat['H_rad_Wm3'] = None
@@ -457,6 +498,12 @@ def build_heating_figure(heat: Dict, title: str):
     series = [('H_tidal_Wm3', 'tidal', 'crimson', '-'),
               ('H_rad_Wm3', 'radiogenic', 'steelblue', '-'),
               ('H_total_Wm3', 'total', 'k', '--')]
+    # Cumulative power in named units (GW/TW), not a 1e12 axis
+    # multiplier (user 2026-07-25).
+    _pmax = max((np.nanmax(_cum_W(heat[k])) for k, *_ in series
+                 if heat.get(k) is not None), default=0.0)
+    unit, fac = (('TW', 1e12) if _pmax >= 1e12
+                 else ('GW', 1e9) if _pmax >= 1e9 else ('MW', 1e6))
     for key, lab, color, ls in series:
         H = heat.get(key)
         if H is None:
@@ -464,12 +511,14 @@ def build_heating_figure(heat: Dict, title: str):
         Hp = np.where(np.asarray(H, float) > 0, H, np.nan)
         ax1.plot(Hp, r, color=color, linestyle=ls, linewidth=1.4,
                  label=lab)
-        ax2.plot(_cum_W(H), r, color=color, linestyle=ls, linewidth=1.4)
+        ax2.plot(_cum_W(H) / fac, r, color=color, linestyle=ls,
+                 linewidth=1.4)
     ax1.set_xscale('log')
     ax1.set_xlabel(r'Volumetric heating $H$ (W m$^{-3}$)')
     ax1.set_ylabel('Radius $r$ (km)')
     ax1.legend(fontsize=8, loc='lower left')
-    ax2.set_xlabel(r'Cumulative power $\int_0^r H\,4\pi r^2\,dr$ (W)')
+    ax2.set_xlabel(r'Cumulative power $\int_0^r H\,4\pi r^2\,dr$'
+                   f' ({unit})')
     ax1.set_ylim(0, float(np.nanmax(r)) * 1.02)
     fig.suptitle(title, fontsize=11)
     fig.tight_layout()

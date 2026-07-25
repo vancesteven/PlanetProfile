@@ -3788,12 +3788,16 @@ def render_results():
                         _httl = (f"sample #{sel_idx}"
                                  if sel_idx is not None
                                  else "posterior median")
+                        def _pw(v):
+                            return (f"{v/1e12:.2f} TW" if v >= 1e11
+                                    else f"{v/1e9:.1f} GW" if v >= 1e8
+                                    else f"{v/1e6:.1f} MW")
                         hc1, hc2 = st.columns(2)
                         hc1.metric("Total tidal power",
-                                   f"{_heat['P_tidal_W']:.2e} W")
+                                   _pw(_heat['P_tidal_W']))
                         if _heat.get('P_rad_W') is not None:
                             hc2.metric("Total radiogenic power",
-                                       f"{_heat['P_rad_W']:.2e} W")
+                                       _pw(_heat['P_rad_W']))
                         _crisp_display(
                             builder=lambda: build_heating_figure(
                                 _heat, f"Radial heat production — {_httl}"),
@@ -3802,19 +3806,30 @@ def render_results():
                             token=(_result_token(), sel_idx,
                                    _GLOBE_FIG_VER))
                         _qr = _heat.get('Qrad_Wkg')
+                        _rsd = _heat.get('rho_sil_draw_kgm3')
                         st.caption(
                             "Tidal heating is the TidalPy radial "
                             "volumetric profile from the SAME per-draw "
                             "solve as the k₂/h₂ likelihood (identical "
                             "structure, rheology, Arrhenius viscosity, "
                             "and orbital e, ω, a from the cache). "
-                            "Radiogenic heating is the body config's "
-                            "constant specific heating rate "
-                            + (f"Q_rad = {_qr:.3g} W/kg " if _qr else "")
-                            + "applied to the draw's silicate density "
-                            "profile — an assumption of the PlanetProfile "
-                            "body model, NOT a quantity this inference "
-                            "constrains.")
+                            "Radiogenic heating is H = Q_rad · ρ_sil"
+                            + (f" with Q_rad = {_qr:.3g} W/kg (body "
+                               "config constant, NOT inferred)"
+                               if _qr else "")
+                            + (f", using this draw's mass-conservation "
+                               f"silicate density ρ_sil = {_rsd:.0f} "
+                               "kg/m³ (the inferred mantle density, "
+                               "uniform by construction)"
+                               if _rsd else
+                               ", using the cache's silicate density "
+                               "profile")
+                            + ". It is ZERO outside the silicate shell "
+                            "by assumption — U/Th/K partition into the "
+                            "rock; ices and ocean carry none and the "
+                            "iron core is taken radionuclide-free — so "
+                            "the radiogenic curve ends at the rock–ice "
+                            "boundary.")
                         for _n in _heat.get('notes') or []:
                             st.warning(_n)
 
@@ -3917,7 +3932,10 @@ def render_results():
                             "cached density profile; Cp and α come from "
                             "SeaFreeze for the H₂O phases (the ocean uses "
                             "the pure-water spline — a few-percent "
-                            "approximation at seawater salinities). "
+                            "approximation at seawater salinities); they "
+                            "are blank for non-H₂O layers (clathrate, "
+                            "silicate, core), which SeaFreeze does not "
+                            "cover. "
                             + ("Columns with no data are hidden here but "
                                "kept in the downloads: "
                                + ", ".join(_empty_cols) + "."
@@ -3939,16 +3957,24 @@ def render_results():
                             v = v[np.isfinite(v) & (v > 0)]
                             return v.size and (v.max() >= 1e5
                                                or v.min() < 1e-3)
-                        _e_cols = [c for c in _shown.columns
-                                   if c != 'phase ID' and _wide_range(c)]
+                        # Format ALL display cells as text: number
+                        # columns render float NaN as the literal string
+                        # "None" in the frontend (user 2026-07-25, Titan
+                        # Cp/α rows for non-H2O phases) — blank is the
+                        # honest rendering for a missing value. Wide-range
+                        # columns get e-notation, the rest %.6g.
                         _shown = _shown.copy()
-                        for _c in _e_cols:
+                        for _c in _shown.columns:
+                            if _c == 'phase ID':
+                                continue
+                            _fmt = '{:.3e}' if _wide_range(_c) else '{:.6g}'
                             _shown[_c] = _shown[_c].map(
-                                lambda v: '' if not np.isfinite(v)
-                                else f'{v:.3e}')
+                                lambda v, _f=_fmt: ''
+                                if not np.isfinite(v) else _f.format(v))
                         _colcfg = {c: st.column_config.TextColumn(
                                        c, alignment='right')
-                                   for c in _e_cols}
+                                   for c in _shown.columns
+                                   if c != 'phase ID'}
                         st.dataframe(_shown, hide_index=True,
                                      width='stretch', height=340,
                                      column_config=_colcfg)

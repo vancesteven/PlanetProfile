@@ -15,8 +15,17 @@ exploreogram = st.Page("pages/Exploreogram.py", title = "Exploreogram", icon = "
 # share this page; the standalone AmortizedInference page was merged here
 # (2026-07-11).
 inference = st.Page("pages/Inference.py", title = "Bayesian Inference", icon = "🧮")
-# Set up navigation
-pg = st.navigation([about, main_settings, bulk_planetary_settings, ocean_settings, core_settings, layer_step_settings, run_PlanetProfile, PlanetProfile_outputs, exploreogram, inference])
+# Set up navigation with section headings (user 2026-07-25): the
+# forward-model configuration/run pages under "Forward models", the
+# Bayesian inference page under "Inversion".
+pg = st.navigation({
+    "": [about],
+    "Forward models": [main_settings, bulk_planetary_settings,
+                       ocean_settings, core_settings, layer_step_settings,
+                       run_PlanetProfile, PlanetProfile_outputs,
+                       exploreogram],
+    "Inversion": [inference],
+})
 
 # Run the selected page
 pg.run()

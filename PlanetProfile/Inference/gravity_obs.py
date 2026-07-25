@@ -155,20 +155,26 @@ def clairaut_kf(r_m: np.ndarray, rho: np.ndarray, n_sub: int = 16,
         # result is non-finite or unphysical.
         eta_in = eta
         n_i = n_sub
-        for _attempt in range(4):
-            eta = eta_in
-            h = (b - a) / n_i
-            rr = a
-            for _ in range(n_i):
-                k1 = deta_dr(rr, eta, i)
-                k2 = deta_dr(rr + 0.5 * h, eta + 0.5 * h * k1, i)
-                k3 = deta_dr(rr + 0.5 * h, eta + 0.5 * h * k2, i)
-                k4 = deta_dr(rr + h, eta + h * k3, i)
-                eta += (h / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
-                rr += h
-            if np.isfinite(eta) and -1.0 < eta < 3.5:
-                break
-            n_i *= 8
+        # Overshoot into the unstable branch produces transient inf/nan
+        # BY DESIGN (caught by the finite/physical check below, which
+        # retries with finer substeps) — silence the expected overflow
+        # RuntimeWarnings so they don't spam the server log on extreme
+        # draws (user 2026-07-25, v6 untruncated processing).
+        with np.errstate(over='ignore', invalid='ignore'):
+            for _attempt in range(4):
+                eta = eta_in
+                h = (b - a) / n_i
+                rr = a
+                for _ in range(n_i):
+                    k1 = deta_dr(rr, eta, i)
+                    k2 = deta_dr(rr + 0.5 * h, eta + 0.5 * h * k1, i)
+                    k3 = deta_dr(rr + 0.5 * h, eta + 0.5 * h * k2, i)
+                    k4 = deta_dr(rr + h, eta + h * k3, i)
+                    eta += (h / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
+                    rr += h
+                if np.isfinite(eta) and -1.0 < eta < 3.5:
+                    break
+                n_i *= 8
 
     return (3.0 - eta) / (2.0 + eta)
 
