@@ -1771,13 +1771,25 @@ def render_amortized_config():
     labels = [lbl for lbl, _ in available]
 
     def _slot_display(lbl):
-        # Slot labels share a long "1D · Body (rheology, ocean) — " prefix,
-        # so the dropdown truncated exactly the DISTINGUISHING tail (user
-        # 2026-07-24). Show the tail first; the full label is captioned
-        # below the widget.
+        # Body first (user 2026-07-25), dropping the constant "1D · "
+        # prefix that ate the truncation budget; the full label is
+        # captioned below the widget.
         head, sep, tail = lbl.partition(' — ')
-        return f'{tail}  ·  {head}' if sep else lbl
+        if head.startswith('1D · '):
+            head = head[len('1D · '):]
+        return f'{head} — {tail}' if sep else head
 
+    # Let long option labels WRAP in the dropdown menu instead of
+    # ellipsizing (user 2026-07-25: variants were hard to tell apart).
+    st.markdown(
+        """<style>
+        [data-testid="stSelectboxVirtualDropdown"] li,
+        [data-baseweb="menu"] li {
+            white-space: normal !important;
+            height: auto !important;
+            line-height: 1.3;
+        }
+        </style>""", unsafe_allow_html=True)
     choice = st.selectbox("Pretrained model:", labels,
                           key='amort_artifact_choice',
                           format_func=_slot_display)
