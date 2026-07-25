@@ -401,7 +401,9 @@ def pp_wedge_exports(geo: Dict, parent_directory, bodyname: str,
     """Render the interior wedge with PlanetProfile's OWN PlotWedge
     (Plotting/ProfilePlots.py), not a lookalike: deepcopy the body's PP
     config Planet, inject the selected draw's layer geometry, and let the
-    CLI plotting code draw it. Returns (svg_str, pdf_bytes, png_bytes).
+    CLI plotting code draw it. Returns
+    (svg_str, pdf_bytes, png_bytes, notes) where notes lists any
+    honesty adjustments made (e.g. suppressed fictitious core).
 
     Inference carries no ice-convection partition, so the shell is drawn
     fully conductive (eLid = zb, Dconv = 0); mantle/core composition
@@ -415,6 +417,14 @@ def pp_wedge_exports(geo: Dict, parent_directory, bodyname: str,
     from Utilities.PlanetLoader import load_planet_module
     mod = load_planet_module(parent_directory, bodyname)
     Planet = deepcopy(mod.Planet)
+    # Whether this BODY's PlanetProfile model actually includes an iron
+    # core — captured before any overrides. Some inference configs sample
+    # R_core_km for coreless bodies purely as a silicate-interior density
+    # degree of freedom (mass-conservation rho_sil); drawing an Fe core
+    # for those would assert structure the model does not claim
+    # (user 2026-07-24, Titan free-gravity).
+    default_has_core = bool(getattr(mod.Planet.Do, 'Fe_CORE', False))
+    notes: List[str] = []
 
     R_km = float(geo['R_km'])
     d_ih = float(geo.get('d_ih', 0.0))
@@ -422,6 +432,12 @@ def pp_wedge_exports(geo: Dict, parent_directory, bodyname: str,
     d3, d5, d6 = (float(geo.get(k, 0.0)) for k in ('d3', 'd5', 'd6'))
     d_hs = float(geo.get('d_hs', 0.0))
     rc = float(geo.get('r_core', 0.0) or 0.0)
+    if rc > 1.0 and not default_has_core:
+        notes.append(
+            f"the sampled core radius acts as a silicate-density degree "
+            f"of freedom for {bodyname} (no iron core in its "
+            "PlanetProfile model) — no core is drawn")
+        rc = 0.0
 
     Planet.Bulk.R_m = R_km * 1e3
     Planet.zb_km = d_ih
@@ -449,6 +465,10 @@ def pp_wedge_exports(geo: Dict, parent_directory, bodyname: str,
     Planet.Sil.Rmean_m = (R_km - d_hs) * 1e3
     Planet.Core.Rmean_m = rc * 1e3
     Planet.Do.Fe_CORE = rc > 1.0
+    # Frozen-hydrosphere draws: PlotWedge prints 'no ocean' instead of
+    # the body-default ocean composition (which the inference does not
+    # assert).
+    Planet.Do.NO_OCEAN = d_oc <= 0.0
     Planet.dzFeS_km = 0.0
     Planet.dzSilPorous_km = 0.0
     Planet.Do.POROUS_ROCK = False
@@ -490,7 +510,7 @@ def pp_wedge_exports(geo: Dict, parent_directory, bodyname: str,
         # same rerun (Europa v4 u-panel crash, user 2026-07-24). App
         # policy: matplotlib text is mathtext-only outside this function.
         plt.rcParams['text.usetex'] = False
-    return outs['svg'], outs['pdf'], outs['png']
+    return outs['svg'], outs['pdf'], outs['png'], notes
 
 
 # --- PlanetProfile-form radial data table -------------------------------

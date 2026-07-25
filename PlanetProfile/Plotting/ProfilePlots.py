@@ -1103,7 +1103,11 @@ def PlotWedge(PlanetList, Params):
         if Planet.Do.NO_H2O:
             wedgeLabel = f'{silLine}\n{coreLine}\n$q_\mathrm{{surf}}$~\SI{{{Planet.Bulk.qSurf_Wm2*1e3}}}{{{FigLbl.fluxUnits}}}'
         else:
-            if Planet.Ocean.comp == 'PureH2O':
+            if Planet.Do.NO_OCEAN or Planet.D_km == 0:
+                # Frozen/oceanless hydrosphere: printing the configured ocean
+                # composition would assert an ocean the model does not have.
+                compStr = 'no ocean'
+            elif Planet.Ocean.comp == 'PureH2O':
                 compStr = r'Pure \ce{H2O} ocean'
             elif 'CustomSolution' in Planet.Ocean.comp:
                 solutionTitle = Planet.Ocean.comp.split('=')[0].strip()

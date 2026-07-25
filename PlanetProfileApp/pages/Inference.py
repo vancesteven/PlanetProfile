@@ -542,21 +542,34 @@ def render_prior_config(PARAMETER_REGISTRY):
                 key=f'prior_type_{param_id}'
             )
 
+            # Tiny-magnitude parameters (non-hydrostatic Stokes offsets,
+            # O(1e-5)-O(1e-4)) are unreadable in fixed decimal — the
+            # %.4f display rounds their whole prior range to ±0.0000/1
+            # (user 2026-07-24). Pick the format from the default bounds.
+            def _prior_fmt(*vals):
+                mags = [abs(float(v)) for v in vals
+                        if v is not None and np.isfinite(float(v))
+                        and float(v) != 0.0]
+                if mags and (max(mags) < 1e-2 or max(mags) >= 1e5):
+                    return "%.3e"
+                return "%.4f"
+
             # Bounds or mean/std inputs
             if prior_type in ['uniform', 'log-uniform']:
+                _fmt = _prior_fmt(*param_def.default_bounds)
                 col1, col2 = st.columns(2)
                 with col1:
                     low = st.number_input(
                         "Lower bound:",
                         value=float(param_def.default_bounds[0]),
-                        format="%.4f",
+                        format=_fmt,
                         key=f'lower_{param_id}'
                     )
                 with col2:
                     high = st.number_input(
                         "Upper bound:",
                         value=float(param_def.default_bounds[1]),
-                        format="%.4f",
+                        format=_fmt,
                         key=f'upper_{param_id}'
                     )
 
@@ -567,19 +580,22 @@ def render_prior_config(PARAMETER_REGISTRY):
                 }
 
             elif prior_type == 'normal':
+                _fmt = _prior_fmt(param_def.default_mean,
+                                  param_def.default_std,
+                                  *param_def.default_bounds)
                 col1, col2 = st.columns(2)
                 with col1:
                     mean = st.number_input(
                         "Mean:",
                         value=float(param_def.default_mean) if param_def.default_mean else 0.0,
-                        format="%.4f",
+                        format=_fmt,
                         key=f'mean_{param_id}'
                     )
                 with col2:
                     std = st.number_input(
                         "Std. deviation:",
                         value=float(param_def.default_std) if param_def.default_std else 1.0,
-                        format="%.4f",
+                        format=_fmt,
                         key=f'std_{param_id}'
                     )
 
@@ -1753,7 +1769,19 @@ def render_amortized_config():
         return None
 
     labels = [lbl for lbl, _ in available]
-    choice = st.selectbox("Pretrained model:", labels, key='amort_artifact_choice')
+
+    def _slot_display(lbl):
+        # Slot labels share a long "1D · Body (rheology, ocean) — " prefix,
+        # so the dropdown truncated exactly the DISTINGUISHING tail (user
+        # 2026-07-24). Show the tail first; the full label is captioned
+        # below the widget.
+        head, sep, tail = lbl.partition(' — ')
+        return f'{tail}  ·  {head}' if sep else lbl
+
+    choice = st.selectbox("Pretrained model:", labels,
+                          key='amort_artifact_choice',
+                          format_func=_slot_display)
+    st.caption(choice)
     fname = dict(available)[choice]
 
     # Mutually-exclusive channel selector for artifacts that ship a
@@ -3559,7 +3587,8 @@ def render_results():
                         _ttl = (f"sample #{sel_idx}" if sel_idx is not None
                                 else "posterior median")
                         if prof.get('Tb_K'):
-                            _ttl += f" (T_b = {prof['Tb_K']:.1f} K)"
+                            _ttl += (r" ($T_\mathrm{b}$ = "
+                                     f"{prof['Tb_K']:.1f} K)")
                         _crisp_display(
                             builder=lambda: build_profile_figure(
                                 prof, f"Radial structure — {_ttl}"),
@@ -3644,11 +3673,12 @@ def render_results():
                                         d_hs=_hs, r_core=_rc)
                             if _hp_items and _hp_items[0][0] == 'hp_ice':
                                 _geo['d6'] = _hp  # lumped HP: draw as VI
-                            _svg, _pdf, _png = pp_wedge_exports(
+                            _svg, _pdf, _png, _wnotes = pp_wedge_exports(
                                 _geo, parent_directory, body or 'Europa',
                                 w_ppt=_w_ppt)
                             _wentry = {'token': _wtok, 'svg': _svg,
-                                       'pdf': _pdf, 'png': _png}
+                                       'pdf': _pdf, 'png': _png,
+                                       'notes': _wnotes}
                             _wcache['globe_wedge'] = _wentry
                         except Exception as _we:
                             import traceback as _tb
@@ -3663,12 +3693,16 @@ def render_results():
                             _crisp_render
                         _crisp_render(_wentry, key='globe_wedge',
                                       download_label='wedge diagram')
+                        _wextra = '; '.join(_wentry.get('notes') or [])
                         st.caption(
                             f"PlanetProfile PlotWedge for {_sttl}. Shell "
                             "drawn fully conductive (the inference "
                             "carries no convection partition); mantle/"
-                            "core composition labels are the body's PP "
-                            "defaults, not inferred.")
+                            "core/ocean composition labels are the "
+                            "body's PP defaults unless the run samples "
+                            "them (e.g. salinity), and are not "
+                            "inferred."
+                            + (f" Note: {_wextra}." if _wextra else ""))
                     else:
                         _crisp_display(
                             builder=lambda: build_wedge_figure(
