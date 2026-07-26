@@ -106,11 +106,11 @@ def test_get_ocean_eos_end_to_end():
     VP, VS, KS, GS = eos.fn_Seismic(np.array([100.0]), np.array([260.0]))
     assert 1.0 < _s(VP) < 3.0 and _s(VS) == 0.0
 
-    # Freezing-point depression: at 150 ppt the liquidus sits
-    # 53.8*0.15 + 650*0.15^3 = 10.26 K below pure water's. Straddle it:
-    # pure water frozen, NH3 ocean still liquid.
+    # Freezing-point depression (mu mode >= L-K): straddle just below
+    # the pure-water melting point — pure water frozen, NH3 ocean
+    # still liquid.
     dT = NH3liquidusShift_K(150.0)
-    assert dT == pytest.approx(10.26, abs=0.01)
+    assert dT == pytest.approx(10.26, abs=0.01)  # L-K value (lower bound)
     eos0 = GetOceanEOS('PureH2O', 0.0, P, T, None)
     Ptest = np.array([10.0])
 
@@ -124,3 +124,46 @@ def test_get_ocean_eos_end_to_end():
     Tmid = Tfreeze0 - 0.5 * dT
     assert _ph(eos0, Tmid) != 0   # pure: frozen
     assert _ph(eos, Tmid) == 0    # NH3: liquid
+
+
+def test_mu_liquidus_dilute_colligative():
+    # 5 wt% at 1 bar: ideal colligative limit ~5.7 K; the mu-based
+    # liquidus must land near it (the L-K polynomial gives 2.8 K).
+    from PlanetProfile.Thermodynamics.NH3.NH3Props import muLiquidusCurve_K
+    Tliq, Tm = muLiquidusCurve_K(np.array([0.5]), 50.0)
+    dT = float(Tm[0] - Tliq[0])
+    assert 4.5 < dT < 6.5, dT
+
+
+def test_mu_liquidus_high_pressure_ices():
+    # Depression must apply under the HP ices too (V at ~620 MPa, VI at
+    # ~900 MPa) and grow with pressure at fixed w (stronger non-ideality)
+    from PlanetProfile.Thermodynamics.NH3.NH3Props import muLiquidusCurve_K
+    P = np.array([100.0, 620.0, 900.0])
+    Tliq, Tm = muLiquidusCurve_K(P, 150.0)
+    dT = Tm - Tliq
+    assert np.all(np.isfinite(dT)), dT
+    assert np.all(dT > 8.0) and np.all(dT < 30.0), dT
+    assert dT[2] > dT[0], dT  # deeper -> larger depression here
+
+
+def test_hp_ice_straddle_end_to_end():
+    # At 900 MPa (ice VI regime): between the pure and NH3 liquidi the
+    # NH3 ocean is liquid while pure water is ice VI; below both, the
+    # NH3 case freezes to ice VI (not Ih).
+    from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS
+    P = np.linspace(0.5, 1100.0, 80)
+    T = np.linspace(240.0, 320.0, 60)
+    eos0 = GetOceanEOS('PureH2O', 0.0, P, T, None)
+    eos = GetOceanEOS('NH3', 150.0, P, T, None)
+
+    def _ph(e, t_):
+        return int(np.ravel(e.fn_phase(np.array([900.0]),
+                                       np.array([t_])))[0])
+
+    Tscan = np.linspace(280., 310., 301)
+    ph0 = np.array([_ph(eos0, t_) for t_ in Tscan])
+    Tf0 = Tscan[np.argmax(ph0 == 0)]
+    assert _ph(eos0, Tf0 - 4.0) == 6      # pure: ice VI
+    assert _ph(eos, Tf0 - 4.0) == 0       # NH3: still liquid
+    assert _ph(eos, Tf0 - 28.0) == 6      # NH3: eventually ice VI

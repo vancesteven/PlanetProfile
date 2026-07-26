@@ -311,11 +311,27 @@ class OceanEOSStruct:
                 rho_kgm3, Cp_JkgK, alpha_pK, VP_kms, KS_GPa = NH3Props(
                     PropsP_MPa, PropsT_K, self.w_ppt)
 
-                # Phase: pure-H2O SeaFreeze diagram at T + dT(X) — ices
-                # are pure H2O, NH3 is rejected into the liquid.
-                dTliq_K = NH3liquidusShift_K(self.w_ppt)
-                PTshiftGrid = sfPTgrid(Pphase_MPa, Tphase_K + dTliq_K)
-                self.phase = WhichPhase(deepcopy(PTshiftGrid))
+                # Phase: pure-H2O SeaFreeze diagram at T + dT — ices are
+                # pure H2O, NH3 is rejected into the liquid. Default
+                # 'mu' mode computes the depression PER PRESSURE (and
+                # hence per ice phase Ih..VI) from chemical-potential
+                # equality; 'LK2002' applies the scalar polynomial shift.
+                from PlanetProfile.Thermodynamics.NH3.NH3Props import (
+                    NH3_MELT_MODE, muLiquidusCurve_K)
+                if NH3_MELT_MODE == 'mu':
+                    Tliq_K, TmPure_K = muLiquidusCurve_K(Pphase_MPa, self.w_ppt)
+                    dTliq_K = np.where(np.isfinite(Tliq_K) & np.isfinite(TmPure_K),
+                                       TmPure_K - Tliq_K,
+                                       NH3liquidusShift_K(self.w_ppt))
+                    PTshift = np.array(
+                        [(Pi, Tj + dTi) for Pi, dTi in zip(Pphase_MPa, dTliq_K)
+                         for Tj in Tphase_K], dtype='f,f').astype(object)
+                    self.phase = WhichPhase(PTshift).reshape(
+                        np.size(Pphase_MPa), np.size(Tphase_K))
+                else:
+                    dTliq_K = NH3liquidusShift_K(self.w_ppt)
+                    PTshiftGrid = sfPTgrid(Pphase_MPa, Tphase_K + dTliq_K)
+                    self.phase = WhichPhase(deepcopy(PTshiftGrid))
                 self.ufn_phase = PhaseInterpolator(Pphase_MPa, Tphase_K, self.phase)
                 self.EOSdeltaP = self.deltaP
                 self.EOSdeltaT = self.deltaT
