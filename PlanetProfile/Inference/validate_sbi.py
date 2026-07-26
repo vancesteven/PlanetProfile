@@ -164,7 +164,17 @@ CROSSCHECK_SIGMA_RATIO_LO = 0.70
 CROSSCHECK_SIGMA_RATIO_HI = 1.40
 CROSSCHECK_KS_ALPHA = 0.01   # two-sample KS p must be >= this
 LIMITS_MAX_TIES = 1          # monotone median: at most one tie allowed
-LIMITS_CONTAINMENT = 1.0     # 100% of samples must lie inside the prior box
+LIMITS_CONTAINMENT = 1.0     # 100% of in-support samples must lie inside the prior box
+# In-support filter for the swept channel (Option A, ratified 2026-07-24).
+# A sweep point is "in-support" when abs(val) <= mean_ch + Z*std_ch.  Upper-
+# bound only: the channel is abs-folded and zero-bounded, so low values are
+# always valid.  Z=2.0 is a Gaussian proxy on a folded/skewed marginal —
+# a documented approximation that gives a practical boundary at the 2-sigma
+# exceedance of the training histogram without requiring a full KDE.
+# Containment is ONLY gated over in-support points; OOD containment is
+# reported separately as informational.  Monotonicity is still checked over
+# the FULL sweep range.
+LIMITS_INSUPPORT_Z = 2.0
 # Anchor mode (ratified 2026-07-09, replacing the monotonicity premise that
 # ground-truth MCMC falsified below |Im k2| ~ 0.15). Statistic amended
 # 2026-07-10 (user-ratified): per sweep point, the 1-D Wasserstein-1 distance
@@ -176,8 +186,18 @@ LIMITS_CONTAINMENT = 1.0     # 100% of samples must lie inside the prior box
 # penalizes mode-smoothing in proportion to misplaced mass. Medians are
 # still reported. Fixed from principles; do not tune.
 LIMITS_ANCHOR_SIGMA_FRAC = 0.25
+# Ground-truth MCMC (2026-07-09, user-ratified) FALSIFIED the monotone-
+# decreasing eta_Ih-vs-|Im k2| premise below |Im k2| ~ 0.15 for Europa: the
+# folded-noise regime makes the posterior non-monotone there (this is why
+# anchor mode exists, see LIMITS_ANCHOR_SIGMA_FRAC above). When the ENTIRE
+# monotone window lies below this boundary, legacy monotonicity is NOT a valid
+# gate — it is reported N/A and excluded from all_pass. Anchor mode (W1 vs
+# ground truth) is the valid full-range limiting-behavior check for Europa.
+# Pin to the dated evidence, NOT to any per-artifact value.
+LIMITS_MONOTONE_FALSIFIED_BELOW = 0.15
 
-# Default |Im k2| sweep grid for the limits check (plan doc: 0.05..0.30).
+# Legacy fallback |Im k2| sweep grid (used only when x_norm is missing and
+# cmd_limits has no explicit --sweep-values; see _build_default_sweep_grid).
 DEFAULT_IMK2_GRID = (0.05, 0.10, 0.15, 0.20, 0.25, 0.30)
 # Default parameter whose posterior median must respond to |Im k2|.
 DEFAULT_MONOTONE_PARAM = 'log10_eta_Ih'
@@ -947,6 +967,80 @@ def _save_crosscheck_plot(param_names, mcmc_samples, mcmc_weights, sbi_samples, 
 # Limiting-behavior check
 # ==========================================================================
 
+def _insupport_params(runner, sweep_obs: str) -> Optional[Tuple[float, float]]:
+    """Return (mean_ch, std_ch) for sweep_obs from the artifact's x_norm.
+
+    Returns None if x_norm is absent (legacy fallback).
+    """
+    xn = runner.artifact_meta.get('x_norm')
+    if xn is None:
+        return None
+    obs_names = list(runner.obs_names)
+    if sweep_obs not in obs_names:
+        return None
+    idx = obs_names.index(sweep_obs)
+    means = xn.get('mean', [])
+    stds = xn.get('std', [])
+    if idx >= len(means) or idx >= len(stds):
+        return None
+    return float(means[idx]), float(stds[idx])
+
+
+def _build_default_sweep_grid(runner, sweep_obs: str) -> Tuple[List[float], str]:
+    """Construct a default sweep grid guaranteed to contain >=3 in-support points.
+
+    When x_norm is available: builds in-support anchor points at
+    max(floor, mean + f*std) for f in {0.0, 0.5, 1.0, 1.5, 2.0} (floor=1e-4)
+    PLUS OOD trend points from DEFAULT_IMK2_GRID that exceed mean+2*std.
+    Union, sort, dedupe (within 1e-6).
+
+    When x_norm is missing: returns DEFAULT_IMK2_GRID unchanged (legacy).
+
+    Raises ValueError if the in-support subset ends up with < 3 points.
+
+    Returns (sorted_grid, mode) where mode is 'constructed' or 'legacy_no_xnorm'.
+    """
+    params = _insupport_params(runner, sweep_obs)
+    if params is None:
+        log.warning(
+            f"x_norm missing for artifact — using legacy DEFAULT_IMK2_GRID for sweep grid "
+            f"(in-support filtering will use legacy containment fallback)."
+        )
+        return list(DEFAULT_IMK2_GRID), 'legacy_no_xnorm'
+
+    mean_ch, std_ch = params
+    floor_val = 1e-4
+    insupport_upper = mean_ch + LIMITS_INSUPPORT_Z * std_ch
+
+    # In-support anchor points spanning the training bulk
+    in_support_pts = []
+    for f in (0.0, 0.5, 1.0, 1.5, 2.0):
+        pt = max(floor_val, mean_ch + f * std_ch)
+        if pt <= insupport_upper + 1e-9:  # f<=2.0 always satisfies this; guard rounding
+            in_support_pts.append(pt)
+
+    # OOD trend points from DEFAULT_IMK2_GRID beyond the in-support upper bound
+    ood_pts = [v for v in DEFAULT_IMK2_GRID if float(v) > insupport_upper + 1e-9]
+
+    all_pts = sorted(set(in_support_pts + ood_pts))
+    # Dedupe within 1e-6
+    deduped: List[float] = []
+    for pt in all_pts:
+        if not deduped or abs(pt - deduped[-1]) > 1e-6:
+            deduped.append(pt)
+
+    # Confirm >=3 in-support points
+    n_in = sum(1 for pt in deduped if pt <= insupport_upper + 1e-9)
+    if n_in < 3:
+        raise ValueError(
+            f"Artifact's Im_k2 training support is so narrow (mean={mean_ch:.4g}, "
+            f"std={std_ch:.4g}, in-support upper={insupport_upper:.4g}) that the "
+            f"constructed grid has only {n_in} in-support points (need >=3). "
+            f"Pass explicit --sweep-values covering the training bulk."
+        )
+    return deduped, 'constructed'
+
+
 def _check_monotone(values: Sequence[float], direction: str, tol: float) -> Dict[str, Any]:
     """Check a sequence is monotone in ``direction`` allowing <= LIMITS_MAX_TIES ties.
 
@@ -980,8 +1074,17 @@ def _run_limits_check(
     direction: str,
     n_samples: int,
     seed: int,
+    insupport_mode: str = 'auto',
 ) -> Dict[str, Any]:
-    """Condition the flow across a sweep grid; test median monotonicity + containment."""
+    """Condition the flow across a sweep grid; test median monotonicity + containment.
+
+    Containment is gated over IN-SUPPORT sweep points only (Option A,
+    ratified 2026-07-24). Monotonicity is checked over the FULL sweep range.
+    OOD containment is reported separately as informational.
+
+    ``insupport_mode`` is set by cmd_limits ('constructed', 'legacy_no_xnorm', or
+    'auto' when caller passes sweep_values explicitly).
+    """
     if monotone_param not in runner.param_names:
         raise ValueError(
             f"monotone-param '{monotone_param}' not in artifact parameters "
@@ -989,11 +1092,35 @@ def _run_limits_check(
         )
     pidx = list(runner.param_names).index(monotone_param)
     bounds = np.asarray(runner.artifact_meta['param_bounds'], dtype=np.float64)
+    tol_bounds = 1e-3 * float(bounds[pidx, 1] - bounds[pidx, 0])
+
+    # Determine in-support parameters for the swept channel.
+    xnorm_params = _insupport_params(runner, sweep_obs)
+    if xnorm_params is None:
+        # Legacy fallback: no x_norm — pool all points for containment.
+        log.warning(
+            "artifact_meta.x_norm is missing — falling back to LEGACY full-range "
+            "pooled containment. All sweep points treated as in-support."
+        )
+        if insupport_mode == 'auto':
+            insupport_mode = 'legacy_no_xnorm'
+        mean_ch = std_ch = None
+        insupport_upper = None
+    else:
+        mean_ch, std_ch = xnorm_params
+        insupport_upper = mean_ch + LIMITS_INSUPPORT_Z * std_ch
+        if insupport_mode == 'auto':
+            insupport_mode = 'xnorm'
 
     grid_rows = []
     medians = []
-    n_total = 0
-    n_inside = 0
+    n_total_in = 0
+    n_inside_in = 0
+    n_total_ood = 0
+    n_inside_ood = 0
+    # Pool in-support samples for containment materiality check (Change 1).
+    raw_samples_in: list = []
+
     for k, val in enumerate(sweep_values):
         x_obs = dict(fixed_obs)
         x_obs[sweep_obs] = float(val)
@@ -1004,24 +1131,209 @@ def _run_limits_check(
                                           reject_outside_prior=False)
         median = float(np.median(samples[:, pidx]))
         medians.append(median)
-        inside = np.all(
+        inside_mask = np.all(
             (samples >= bounds[:, 0] - 1e-6) & (samples <= bounds[:, 1] + 1e-6), axis=1
         )
-        n_total += samples.shape[0]
-        n_inside += int(np.sum(inside))
-        grid_rows.append({
+        n_in_box = int(np.sum(inside_mask))
+
+        # Classify sweep point as in-support or OOD.
+        if insupport_upper is None:
+            # Legacy: all in-support
+            in_support = True
+            z_val = float('nan')
+        else:
+            in_support = bool(abs(float(val)) <= insupport_upper + 1e-9)
+            z_val = (abs(float(val)) - mean_ch) / std_ch if std_ch > 0 else float('nan')
+
+        if in_support:
+            n_total_in += samples.shape[0]
+            n_inside_in += n_in_box
+            raw_samples_in.append(samples)
+        else:
+            n_total_ood += samples.shape[0]
+            n_inside_ood += n_in_box
+
+        # Interior check for in-support points: median must be finite and
+        # strictly interior to bounds (not pinned within tol_bounds of a bound).
+        if in_support:
+            med_finite = bool(np.isfinite(median))
+            lo_ok = (median - bounds[pidx, 0]) > tol_bounds
+            hi_ok = (bounds[pidx, 1] - median) > tol_bounds
+            interior_ok = bool(med_finite and lo_ok and hi_ok)
+            # Change 3: per-param median→bound margin in sigma for monotone_param.
+            sigma_p = float(np.std(samples[:, pidx]))
+            if sigma_p > 0:
+                margin_lo = float(median - bounds[pidx, 0]) / sigma_p
+                margin_hi = float(bounds[pidx, 1] - median) / sigma_p
+                median_to_bound_sigma = float(min(margin_lo, margin_hi))
+            else:
+                median_to_bound_sigma = None
+        else:
+            interior_ok = None  # not checked for OOD points
+            median_to_bound_sigma = None
+
+        row = {
             'sweep_value': float(val),
             f'{monotone_param}_median': median,
             'n_samples': int(samples.shape[0]),
-            'n_inside_box': int(np.sum(inside)),
-        })
+            'n_inside_box': n_in_box,
+            'z': float(z_val),
+            'in_support': in_support,
+            'interior_pass': interior_ok,
+            'median_to_bound_sigma': median_to_bound_sigma,
+        }
+        grid_rows.append(row)
 
-    tol = 1e-3 * float(bounds[pidx, 1] - bounds[pidx, 0])
-    mono = _check_monotone(medians, direction, tol)
-    containment = (n_inside / n_total) if n_total > 0 else 0.0
-    containment_pass = bool(containment >= LIMITS_CONTAINMENT - 1e-12)
+    # Change 2: Build monotone window = in-support points + at most one mild-OOD
+    # buffer (first OOD point immediately beyond the in-support upper bound).
+    # Monotonicity gate uses only this window; full medians list stays informational.
+    in_support_indices = [i for i, r in enumerate(grid_rows) if r['in_support']]
+    if in_support_indices:
+        last_in_idx = max(in_support_indices)
+        # First OOD point with index > last_in_idx (smallest sweep_value OOD above bound).
+        ood_buffer_indices = [
+            i for i, r in enumerate(grid_rows)
+            if not r['in_support'] and i > last_in_idx
+        ]
+        if ood_buffer_indices:
+            window_indices = in_support_indices + [min(ood_buffer_indices)]
+        else:
+            window_indices = in_support_indices
+    else:
+        window_indices = []
 
-    return {
+    tol_mono = tol_bounds  # same scale as the bounds tol
+    if len(window_indices) < 2:
+        # Too few points for monotonicity check — skip.
+        mono = {
+            'direction': direction, 'tol': float(tol_mono),
+            'diffs': [], 'n_strict_violations': 0, 'n_ties': 0,
+            'max_ties_allowed': LIMITS_MAX_TIES, 'monotone_pass': True,
+            'monotone_verdict': 'N/A',
+        }
+        monotone_skipped_reason = (
+            f'window has only {len(window_indices)} point(s) — monotonicity skipped'
+        )
+        monotone_window_values = [float(sweep_values[i]) for i in window_indices]
+    else:
+        window_medians = [medians[i] for i in window_indices]
+        mono = _check_monotone(window_medians, direction, tol_mono)
+        monotone_skipped_reason = None
+        monotone_window_values = [float(sweep_values[i]) for i in window_indices]
+    mono['monotone_window_values'] = monotone_window_values
+    mono['monotone_window_n'] = len(window_indices)
+    if monotone_skipped_reason is not None:
+        mono['monotone_skipped_reason'] = monotone_skipped_reason
+
+    # Criterion 2: When sweep_obs is an |Im k2| channel AND the ENTIRE monotone
+    # window lies below the MCMC-falsified boundary, monotonicity is N/A — the
+    # ground-truth MCMC (2026-07-09) proved the monotone-decreasing premise is
+    # invalid there.  Only applies to the Im k2 channel; other observables gate
+    # monotonicity normally.
+    if 'monotone_verdict' not in mono:
+        # (< 2 points case already set 'N/A' above)
+        window_max = max(monotone_window_values) if monotone_window_values else None
+        _is_imk2_channel = sweep_obs in _IM_K2_ALIASES
+        if (_is_imk2_channel and window_max is not None
+                and window_max < LIMITS_MONOTONE_FALSIFIED_BELOW):
+            mono['monotone_verdict'] = 'N/A'
+            mono['monotone_na_reason'] = (
+                f"monotonicity N/A: entire window (max |Im k2|={window_max:.4g}) "
+                f"below MCMC-falsified boundary {LIMITS_MONOTONE_FALSIFIED_BELOW} "
+                f"(2026-07-09); use anchor mode for the valid limiting-behavior check."
+            )
+            # monotone_pass is kept for informational purposes but does NOT gate.
+        else:
+            mono['monotone_verdict'] = 'PASS' if mono['monotone_pass'] else 'FAIL'
+    mono['monotone_na_reason'] = mono.get('monotone_na_reason', None)
+
+    # Containment gate: in-support points only.
+    n_insupport_pts = len(in_support_indices)
+    if n_insupport_pts == 0:
+        # Distinct error: no in-support points → cannot evaluate gate.
+        ood_containment_fraction = (n_inside_ood / n_total_ood) if n_total_ood > 0 else None
+        return {
+            'sweep_obs': sweep_obs,
+            'sweep_values': [float(v) for v in sweep_values],
+            'fixed_obs': fixed_obs,
+            'monotone_param': monotone_param,
+            'grid': grid_rows,
+            'medians': [float(m) for m in medians],
+            'monotonicity': mono,
+            'containment_fraction': None,
+            'ood_containment_fraction': ood_containment_fraction,
+            'containment_required': LIMITS_CONTAINMENT,
+            'containment_shift_criterion': LIMITS_ANCHOR_SIGMA_FRAC,
+            'containment_max_shift_sigma': None,
+            'per_param_shift': [],
+            'containment_pass': None,
+            'interior_pass': None,
+            'insupport_mode': insupport_mode,
+            'n_insupport_sweep_pts': 0,
+            'all_pass': False,
+            'error': 'no in-support sweep points',
+        }
+
+    containment_in = (n_inside_in / n_total_in) if n_total_in > 0 else 0.0
+    ood_containment = (n_inside_ood / n_total_ood) if n_total_ood > 0 else None
+
+    # Change 1: Replace ==1.0 containment bar with materiality bar.
+    # Pool all in-support raw samples into one (M, D) array.
+    raw_all = np.concatenate(raw_samples_in, axis=0)   # (M, D)
+    inside_all = np.all(
+        (raw_all >= bounds[:, 0] - 1e-6) & (raw_all <= bounds[:, 1] + 1e-6), axis=1
+    )
+    rej_all = raw_all[inside_all]  # deploy-equivalent (reject_outside_prior=True)
+
+    containment_shift_error = None
+    if rej_all.shape[0] < 2:
+        containment_pass = False
+        containment_max_shift_sigma = float('inf')
+        per_param_shift = []
+        containment_shift_error = (
+            f'degenerate: only {rej_all.shape[0]} in-box samples across '
+            f'{n_insupport_pts} in-support sweep points'
+        )
+    else:
+        D = raw_all.shape[1]
+        param_names_list = list(runner.param_names)
+        per_param_shift = []
+        max_shift = 0.0
+        for j in range(D):
+            raw_j = raw_all[:, j]
+            rej_j = rej_all[:, j]
+            sigma_j = float(np.std(raw_j))  # population std, ddof=0
+            raw_mean_j = float(np.mean(raw_j))
+            rej_mean_j = float(np.mean(rej_j))
+            raw_med_j = float(np.median(raw_j))
+            rej_med_j = float(np.median(rej_j))
+            if sigma_j == 0:
+                mean_shift_j = 0.0 if abs(rej_mean_j - raw_mean_j) == 0 else float('inf')
+                median_shift_j = 0.0 if abs(rej_med_j - raw_med_j) == 0 else float('inf')
+            else:
+                mean_shift_j = abs(rej_mean_j - raw_mean_j) / sigma_j
+                median_shift_j = abs(rej_med_j - raw_med_j) / sigma_j
+            pname = param_names_list[j] if j < len(param_names_list) else f'param_{j}'
+            per_param_shift.append({
+                'param': pname,
+                'sigma': sigma_j,
+                'mean_shift_sigma': float(mean_shift_j),
+                'median_shift_sigma': float(median_shift_j),
+            })
+            max_shift = max(max_shift, mean_shift_j, median_shift_j)
+        containment_max_shift_sigma = float(max_shift)
+        containment_pass = bool(containment_max_shift_sigma < LIMITS_ANCHOR_SIGMA_FRAC)
+
+    # Interior pass: all in-support rows must pass.
+    interior_results = [r['interior_pass'] for r in grid_rows if r['in_support']]
+    interior_pass = bool(all(interior_results))
+
+    monotone_gated = mono.get('monotone_verdict') not in ('N/A',)
+    mono_ok = (mono['monotone_pass'] if monotone_gated else True)
+    mono['monotone_gated'] = bool(monotone_gated)
+    all_pass = bool(mono_ok and containment_pass and interior_pass)
+
+    result = {
         'sweep_obs': sweep_obs,
         'sweep_values': [float(v) for v in sweep_values],
         'fixed_obs': fixed_obs,
@@ -1029,11 +1341,21 @@ def _run_limits_check(
         'grid': grid_rows,
         'medians': [float(m) for m in medians],
         'monotonicity': mono,
-        'containment_fraction': float(containment),
+        'containment_fraction': float(containment_in),
+        'ood_containment_fraction': ood_containment,
         'containment_required': LIMITS_CONTAINMENT,
+        'containment_shift_criterion': LIMITS_ANCHOR_SIGMA_FRAC,
+        'containment_max_shift_sigma': containment_max_shift_sigma,
+        'per_param_shift': per_param_shift,
         'containment_pass': containment_pass,
-        'all_pass': bool(mono['monotone_pass'] and containment_pass),
+        'interior_pass': interior_pass,
+        'insupport_mode': insupport_mode,
+        'n_insupport_sweep_pts': n_insupport_pts,
+        'all_pass': all_pass,
     }
+    if containment_shift_error is not None:
+        result['containment_shift_error'] = containment_shift_error
+    return result
 
 
 def _weighted_quantile(values: np.ndarray, weights: np.ndarray, q) -> np.ndarray:
@@ -1071,8 +1393,11 @@ def _run_limits_anchor_check(
     """Anchor mode: compare the flow's monotone-param median against
     ground-truth MCMC anchor posteriors at each sweep value.
 
-    Gate per anchor: |median_flow - median_MCMC| <= LIMITS_ANCHOR_SIGMA_FRAC *
-    sigma_MCMC (weighted). Prior-box containment identical to the legacy mode.
+    Gate per anchor: W1(flow, MCMC) <= LIMITS_ANCHOR_SIGMA_FRAC * sigma_MCMC
+    (full-range: anchors are ground-truth so OOD comparison is meaningful).
+    Prior-box containment is gated over IN-SUPPORT anchor points only;
+    OOD containment is reported separately as informational.
+    z/in_support are added to each anchor grid row.
     """
     from .inference_core import InferenceResult
 
@@ -1084,9 +1409,28 @@ def _run_limits_anchor_check(
     pidx = list(runner.param_names).index(monotone_param)
     bounds = np.asarray(runner.artifact_meta['param_bounds'], dtype=np.float64)
 
+    # Determine in-support parameters for the swept channel.
+    xnorm_params = _insupport_params(runner, sweep_obs)
+    if xnorm_params is None:
+        log.warning(
+            "artifact_meta.x_norm is missing — anchor containment uses LEGACY "
+            "full-range pooling. W1/anchor gates are unchanged (full-range)."
+        )
+        insupport_mode = 'legacy_no_xnorm'
+        mean_ch = std_ch = None
+        insupport_upper = None
+    else:
+        mean_ch, std_ch = xnorm_params
+        insupport_upper = mean_ch + LIMITS_INSUPPORT_Z * std_ch
+        insupport_mode = 'xnorm'
+
     grid_rows = []
-    n_total = 0
-    n_inside = 0
+    n_total_in = 0
+    n_inside_in = 0
+    n_total_ood = 0
+    n_inside_ood = 0
+    # Pool in-support samples for containment materiality check (Change 1).
+    raw_samples_in_anchor: list = []
     all_anchor_pass = True
     for k, (val, pkl_path) in enumerate(sorted(anchor_results.items())):
         mcmc = InferenceResult.load(pkl_path)
@@ -1113,14 +1457,28 @@ def _run_limits_anchor_check(
                                           reject_outside_prior=False)
         f_median = float(np.median(samples[:, pidx]))
 
-        inside = np.all(
+        inside_mask = np.all(
             (samples >= bounds[:, 0] - 1e-6) & (samples <= bounds[:, 1] + 1e-6), axis=1
         )
-        n_total += samples.shape[0]
-        n_inside += int(np.sum(inside))
+        n_in_box = int(np.sum(inside_mask))
 
-        # W1 statistic (ratified 2026-07-10; see LIMITS_ANCHOR_SIGMA_FRAC
-        # comment). Medians remain reported for reference.
+        # Classify this anchor point as in-support or OOD.
+        if insupport_upper is None:
+            in_support = True
+            z_val = float('nan')
+        else:
+            in_support = bool(abs(float(val)) <= insupport_upper + 1e-9)
+            z_val = (abs(float(val)) - mean_ch) / std_ch if std_ch > 0 else float('nan')
+
+        if in_support:
+            n_total_in += samples.shape[0]
+            n_inside_in += n_in_box
+            raw_samples_in_anchor.append(samples)
+        else:
+            n_total_ood += samples.shape[0]
+            n_inside_ood += n_in_box
+
+        # W1 gate is FULL-RANGE (ground-truth comparison; OOD W1 is valid).
         tol = LIMITS_ANCHOR_SIGMA_FRAC * a_std
         w1 = _wasserstein1_weighted(a_samples, a_w, samples[:, pidx])
         anchor_pass = bool(w1 <= tol)
@@ -1136,14 +1494,70 @@ def _run_limits_anchor_check(
             'w1': float(w1),
             'w1_tol': float(tol),
             'anchor_pass': anchor_pass,
-            'n_inside_box': int(np.sum(inside)),
+            'n_inside_box': n_in_box,
             'n_samples': int(samples.shape[0]),
+            'z': float(z_val),
+            'in_support': in_support,
         })
 
-    containment = (n_inside / n_total) if n_total > 0 else 0.0
-    containment_pass = bool(containment >= LIMITS_CONTAINMENT - 1e-12)
+    # Containment: in-support anchor points only; OOD informational.
+    containment_in = (n_inside_in / n_total_in) if n_total_in > 0 else 0.0
+    ood_containment = (n_inside_ood / n_total_ood) if n_total_ood > 0 else None
 
-    return {
+    # Change 1 (anchor mode): replace ==1.0 bar with materiality bar.
+    containment_shift_error_anchor = None
+    if not raw_samples_in_anchor:
+        # No in-support anchor points — cannot evaluate.
+        containment_pass = False
+        containment_max_shift_sigma_anchor = float('inf')
+        per_param_shift_anchor = []
+        containment_shift_error_anchor = 'no in-support anchor points'
+    else:
+        raw_all_a = np.concatenate(raw_samples_in_anchor, axis=0)   # (M, D)
+        inside_all_a = np.all(
+            (raw_all_a >= bounds[:, 0] - 1e-6) & (raw_all_a <= bounds[:, 1] + 1e-6), axis=1
+        )
+        rej_all_a = raw_all_a[inside_all_a]
+
+        if rej_all_a.shape[0] < 2:
+            containment_pass = False
+            containment_max_shift_sigma_anchor = float('inf')
+            per_param_shift_anchor = []
+            containment_shift_error_anchor = (
+                f'degenerate: only {rej_all_a.shape[0]} in-box samples across '
+                f'in-support anchor points'
+            )
+        else:
+            D = raw_all_a.shape[1]
+            param_names_list = list(runner.param_names)
+            per_param_shift_anchor = []
+            max_shift_a = 0.0
+            for j in range(D):
+                raw_j = raw_all_a[:, j]
+                rej_j = rej_all_a[:, j]
+                sigma_j = float(np.std(raw_j))
+                raw_mean_j = float(np.mean(raw_j))
+                rej_mean_j = float(np.mean(rej_j))
+                raw_med_j = float(np.median(raw_j))
+                rej_med_j = float(np.median(rej_j))
+                if sigma_j == 0:
+                    mean_shift_j = 0.0 if abs(rej_mean_j - raw_mean_j) == 0 else float('inf')
+                    median_shift_j = 0.0 if abs(rej_med_j - raw_med_j) == 0 else float('inf')
+                else:
+                    mean_shift_j = abs(rej_mean_j - raw_mean_j) / sigma_j
+                    median_shift_j = abs(rej_med_j - raw_med_j) / sigma_j
+                pname = param_names_list[j] if j < len(param_names_list) else f'param_{j}'
+                per_param_shift_anchor.append({
+                    'param': pname,
+                    'sigma': sigma_j,
+                    'mean_shift_sigma': float(mean_shift_j),
+                    'median_shift_sigma': float(median_shift_j),
+                })
+                max_shift_a = max(max_shift_a, mean_shift_j, median_shift_j)
+            containment_max_shift_sigma_anchor = float(max_shift_a)
+            containment_pass = bool(containment_max_shift_sigma_anchor < LIMITS_ANCHOR_SIGMA_FRAC)
+
+    result_anchor = {
         'mode': 'anchor',
         'sweep_obs': sweep_obs,
         'sweep_values': [r['sweep_value'] for r in grid_rows],
@@ -1154,11 +1568,19 @@ def _run_limits_anchor_check(
         'medians': [r['flow_median'] for r in grid_rows],
         'anchor_medians': [r['anchor_median'] for r in grid_rows],
         'anchors_all_pass': bool(all_anchor_pass),
-        'containment_fraction': float(containment),
+        'containment_fraction': float(containment_in),
+        'ood_containment_fraction': ood_containment,
         'containment_required': LIMITS_CONTAINMENT,
+        'containment_shift_criterion': LIMITS_ANCHOR_SIGMA_FRAC,
+        'containment_max_shift_sigma': containment_max_shift_sigma_anchor,
+        'per_param_shift': per_param_shift_anchor,
         'containment_pass': containment_pass,
+        'insupport_mode': insupport_mode,
         'all_pass': bool(all_anchor_pass and containment_pass),
     }
+    if containment_shift_error_anchor is not None:
+        result_anchor['containment_shift_error'] = containment_shift_error_anchor
+    return result_anchor
 
 
 def _save_limits_plot(results, output_dir: Path):
@@ -1215,8 +1637,9 @@ def cmd_limits(args) -> int:
     sweep_obs = _resolve_sweep_obs(runner, args.sweep_obs)
     if args.sweep_values:
         sweep_values = [float(v) for v in args.sweep_values.split(',')]
+        grid_mode = 'explicit'
     else:
-        sweep_values = list(DEFAULT_IMK2_GRID)
+        sweep_values, grid_mode = _build_default_sweep_grid(runner, sweep_obs)
 
     # Fixed observables (everything except the swept channel). --fixed-obs JSON
     # overrides; --re-k2 is a convenience for the Re_k2 channel.
@@ -1254,26 +1677,40 @@ def cmd_limits(args) -> int:
         gate_desc = (
             f"{args.monotone_param}: Wasserstein-1(flow, MCMC anchor) <= "
             f"{LIMITS_ANCHOR_SIGMA_FRAC}*sigma_anchor at every sweep point "
-            f"(ratified 2026-07-10, bimodality-stable); "
-            f"prior-box containment == {LIMITS_CONTAINMENT}"
+            f"(ratified 2026-07-10, bimodality-stable, W1 gate is FULL-RANGE); "
+            f"in-support containment: max per-param posterior shift (reject/raw) < "
+            f"{LIMITS_ANCHOR_SIGMA_FRAC}*sigma (materiality bar, ratified 2026-07-25); "
+            f"OOD containment fraction reported separately"
         )
     else:
         results = _run_limits_check(
             runner, sweep_obs, sweep_values, fixed_obs,
             monotone_param=args.monotone_param, direction=args.direction,
             n_samples=int(args.n_samples), seed=int(args.seed),
+            insupport_mode=grid_mode,
         )
         gate_desc = (
             f"{args.monotone_param} posterior median monotone {args.direction} "
-            f"vs {sweep_obs} (<= {LIMITS_MAX_TIES} tie); "
-            f"prior-box containment == {LIMITS_CONTAINMENT}"
+            f"vs {sweep_obs} (<= {LIMITS_MAX_TIES} tie, in-support+1-buffer window); "
+            f"in-support containment: max per-param posterior shift (reject/raw) < "
+            f"{LIMITS_ANCHOR_SIGMA_FRAC}*sigma (materiality bar, ratified 2026-07-25); "
+            f"Z={LIMITS_INSUPPORT_Z} in-support filter, OOD containment informational"
         )
     plot_path = _save_limits_plot(results, output_dir)
+
+    # Determine verdict string (ERROR for no-in-support, else PASS/FAIL).
+    error_str = results.get('error')
+    if error_str:
+        verdict_str = 'ERROR'
+    elif results['all_pass']:
+        verdict_str = 'PASS'
+    else:
+        verdict_str = 'FAIL'
 
     report = {
         'check': 'limits',
         'gate': gate_desc,
-        'verdict': 'PASS' if results['all_pass'] else 'FAIL',
+        'verdict': verdict_str,
         'results': results,
         'artifact': str(args.artifact),
         'artifact_meta': _artifact_meta_for_report(runner),
@@ -1282,18 +1719,54 @@ def cmd_limits(args) -> int:
     }
     _write_report(output_dir, 'limits_report.json', report)
 
-    if results['all_pass']:
-        detail = (
-            f"{args.monotone_param} within {LIMITS_ANCHOR_SIGMA_FRAC}*sigma of "
-            f"{len(results['grid'])} MCMC anchors"
-            if results.get('mode') == 'anchor'
-            else f"{args.monotone_param} median monotone {args.direction} vs {sweep_obs}"
-        )
+    if error_str:
         _loud([
-            "LIMITS GATE: PASS",
-            f"{detail}; containment {results['containment_fraction']:.3f}",
+            "LIMITS GATE: ERROR",
+            f"ERROR: {error_str}",
+            f"(sweep_obs={sweep_obs}, n_sweep_pts={len(sweep_values)})",
+            "Cannot evaluate containment gate — check sweep grid vs artifact support.",
         ])
+        return EXIT_GATE_FAIL  # nonzero exit; error message distinguishes from FAIL
+
+    if results['all_pass']:
+        n_in = results.get('n_insupport_sweep_pts', '?')
+        mode_str = results.get('insupport_mode', '?')
+        if results.get('mode') == 'anchor':
+            detail = (
+                f"{args.monotone_param} within {LIMITS_ANCHOR_SIGMA_FRAC}*sigma of "
+                f"{len(results['grid'])} MCMC anchors"
+            )
+            mono_line = None
+        else:
+            mono = results.get('monotonicity', {})
+            mono_verdict = mono.get('monotone_verdict', 'PASS')
+            if mono_verdict == 'N/A':
+                na_reason = mono.get('monotone_na_reason', 'monotonicity N/A (see report)')
+                detail = f"{args.monotone_param} median: monotonicity N/A (not gated)"
+                mono_line = f"MONOTONICITY N/A (excluded from gate) — {na_reason}"
+            else:
+                detail = (
+                    f"{args.monotone_param} median monotone {args.direction} vs {sweep_obs}"
+                )
+                mono_line = None
+        ood_frac = results.get('ood_containment_fraction')
+        ood_line = (f"OOD containment (informational): {ood_frac:.4f}"
+                    if ood_frac is not None else "no OOD points in sweep")
+        max_shift = results.get('containment_max_shift_sigma')
+        shift_str = (f"max_shift={max_shift:.4f}σ < {LIMITS_ANCHOR_SIGMA_FRAC}σ"
+                     if max_shift is not None else "shift=n/a")
+        pass_lines = [
+            "LIMITS GATE: PASS",
+            f"{detail}",
+            f"in-support containment fraction={results['containment_fraction']:.4f} "
+            f"({n_in} in-support pts, mode={mode_str}); {shift_str}",
+            ood_line,
+        ]
+        if mono_line is not None:
+            pass_lines.insert(2, mono_line)
+        _loud(pass_lines)
         return EXIT_PASS
+
     lines = ["LIMITS GATE: FAIL"]
     if results.get('mode') == 'anchor':
         for r in results['grid']:
@@ -1305,13 +1778,40 @@ def cmd_limits(args) -> int:
                 )
     else:
         mono = results['monotonicity']
-        if not mono['monotone_pass']:
+        mono_verdict = mono.get('monotone_verdict', 'FAIL')
+        if mono_verdict == 'N/A':
+            # Loud N/A notice — must not be mistaken for a satisfied gate.
+            na_reason = mono.get('monotone_na_reason', 'monotonicity N/A (see report)')
+            lines.append(f"monotonicity: N/A — {na_reason}")
+        elif not mono['monotone_pass']:
+            window_vals = mono.get('monotone_window_values', [])
             lines.append(
-                f"non-monotone: {mono['n_strict_violations']} strict violations, "
+                f"non-monotone (window={window_vals}): "
+                f"{mono['n_strict_violations']} strict violations, "
                 f"{mono['n_ties']} ties (max {LIMITS_MAX_TIES}); medians={results['medians']}"
             )
-    if not results['containment_pass']:
-        lines.append(f"containment {results['containment_fraction']:.4f} < {LIMITS_CONTAINMENT}")
+    cp = results.get('containment_pass')
+    if cp is False:
+        n_in = results.get('n_insupport_sweep_pts', '?')
+        cf = results.get('containment_fraction')
+        max_shift = results.get('containment_max_shift_sigma')
+        shift_info = (f", max_shift={max_shift:.4f}σ >= {LIMITS_ANCHOR_SIGMA_FRAC}σ"
+                      if max_shift is not None else "")
+        lines.append(
+            f"containment FAIL: fraction={cf if cf is None else f'{cf:.4f}'} "
+            f"({n_in} in-support pts){shift_info}"
+        )
+    ip = results.get('interior_pass')
+    if ip is False:
+        for r in results['grid']:
+            if r.get('in_support') and r.get('interior_pass') is False:
+                lines.append(
+                    f"interior_pass FAIL at sweep_value={r['sweep_value']:.4g}: "
+                    f"median={r[f'{args.monotone_param}_median']:.4g} pinned to bound"
+                )
+    ood_frac = results.get('ood_containment_fraction')
+    if ood_frac is not None:
+        lines.append(f"OOD containment (informational): {ood_frac:.4f}")
     lines.append("Do NOT tune this gate — investigate the trained flow.")
     _loud(lines)
     return EXIT_GATE_FAIL
@@ -1437,8 +1937,29 @@ def cmd_selftest(args) -> int:
     # For x = theta + noise, conditioning on larger obs_b raises theta2's
     # posterior median (increasing). This exercises the same code path the
     # real |Im k2| -> log10_eta_Ih (decreasing) check uses.
+    #
+    # The toy artifact saves x_norm from training (theta2 ~ U(-1,3) -> obs_b
+    # ≈ theta2 + N(0, 0.05^2); training marginal mean ~ 1.0, std ~ 1.15).
+    # Sweep grid [-0.8..-1.6] spans roughly -1.6σ to +0.5σ so most points
+    # are in-support under Z=2.  Assert >=3 in-support points survive.
+    toy_sweep_values = [-0.8, -0.4, 0.0, 0.4, 0.8, 1.2, 1.6]
+    toy_xnorm_params = _insupport_params(loaded, 'obs_b')
+    if toy_xnorm_params is not None:
+        toy_mean, toy_std = toy_xnorm_params
+        toy_upper = toy_mean + LIMITS_INSUPPORT_Z * toy_std
+        toy_n_in = sum(1 for v in toy_sweep_values if abs(v) <= toy_upper + 1e-9)
+        log.info(f"[selftest] obs_b x_norm: mean={toy_mean:.3f}, std={toy_std:.3f}, "
+                 f"upper={toy_upper:.3f}; {toy_n_in}/{len(toy_sweep_values)} in-support")
+        assert toy_n_in >= 3, (
+            f"[selftest] BUG: only {toy_n_in} in-support points for toy sweep "
+            f"(mean={toy_mean:.3f}, std={toy_std:.3f}) — expected >=3"
+        )
+    else:
+        log.warning("[selftest] toy artifact has no x_norm — limits will use legacy fallback")
+        toy_n_in = len(toy_sweep_values)
+
     limits_results = _run_limits_check(
-        loaded, sweep_obs='obs_b', sweep_values=[-0.8, -0.4, 0.0, 0.4, 0.8, 1.2, 1.6],
+        loaded, sweep_obs='obs_b', sweep_values=toy_sweep_values,
         fixed_obs={'obs_a': 0.0}, monotone_param='theta2', direction='increasing',
         n_samples=1500, seed=seed,
     )
@@ -1450,6 +1971,11 @@ def cmd_selftest(args) -> int:
     verdicts['limits'] = 'PASS' if limits_results['all_pass'] else 'FAIL'
     log.info(f"[selftest] limits medians = "
              f"{[round(m, 3) for m in limits_results['medians']]} "
+             f"n_insupport={limits_results.get('n_insupport_sweep_pts', '?')} "
+             f"containment_fraction={limits_results.get('containment_fraction', '?')} "
+             f"containment_max_shift_sigma={limits_results.get('containment_max_shift_sigma', '?')} "
+             f"containment_pass={limits_results.get('containment_pass', '?')} "
+             f"monotone_window_n={limits_results.get('monotonicity', {}).get('monotone_window_n', '?')} "
              f"-> {verdicts['limits']}")
 
     all_pass = all(v == 'PASS' for v in verdicts.values()) and gate_bites
