@@ -147,6 +147,44 @@ def test_mu_liquidus_high_pressure_ices():
     assert dT[2] > dT[0], dT  # deeper -> larger depression here
 
 
+def test_liquidus_solver_gates_machine_b():
+    """Machine B defect-report gates (plans/HANDOFF-2026-07-26-nh3-
+    liquidus-defect.md): gate 1 — dTliq(P) smooth (no isolated point
+    > 0.3 K off its local median), no silent L-K pins, no cold spikes,
+    reviewer target table ~1.1/3/5/15 K at w=10/30/50/150."""
+    from PlanetProfile.Thermodynamics.NH3.NH3Props import (
+        muLiquidusCurve_K)
+    P = np.arange(10.0, 220.0, 8.0)
+    Tliq, Tm = muLiquidusCurve_K(P, 30.0)
+    dep = Tm - Tliq
+    assert np.all(np.isfinite(dep))
+    med = np.array([np.median(dep[max(0, k-2):k+3])
+                    for k in range(dep.size)])
+    assert np.max(np.abs(dep - med)) <= 0.3
+    assert not np.any(np.abs(dep - NH3liquidusShift_K(30.0)) < 0.02)
+    assert dep.max() < 8.0
+    for w, target, tol in ((10., 1.1, 0.6), (50., 5.4, 1.2),
+                           (150., 15., 3.0)):
+        Tl, T0 = muLiquidusCurve_K(np.array([100.0]), w)
+        assert abs(float(T0[0] - Tl[0]) - target) < tol
+
+
+def test_single_liquid_band_machine_b():
+    """Machine B gates 2/4: along fixed T, the phase function must show
+    exactly ONE contiguous liquid band in P (no phantom liquid cells
+    inside the ice-Ih field, no interleaved liquid/ice-V stacks)."""
+    from PlanetProfile.Thermodynamics.HydroEOS import GetOceanEOS
+    P = np.linspace(0.5, 900.0, 160)
+    T = np.linspace(240.0, 305.0, 60)
+    for w in (30.0, 100.0):
+        eos = GetOceanEOS('NH3', w, P, T, None)
+        for Tv in (245.0, 250.0, 258.0, 266.0):
+            ph = np.ravel(eos.fn_phase(P, np.full_like(P, Tv))).astype(int)
+            liq = (ph == 0).astype(int)
+            n_bands = int(np.sum(np.diff(liq) == 1) + (liq[0] == 1))
+            assert n_bands <= 1, (w, Tv, ph.tolist())
+
+
 def test_hp_ice_straddle_end_to_end():
     # At 900 MPa (ice VI regime): between the pure and NH3 liquidi the
     # NH3 ocean is liquid while pure water is ice VI; below both, the

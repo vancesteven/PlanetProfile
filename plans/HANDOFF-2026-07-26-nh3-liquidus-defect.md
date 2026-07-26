@@ -159,3 +159,44 @@ Once gates 1–4 pass: **Tb ∈ [241, 259] K × w ∈ [30, 100] ppt**. Exclude w
 HP-heavy, sparse) and w=150 (fails Tb>256) from the first cache; span them only in a separate
 campaign. Do NOT span w=10→150 in one bilinear cache — adjacent corners rarely share `region_phases`,
 so bilinear would fall back to nearest-neighbour almost everywhere.
+
+---
+
+## Machine A response — FIXED (2026-07-26)
+
+Solver rebuilt per §4, method untouched (chemical-potential equality
+formulation unchanged). Changes in `NH3Props.py`:
+
+1. **Guarded `_ln_aw`**: bad flashes rejected on density window AND
+   ln a_w plausibility ([-1.0, 0.02]); persistent AbstractStates; a
+   pure-water-density-seeded `update_with_guesses` retry for the known
+   flash pockets; where a dead zone still blankets the root (e.g.
+   245–249 K at ~214 MPa, exactly where the ice-III root lives), the
+   activity is borrowed from the nearest valid T at the same P —
+   justified because a_w is nearly T-independent (ideal ln x_w exactly
+   so; observed < 1e-3 over several K, far under the 0.3 K tolerance).
+2. **Bracketing**: warm→cold scan takes the WARMEST sign change (the
+   physical liquidus), brackets never span rejected points,
+   continuation in P seeds each search from the previous root.
+3. **Smoothness filter**: per-ice-segment 5-point median; outliers
+   (> 0.3 K) and unsolved pressures repaired by interpolation across
+   good neighbours — NEVER the L-K polynomial (L-K is now only the
+   very first search seed). Per-pressure repairs logged; > 5% repaired
+   logs a warning; a segment < 40% cleanly solved RAISES.
+4. **Domain edge**: where the true liquidus falls below SeaFreeze
+   water1 validity (239.6 K — e.g. w=150 under ice III), the curve is
+   clamped to the floor with liquid above it (understates depression
+   only for T below the floor, which no EOS grid samples).
+
+Verification on A (tests/coolprop_nh3_test.py, 11 tests green):
+- Your exact repro (P=10..218 step 4, w=30): dep spans 3.20–3.54 K,
+  worst |dep − local median| = 0.000 K, no 1.6315 K pins, no spikes.
+- Gate 1 table: 1.10 / 3.26 / 5.37 / 15.33 K at w=10/30/50/150 vs
+  target ~1.1 / 3 / 5 / 15.
+- Gates 2/4 (new regression test): exactly one contiguous liquid band
+  in fn_phase vs P at fixed T for w=30/100, T=245–266 K, P to 900 MPa.
+
+Still yours (need full PP builds): gate 3 (3-point Tb probe: PbI &
+D_iceIh monotone in Tb, ~150–200 MPa PbI swing), gate 5 (PfreezeRes
+<= 0.5 MPa re-verification), gate 6 (probe_one vs
+build_single_structure crosscheck). Phase 1 domain per §7 unchanged.

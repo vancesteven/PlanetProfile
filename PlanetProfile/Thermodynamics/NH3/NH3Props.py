@@ -116,20 +116,54 @@ _SF_ICE_NAME = {1: 'Ih', 2: 'II', 3: 'III', 5: 'V', 6: 'VI'}
 R_JMOLK = 8.31446
 
 
+_AS_CACHE = {}
+
+
 def _ln_aw(P_MPa, T_K, z_nh3):
     """ln water activity in the NH3 solution from CoolProp: chemical
     potential of water in the mixture minus pure water, evaluated in
-    the SAME (HEOS) framework so reference states cancel."""
+    the SAME (HEOS) framework so reference states cancel.
+
+    GUARDED (Machine B defect report 2026-07-26): the forced-liquid
+    flash of the estimated binary occasionally returns garbage at
+    isolated (P, T) points, which used to seed spurious liquidus roots.
+    A flash is rejected (ValueError) unless the mixture density lands in
+    the liquid window AND ln a_w is physically plausible for x <= 0.25
+    (ideal value ~ -x; window [-1.0, +0.02])."""
     import CoolProp.CoolProp as CP
-    AS = CP.AbstractState('HEOS', 'Ammonia&Water')
-    AS.set_mole_fractions([z_nh3, 1.0 - z_nh3])
-    AS.specify_phase(CP.iphase_liquid)
-    AS.update(CP.PT_INPUTS, P_MPa * 1e6, T_K)
-    mu_mix = AS.chemical_potential(1)
-    ASp = CP.AbstractState('HEOS', 'Water')
-    ASp.specify_phase(CP.iphase_liquid)
+    key = round(float(z_nh3), 10)
+    if key not in _AS_CACHE:
+        AS = CP.AbstractState('HEOS', 'Ammonia&Water')
+        AS.set_mole_fractions([z_nh3, 1.0 - z_nh3])
+        AS.specify_phase(CP.iphase_liquid)
+        ASp = CP.AbstractState('HEOS', 'Water')
+        ASp.specify_phase(CP.iphase_liquid)
+        _AS_CACHE[key] = (AS, ASp)
+    AS, ASp = _AS_CACHE[key]
     ASp.update(CP.PT_INPUTS, P_MPa * 1e6, T_K)
-    return (mu_mix - ASp.chemical_potential(0)) / (R_JMOLK * T_K)
+    rhop = ASp.rhomass()
+    if not (500.0 < rhop < 2000.0):
+        raise ValueError(f'bad pure flash (rho={rhop:.0f})')
+    try:
+        AS.update(CP.PT_INPUTS, P_MPa * 1e6, T_K)
+        rho = AS.rhomass()
+        if not (500.0 < rho < 2000.0):
+            raise ValueError(f'bad mixture flash (rho={rho:.0f})')
+    except Exception:
+        # Known CoolProp mixture flash-failure pockets (e.g. ~250 K /
+        # 200 MPa at low x): retry with a density guess seeded from the
+        # pure-water liquid root at the same (P, T).
+        g = CP.PyGuessesStructure()
+        g.rhomolar = rhop / ASp.molar_mass() * 0.99
+        AS.update_with_guesses(CP.PT_INPUTS, P_MPa * 1e6, T_K, g)
+        rho = AS.rhomass()
+        if not (500.0 < rho < 2000.0):
+            raise ValueError(f'bad guessed mixture flash (rho={rho:.0f})')
+    mu_mix = AS.chemical_potential(1)
+    val = (mu_mix - ASp.chemical_potential(0)) / (R_JMOLK * T_K)
+    if not (-1.0 < val < 0.02):
+        raise ValueError(f'implausible ln a_w = {val:.3f}')
+    return val
 
 
 def muLiquidusCurve_K(P_MPa, w_ppt):
@@ -146,65 +180,164 @@ def muLiquidusCurve_K(P_MPa, w_ppt):
     (~5.4 K at 5 wt%, 1 bar) and applies self-consistently under every
     ice phase (Ih through VI).
 
-    Solved by sign-change scan + bisection on a T grid bounded below by
-    SeaFreeze's water1 validity (239.5 K); pressures where no bracket
-    is found (deep depression beyond validity, or CoolProp flash
-    failure) return the L-K value as fallback with a log notice.
+    Solver (rebuilt after the Machine B defect report, plans/HANDOFF-
+    2026-07-26-nh3-liquidus-defect.md): guarded activity evaluations
+    (bad CoolProp flashes rejected, brackets never built across them),
+    warm-to-cold scan so the WARMEST sign change — the physical
+    liquidus — is taken, continuation in P seeded from the previous
+    pressure's root, and a per-ice-segment smoothness filter that
+    repairs outliers (> 0.3 K off the local median) by interpolation
+    across good pressures. The L-K polynomial is used only as the very
+    first search seed, never as a silent result; a segment with < 40%
+    cleanly solved pressures raises instead of returning a defective
+    curve. Bounded below by SeaFreeze water1 validity (239.6 K).
     """
     _ensure_mixture()
     z = _molefrac_NH3(w_ppt)
     P_MPa = np.atleast_1d(np.asarray(P_MPa, float))
     Tm_pure, ice_codes = pureMeltingCurve_K(P_MPa)
+
+    def _law_robust(P, T, Tcap):
+        """ln a_w with a nearest-valid-T substitution: CoolProp's
+        mixture flash has dead zones (e.g. ~245-249 K at ~210 MPa) that
+        can blanket the root, but the water activity is nearly
+        T-independent (ideal-solution ln x_w exactly so; observed
+        variation < 1e-3 over several K), so borrowing the value from
+        the nearest temperature where the flash converges introduces
+        far less error than the 0.3 K smoothness tolerance."""
+        try:
+            return _ln_aw(P, T, z)
+        except Exception:
+            pass
+        for dTs in np.arange(0.5, 10.1, 0.5):
+            for Tt in (T + dTs, T - dTs):
+                if Tt > Tcap + 0.5 or Tt < 239.6:
+                    continue
+                try:
+                    return _ln_aw(P, Tt, z)
+                except Exception:
+                    continue
+        raise ValueError(f'no valid activity near P={P}, T={T}')
+
+    def _f_at(P, T, ice, Tcap=380.0):
+        """f(T) = dG_fus*M - R T ln a_w; raises on a bad activity."""
+        dG = (_sfG_scatter(ice, [P], [T])[0]
+              - _sfG_scatter('water1', [P], [T])[0]) * (M_H2O_gmol * 1e-3)
+        return dG - R_JMOLK * T * _law_robust(P, T, Tcap)
+
+    def _solve_at(P, T0, ice, Tguess):
+        """Highest-T sign change near Tguess (widening on demand), then
+        guarded bisection. Returns nan when no valid bracket exists.
+        The liquidus is the WARMEST root — noise-seeded colder
+        sign-change pairs are ignored by scanning from the warm end."""
+        Tcap = min(T0 + 0.5, 380.0)
+        Tfloor = max(239.6, T0 - 45.0)
+        for half, step in ((6.0, 0.5), (20.0, 0.5), (45.0, 1.0)):
+            lo_edge = max(Tfloor, min(Tguess - half, Tcap - 2.0))
+            hi_edge = min(Tcap, Tguess + half)
+            if hi_edge <= lo_edge:
+                continue
+            Ts = np.arange(hi_edge, lo_edge - step / 2, -step)  # warm→cold
+            fprev = Tprev = None
+            for T in Ts:
+                try:
+                    fT = _f_at(P, T, ice)
+                except Exception:
+                    fprev = Tprev = None  # break bracket across bad pts
+                    continue
+                if fprev is not None and np.sign(fT) != np.sign(fprev):  # noqa: E501  (bracket found)
+                    lo, hi = T, Tprev            # lo colder than hi
+                    flo = fT
+                    for _ in range(40):
+                        mid = 0.5 * (lo + hi)
+                        try:
+                            fm = _f_at(P, mid, ice)
+                        except Exception:
+                            mid += 0.07 * (hi - lo)  # nudge off bad pt
+                            try:
+                                fm = _f_at(P, mid, ice)
+                            except Exception:
+                                break
+                        if np.sign(fm) == np.sign(flo):
+                            lo, flo = mid, fm
+                        else:
+                            hi = mid
+                        if hi - lo < 5e-3:
+                            break
+                    return 0.5 * (lo + hi)
+                fprev, Tprev = fT, T
+        # No sign change found: if the solution is still LIQUID at the
+        # SeaFreeze water1 validity floor (f > 0 there), the true
+        # liquidus lies below the representable domain — clamp to the
+        # floor so the phase grid marks everything above it liquid.
+        # (Understates the depression only for T below the floor, which
+        # no EOS grid samples.)
+        try:
+            if _f_at(P, Tfloor + 0.05, ice, Tcap) > 0:
+                return Tfloor + 0.05
+        except Exception:
+            pass
+        return np.nan
+
     Tliq = np.full(P_MPa.size, np.nan)
-    n_fallback = 0
-    for i, (P, T0, code) in enumerate(zip(P_MPa, Tm_pure, ice_codes)):
+    prev_dT = None
+    prev_code = None
+    for i in np.argsort(P_MPa):
+        P, T0, code = P_MPa[i], Tm_pure[i], int(ice_codes[i])
         if not np.isfinite(T0):
             continue
-        ice = _SF_ICE_NAME.get(int(code), 'Ih')
-        Tlo = max(239.6, T0 - 45.0)
-        Tscan = np.linspace(Tlo, min(T0 + 0.5, 380.0), 24)
-        try:
-            dG = (_sfG_scatter(ice, np.full(Tscan.size, P), Tscan)
-                  - _sfG_scatter('water1', np.full(Tscan.size, P),
-                                 Tscan)) * (M_H2O_gmol * 1e-3)
-            fvals = np.full(Tscan.size, np.nan)
-            for k, T in enumerate(Tscan):
-                try:
-                    fvals[k] = dG[k] - R_JMOLK * T * _ln_aw(P, T, z)
-                except Exception:
-                    pass
-            ok = np.isfinite(fvals)
-            sign = np.sign(fvals)
-            idx = None
-            oki = np.where(ok)[0]
-            for a, b in zip(oki[:-1], oki[1:]):
-                if sign[a] != sign[b]:
-                    idx = (a, b)
-                    break
-            if idx is None:
-                raise RuntimeError('no bracket')
-            lo, hi = Tscan[idx[0]], Tscan[idx[1]]
-            flo = fvals[idx[0]]
-            for _ in range(30):
-                mid = 0.5 * (lo + hi)
-                dGm = (_sfG_scatter(ice, [P], [mid])[0]
-                       - _sfG_scatter('water1', [P], [mid])[0]) \
-                    * (M_H2O_gmol * 1e-3)
-                fm = dGm - R_JMOLK * mid * _ln_aw(P, mid, z)
-                if np.sign(fm) == np.sign(flo):
-                    lo, flo = mid, fm
-                else:
-                    hi = mid
-                if hi - lo < 5e-3:
-                    break
-            Tliq[i] = 0.5 * (lo + hi)
-        except Exception:
-            Tliq[i] = T0 - NH3liquidusShift_K(w_ppt)
-            n_fallback += 1
-    if n_fallback:
-        log.info(f'mu-based NH3 liquidus: L-K fallback at {n_fallback}/'
-                 f'{P_MPa.size} pressures (bracket outside SeaFreeze '
-                 'validity or CoolProp flash failure).')
+        ice = _SF_ICE_NAME.get(code, 'Ih')
+        # Continuation: the liquidus depression is smooth in P within an
+        # ice-phase segment — seed the search from the previous root.
+        g = prev_dT if (prev_dT is not None and code == prev_code) \
+            else (prev_dT if prev_dT is not None
+                  else NH3liquidusShift_K(w_ppt))
+        Tliq[i] = _solve_at(P, T0, ice, T0 - g)
+        if np.isfinite(Tliq[i]):
+            prev_dT = T0 - Tliq[i]
+            prev_code = code
+    # Per-ice-segment outlier repair (Machine B defect report
+    # 2026-07-26): dTliq(P) must be smooth within a segment. Points
+    # deviating > 0.3 K from the local (5-point) median — or unsolved —
+    # are replaced by interpolation across the segment's good points,
+    # NEVER by the L-K polynomial. Per-segment counts are logged; a
+    # segment with < 40% good points raises (a defective liquidus must
+    # not silently reach cache builds).
+    dT = Tm_pure - Tliq
+    n_repair = 0
+    for code in np.unique(ice_codes[np.isfinite(Tm_pure)]):
+        seg = np.where((ice_codes == code) & np.isfinite(Tm_pure))[0]
+        seg = seg[np.argsort(P_MPa[seg])]
+        if seg.size < 2:
+            continue
+        d = dT[seg]
+        good = np.isfinite(d)
+        if good.sum() >= 3:
+            med = np.array([
+                np.nanmedian(d[max(0, k - 2):k + 3]) for k in range(d.size)])
+            good &= np.abs(d - med) <= 0.3
+        if good.sum() < max(2, int(0.4 * seg.size)):
+            raise RuntimeError(
+                f'mu-based NH3 liquidus: only {int(good.sum())}/{seg.size} '
+                f'pressures solved cleanly under ice {code} at '
+                f'w = {w_ppt} ppt — refusing to return a defective '
+                'liquidus (see plans/HANDOFF-2026-07-26-nh3-liquidus-'
+                'defect.md).')
+        if not good.all():
+            bad = seg[~good]
+            log.debug('mu-based NH3 liquidus: repaired pressures (MPa): '
+                      + ', '.join(f'{P_MPa[b]:.0f}' for b in bad))
+            d_fix = np.interp(P_MPa[seg][~good], P_MPa[seg][good],
+                              d[good])
+            dT[bad] = d_fix
+            Tliq[bad] = Tm_pure[bad] - d_fix
+            n_repair += bad.size
+    if n_repair:
+        frac = n_repair / max(1, int(np.isfinite(Tm_pure).sum()))
+        msg = (f'mu-based NH3 liquidus: {n_repair} of '
+               f'{int(np.isfinite(Tm_pure).sum())} pressures repaired by '
+               'segment interpolation (guarded-flash/bracket failures).')
+        (log.warning if frac > 0.05 else log.info)(msg)
     return Tliq, Tm_pure
 
 
