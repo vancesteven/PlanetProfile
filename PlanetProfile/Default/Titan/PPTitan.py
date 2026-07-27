@@ -32,6 +32,12 @@ Planet.Ocean.comp = 'MgSO4'
 Planet.Ocean.wOcean_ppt = 100
 Planet.Ocean.deltaP = 8.0
 Planet.Ocean.deltaT = 0.5
+# MgSO4 phaseType naming is INVERTED: 'lookup' -> analytic Choukroun-Grasset +
+# Margules model (uncapped, Pmax=inf); 'preload' -> the .mat table which caps
+# at wOcean_ppt=100 with nearest-neighbor fill above it. Titan's ocean reaches
+# w>100 ppt in the MCMC salinity range, so MUST stay 'lookup' — switching to
+# 'preload' would silently nearest-clamp the melt boundary above 100 ppt with
+# only a log.warning (scientific-reviewer, 2026-07-27).
 Planet.Ocean.phaseType = 'lookup'
 Planet.Ocean.PHydroMax_MPa = 1800.0
 Planet.Ocean.THydroMax_K = 350.0

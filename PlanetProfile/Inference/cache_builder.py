@@ -82,6 +82,7 @@ def build_single_structure(
     Tb_K: float,
     ocean_overrides: Dict[str, Any] | None = None,
     bulk_overrides: Dict[str, Any] | None = None,
+    extrap_ocean: bool = False,
 ) -> Dict[str, Any]:
     """Run PlanetProfile once and return the cache dict for one ``Tb_K``.
 
@@ -101,6 +102,16 @@ def build_single_structure(
         'wOcean_ppt': 100.0}``) or sweep concentration without
         modifying the body's default template module. Each key/value
         is applied via ``setattr(Planet.Ocean, key, value)``.
+    extrap_ocean
+        Per-build override for ``Params.EXTRAP_OCEAN`` (ocean/HP-ice EOS
+        density extrapolation above the composition's table cap). Default
+        ``False`` matches ``defaultConfig``. Threaded explicitly and
+        restored in a ``finally`` so a True value for one composition
+        (e.g. MgSO4, whose Choukroun-Grasset density table caps at 800 MPa
+        while Titan's deep ocean reaches ~1100 MPa) does NOT leak into other
+        compositions built in the same process — ``configParams`` is a
+        module-level singleton, so a caller-side global mutation would
+        contaminate every later build. Set from the config, not the global.
 
     Returns
     -------
@@ -190,9 +201,19 @@ def build_single_structure(
     configParams.NO_SAVEFILE = True
     configParams.SKIP_PLOTS = True
 
-    Planet, Params = RunPP(Planet, configParams)
-    Params.CALC_NEW_GRAVITY = True
-    Planet, Params = SetupGravity(Planet, Params)
+    # EXTRAP_OCEAN is read only during EOS construction inside RunPP/SetupInit,
+    # so set it from the per-build parameter and restore the module-level
+    # singleton immediately after SetupGravity. try/finally guarantees the
+    # restore even if PP raises — otherwise a True value would leak into every
+    # subsequent build in this process (reviewer acc725ea R1, 2026-07-27).
+    _prior_extrap_ocean = configParams.EXTRAP_OCEAN
+    try:
+        configParams.EXTRAP_OCEAN = bool(extrap_ocean)
+        Planet, Params = RunPP(Planet, configParams)
+        Params.CALC_NEW_GRAVITY = True
+        Planet, Params = SetupGravity(Planet, Params)
+    finally:
+        configParams.EXTRAP_OCEAN = _prior_extrap_ocean
 
     # Surface radius — body-agnostic, pulled from the Planet object that PP
     # populated from the template module.
@@ -560,6 +581,7 @@ def _bisect_transition(
     eps_T: float = 0.01,
     max_iter: int = 20,
     ocean_overrides: Dict[str, Any] | None = None,
+    extrap_ocean: bool = False,
 ) -> List[Tuple[float, Dict[str, Any]]]:
     """Bisect ``[Tb_lo, Tb_hi]`` to localise a layer-set transition.
 
@@ -589,6 +611,7 @@ def _bisect_transition(
             s_mid = build_single_structure(
                 planet_template_module, float(Tb_mid),
                 ocean_overrides=ocean_overrides,
+                extrap_ocean=extrap_ocean,
             )
         except Exception as exc:
             log.warning(
@@ -613,11 +636,13 @@ def _bisect_transition(
                 planet_template_module, Tb_lo, Tb_mid,
                 regions_lo, regions_mid, eps_T, max_iter,
                 ocean_overrides=ocean_overrides,
+                extrap_ocean=extrap_ocean,
             )
             above = _bisect_transition(
                 planet_template_module, Tb_mid, Tb_hi,
                 regions_mid, regions_hi, eps_T, max_iter,
                 ocean_overrides=ocean_overrides,
+                extrap_ocean=extrap_ocean,
             )
             discovered.append((Tb_mid, s_mid))
             discovered.extend(below)
@@ -637,6 +662,7 @@ def build_tb_grid_cache(
     eps_T: float = 0.01,
     ocean_overrides: Dict[str, Any] | None = None,
     bulk_overrides: Dict[str, Any] | None = None,
+    extrap_ocean: bool = False,
 ) -> Dict[str, Any]:
     """Build a Tb-grid cache by repeatedly calling ``build_single_structure``.
 
@@ -710,6 +736,7 @@ def build_tb_grid_cache(
                 planet_template_module, float(Tb_K),
                 ocean_overrides=ocean_overrides,
                 bulk_overrides=bulk_overrides,
+                extrap_ocean=extrap_ocean,
             )
         except Exception as exc:
             log.warning(
@@ -757,6 +784,7 @@ def build_tb_grid_cache(
                 s0.get("region_phases"), s1.get("region_phases"),
                 eps_T=eps_T,
                 ocean_overrides=ocean_overrides,
+                extrap_ocean=extrap_ocean,
             )
             for Tb_new, s_new in new_points:
                 extra_Tb.append(float(Tb_new))
@@ -805,6 +833,8 @@ def build_tbw_grid_cache(
     wOcean_ppt_grid: Iterable[float],
     output_path: str,
     progress: bool = True,
+    ocean_overrides: Dict[str, Any] | None = None,
+    extrap_ocean: bool = False,
 ) -> Dict[str, Any]:
     """Build a 2D (Tb × wOcean_ppt) structure-grid cache (schema ``v3.0``).
 
@@ -842,6 +872,18 @@ def build_tbw_grid_cache(
         Pickle path. Atomic write via tempfile + ``os.replace``.
     progress
         Per-node INFO log lines (default True).
+    ocean_overrides
+        Optional ``Planet.Ocean.<key>`` overrides applied to EVERY node in
+        addition to the per-node ``wOcean_ppt``. The one field that MUST come
+        through here for salted-ocean caches is ``comp`` (e.g. ``'NaCl'``,
+        ``'NH3'``, ``'MgSO4'``): the composition is baked into each cached
+        structure at build time (it dispatches the ocean EOS in
+        ``HydroEOS.py``), and there is NO runtime hook to recompute it. If
+        ``comp`` is omitted the cache inherits the template module's
+        ``Planet.Ocean.comp`` (so e.g. a ``PureH2O`` template yields a
+        pure-water cache regardless of ``wOcean_ppt``). ``wOcean_ppt`` in this
+        dict is ignored — the salinity axis is always set per-node from
+        ``wOcean_ppt_grid``.
 
     Returns
     -------
@@ -850,6 +892,7 @@ def build_tbw_grid_cache(
         {'Tb_K_grid': np.ndarray (n_Tb,),
          'wOcean_ppt_grid': np.ndarray (n_w,),
          'structures': [structure_dict | None, ...],  # row-major, len n_Tb*n_w
+         'ocean_comp': str | None,  # baked-in composition (from ocean_overrides)
          'schema_version': 'v3.0'}
 
     ``structures`` is row-major: entry ``i_Tb * n_w + i_w`` is the structure at
@@ -873,6 +916,15 @@ def build_tbw_grid_cache(
     Tb_arr = Tb_arr[np.argsort(Tb_arr)]
     w_arr = w_arr[np.argsort(w_arr)]
 
+    # Composition (and any other Ocean.* overrides) applied to every node.
+    # ``wOcean_ppt`` is set per-node below, so drop it if present here to
+    # avoid a stale scalar overriding the salinity axis.
+    base_overrides = dict(ocean_overrides or {})
+    base_overrides.pop("wOcean_ppt", None)
+    ocean_comp = base_overrides.get("comp")
+    if progress and ocean_comp is not None:
+        log.info(f"Ocean composition baked into every node: comp={ocean_comp!r}")
+
     n_Tb, n_w = Tb_arr.size, w_arr.size
     total = n_Tb * n_w
     structures: List[Dict[str, Any] | None] = [None] * total
@@ -889,7 +941,9 @@ def build_tbw_grid_cache(
             try:
                 struct = build_single_structure(
                     planet_template_module, float(Tb_K),
-                    ocean_overrides={"wOcean_ppt": float(w_ppt)},
+                    ocean_overrides={**base_overrides,
+                                     "wOcean_ppt": float(w_ppt)},
+                    extrap_ocean=extrap_ocean,
                 )
             except Exception as exc:
                 log.warning(
@@ -917,6 +971,7 @@ def build_tbw_grid_cache(
         "Tb_K_grid": Tb_arr,
         "wOcean_ppt_grid": w_arr,
         "structures": structures,
+        "ocean_comp": ocean_comp,
         "schema_version": "v3.0",
     }
     _save_cache_atomic(cache, output_path)

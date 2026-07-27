@@ -134,6 +134,16 @@ def main(argv=None) -> int:
     # Optional Ocean.* overrides (e.g. composition switch / concentration sweep)
     ocean_overrides = cfg.get("ocean_overrides") or None
 
+    # Per-config ocean/HP-ice EOS density extrapolation above the composition's
+    # table cap. Default False (matches defaultConfig). Set True only for
+    # compositions whose ocean reaches beyond the EOS table (e.g. MgSO4:
+    # Choukroun-Grasset density caps at 800 MPa while Titan's deep ocean reaches
+    # ~1100 MPa; clamping there injects a ~24σ Re_k2 artifact, whereas the
+    # near-linear density extrapolation carries ~0.56% error — reviewer
+    # acc725ea, 2026-07-27). Threaded explicitly to build_single_structure,
+    # never as a global mutation, so it cannot leak across compositions.
+    extrap_ocean = bool(cfg.get("extrap_ocean", False))
+
     out_rel = cfg.get("structure_cache_path")
     if not out_rel:
         log.error("Config missing 'structure_cache_path'.")
@@ -178,12 +188,14 @@ def main(argv=None) -> int:
         log.info(f"w grid points       : {args.n_wgrid}")
         log.info(f"wOcean_ppt grid     : {[round(w, 4) for w in w_grid.tolist()]}")
     log.info(f"Output cache path   : {out_path}")
+    log.info(f"EXTRAP_OCEAN        : {extrap_ocean}")
     if ocean_overrides:
         log.info(f"Ocean overrides     : {ocean_overrides}")
-        if build_2d:
+        if build_2d and "wOcean_ppt" in ocean_overrides:
             log.warning(
-                "ocean_overrides is ignored for 2D builds — the salinity axis "
-                "is set per-node from wOcean_ppt_grid."
+                "ocean_overrides['wOcean_ppt'] is ignored for 2D builds — the "
+                "salinity axis is set per-node from wOcean_ppt_grid. Other keys "
+                "(e.g. 'comp') ARE applied to every node."
             )
 
     if out_path.exists() and not args.force:
@@ -202,12 +214,14 @@ def main(argv=None) -> int:
         from PlanetProfile.Inference.cache_builder import build_tbw_grid_cache
         build_tbw_grid_cache(
             template, Tb_grid, w_grid, str(out_path), progress=True,
+            ocean_overrides=ocean_overrides, extrap_ocean=extrap_ocean,
         )
     else:
         from PlanetProfile.Inference.cache_builder import build_tb_grid_cache
         build_tb_grid_cache(
             template, Tb_grid, str(out_path),
             progress=True, ocean_overrides=ocean_overrides,
+            extrap_ocean=extrap_ocean,
         )
     dt = time.time() - t0
     log.info(f"Done in {dt:.1f} s")
