@@ -3585,9 +3585,10 @@ def render_results():
                 # proportional layer stack.
                 st.caption(f"globe panel code v{_GLOBE_FIG_VER}")
                 (_tab_globe, _tab_prof, _tab_wedge, _tab_heat,
-                 _tab_geo, _tab_data) = st.tabs(
+                 _tab_geo, _tab_min, _tab_data) = st.tabs(
                     ['🌐 Globe', '📈 Radial profiles', '🧀 Wedge',
-                     '🔥 Heating', '🌋 Geotherm', '📄 Data table'])
+                     '🔥 Heating', '🌋 Geotherm', '🪨 Mineralogy',
+                     '📄 Data table'])
                 with _tab_globe:
                     dev = abs(c20 or 0.0) + 3 * abs(c22 or 0.0)
                     default_ex = (min(500.0, max(1.0, 0.03 / dev))
@@ -3792,8 +3793,50 @@ def render_results():
                 with _tab_heat:
                     from Utilities.radial_profiles import (
                         heating_for_sample, build_heating_figure)
+                    _QRAD_MODES = {
+                        'Body default (constant Q_rad)': None,
+                        'BSE inventory (McDonough+ 2020)': 'BSE',
+                        'CI chondrite inventory (McDonough+ 2020)': 'CI',
+                    }
+                    _qc1, _qc2 = st.columns([2, 1])
+                    _qmode_lbl = _qc1.selectbox(
+                        "Radiogenic heating model",
+                        list(_QRAD_MODES),
+                        key='heat_qrad_model',
+                        help="Body default uses the PlanetProfile config "
+                             "constant Sil.Qrad_Wkg. Inventory options "
+                             "compute Q_rad from the McDonough, Šrámek & "
+                             "Wipperfurth (2020) long-lived radionuclide "
+                             "systems (238U, 235U, 232Th, 40K, 87Rb, "
+                             "147Sm) for BSE or CI-chondrite rock "
+                             "abundances, applied per kg of this draw's "
+                             "silicates.")
+                    _qpreset = _QRAD_MODES[_qmode_lbl]
+                    _q_override = None
+                    _q_src = None
+                    if _qpreset is not None:
+                        _q_tGa = _qc2.slider(
+                            "Time before present (Ga)", 0.0, 4.5, 0.0,
+                            0.1, key='heat_qrad_tGa',
+                            help="Decay-corrects the inventory backward "
+                                 "in time (exp(+λt) rewind): heating was "
+                                 "higher in the past.")
+                        try:
+                            from PlanetProfile.Thermodynamics.\
+                                RadiogenicHeating import specific_heating_Wkg
+                            _q_override = float(specific_heating_Wkg(
+                                _qpreset, t_beforePresent_Ga=_q_tGa))
+                            _q_src = (f'{_qpreset} inventory '
+                                      f'(McDonough+ 2020), t = '
+                                      f'{_q_tGa:g} Ga before present')
+                        except Exception as _qe:
+                            st.warning(
+                                f"Inventory Q_rad unavailable ({_qe}); "
+                                "falling back to the body default.")
                     _heat, _hnote = heating_for_sample(
-                        result, sel_idx, parent_directory)
+                        result, sel_idx, parent_directory,
+                        qrad_override_Wkg=_q_override,
+                        qrad_source=_q_src)
                     if _heat is None:
                         st.info(f"Heating unavailable: {_hnote}")
                     else:
@@ -3816,8 +3859,11 @@ def render_results():
                             key='globe_heating',
                             download_label='heating profiles',
                             token=(_result_token(), sel_idx,
-                                   _GLOBE_FIG_VER))
+                                   _q_override, _GLOBE_FIG_VER))
                         _qr = _heat.get('Qrad_Wkg')
+                        _qsrc = _heat.get(
+                            'Qrad_source',
+                            'body config constant Sil.Qrad_Wkg')
                         _rsd = _heat.get('rho_sil_draw_kgm3')
                         st.caption(
                             "Tidal heating is the TidalPy radial "
@@ -3826,8 +3872,8 @@ def render_results():
                             "structure, rheology, Arrhenius viscosity, "
                             "and orbital e, ω, a from the cache). "
                             "Radiogenic heating is H = Q_rad · ρ_sil"
-                            + (f" with Q_rad = {_qr:.3g} W/kg (body "
-                               "config constant, NOT inferred)"
+                            + (f" with Q_rad = {_qr:.3g} W/kg "
+                               f"({_qsrc}; an assumption, NOT inferred)"
                                if _qr else "")
                             + (f", using this draw's mass-conservation "
                                f"silicate density ρ_sil = {_rsd:.0f} "
@@ -3905,6 +3951,67 @@ def render_results():
                             "config, not derived from the mineralogy. "
                             "Overlaying Perple_X phase boundaries on "
                             "this plot is roadmap.")
+
+                with _tab_min:
+                    from Utilities.radial_profiles import (
+                        mineralogy_for_sample)
+                    _min, _mnote = mineralogy_for_sample(
+                        result, sel_idx, parent_directory)
+                    if _min is None:
+                        st.info(f"Mineralogy check unavailable: "
+                                f"{_mnote}")
+                    else:
+                        _mc1, _mc2 = st.columns(2)
+                        _mc1.metric(
+                            "Inferred bulk silicate density",
+                            f"{_min['rho_bulk_kgm3']:.0f} kg/m³")
+                        _Pl, _Ph = _min['P_sil_range_MPa']
+                        _Tl, _Th = _min['T_sil_range_K']
+                        _mc2.metric(
+                            "Silicate P, T along this draw",
+                            f"{_Pl:.0f}–{_Ph:.0f} MPa",
+                            f"{_Tl:.0f}–{_Th:.0f} K",
+                            delta_color='off')
+                        _mrows = [{
+                            'Composition': r['label'],
+                            'Grain ρ (kg/m³)':
+                                f"{r['rho_grain_mean_kgm3']:.0f}",
+                            'Δρ vs bulk (%)':
+                                f"{r['mismatch_pct']:+.2f}",
+                            'Porosity leverage (%)':
+                                f"{r['f_lever_frac']*100:.2f}",
+                            'Verdict': r['status'],
+                            'Perple_X table': r['table'],
+                        } for r in _min['rows']]
+                        st.dataframe(_mrows, hide_index=True,
+                                     width='stretch')
+                        for _n in _min['notes']:
+                            st.caption(f"⚠ {_n}")
+                        st.caption(
+                            "POST-HOC consistency check, not part of "
+                            "the inference: each shipped Perple_X "
+                            "thermodynamic table (source file in the "
+                            "last column) gives a "
+                            "GRAIN density along this draw's silicate "
+                            "P, T profile; the inference constrains "
+                            f"the BULK density ({_min['rho_source']}). "
+                            "Porosity is the free parameter connecting "
+                            "them — vacuum pores with the Han (2014) "
+                            "closure law φ(P) = φ_top · exp(−6.15 "
+                            f"P/{_min['Pclosure_MPa']:.0f} MPa). "
+                            "'Porosity leverage' is the fraction of "
+                            "the mantle shallow enough for pores to "
+                            "survive: at high mantle pressures "
+                            "porosity cannot lighten the bulk much, "
+                            "so a table denser than the inferred bulk "
+                            "by more than the leverage is excluded "
+                            "regardless of φ_top. Grain densities are "
+                            "clamped to each table's grid edge outside "
+                            "its P, T range; pore-fluid pressure "
+                            "effects (α_Peff) are neglected. Judge "
+                            "compositions across the posterior — a "
+                            "single draw's verdict inherits that "
+                            "draw's ρ_sil uncertainty.")
 
                 with _tab_data:
                     from Utilities.radial_profiles import (

@@ -190,6 +190,87 @@ def test_apptest_europa_v4_globe_panel():
 
 @pytest.mark.skipif(not EUROPA_V4_PKL.exists(),
                     reason='Europa v4 reference result not present')
+def test_apptest_heating_inventory_selector():
+    # Radiogenic model selector (2026-07-28): body-default vs McDonough+
+    # 2020 inventory Q_rad; switching updates the caption source label
+    # and the time-rewind slider appears only for inventory modes.
+    from streamlit.testing.v1 import AppTest
+    with open(EUROPA_V4_PKL, 'rb') as f:
+        res = pickle.load(f)
+    at = AppTest.from_file(
+        str(REPO / 'PlanetProfileApp/pages/Inference.py'),
+        default_timeout=900)
+    at.session_state['inference_results'] = res
+    at.session_state['Planet'] = 'Europa'
+    at.run()
+    assert not at.exception, str([e.value for e in at.exception][:2])
+    sel = next(s for s in at.selectbox
+               if str(getattr(s, 'key', '')) == 'heat_qrad_model')
+    assert sel.value.startswith('Body default')
+    assert not [s for s in at.get('slider')
+                if str(getattr(s, 'key', '')) == 'heat_qrad_tGa']
+    caps = ' '.join(str(c.value) for c in at.main
+                    if type(c).__name__ == 'Caption')
+    assert 'body config constant Sil.Qrad_Wkg' in caps
+
+    sel.select('BSE inventory (McDonough+ 2020)')
+    at.run()
+    assert not at.exception, str([e.value for e in at.exception][:2])
+    sliders = [s for s in at.get('slider')
+               if str(getattr(s, 'key', '')) == 'heat_qrad_tGa']
+    assert sliders, 'time-rewind slider missing in inventory mode'
+    caps = ' '.join(str(c.value) for c in at.main
+                    if type(c).__name__ == 'Caption')
+    assert 'BSE inventory (McDonough+ 2020)' in caps
+    # present-day BSE specific heating ~4.9e-12 W/kg must be quoted
+    assert '4.91e-12' in caps
+
+    sliders[0].set_value(4.5)
+    at.run()
+    assert not at.exception
+    caps = ' '.join(str(c.value) for c in at.main
+                    if type(c).__name__ == 'Caption')
+    assert 't = 4.5 Ga' in caps
+    assert '2.43e-11' in caps  # rewound heating ~5x present BSE
+
+
+@pytest.mark.skipif(not EUROPA_V4_PKL.exists(),
+                    reason='Europa v4 reference result not present')
+def test_apptest_mineralogy_tab():
+    # Post-hoc Perple_X mineralogy check (2026-07-28): table of shipped
+    # databases with grain rho, mismatch, porosity leverage, verdicts;
+    # caption states the post-hoc/Han-2014 assumptions.
+    from streamlit.testing.v1 import AppTest
+    with open(EUROPA_V4_PKL, 'rb') as f:
+        res = pickle.load(f)
+    at = AppTest.from_file(
+        str(REPO / 'PlanetProfileApp/pages/Inference.py'),
+        default_timeout=900)
+    at.session_state['inference_results'] = res
+    at.session_state['Planet'] = 'Europa'
+    at.run()
+    assert not at.exception, str([e.value for e in at.exception][:2])
+    dfs = [el.value for el in at.main if type(el).__name__ == 'Dataframe']
+    mtbl = next((d for d in dfs if 'Verdict' in getattr(d, 'columns', [])),
+                None)
+    assert mtbl is not None, 'mineralogy dataframe missing'
+    assert 'Perple_X table' in mtbl.columns
+    assert len(mtbl) >= 5  # all shipped silicate tables evaluated
+    verdicts = ' '.join(mtbl['Verdict'])
+    assert 'consistent' in verdicts or 'too ' in verdicts
+    # every shipped table must resolve to a physical grain density
+    assert all(float(v) > 2000 for v in mtbl['Grain ρ (kg/m³)'])
+    caps = ' '.join(str(c.value) for c in at.main
+                    if type(c).__name__ == 'Caption')
+    assert 'POST-HOC consistency check' in caps
+    assert 'Han (2014)' in caps
+    mets = [str(getattr(m, 'label', '')) for m in at.main
+            if type(m).__name__ == 'Metric']
+    assert 'Inferred bulk silicate density' in mets
+
+
+@pytest.mark.skipif(not EUROPA_V4_PKL.exists(),
+                    reason='Europa v4 reference result not present')
 def test_apptest_noocean_axis_gating_and_subset_note():
     from streamlit.testing.v1 import AppTest
     with open(EUROPA_V4_PKL, 'rb') as f:

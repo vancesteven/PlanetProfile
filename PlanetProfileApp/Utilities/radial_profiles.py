@@ -371,7 +371,9 @@ def build_profile_figure(prof: Dict, title: str):
     return fig
 
 
-def heating_for_sample(result, sel_idx: Optional[int], parent_directory
+def heating_for_sample(result, sel_idx: Optional[int], parent_directory,
+                       qrad_override_Wkg: Optional[float] = None,
+                       qrad_source: Optional[str] = None
                        ) -> Tuple[Optional[Dict], str]:
     """Radial heating budget for one draw.
 
@@ -380,10 +382,11 @@ def heating_for_sample(result, sel_idx: Optional[int], parent_directory
     forward_model_radial_heating) — structure, rheology, Arrhenius
     viscosity and orbital parameters (e, omega, a) all identical.
 
-    Radiogenic: the body's PlanetProfile config constant Sil.Qrad_Wkg
-    times the draw's silicate density profile — a modeling ASSUMPTION,
-    not an inferred quantity (the inference carries no radiogenic
-    observable).
+    Radiogenic: a modeling ASSUMPTION, not an inferred quantity (the
+    inference carries no radiogenic observable). Q_rad is the body's
+    PlanetProfile config constant Sil.Qrad_Wkg unless qrad_override_Wkg
+    is given (e.g. a McDonough+ 2020 radionuclide-inventory value chosen
+    in the GUI); qrad_source labels the choice in the output dict.
     """
     cache_path = resolve_cache_path(result, parent_directory)
     if cache_path is None:
@@ -424,13 +427,18 @@ def heating_for_sample(result, sel_idx: Optional[int], parent_directory
     ph = prof.get('phases')
     rho = prof.get('rho')
     Qrad = None
-    try:
-        from Utilities.PlanetLoader import load_planet_module
-        body = getattr(result.config, 'bodyname', '') or ''
-        Qrad = float(load_planet_module(
-            parent_directory, body).Planet.Sil.Qrad_Wkg)
-    except Exception as e:
-        notes.append(f'radiogenic skipped: body config unavailable ({e})')
+    if qrad_override_Wkg is not None and np.isfinite(qrad_override_Wkg):
+        Qrad = float(qrad_override_Wkg)
+        heat['Qrad_source'] = qrad_source or 'override'
+    else:
+        try:
+            from Utilities.PlanetLoader import load_planet_module
+            body = getattr(result.config, 'bodyname', '') or ''
+            Qrad = float(load_planet_module(
+                parent_directory, body).Planet.Sil.Qrad_Wkg)
+            heat['Qrad_source'] = 'body config constant Sil.Qrad_Wkg'
+        except Exception as e:
+            notes.append(f'radiogenic skipped: body config unavailable ({e})')
     if Qrad is not None and ph is not None and rho is not None:
         sil = (np.asarray(ph) >= 50) & (np.asarray(ph) < 100)
         rho_sil_used = np.asarray(rho, float)
@@ -486,6 +494,186 @@ def heating_for_sample(result, sel_idx: Optional[int], parent_directory
         heat['H_total_Wm3'] = H_tid
     heat['notes'] = notes
     return heat, ''
+
+
+# Shipped Perple_X silicate tables (PlanetProfile user cache) and
+# human-readable composition labels. The Fe-S core table is excluded:
+# this check concerns the rocky mantle only.
+PERPLEX_SILICATE_TABLES = (
+    ('CV3hy1wt_678_1.tab',
+     'CV3 chondrite, 1 wt% hydrated'),
+    ('CI_undifferentiated_hhph_DEW17_nofluid_nomelt_685.tab',
+     'CI chondrite, undifferentiated (hydrous HP phases, DEW17)'),
+    ('CM_undifferentiated_hhph_DEW17_nofluid_nomelt_685.tab',
+     'CM chondrite, undifferentiated (hydrous HP phases, DEW17)'),
+    ('CV_undifferentiated_v4_687_DEW17_nofluid_nomelt_v2.tab',
+     'CV chondrite, undifferentiated (DEW17)'),
+    ('Comet_67P_CG_v7_excluding_fluid_properties.tab',
+     'Comet 67P/C-G bulk composition'),
+    ('CM_hydrous_differentiated_Ganymede_Core080Fe020S'
+     '_excluding_fluid_properties.tab',
+     'CM hydrous, differentiated (80/20 Fe/S core removed)'),
+)
+
+
+def mineralogy_for_sample(result, sel_idx: Optional[int], parent_directory,
+                          phiTop_max_frac: float = 0.5,
+                          Pclosure_MPa: float = 350.0
+                          ) -> Tuple[Optional[Dict], str]:
+    """Post-hoc Perple_X mineralogy consistency check for one draw.
+
+    The inference constrains a BULK silicate density (uniform derived
+    value for mass-conservation configs, or a sampled rho_sil). Each
+    candidate Perple_X table gives a GRAIN density rho_grain(P, T) along
+    this draw's silicate P, T profile. Porosity is the free parameter
+    connecting them: with vacuum pores and the Han (2014) closure law
+    phi(P) = phiTop * exp(-6.15 P / Pclosure), mass balance over the
+    silicate shell is LINEAR in phiTop:
+
+        phiTop = (sum(rho_g V) - rho_bulk sum(V))
+                 / sum(rho_g exp(-6.15 P / Pclosure) V)
+
+    A table is CONSISTENT with the draw if the implied phiTop falls in
+    [0, phiTop_max_frac]. phiTop < 0 means the mineralogy is too light
+    (grain density below the inferred bulk); phiTop above the cap means
+    implausibly porous. This is a display-only consistency check — it
+    feeds nothing back into the inference. Assumptions: vacuum
+    (empty) pores, pressure P rather than effective pressure Peff
+    (no pore-fluid alphaPeff correction), grain density clamped to the
+    table's grid edge outside its P, T range.
+    """
+    prof, note = profile_for_sample(result, sel_idx, parent_directory)
+    if prof is None:
+        return None, note
+    ph = prof.get('phases')
+    P = prof.get('P_MPa')
+    T = prof.get('T_K')
+    V = prof.get('VLayer_m3')
+    if any(v is None for v in (ph, P, T, V)):
+        return None, 'draw profile lacks P, T, or layer volumes'
+    ph = np.asarray(ph)
+    sil = (ph >= 50) & (ph < 100)
+    if not np.any(sil):
+        return None, 'no silicate layers in this draw'
+    Ps = np.asarray(P, float)[sil]
+    Ts = np.asarray(T, float)[sil]
+    Vs = np.asarray(V, float)[sil]
+    ok = np.isfinite(Ps) & np.isfinite(Ts) & np.isfinite(Vs) & (Vs > 0)
+    if not np.any(ok):
+        return None, 'silicate P, T profile is not finite for this draw'
+    Ps, Ts, Vs = Ps[ok], Ts[ok], Vs[ok]
+
+    # Bulk silicate density this draw asserts (same precedence as the
+    # heating tab): derived mass-conservation value > sampled parameter
+    # > cache profile volume-weighted mean.
+    rho_bulk = None
+    rho_source = ''
+    cache_path = resolve_cache_path(result, parent_directory)
+    structure_data = None
+    theta = None
+    if cache_path is not None:
+        try:
+            structure_data = _load_structure_cache(str(cache_path))
+            theta, _ = _expanded_theta(result, sel_idx, structure_data)
+        except Exception:
+            theta = None
+    _dp = (getattr(result.config, 'derived_params', {}) or {}).get(
+        'rho_sil_kgm3', {})
+    if (theta is not None and structure_data is not None
+            and _dp.get('derivation') == 'mass_conservation'
+            and 'R_core_km' in theta and 'rho_core_kgm3' in theta):
+        try:
+            from PlanetProfile.Inference.forward_models import (
+                apply_parameters)
+            from PlanetProfile.Inference.structure_derivation import (
+                extract_hydrosphere_layers, derive_silicate_density)
+            _struct = apply_parameters(dict(theta), structure_data)
+            _hl, _R_ob_m, _M_hyd = extract_hydrosphere_layers(_struct)
+            _rs, _ok = derive_silicate_density(
+                float(_struct['Mtot_kg']), _M_hyd, _R_ob_m,
+                float(theta['R_core_km']) * 1e3,
+                float(theta['rho_core_kgm3']),
+                bounds=tuple(_dp.get('bounds', (2200.0, 3500.0))))
+            if _ok and np.isfinite(_rs):
+                rho_bulk = float(_rs)
+                rho_source = ('mass-conservation derived rho_sil '
+                              '(uniform by construction)')
+        except Exception:
+            pass
+    if rho_bulk is None and theta is not None \
+            and 'rho_sil_kgm3' in theta:
+        rho_bulk = float(theta['rho_sil_kgm3'])
+        rho_source = 'sampled rho_sil parameter'
+    if rho_bulk is None:
+        rho_prof = np.asarray(prof.get('rho'), float)[sil][ok]
+        rho_bulk = float(np.sum(rho_prof * Vs) / np.sum(Vs))
+        rho_source = ("volume-weighted mean of the cache's silicate "
+                      "density profile")
+
+    rows = []
+    notes = []
+    try:
+        from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
+    except Exception as e:
+        return None, f'Perple_X EOS loader unavailable: {e}'
+    for fname, label in PERPLEX_SILICATE_TABLES:
+        try:
+            eos = GetInnerEOS(fname)
+            rho_g = np.asarray(
+                eos.fn_rho_kgm3(Ps, Ts, grid=False), float)
+        except Exception as e:
+            notes.append(f'{label}: table unavailable ({e})')
+            continue
+        good = np.isfinite(rho_g) & (rho_g > 0)
+        if not np.any(good):
+            notes.append(f'{label}: no valid grain density on this '
+                         'P, T profile')
+            continue
+        w = Vs[good]
+        rg = rho_g[good]
+        pp = Ps[good]
+        num = float(np.sum(rg * w))
+        rho_grain_mean = num / float(np.sum(w))
+        # Porosity leverage: fraction of the grain-density integral
+        # that sits shallow enough (P < ~Pclosure/6.15 e-folds) for
+        # Han (2014) porosity to act on. Deep mantles have almost none,
+        # so porosity can only lighten the bulk by f_lever * phiTop.
+        den = float(np.sum(
+            rg * np.exp(-6.15 * pp / Pclosure_MPa) * w))
+        f_lever = den / num if num > 0 else 0.0
+        mismatch_pct = (rho_grain_mean - rho_bulk) / rho_bulk * 100.0
+        rho_min = rho_grain_mean * (1.0 - f_lever * phiTop_max_frac)
+        phiTop = (num - rho_bulk * float(np.sum(w))) / den \
+            if den > 0 else np.nan
+        if rho_bulk > rho_grain_mean:
+            status = ('too light — grain density '
+                      f'{-mismatch_pct:.1f}% below the inferred bulk '
+                      '(no porosity can fix a deficit)')
+        elif rho_bulk >= rho_min:
+            status = (f'consistent with phi_top = {phiTop:.1%} '
+                      '(vacuum pores, Han 2014)')
+        else:
+            status = (f'too dense — even phi_top = '
+                      f'{phiTop_max_frac:.0%} porosity only reaches '
+                      f'{rho_min:.0f} kg/m^3 (porosity leverage '
+                      f'{f_lever:.1%} at these pressures)')
+        rows.append({'table': fname, 'label': label,
+                     'rho_grain_mean_kgm3': rho_grain_mean,
+                     'mismatch_pct': mismatch_pct,
+                     'f_lever_frac': f_lever,
+                     'phiTop_frac': float(phiTop)
+                     if np.isfinite(phiTop) else np.nan,
+                     'status': status})
+    if not rows:
+        return None, 'no Perple_X table could be evaluated: ' \
+            + '; '.join(notes)
+    out = {'rho_bulk_kgm3': rho_bulk, 'rho_source': rho_source,
+           'P_sil_range_MPa': (float(Ps.min()), float(Ps.max())),
+           'T_sil_range_K': (float(Ts.min()), float(Ts.max())),
+           'Pclosure_MPa': Pclosure_MPa,
+           'phiTop_max_frac': phiTop_max_frac,
+           'rows': rows, 'notes': notes}
+    return out, ''
 
 
 def build_heating_figure(heat: Dict, title: str):
