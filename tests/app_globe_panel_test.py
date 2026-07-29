@@ -255,15 +255,23 @@ def test_apptest_mineralogy_tab():
                 None)
     assert mtbl is not None, 'mineralogy dataframe missing'
     assert 'Perple_X table' in mtbl.columns
+    assert 'Porosity headroom (%)' in mtbl.columns
     assert len(mtbl) >= 5  # all shipped silicate tables evaluated
     verdicts = ' '.join(mtbl['Verdict'])
-    assert 'consistent' in verdicts or 'too ' in verdicts
+    # Europa v4 posterior median under the ±2% band (review 2026-07-28):
+    # CI/CM consistent; CV3/CV too dense; 67P too light
+    assert 'consistent within' in verdicts
+    assert 'too dense by' in verdicts and 'too light by' in verdicts
+    # deep mantle: phi_top ill-conditioned (leverage ~0.5% << 8%) —
+    # must NOT be quoted in any verdict
+    assert 'phi_top' not in verdicts
     # every shipped table must resolve to a physical grain density
     assert all(float(v) > 2000 for v in mtbl['Grain ρ (kg/m³)'])
     caps = ' '.join(str(c.value) for c in at.main
                     if type(c).__name__ == 'Caption')
     assert 'POST-HOC consistency check' in caps
     assert 'Han (2014)' in caps
+    assert 'VACUUM pores' in caps
     mets = [str(getattr(m, 'label', '')) for m in at.main
             if type(m).__name__ == 'Metric']
     assert 'Inferred bulk silicate density' in mets

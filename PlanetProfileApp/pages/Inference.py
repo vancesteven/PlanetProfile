@@ -3974,13 +3974,16 @@ def render_results():
                             delta_color='off')
                         _mrows = [{
                             'Composition': r['label'],
-                            'Grain ρ (kg/m³)':
-                                f"{r['rho_grain_mean_kgm3']:.0f}",
                             'Δρ vs bulk (%)':
                                 f"{r['mismatch_pct']:+.2f}",
-                            'Porosity leverage (%)':
-                                f"{r['f_lever_frac']*100:.2f}",
-                            'Verdict': r['status'],
+                            'Grain ρ (kg/m³)':
+                                f"{r['rho_grain_mean_kgm3']:.0f}",
+                            'Porosity headroom (%)':
+                                f"{r['headroom_pct']:.2f}",
+                            'Verdict': r['status']
+                            + (f" [{r['n_cold_edge']} layers within "
+                               "25 K of the table's cold edge]"
+                               if r['n_cold_edge'] else ''),
                             'Perple_X table': r['table'],
                         } for r in _min['rows']]
                         st.dataframe(_mrows, hide_index=True,
@@ -3995,20 +3998,28 @@ def render_results():
                             "GRAIN density along this draw's silicate "
                             "P, T profile; the inference constrains "
                             f"the BULK density ({_min['rho_source']}). "
-                            "Porosity is the free parameter connecting "
-                            "them — vacuum pores with the Han (2014) "
-                            "closure law φ(P) = φ_top · exp(−6.15 "
-                            f"P/{_min['Pclosure_MPa']:.0f} MPa). "
-                            "'Porosity leverage' is the fraction of "
-                            "the mantle shallow enough for pores to "
-                            "survive: at high mantle pressures "
-                            "porosity cannot lighten the bulk much, "
-                            "so a table denser than the inferred bulk "
-                            "by more than the leverage is excluded "
-                            "regardless of φ_top. Grain densities are "
-                            "clamped to each table's grid edge outside "
-                            "its P, T range; pore-fluid pressure "
-                            "effects (α_Peff) are neglected. Judge "
+                            "Δρ is the primary, well-conditioned "
+                            "number; verdicts apply a symmetric "
+                            f"±{_min['tol_pct']:.0f}% tolerance "
+                            "(grain densities carry percent-level "
+                            "thermodynamic and cold-edge uncertainty). "
+                            "'Porosity headroom' is the MOST porosity "
+                            "can lighten the bulk — VACUUM pores (the "
+                            "conservative limiting case; water-filled "
+                            "pores would need ~1.4× more porosity) "
+                            "with the Han (2014) closure law φ(P) = "
+                            "φ_top · exp(−6.15 "
+                            f"P/{_min['Pclosure_MPa']:.0f} MPa) — so a "
+                            "table denser than bulk + tolerance + "
+                            "headroom is excluded regardless of "
+                            "φ_top. An implied φ_top is quoted only "
+                            "when identifiable (headroom ≥ 4%); for "
+                            "deep mantles the pores are closed and "
+                            "φ_top is unconstrained by construction. "
+                            "Grain densities clamp to each table's "
+                            "grid edge outside its P, T range (cold-"
+                            "edge layers are flagged — several tables "
+                            "show edge artifacts there). Judge "
                             "compositions across the posterior — a "
                             "single draw's verdict inherits that "
                             "draw's ρ_sil uncertainty.")

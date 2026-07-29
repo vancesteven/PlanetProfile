@@ -518,7 +518,8 @@ PERPLEX_SILICATE_TABLES = (
 
 def mineralogy_for_sample(result, sel_idx: Optional[int], parent_directory,
                           phiTop_max_frac: float = 0.5,
-                          Pclosure_MPa: float = 350.0
+                          Pclosure_MPa: float = 350.0,
+                          tol_pct: float = 2.0
                           ) -> Tuple[Optional[Dict], str]:
     """Post-hoc Perple_X mineralogy consistency check for one draw.
 
@@ -533,14 +534,27 @@ def mineralogy_for_sample(result, sel_idx: Optional[int], parent_directory,
         phiTop = (sum(rho_g V) - rho_bulk sum(V))
                  / sum(rho_g exp(-6.15 P / Pclosure) V)
 
-    A table is CONSISTENT with the draw if the implied phiTop falls in
-    [0, phiTop_max_frac]. phiTop < 0 means the mineralogy is too light
-    (grain density below the inferred bulk); phiTop above the cap means
-    implausibly porous. This is a display-only consistency check — it
-    feeds nothing back into the inference. Assumptions: vacuum
-    (empty) pores, pressure P rather than effective pressure Peff
-    (no pore-fluid alphaPeff correction), grain density clamped to the
-    table's grid edge outside its P, T range.
+    Classification (scientific review 2026-07-28): the primary,
+    well-conditioned quantity is mismatch_pct = (rho_grain_mean -
+    rho_bulk)/rho_bulk. Verdicts use a symmetric ±tol_pct band (grain
+    densities carry ~1-2% thermodynamic + 1-3% cold-edge uncertainty):
+    'too light' below -tol_pct (no porosity can fix a deficit),
+    'consistent' up to +tol_pct plus the POROSITY HEADROOM
+    f_lever*phiTop_max (the most porosity can lighten the bulk, with
+    f_lever the fraction of the grain-density integral shallow enough
+    for pores to survive), 'too dense' beyond. phiTop itself has gain
+    1/f_lever (~200x for deep mantles) and is reported only when
+    identifiable (f_lever >= 0.08); phiTop_identifiable flags it.
+
+    Display-only; feeds nothing back into the inference. Assumptions:
+    VACUUM pores — the conservative/limiting case (maximum lightening
+    per unit porosity, so 'too dense' exclusions are as generous as
+    possible; water-filled pores would need ~1.4x more porosity), which
+    also makes Peff = P exact (Ppore = 0). Grain density clamps to each
+    table's grid edge outside its P, T range; layers within 25 K of a
+    table's cold edge are counted in n_cold_edge (several tables show
+    anomalous positive drho/dT there — assemblage-boundary/spline-edge
+    artifacts).
     """
     prof, note = profile_for_sample(result, sel_idx, parent_directory)
     if prof is None:
@@ -637,32 +651,50 @@ def mineralogy_for_sample(result, sel_idx: Optional[int], parent_directory,
         # Porosity leverage: fraction of the grain-density integral
         # that sits shallow enough (P < ~Pclosure/6.15 e-folds) for
         # Han (2014) porosity to act on. Deep mantles have almost none,
-        # so porosity can only lighten the bulk by f_lever * phiTop.
+        # so porosity can only lighten the bulk by f_lever * phiTop
+        # ('porosity headroom').
         den = float(np.sum(
             rg * np.exp(-6.15 * pp / Pclosure_MPa) * w))
         f_lever = den / num if num > 0 else 0.0
         mismatch_pct = (rho_grain_mean - rho_bulk) / rho_bulk * 100.0
-        rho_min = rho_grain_mean * (1.0 - f_lever * phiTop_max_frac)
+        headroom_pct = f_lever * phiTop_max_frac * 100.0
         phiTop = (num - rho_bulk * float(np.sum(w))) / den \
-            if den > 0 else np.nan
-        if rho_bulk > rho_grain_mean:
-            status = ('too light — grain density '
-                      f'{-mismatch_pct:.1f}% below the inferred bulk '
-                      '(no porosity can fix a deficit)')
-        elif rho_bulk >= rho_min:
-            status = (f'consistent with phi_top = {phiTop:.1%} '
-                      '(vacuum pores, Han 2014)')
+            if f_lever > 1e-6 else np.nan
+        identifiable = f_lever >= 0.08
+        # EOSwrapper only proxies Tmin for ice/ocean types; reach the
+        # underlying PerplexEOSStruct for the table's cold edge
+        try:
+            from PlanetProfile.Utilities.defineStructs import EOSlist
+            Tmin_tab = float(EOSlist.loaded[eos.key].Tmin)
+        except Exception:
+            Tmin_tab = np.nan
+        n_cold = int(np.sum(Ts[good] < Tmin_tab + 25.0)) \
+            if np.isfinite(Tmin_tab) else 0
+        if mismatch_pct < -tol_pct:
+            status = (f'too light by {-mismatch_pct:.1f}% '
+                      f'(beyond the ±{tol_pct:.0f}% tolerance; no '
+                      'porosity can fix a deficit)')
+        elif mismatch_pct <= tol_pct + headroom_pct:
+            status = f'consistent within ±{tol_pct:.0f}%'
+            if identifiable and np.isfinite(phiTop) and phiTop > 0:
+                status += (f' (phi_top ~ {min(phiTop, phiTop_max_frac):.0%}'
+                           ', vacuum pores)')
+        elif f_lever <= 1e-6:
+            status = (f'too dense by {mismatch_pct:.1f}% — porosity '
+                      'cannot act at these pressures')
         else:
-            status = (f'too dense — even phi_top = '
-                      f'{phiTop_max_frac:.0%} porosity only reaches '
-                      f'{rho_min:.0f} kg/m^3 (porosity leverage '
-                      f'{f_lever:.1%} at these pressures)')
+            status = (f'too dense by {mismatch_pct:.1f}% — exceeds '
+                      f'the ±{tol_pct:.0f}% tolerance plus the '
+                      f'{headroom_pct:.2f}% porosity headroom')
         rows.append({'table': fname, 'label': label,
                      'rho_grain_mean_kgm3': rho_grain_mean,
                      'mismatch_pct': mismatch_pct,
                      'f_lever_frac': f_lever,
+                     'headroom_pct': headroom_pct,
                      'phiTop_frac': float(phiTop)
                      if np.isfinite(phiTop) else np.nan,
+                     'phiTop_identifiable': bool(identifiable),
+                     'n_cold_edge': n_cold,
                      'status': status})
     if not rows:
         return None, 'no Perple_X table could be evaluated: ' \
@@ -672,6 +704,7 @@ def mineralogy_for_sample(result, sel_idx: Optional[int], parent_directory,
            'T_sil_range_K': (float(Ts.min()), float(Ts.max())),
            'Pclosure_MPa': Pclosure_MPa,
            'phiTop_max_frac': phiTop_max_frac,
+           'tol_pct': tol_pct,
            'rows': rows, 'notes': notes}
     return out, ''
 
