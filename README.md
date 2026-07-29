@@ -122,7 +122,7 @@ Once these files have been removed, install the newer version of SeaFreeze with 
 ## Installation of prerequisites
 ### Python 
 1. Python version 3.8-3.11 must be installed, preferably via miniconda or Anaconda. Required modules can be installed in Miniconda with the following command:
-  1. `conda install numpy=2.4.3 scipy=1.16.3 matplotlib mpmath pandas`
+  1. `conda install numpy=2.4.6 scipy=1.17.1 matplotlib mpmath pandas`
 1. Conda-forge modules can be installed in Anaconda or Miniconda with the following command:
   1. `conda install -c conda-forge gsw obspy spiceypy cmasher reaktoro`
 1. AFTER the above modules have been installed with conda, install SeaFreeze and other pip dependencies with the following command:
@@ -134,7 +134,7 @@ The inference and amortized-SBI features (`PlanetProfile/Inference/`, MCMC + SBI
   1. `pip install "CoolProp>=8.0.0" torch==2.8.0 sbi==0.26.1`
 For an exactly reproducible inference/SBI runtime, recreate the frozen conda environment used to generate the committed SBI artifacts:
   1. `mamba env create -f environment.yml` (or `conda env create -f environment.yml`)
-This pins numpy 2.4.3, scipy 1.16.3, CoolProp 8.0.0, torch 2.8.0, sbi 0.26.1, and SeaFreeze 1.1.3. Do **not** `pip install scipy` into this conda environment — mixing conda and pip scipy builds causes an `_spropack` ImportError.
+This pins numpy 2.4.6, scipy 1.17.1, CoolProp 8.0.0, torch 2.8.0, sbi 0.26.1, and SeaFreeze 1.1.3. Install scipy/numpy via conda/mamba **only** — do not `pip install scipy` into this conda environment, since mixing conda and pip scipy builds causes an `_spropack` ImportError.
   
 ### Matlab
 1. Download PlanetProfile repository.

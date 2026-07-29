@@ -1,9 +1,9 @@
 # Frozen conda environment for PlanetProfile inference/SBI reproducibility.
 # Captured 2026-07-29 from the working PPcl env (mamba activate PPcl).
-# NOTE: scipy here is 1.16.3 (conda-forge build); requirements.txt pins
-#   scipy==1.17.1 for the pip/Streamlit-Cloud path. The 1.16.3 build is the
-#   validated interior/inference runtime. Do NOT pip-install scipy into this
-#   conda env (mixed builds cause _spropack ImportError).
+# scipy 1.17.1 matches requirements.txt (reconciled 2026-07-29 after the
+#   Machine-A stale-function fixes cleared the <1.17 constraint). numpy 2.4.6.
+# Install scipy/numpy via conda/mamba ONLY — never pip-install scipy into
+#   this conda env (mixed conda/pip scipy builds cause _spropack ImportError).
 # Recreate: mamba env create -f environment.yml
 
 name: PPcl
@@ -223,6 +223,7 @@ dependencies:
   - notebook-shim=0.2.4
   - nspr=4.38
   - nss=3.118
+  - numpy=2.4.6
   - obspy=1.5.0
   - openjpeg=2.5.4
   - openpyxl=3.1.5
@@ -289,7 +290,7 @@ dependencies:
   - rich=15.0.0
   - rpds-py=2026.6.3
   - s3transfer=0.19.1
-  - scipy=1.16.3
+  - scipy=1.17.1
   - semver=3.0.4
   - send2trash=2.1.0
   - six=1.17.0
@@ -390,7 +391,6 @@ dependencies:
       - networkx==3.6.1
       - nflows==0.14
       - numba==0.65.1
-      - numpy==2.4.3
       - openai==2.34.0
       - opencv-python==4.13.0.92
       - orjson==3.11.7
