@@ -834,6 +834,7 @@ def build_tbw_grid_cache(
     output_path: str,
     progress: bool = True,
     ocean_overrides: Dict[str, Any] | None = None,
+    bulk_overrides: Dict[str, Any] | None = None,
     extrap_ocean: bool = False,
 ) -> Dict[str, Any]:
     """Build a 2D (Tb × wOcean_ppt) structure-grid cache (schema ``v3.0``).
@@ -943,6 +944,7 @@ def build_tbw_grid_cache(
                     planet_template_module, float(Tb_K),
                     ocean_overrides={**base_overrides,
                                      "wOcean_ppt": float(w_ppt)},
+                    bulk_overrides=bulk_overrides,
                     extrap_ocean=extrap_ocean,
                 )
             except Exception as exc:
