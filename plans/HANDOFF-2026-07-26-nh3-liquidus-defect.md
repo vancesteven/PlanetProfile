@@ -200,3 +200,46 @@ Still yours (need full PP builds): gate 3 (3-point Tb probe: PbI &
 D_iceIh monotone in Tb, ~150–200 MPa PbI swing), gate 5 (PfreezeRes
 <= 0.5 MPa re-verification), gate 6 (probe_one vs
 build_single_structure crosscheck). Phase 1 domain per §7 unchanged.
+
+---
+
+## Machine A addendum 2 — activity model corrected (2026-07-28)
+
+Independent scientific review (triggered by re-verifying the "L-K
+2002" polynomial, whose attribution proved false) found the CoolProp
+mixture activity itself is qualitatively wrong: its excess term is
+POSITIVE (gamma_w > 1) at every X and P, while NH3-H2O requires
+negative excess. Against the Melinder (2010) experimental freezing
+curve (CoolProp INCOMP::MAM, validity X <= 0.30) the CoolProp-based
+liquidus under-depresses by 9% (30 ppt) to 37% (150 ppt) — 3.5 K too
+warm at w = 100 ppt. Its flash also fails across most of the
+200-400 MPa band, so the HP-ice liquidus was riding on nearest-T
+borrowed evaluations.
+
+Fix (default; NH3_ACTIVITY_MODE = 'melinder-CG' in NH3Props.py):
+Redlich-Kister excess for ln gamma_w, amplitude anchored to Melinder
+at 1 bar (self-referenced to Melinder's own zero, applied at
+SeaFreeze's 273.1527 K), P,T shape from the CG2010 Margules factor
+used by 2018 PP (getIcePhaseNH3.m). Analytic — no flash, no repair
+machinery, raises on any unsolved pressure. Reproduces Melinder to
+< 0.05 K over X in [0.02, 0.175]. mu-equality formulation unchanged;
+SeaFreeze dG_fus unchanged; CoolProp still supplies rho/Cp/alpha/vs.
+The silent L-K fallback in HydroEOS (np.where substitution) is now a
+hard raise; the L-K polynomial is deleted.
+
+SUPERSEDED NUMBERS — re-gate against these (1 bar / 100 MPa, K):
+  w=10:  1.11 / 1.13     w=30:  3.49 / 3.56
+  w=50:  6.06 / 6.21     w=100: 13.56 / 14.05    w=150: 23.25 / 24.25
+Gate-1 target table ~1.1/3/5/15 is obsolete (it encoded the
+wrong-sign activity). New regression tests:
+test_melinder_anchor_1bar (binding, 0.05 K),
+test_anchored_negative_excess (sign guard),
+test_pure_and_colligative_limits, test_campaign_rectangle_buildable.
+
+ACTION REQUIRED before Phase 1: re-run Phase 0 under the corrected
+model. The provisional buildable rectangle is Tb in [248, 257] K x
+w in [30, 100] ppt (the old [241, 259] rectangle is infeasible at
+both edges — Ih branch bottoms out at 247.8 K for w=30; 259 K at
+w=100 leaves ~6 km of shell). D_iceIh shifts by -24 to -32 km at
+w=100 vs the defective-liquidus scan. See
+plans/active/titan-nh3-ocean-campaign-spec.md for details.

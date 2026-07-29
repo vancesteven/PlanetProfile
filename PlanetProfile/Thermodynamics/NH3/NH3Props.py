@@ -46,30 +46,71 @@ M_H2O_gmol = 18.015
 NH3_PMAX_MPA = 1500.0
 NH3_TMIN_K = 230.0
 NH3_TMAX_K = 330.0
-NH3_WMAX_PPT = 250.0  # L-K liquidus fit bound (X ~ 0.23) with margin
+# Composition bound: Melinder (2010) anchor validity ends at X = 0.30
+# and the NH3.2H2O eutectic/peritectic sits at X ~ 0.326 (176.2 K);
+# 250 ppt keeps a margin inside both. (An earlier note attributed this
+# bound to a Leliwa-Kopystynski 2002 polynomial; that polynomial's
+# provenance could not be verified and its dilute-limit slope is
+# provably ~2x too shallow — it has been removed. See the
+# scientific-review record in plans/HANDOFF-2026-07-26-nh3-liquidus-
+# defect.md, Machine A addendum 2026-07-28.)
+NH3_WMAX_PPT = 250.0
 
 _MIX_READY = False
 
-# Liquidus mode: 'mu' (default) solves the chemical-potential equality
-# per pressure/ice phase (muLiquidusCurve_K); 'LK2002' applies the
-# scalar Leliwa-Kopystynski shift (see its accuracy caution).
-NH3_MELT_MODE = 'mu'
+# Activity model for the mu-equality liquidus:
+#   'melinder-CG' (default): Redlich-Kister excess for the water
+#       activity coefficient, AMPLITUDE anchored to the Melinder (2010)
+#       experimental freezing-point curve (CoolProp INCOMP::MAM) at
+#       1 bar, P,T SHAPE from the Choukroun & Grasset (2010) Margules
+#       factor used by the original 2018 PlanetProfile
+#       (Thermodynamics/NH3aq/getIcePhaseNH3.m). Analytic — no mixture
+#       flash — so it evaluates at every (P, T) under all ice phases.
+#       1-bar liquidus reproduces Melinder to < 0.05 K over
+#       X in [0.02, 0.175].
+#   'coolprop': the CoolProp HEOS estimated-mixture activity (legacy;
+#       retained for regression comparison only). Its excess term has
+#       the WRONG SIGN (gamma_w > 1; NH3-H2O requires gamma_w < 1), so
+#       it under-depresses the liquidus by 9-37% over 30-150 ppt, and
+#       its flash fails across much of the 200-400 MPa HP-ice band.
+NH3_ACTIVITY_MODE = 'melinder-CG'
+
+# Redlich-Kister coefficients for ln gamma_w = u^2 (a0 + a1 u + a2 u^2)
+# at the 1-bar anchor (u = NH3 mole fraction), fitted 2026-07-28 to the
+# Melinder anchor table below; independently reproduced on this machine
+# (matches the scientific reviewer's g_req values to < 1e-5; max
+# reconstruction residual 4.1e-5 in ln a_w ~ 0.005 K):
+#   X (mass)  0.02      0.03      0.05      0.075     0.10
+#   g_req    -0.00075  -0.00163  -0.00460  -0.01094  -0.02083
+#   X (mass)  0.125     0.15      0.175
+#   g_req    -0.03517  -0.05510  -0.08204
+# Anchors are self-referenced to Melinder's own zero (T_freeze(0) =
+# 273.1218 K) and applied at SeaFreeze's melting point (273.1527 K) —
+# anchoring against 273.15 directly would inject a spurious excess
+# that does not vanish as X -> 0.
+_RK_A0, _RK_A1, _RK_A2 = -1.552208, -0.841384, -21.927892
+_ANCHOR_P0_MPA = 0.1
 
 
-def NH3liquidusShift_K(w_ppt):
-    """Leliwa-Kopystynski et al. (2002) freezing-point depression (K)
-    for NH3 mass fraction X = w_ppt/1000: dT = 53.8 X + 650 X^3.
+def _cg_shape(P_MPa, T_K):
+    """Choukroun & Grasset (2010) Margules P,T factor (dimensionless,
+    used only as a NORMALIZED shape): (1 + 0.4 tanh(6e-3 P)) *
+    (1 + 4.62e-4 T - 113/T). Saturates at 1.4x by ~500 MPa; monotone
+    and bounded through 1 GPa; T factor has no zero above 108 K."""
+    return ((1.0 + 0.4 * np.tanh(6.0e-3 * np.asarray(P_MPa, float)))
+            * (1.0 + 4.62e-4 * np.asarray(T_K, float)
+               - 113.0 / np.asarray(T_K, float)))
 
-    CAUTION (2026-07-25 cross-check): this polynomial UNDERESTIMATES the
-    depression by ~2x at low-to-mid X relative to both the ideal
-    colligative limit and the chemical-potential route below (e.g.
-    5 wt%: 2.8 K here vs ~5.4 K mu-based vs ~5.7 K ideal-colligative);
-    the coefficients/variable convention should be re-verified against
-    the original paper before quantitative use. Retained as the
-    'LK2002' fallback melt mode; the DEFAULT is the mu-based liquidus
-    (NH3MuLiquidusShift_K)."""
-    X = float(w_ppt) / 1000.0
-    return 53.8 * X + 650.0 * X ** 3
+
+def _ln_aw_anchored(P_MPa, T_K, u, Tref_K):
+    """ln water activity, Melinder-anchored model: ln gamma_w scales
+    the 1-bar Redlich-Kister amplitude by the CG2010 shape normalized
+    at (P0, Tref), plus the ideal ln x_w. Exact colligative limit by
+    construction (ln gamma_w -> 0 as u^2)."""
+    g_anchor = u * u * (_RK_A0 + _RK_A1 * u + _RK_A2 * u * u)
+    ln_gam = g_anchor * _cg_shape(P_MPa, T_K) \
+        / _cg_shape(_ANCHOR_P0_MPA, Tref_K)
+    return ln_gam + np.log(1.0 - u)
 
 
 def _sfG_scatter(mat, P_MPa, T_K):
@@ -168,7 +209,94 @@ def _ln_aw(P_MPa, T_K, z_nh3):
 
 def muLiquidusCurve_K(P_MPa, w_ppt):
     """NH3-H2O liquidus T at each pressure by chemical-potential
-    equality (user-preferred alternative to the L-K polynomial):
+    equality:
+
+        [G_ice(P,T) - G_water(P,T)]_SeaFreeze * M_w = R T ln a_w(P,T,x)
+
+    Dispatches on NH3_ACTIVITY_MODE (see its docstring): the default
+    'melinder-CG' activity is analytic, so the solve is a plain
+    monotone bisection per pressure — no flash guards, no repairs.
+    Returns (Tliq_K, TmPure_K) arrays matching P_MPa."""
+    if NH3_ACTIVITY_MODE == 'melinder-CG':
+        return _muLiquidusAnchored_K(P_MPa, w_ppt)
+    return _muLiquidusCoolProp_K(P_MPa, w_ppt)
+
+
+def _anchoredTref_K(u):
+    """1-bar anchored liquidus for NH3 mole fraction u: the reference
+    temperature normalizing the CG2010 shape. Fixed-point iteration
+    (the shape varies slowly in T, 3 iterations converge < 1e-3 K)."""
+    Tm0 = float(pureMeltingCurve_K(np.array([_ANCHOR_P0_MPA]))[0][0])
+    Tref = Tm0
+    for _ in range(3):
+        Tref = _bisectAnchored_K(_ANCHOR_P0_MPA, Tm0, 'Ih', u, Tref)
+        if not np.isfinite(Tref):
+            raise RuntimeError(
+                f'anchored NH3 liquidus: no 1-bar reference solution '
+                f'for x_NH3 = {u:.4f}')
+    return Tref
+
+
+def _bisectAnchored_K(P, Tm, ice, u, Tref, Tfloor=239.6):
+    """Warmest root of f(T) = dG_fus*M_w - R T ln a_w (anchored model)
+    below the pure melting point Tm. f(Tm-) > 0 (liquid stable, since
+    ln a_w < 0); f decreases monotonically as T falls. Returns
+    Tfloor + 0.05 if still liquid at the SeaFreeze water1 validity
+    floor (true liquidus below the representable domain), nan only if
+    the bracket itself fails (raised on by the caller)."""
+    def f(T):
+        dG = (_sfG_scatter(ice, [P], [T])[0]
+              - _sfG_scatter('water1', [P], [T])[0]) * (M_H2O_gmol * 1e-3)
+        return dG - R_JMOLK * T * _ln_aw_anchored(P, T, u, Tref)
+    hi = Tm - 1e-3
+    lo = max(Tfloor + 0.05, Tm - 60.0)
+    if f(lo) > 0:
+        return lo if lo == Tfloor + 0.05 else np.nan
+    fhi = f(hi)
+    if fhi < 0:
+        return np.nan
+    for _ in range(30):
+        mid = 0.5 * (lo + hi)
+        if f(mid) > 0:
+            hi = mid
+        else:
+            lo = mid
+        if hi - lo < 2e-3:
+            break
+    return 0.5 * (lo + hi)
+
+
+def _muLiquidusAnchored_K(P_MPa, w_ppt):
+    """Analytic (Melinder-anchored) liquidus: per-pressure monotone
+    bisection against the SeaFreeze Gibbs difference. Raises on any
+    unsolved pressure — an analytic activity leaves nothing to repair,
+    so a failure means the domain itself is wrong."""
+    u = _molefrac_NH3(w_ppt)
+    P_MPa = np.atleast_1d(np.asarray(P_MPa, float))
+    Tm_pure, ice_codes = pureMeltingCurve_K(P_MPa)
+    if w_ppt <= 0:
+        return Tm_pure.copy(), Tm_pure
+    Tref = _anchoredTref_K(u)
+    Tliq = np.full(P_MPa.size, np.nan)
+    for i in range(P_MPa.size):
+        if not np.isfinite(Tm_pure[i]):
+            continue
+        ice = _SF_ICE_NAME.get(int(ice_codes[i]), 'Ih')
+        Tliq[i] = _bisectAnchored_K(P_MPa[i], Tm_pure[i], ice, u, Tref)
+    bad = np.isfinite(Tm_pure) & ~np.isfinite(Tliq)
+    if np.any(bad):
+        raise RuntimeError(
+            'anchored NH3 liquidus failed at P (MPa): '
+            + ', '.join(f'{p:.0f}' for p in P_MPa[bad][:8])
+            + f' (w = {w_ppt} ppt) — refusing to return a defective '
+            'liquidus.')
+    return Tliq, Tm_pure
+
+
+def _muLiquidusCoolProp_K(P_MPa, w_ppt):
+    """LEGACY CoolProp-activity liquidus (NH3_ACTIVITY_MODE =
+    'coolprop'), retained for regression comparison only — its excess
+    term has the wrong sign (see NH3_ACTIVITY_MODE docstring).
 
         [G_ice(P,T) - G_water(P,T)]_SeaFreeze * M_w = R T ln a_w(P,T,x)
 
@@ -187,10 +315,10 @@ def muLiquidusCurve_K(P_MPa, w_ppt):
     liquidus — is taken, continuation in P seeded from the previous
     pressure's root, and a per-ice-segment smoothness filter that
     repairs outliers (> 0.3 K off the local median) by interpolation
-    across good pressures. The L-K polynomial is used only as the very
-    first search seed, never as a silent result; a segment with < 40%
-    cleanly solved pressures raises instead of returning a defective
-    curve. Bounded below by SeaFreeze water1 validity (239.6 K).
+    across good pressures. The anchored analytic model provides the
+    very first search seed; a segment with < 40% cleanly solved
+    pressures raises instead of returning a defective curve. Bounded
+    below by SeaFreeze water1 validity (239.6 K).
     """
     _ensure_mixture()
     z = _molefrac_NH3(w_ppt)
@@ -291,7 +419,11 @@ def muLiquidusCurve_K(P_MPa, w_ppt):
         # ice-phase segment — seed the search from the previous root.
         g = prev_dT if (prev_dT is not None and code == prev_code) \
             else (prev_dT if prev_dT is not None
-                  else NH3liquidusShift_K(w_ppt))
+                  else float(Tm_pure[i]
+                             - _bisectAnchored_K(
+                                 P, Tm_pure[i],
+                                 _SF_ICE_NAME.get(code, 'Ih'),
+                                 z, Tm_pure[i])))
         Tliq[i] = _solve_at(P, T0, ice, T0 - g)
         if np.isfinite(Tliq[i]):
             prev_dT = T0 - Tliq[i]

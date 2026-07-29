@@ -273,17 +273,18 @@ class OceanEOSStruct:
                     Ocean_Speciation_Info['pH'], Ocean_Speciation_Info['species'])
 
             elif self.comp == 'NH3':
-                # Aqueous ammonia via CoolProp (HEOS mixture; estimated
-                # binary pair validated vs Melinder INCOMP::MAM) with the
-                # Leliwa-Kopystynski et al. (2002) liquidus depression
-                # applied to the SeaFreeze pure-water phase diagram.
-                # Reinstates the 2018 (REFPROP-based) NH3 capability.
+                # Aqueous ammonia: bulk properties via CoolProp (HEOS
+                # mixture; estimated binary pair validated vs Melinder
+                # INCOMP::MAM), liquidus depression via chemical-
+                # potential equality with the Melinder-anchored activity
+                # model applied to the SeaFreeze pure-water phase
+                # diagram. Reinstates the 2018 NH3 capability.
                 # See Thermodynamics/NH3/NH3Props.py for provenance,
                 # accuracy, and validity limits.
                 from PlanetProfile.Utilities.PPversion import CheckCompat
                 CheckCompat('CoolProp')
                 from PlanetProfile.Thermodynamics.NH3.NH3Props import (
-                    NH3Props, NH3Seismic, NH3liquidusShift_K,
+                    NH3Props, NH3Seismic,
                     NH3_PMAX_MPA, NH3_TMIN_K, NH3_TMAX_K, NH3_WMAX_PPT)
                 self.type = 'CoolProp'
                 self.m_gmol = Constants.m_gmol['NH3']
@@ -304,34 +305,40 @@ class OceanEOSStruct:
                     T_K = np.linspace(np.min(T_K), self.Tmax, np.size(T_K))
                     PropsP_MPa, PropsT_K, Pphase_MPa, Tphase_K = ReAssignPT(P_MPa, T_K, P_MPa[0], P_MPa[-1], T_K[0], T_K[-1], MELT=MELT, propsStepReductionFactor=propsStepReductionFactor)
                 if self.w_ppt > NH3_WMAX_PPT:
-                    log.warning(f'Input wOcean_ppt greater than the NH3 liquidus-fit limit '
-                                f'({NH3_WMAX_PPT} ppt, Leliwa-Kopystynski et al. 2002). Resetting to that limit.')
+                    log.warning(f'Input wOcean_ppt greater than the NH3 composition limit '
+                                f'({NH3_WMAX_PPT} ppt; Melinder 2010 anchor validity ends at X = 0.30 '
+                                f'and the NH3-dihydrate eutectic sits at X ~ 0.33). Resetting to that limit.')
                     self.w_ppt = NH3_WMAX_PPT
 
                 rho_kgm3, Cp_JkgK, alpha_pK, VP_kms, KS_GPa = NH3Props(
                     PropsP_MPa, PropsT_K, self.w_ppt)
 
                 # Phase: pure-H2O SeaFreeze diagram at T + dT — ices are
-                # pure H2O, NH3 is rejected into the liquid. Default
-                # 'mu' mode computes the depression PER PRESSURE (and
-                # hence per ice phase Ih..VI) from chemical-potential
-                # equality; 'LK2002' applies the scalar polynomial shift.
+                # pure H2O, NH3 is rejected into the liquid. The
+                # depression is computed PER PRESSURE (and hence per ice
+                # phase Ih..VI) from chemical-potential equality with
+                # the Melinder-anchored analytic activity. NO silent
+                # fallback: a non-finite liquidus raises (the silent
+                # L-K substitution here re-opened the 2026-07-26 defect
+                # one layer downstream and has been removed).
                 from PlanetProfile.Thermodynamics.NH3.NH3Props import (
-                    NH3_MELT_MODE, muLiquidusCurve_K)
-                if NH3_MELT_MODE == 'mu':
-                    Tliq_K, TmPure_K = muLiquidusCurve_K(Pphase_MPa, self.w_ppt)
-                    dTliq_K = np.where(np.isfinite(Tliq_K) & np.isfinite(TmPure_K),
-                                       TmPure_K - Tliq_K,
-                                       NH3liquidusShift_K(self.w_ppt))
-                    PTshift = np.array(
-                        [(Pi, Tj + dTi) for Pi, dTi in zip(Pphase_MPa, dTliq_K)
-                         for Tj in Tphase_K], dtype='f,f').astype(object)
-                    self.phase = WhichPhase(PTshift).reshape(
-                        np.size(Pphase_MPa), np.size(Tphase_K))
-                else:
-                    dTliq_K = NH3liquidusShift_K(self.w_ppt)
-                    PTshiftGrid = sfPTgrid(Pphase_MPa, Tphase_K + dTliq_K)
-                    self.phase = WhichPhase(deepcopy(PTshiftGrid))
+                    muLiquidusCurve_K)
+                Tliq_K, TmPure_K = muLiquidusCurve_K(Pphase_MPa, self.w_ppt)
+                needs = np.isfinite(TmPure_K)
+                if not np.all(np.isfinite(Tliq_K[needs])):
+                    nBad = int(np.sum(~np.isfinite(Tliq_K[needs])))
+                    raise RuntimeError(
+                        f'NH3 liquidus solve returned {nBad} non-finite '
+                        f'pressures at w = {self.w_ppt} ppt — refusing to '
+                        'build a phase grid from a defective liquidus.')
+                # Pressures with no pure melting in the scan window are
+                # entirely solid there; the shift is irrelevant (0).
+                dTliq_K = np.where(needs, TmPure_K - Tliq_K, 0.0)
+                PTshift = np.array(
+                    [(Pi, Tj + dTi) for Pi, dTi in zip(Pphase_MPa, dTliq_K)
+                     for Tj in Tphase_K], dtype='f,f').astype(object)
+                self.phase = WhichPhase(PTshift).reshape(
+                    np.size(Pphase_MPa), np.size(Tphase_K))
                 self.ufn_phase = PhaseInterpolator(Pphase_MPa, Tphase_K, self.phase)
                 self.EOSdeltaP = self.deltaP
                 self.EOSdeltaT = self.deltaT

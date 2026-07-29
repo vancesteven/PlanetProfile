@@ -5,8 +5,11 @@ Anchors:
 - density/Cp vs the Melinder (2010) aqueous-ammonia polynomials
   (CoolProp INCOMP::MAM) at low pressure;
 - pure-water-limit density vs SeaFreeze water1 across ocean pressures;
-- Leliwa-Kopystynski (2002) liquidus depression values and the shifted
-  phase diagram (freezing point drops with w; ices are pure H2O);
+- LIQUIDUS vs the Melinder (2010) experimental freezing curve at 1 bar
+  (the Melinder-anchored activity model, scientific review 2026-07-28)
+  and the shifted phase diagram (freezing point drops with w; ices are
+  pure H2O); negative-excess sign guard against the legacy CoolProp
+  mixture activity;
 - end-to-end GetOceanEOS('NH3', ...) construction with physical
   property profiles.
 """
@@ -22,15 +25,66 @@ sys.path.insert(0, str(REPO))
 pytest.importorskip('CoolProp')
 
 from PlanetProfile.Thermodynamics.NH3.NH3Props import (
-    NH3Props, NH3liquidusShift_K, _molefrac_NH3)
+    NH3Props, _molefrac_NH3, _ln_aw_anchored, muLiquidusCurve_K,
+    pureMeltingCurve_K)
 
 
-def test_liquidus_shift_values():
-    # dT = 53.8 X + 650 X^3
-    assert NH3liquidusShift_K(0.0) == 0.0
-    assert NH3liquidusShift_K(100.0) == pytest.approx(6.03, abs=0.01)
-    assert NH3liquidusShift_K(229.0) == pytest.approx(
-        53.8 * 0.229 + 650 * 0.229 ** 3, rel=1e-12)
+def test_anchored_negative_excess():
+    # Regression guard against ever reverting to the CoolProp mixture
+    # activity: NH3-H2O requires gamma_w < 1 (negative excess), i.e.
+    # ln a_w < ln x_w, at every composition, pressure, and temperature.
+    for X in (0.01, 0.05, 0.10, 0.15, 0.20):
+        u = _molefrac_NH3(X * 1000.0)
+        for P in (0.1, 100.0, 500.0, 1000.0):
+            for T in (250.0, 270.0, 300.0):
+                assert _ln_aw_anchored(P, T, u, 270.0) \
+                    < np.log(1.0 - u), (X, P, T)
+
+
+def test_melinder_anchor_1bar():
+    # The binding accuracy test (would have caught the 3.5 K CoolProp
+    # bias): 1-bar liquidus depression within 0.05 K of the Melinder
+    # (2010) experimental freezing curve, SELF-referenced to Melinder's
+    # own zero (273.1218 K != SeaFreeze's 273.1527 K).
+    from CoolProp.CoolProp import PropsSI
+    Tf0 = PropsSI('T_FREEZE', 'P', 101325, 'Q', 0, 'INCOMP::MAM[1e-7]')
+    Tm, _ = pureMeltingCurve_K(np.array([0.1]))
+    for X in (0.02, 0.03, 0.05, 0.075, 0.10, 0.125, 0.15):
+        Tf = PropsSI('T_FREEZE', 'P', 101325, 'Q', 0,
+                     f'INCOMP::MAM[{X}]')
+        Tliq, TmP = muLiquidusCurve_K(np.array([0.1]), X * 1000.0)
+        dep = float(TmP[0] - Tliq[0])
+        assert abs(dep - (Tf0 - Tf)) < 0.05, (X, dep, Tf0 - Tf)
+
+
+def test_pure_and_colligative_limits():
+    # w = 0 reproduces the pure melting curve; at trace w the anchored
+    # model must match the exact ideal-colligative solve (gamma -> 1 as
+    # u^2, so the excess contribution is ~1e-6 K there).
+    import seafreeze.seafreeze as sf
+    P = np.array([0.1, 100.0, 900.0])
+    Tliq, Tm = muLiquidusCurve_K(P, 0.0)
+    assert np.allclose(Tliq, Tm, atol=1e-9)
+    w = 0.1  # ppt
+    u = _molefrac_NH3(w)
+    Tliq, Tm = muLiquidusCurve_K(np.array([0.1]), w)
+    dep = float(Tm[0] - Tliq[0])
+
+    def _dG(T):
+        pts = np.array([(0.1, T)], dtype='f,f').astype(object)
+        Gi = float(np.ravel(sf.getProp(pts, 'Ih').G)[0])
+        Gw = float(np.ravel(sf.getProp(pts, 'water1').G)[0])
+        return (Gi - Gw) * 0.018015
+
+    lo, hi = float(Tm[0]) - 1.0, float(Tm[0])
+    for _ in range(40):  # ideal-colligative bisection: ln a_w = ln x_w
+        mid = 0.5 * (lo + hi)
+        if _dG(mid) - 8.31446 * mid * np.log(1.0 - u) > 0:
+            hi = mid
+        else:
+            lo = mid
+    dep_ideal = float(Tm[0]) - 0.5 * (lo + hi)
+    assert abs(dep - dep_ideal) < 1e-3, (dep, dep_ideal)
 
 
 def test_molefrac():
@@ -106,11 +160,11 @@ def test_get_ocean_eos_end_to_end():
     VP, VS, KS, GS = eos.fn_Seismic(np.array([100.0]), np.array([260.0]))
     assert 1.0 < _s(VP) < 3.0 and _s(VS) == 0.0
 
-    # Freezing-point depression (mu mode >= L-K): straddle just below
-    # the pure-water melting point — pure water frozen, NH3 ocean
-    # still liquid.
-    dT = NH3liquidusShift_K(150.0)
-    assert dT == pytest.approx(10.26, abs=0.01)  # L-K value (lower bound)
+    # Freezing-point depression: straddle just below the pure-water
+    # melting point — pure water frozen, NH3 ocean still liquid.
+    # Anchored-model depression at 150 ppt is ~23 K at low P; probe at
+    # a conservative 10 K below the pure freezing point.
+    dT = 20.0
     eos0 = GetOceanEOS('PureH2O', 0.0, P, T, None)
     Ptest = np.array([10.0])
 
@@ -127,46 +181,80 @@ def test_get_ocean_eos_end_to_end():
 
 
 def test_mu_liquidus_dilute_colligative():
-    # 5 wt% at 1 bar: ideal colligative limit ~5.7 K; the mu-based
-    # liquidus must land near it (the L-K polynomial gives 2.8 K).
-    from PlanetProfile.Thermodynamics.NH3.NH3Props import muLiquidusCurve_K
+    # 5 wt% at 1 bar: Melinder gives 6.05 K (self-referenced); the
+    # anchored liquidus must land on it (ideal colligative ~5.9; the
+    # removed L-K polynomial gave a provably-wrong 2.8 K).
     Tliq, Tm = muLiquidusCurve_K(np.array([0.5]), 50.0)
     dT = float(Tm[0] - Tliq[0])
-    assert 4.5 < dT < 6.5, dT
+    assert 5.7 < dT < 6.4, dT
 
 
 def test_mu_liquidus_high_pressure_ices():
     # Depression must apply under the HP ices too (V at ~620 MPa, VI at
-    # ~900 MPa) and grow with pressure at fixed w (stronger non-ideality)
-    from PlanetProfile.Thermodynamics.NH3.NH3Props import muLiquidusCurve_K
+    # ~900 MPa) and grow with pressure at fixed w (CG2010 shape factor,
+    # saturating at ~1.4x by 1 GPa).
     P = np.array([100.0, 620.0, 900.0])
     Tliq, Tm = muLiquidusCurve_K(P, 150.0)
     dT = Tm - Tliq
     assert np.all(np.isfinite(dT)), dT
-    assert np.all(dT > 8.0) and np.all(dT < 30.0), dT
-    assert dT[2] > dT[0], dT  # deeper -> larger depression here
+    assert np.all(dT > 20.0) and np.all(dT < 36.0), dT
+    assert dT[2] > dT[0], dT  # deeper -> larger depression
+    # P-shape sanity (tanh saturation bound): dep(1 GPa)/dep(1 bar)
+    Tl2, Tm2 = muLiquidusCurve_K(np.array([0.1, 1000.0]), 100.0)
+    ratio = float((Tm2[1] - Tl2[1]) / (Tm2[0] - Tl2[0]))
+    assert 1.2 <= ratio <= 1.5, ratio
 
 
 def test_liquidus_solver_gates_machine_b():
-    """Machine B defect-report gates (plans/HANDOFF-2026-07-26-nh3-
-    liquidus-defect.md): gate 1 — dTliq(P) smooth (no isolated point
-    > 0.3 K off its local median), no silent L-K pins, no cold spikes,
-    reviewer target table ~1.1/3/5/15 K at w=10/30/50/150."""
-    from PlanetProfile.Thermodynamics.NH3.NH3Props import (
-        muLiquidusCurve_K)
-    P = np.arange(10.0, 220.0, 8.0)
+    """Machine B defect-report gate 1, tightened for the analytic
+    activity (2026-07-28): dTliq(P) smooth within the ice-Ih segment
+    (< 0.05 K off its local median — no repairs exist to hide behind),
+    monotone increasing in w, and the corrected target table
+    ~1.1/3.6/6.2/24 K at w=10/30/50/150, 100 MPa (Melinder-anchored;
+    the old ~1.1/3/5/15 targets encoded the wrong-sign CoolProp
+    activity)."""
+    P = np.arange(10.0, 200.0, 8.0)  # ice-Ih segment only
     Tliq, Tm = muLiquidusCurve_K(P, 30.0)
     dep = Tm - Tliq
     assert np.all(np.isfinite(dep))
     med = np.array([np.median(dep[max(0, k-2):k+3])
                     for k in range(dep.size)])
-    assert np.max(np.abs(dep - med)) <= 0.3
-    assert not np.any(np.abs(dep - NH3liquidusShift_K(30.0)) < 0.02)
-    assert dep.max() < 8.0
-    for w, target, tol in ((10., 1.1, 0.6), (50., 5.4, 1.2),
-                           (150., 15., 3.0)):
+    assert np.max(np.abs(dep - med)) <= 0.05
+    assert dep.max() < 5.0
+    deps = []
+    for w, target, tol in ((10., 1.13, 0.15), (50., 6.21, 0.3),
+                           (150., 24.25, 0.8)):
         Tl, T0 = muLiquidusCurve_K(np.array([100.0]), w)
-        assert abs(float(T0[0] - Tl[0]) - target) < tol
+        d = float(T0[0] - Tl[0])
+        assert abs(d - target) < tol, (w, d)
+        deps.append(d)
+    assert np.all(np.diff(deps) > 0)  # strictly increasing in w
+
+
+def test_campaign_rectangle_buildable():
+    # Domain guard for the Titan NH3 campaign: every corner of the
+    # provisional Phase-1 rectangle Tb in [248, 257] K x w in
+    # [30, 100] ppt must lie on the ice-Ih liquidus branch (below the
+    # 1-bar liquidus, above the liquidus at the Ih/III corner
+    # ~210 MPa), so a shell + ocean both exist.
+    for w in (30.0, 100.0):
+        Tl, Tm = muLiquidusCurve_K(np.array([0.1, 209.0]), w)
+        Tb_max, Tb_min = float(Tl[0]), float(Tl[1])
+        for Tb in (248.0, 257.0):
+            assert Tb_min < Tb < Tb_max, (w, Tb, Tb_min, Tb_max)
+
+
+def test_legacy_coolprop_mode_retained():
+    # The legacy CoolProp-activity solver stays importable/selectable
+    # for regression comparison; it under-depresses (~3.2 K at w=30,
+    # 10 MPa vs 3.5 K anchored).
+    from PlanetProfile.Thermodynamics.NH3.NH3Props import (
+        _muLiquidusCoolProp_K)
+    Tl, Tm = muLiquidusCurve_K(np.array([10.0]), 30.0)
+    Tl_cp, Tm_cp = _muLiquidusCoolProp_K(np.array([10.0]), 30.0)
+    d_anch = float(Tm[0] - Tl[0])
+    d_cp = float(Tm_cp[0] - Tl_cp[0])
+    assert np.isfinite(d_cp) and 2.8 < d_cp < d_anch, (d_cp, d_anch)
 
 
 def test_single_liquid_band_machine_b():
@@ -204,4 +292,6 @@ def test_hp_ice_straddle_end_to_end():
     Tf0 = Tscan[np.argmax(ph0 == 0)]
     assert _ph(eos0, Tf0 - 4.0) == 6      # pure: ice VI
     assert _ph(eos, Tf0 - 4.0) == 0       # NH3: still liquid
-    assert _ph(eos, Tf0 - 28.0) == 6      # NH3: eventually ice VI
+    # anchored depression at 150 ppt / 900 MPa is ~31.8 K, so probe
+    # well below it for the eventual freeze
+    assert _ph(eos, Tf0 - 40.0) == 6      # NH3: eventually ice VI
