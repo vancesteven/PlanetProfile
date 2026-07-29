@@ -477,6 +477,10 @@ def SetupInit(Planet, Params):
     # Preallocate layer physical quantity arrays
     Planet = SetupLayers(Planet)
 
+    # Set MoI description strings now so error messages raised during layer
+    # propagation (e.g. MoI matching failure) print the actual target values
+    Planet = SetCMR2strings(Planet)
+
     return Planet, Params
 
 
@@ -733,6 +737,14 @@ def SetupLayers(Planet):
 
 def SetCMR2strings(Planet):
     # Create strings to describe input MoI in terminal outputs and plots/tables
+    if Planet.Bulk.Cmeasured is None or Planet.Bulk.CuncertaintyLower is None \
+            or Planet.Bulk.CuncertaintyUpper is None:
+        # MoI not specified (e.g. free-gravity configs drop C/MR^2 as an
+        # observable) -- describe rather than print a bare None
+        Planet.CMR2strPrint = 'not specified (Bulk.Cmeasured unset)'
+        Planet.CMR2str = r'\mathrm{unset}'
+        Planet.CMR2str5 = r'\mathrm{unset}'
+        return Planet
     if Planet.Bulk.CuncertaintyLower == Planet.Bulk.CuncertaintyUpper:
         Planet.CMR2strPrint = f'{Planet.Bulk.Cmeasured:.4f} +/- {Planet.Bulk.CuncertaintyLower:.4f}'
         Planet.CMR2str = f'{Planet.Bulk.Cmeasured}\pm{Planet.Bulk.CuncertaintyLower}'

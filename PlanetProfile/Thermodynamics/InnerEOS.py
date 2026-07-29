@@ -326,7 +326,7 @@ class PerplexEOSStruct:
                     if porosType == 'Vitovtova2014' or porosType == 'Chen2020':
                         # Pressure-depth lookup using the Preliminary Earth Reference Model,
                         # Dziewonski and Anderson (1981): https://doi.org/10.1016/0031-9201(81)90046-7
-                        PREMzPfile = os.path.join(_ROOT, 'Thermodynamics', 'EOSdata', 'PREMtable.txt')
+                        PREMzPfile = os.path.join(_ROOT, 'Thermodynamics', 'EOStables', 'PREMtable.txt')
                         zPREM_km, PPREM_kbar = np.loadtxt(PREMzPfile, skiprows=2, unpack=True, delimiter=',')
                         PPREM_MPa = PPREM_kbar * 1e3 * Constants.bar2MPa
                         self.PREMlookup = Interp1D(PPREM_MPa, zPREM_km)
