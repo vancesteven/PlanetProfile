@@ -1,0 +1,88 @@
+"""Train the single v7 open-|Ae| nsf SBI artifact from the 1M dataset.
+
+Depends on plans/scripts/v7_gen_dataset.py having produced:
+  /tmp/v7_build/datasets/v7_openae_1m.npz
+
+Trains one nsf flow on (theta, x) via SBIRunner.train (same recipe/scale as
+v5/v6). v7 train seed = 71 (distinct from v5's 51). MUST run in a SEPARATE
+process from dataset generation (libomp hazard: PlanetProfile/numba vs torch).
+Artifact lands in /tmp first, then is copied to the Dropbox sbi_artifacts dir.
+
+Run (after generation completes, fresh process):
+  mamba run -n PPcl env PYTHONPATH=. NUMBA_CACHE_DIR=/tmp/pp_numba_cache \
+    KMP_DUPLICATE_LIB_OK=TRUE python plans/scripts/v7_train_all.py
+"""
+import hashlib, json, os, time, shutil
+import numpy as np
+
+from PlanetProfile.Inference.inference_core import InferenceConfig
+from PlanetProfile.Inference.sbi_runner import SBIRunner
+
+
+def _sha256(path):
+    if not path or not os.path.exists(path):
+        return None
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+DSDIR = "/tmp/v7_build/datasets"
+ARTDIR = "/tmp/v7_build/artifacts"
+DROPBOX_ART = "PlanetProfile/Inference/sbi_artifacts"
+TRAIN_SEED = 71
+CFG = "PlanetProfile/Inference/configs/europa_clipper_v7_openae_11D.json"
+ARTNAME = "europa_clipper_v7_openae_11D_posterior_1m.pt"
+
+
+def main():
+    os.makedirs(ARTDIR, exist_ok=True)
+    npz = os.path.join(DSDIR, "v7_openae_1m.npz")
+    if not os.path.exists(npz):
+        raise SystemExit(f"[train] missing dataset {npz} — run v7_gen_dataset.py first")
+    with np.load(npz, allow_pickle=True) as d:
+        theta = np.asarray(d["theta"], np.float64)
+        x = np.asarray(d["x"], np.float64)
+        stats = json.loads(str(d["stats"].item())) if "stats" in d.files else None
+
+    cfg = json.load(open(CFG)); cfg["mode"] = "sbi"
+    cache_path = cfg.get("structure_cache_path")
+    sidecar_path = (str(cache_path) + ".ae_sidecar.pkl") if cache_path else None
+    runner = SBIRunner(InferenceConfig.from_dict(cfg))
+    assert x.shape[1] == len(runner.obs_names), \
+        f"x cols {x.shape[1]} != obs {len(runner.obs_names)}"
+
+    print(f"[train] v7: theta={theta.shape} x={x.shape} seed={TRAIN_SEED} nsf")
+    t0 = time.time()
+    runner.train(theta, x, seed=TRAIN_SEED, density_estimator="nsf")
+    if stats is not None:
+        runner._train_info["rejection_stats"] = stats
+    out = os.path.join(ARTDIR, ARTNAME)
+    runner.save_artifact(out)
+    dt = time.time() - t0
+    dst = os.path.join(DROPBOX_ART, ARTNAME)
+    shutil.copy2(out, dst)
+
+    manifest = {
+        "kind": "v7_openae_train",
+        "train_seed": TRAIN_SEED,
+        "artifact": dst,
+        "train_seconds": dt,
+        "n_train": int(len(theta)),
+        "n_obs": x.shape[1],
+        "config": CFG,
+        "config_hash": runner.config.generate_hash(),
+        "structure_cache_path": cache_path,
+        "structure_cache_sha256": _sha256(cache_path),
+        "ae_sidecar_sha256": _sha256(sidecar_path),
+        "artifact_sha256": _sha256(out),
+    }
+    with open(os.path.join(ARTDIR, "v7_train_manifest.json"), "w") as f:
+        json.dump(manifest, f, indent=2)
+    print(f"[train] v7: trained in {dt/60:.1f} min -> {dst}")
+    print(f"[train] manifest -> {ARTDIR}/v7_train_manifest.json")
+
+
+if __name__ == "__main__":
+    main()

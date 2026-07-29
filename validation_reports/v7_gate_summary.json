@@ -1,0 +1,11 @@
+{
+  "seed": 71,
+  "artifact": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/sbi_artifacts/europa_clipper_v7_openae_11D_posterior_1m.pt",
+  "config": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/configs/europa_clipper_v7_openae_11D.json",
+  "gates": {
+    "sbc": 0,
+    "limits": 2,
+    "crosscheck": 2
+  },
+  "ref_mcmc": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Test/mcmc_results/Europa/Test54_seawater_v7/europa_clipper_v7_reference_result.pkl"
+}

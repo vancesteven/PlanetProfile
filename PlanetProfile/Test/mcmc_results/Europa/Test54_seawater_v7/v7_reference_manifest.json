@@ -1,0 +1,63 @@
+{
+  "kind": "v7_openae_reference_mcmc",
+  "config": "PlanetProfile/Inference/configs/europa_clipper_v7_openae_11D.json",
+  "config_hash": "1b7aaf37319c1232",
+  "seed": 71,
+  "n_effective": 500,
+  "n_samples": 4352,
+  "log_Z": -17.344675464980767,
+  "log_Z_err": 0.11666027592346956,
+  "elapsed_time_s": 743.2801792621613,
+  "obs_names": [
+    "CMR2",
+    "C20",
+    "C22",
+    "Re_k2",
+    "Im_k2",
+    "Re_h2",
+    "Im_h2",
+    "Bind_synodic_x_real",
+    "Bind_synodic_x_imag",
+    "Bind_synodic_y_real",
+    "Bind_synodic_y_imag",
+    "Bind_synodic_z_real",
+    "Bind_synodic_z_imag",
+    "Bind_synodic 2nd_x_real",
+    "Bind_synodic 2nd_x_imag",
+    "Bind_synodic 2nd_y_real",
+    "Bind_synodic 2nd_y_imag",
+    "Bind_orbital_x_real",
+    "Bind_orbital_x_imag",
+    "Bind_orbital_y_real",
+    "Bind_orbital_y_imag"
+  ],
+  "param_names": [
+    "alpha",
+    "log10_zeta_Ih",
+    "log10_zeta_sil",
+    "log10_eta_Ih",
+    "log10_eta_sil",
+    "D_iceIh_km",
+    "log10_wOcean_ppt",
+    "R_core_km",
+    "rho_core_kgm3",
+    "dC20_nh",
+    "dC22_nh"
+  ],
+  "induction_bounds": {
+    "synodic": {
+      "phase_deg_max": 70.0
+    },
+    "synodic 2nd": {
+      "phase_deg_max": 70.0
+    },
+    "orbital": {
+      "phase_deg_max": 70.0
+    }
+  },
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Europa/Test52_seawater_v5/europa_seawater_structure_grid_v5_2d.pkl",
+  "structure_cache_sha256": "0d3638602b2e313242fd23944ee55a8c6ba26700438707d73546631939d22648",
+  "ae_sidecar_sha256": "a5f6be47ebea96cecd36a59da6fe79749f3429ac96719aabb140fe8ed45f070e",
+  "git_sha": "7fd09be08a7ab4e61466cd7c1aef2cab8085fd92",
+  "prior_note": "OPEN-|Ae| config: amp_min support cut REMOVED, phase_deg_max 70deg for synodic/synodic-2nd/orbital. D_iceIh uniform[5,80] km, log10_w uniform[-1,2]. Same opened bounds as the v7 flow (crosscheck validity)."
+}
