@@ -2,14 +2,27 @@ planetprofile genai, worktree for rapidly developing new features that other bra
 
 for python env use "mamba activate PPcl"
 
-current focus is debugging PlanetProfile/PlanetProfileApp exploreogram and mcmc features.
+Current focus and cross-machine work queue are maintained in
+`plans/STATUS.md` and `plans/MACHINE-B-HANDOFF.md`. Read those before relying
+on older handoff addenda.
 
 Do not alter Test/ files without permission
 
 Do not change fundamental scientific assumptions of the code
 Have the scientific-reviewer check work frequently while planning and implementing.
 
-Use sonnet and haiku agents whenever possible. Use Opus agents for planning and review.
+Agent lanes (2026-08-01). Machine A Claude Code: Fable 5 is the model manager
+(planning, scientific review/adjudication, integration, pushes); use Sonnet 5
+subagents for implementation/reconnaissance passes and Opus 5 for independent
+high-reasoning review when delegating. Codex 5.6 is a second Machine A lane
+for delegated implementation/recon tasks — its queue is
+`plans/CODEX-QUEUE.md`, its instructions `AGENTS.md`; scientific adjudication
+is never delegated to Codex. Machine B Claude Code (Opus 4.8 / Sonnet 4.6 /
+Haiku 4.5) owns heavy compute via `plans/MACHINE-B-HANDOFF.md`.
+
+Queue freshness: any session that pushes commits, integrates Machine B
+artifacts, or changes a queue must refresh the `Updated:` lines and affected
+sections of `plans/STATUS.md` and the relevant queue file in the same session.
 
 ## Verification discipline for UI and behavioral changes
 
