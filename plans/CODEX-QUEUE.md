@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-02 at genai `9cfc3c14`. Curated by the Claude model manager
+Updated: 2026-08-02 at genai `49d39eba`. Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -20,17 +20,7 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-### C1 — Artifact ledger refresh [status: in progress (Codex)]
-
-Update `PlanetProfile/Inference/sbi_artifacts/INDEX.md` so every shipped
-artifact has a current row: v5 trio, v6 trio, v7 open-|Ae|, titan_freegrav —
-state `delivered, not ratified (gate adjudication open; see plans/STATUS.md)`.
-Do not change rows for deployed/retired/vetoed artifacts except to fix stale
-cross-references. Doc-only; no code. Verification: `verified` = the file
-renders correctly and every `.pt` in `sbi_artifacts/` has exactly one row
-(cross-check with `ls`).
-
-### C2 — Titan classic-MoI reconnaissance [status: queued]
+### C2 — Titan classic-MoI reconnaissance [status: in progress (Codex)]
 
 Report-only, NO code changes. Classic MoI-matching Titan runs historically
 fail with achievable C/MR^2 ~0.317 vs Cmeasured 0.341. Survey the Sil/core
@@ -62,4 +52,16 @@ claim alone is `implemented, unverified` + AppTest evidence.
 
 ## Completed
 
-(none yet)
+### C1 — Artifact ledger refresh [status: verified]
+
+Updated `PlanetProfile/Inference/sbi_artifacts/INDEX.md` so every shipped
+artifact has a current row: v5 trio, v6 trio, v7 open-|Ae|, titan_freegrav —
+state `delivered, not ratified (gate adjudication open; see plans/STATUS.md)`.
+Did not change deployed/retired/vetoed states; corrected stale GUI references
+and malformed table cells.
+
+**Report (Codex, 2026-08-02):** `verified`. Python-Markdown rendered both
+tables. A structural audit cross-checked `Path.glob('*.pt')` against artifact
+row names: 16 files, 16 rows, zero missing, extra, duplicate, or malformed
+rows. `git diff --check` passed. Claim commit `7bac3207`; implementation commit
+`49d39eba`.
