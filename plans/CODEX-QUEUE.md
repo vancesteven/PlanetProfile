@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-02 at genai `2a31c345`. Curated by the Claude model manager
+Updated: 2026-08-02 at genai `e9df7e86`. Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -20,7 +20,7 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-### C4 — Amortized widget-key namespacing + Titan slot stubs [status: queued]
+### C4 — Amortized widget-key namespacing + Titan slot stubs [status: in progress (Codex)]
 
 Source: Machine B addendum `plans/STATUS-2026-08-01-machineB-joint-nh3.md`,
 section "What Machine A can safely plan + change now". Target:
