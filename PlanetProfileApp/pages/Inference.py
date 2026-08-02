@@ -1095,8 +1095,10 @@ _SBI_ARTIFACT_SLOTS = {
         'validated_version_pairs': (('torch', '2.11.0', '2.8.0'),),
     },
     'titan_freegrav_noocean_posterior_1m.pt': {
-        'label': ('1D · Cassini–Titan (Andrade, no ocean) — free-gravity, '
-                  '12D · free C₂₀/C₂₂ (agnostic) + measured k₂, CMR₂ dropped'),
+        'slot_id': 'titan_phase_a_noocean',
+        'label': ('1D · Cassini–Titan (Andrade, no ocean) — Phase A '
+                  'free-gravity, 12D · free C₂₀/C₂₂ (agnostic) + measured '
+                  'k₂, CMR₂ dropped'),
         'bodyname': 'Titan',
         'config_path': ('PlanetProfile/Inference/configs/'
                         'titan_freegrav_noocean.json'),
@@ -1142,6 +1144,65 @@ _SBI_ARTIFACT_SLOTS = {
                        'Im_k2). Gate details: validation_reports/'
                        'titan_freegrav_noocean_1m/. NO interior-C/MR² claim '
                        'until the Task D reweighter lands (#36).'),
+    },
+    # Titan ocean-chemistry slots reserved for Machine B handoff. These are
+    # intentionally selectable so the planned model family is visible, but
+    # artifact/config/cache paths and observable centrals MUST remain unset
+    # until the corresponding artifact and gates arrive. Registry keys are
+    # stable slot ids, not guessed future artifact filenames.
+    'titan_nh3_joint_awaiting_artifact': {
+        'slot_id': 'titan_nh3_joint',
+        'artifact_filename': None,  # TODO(Machine B): artifact handoff
+        'artifact_status': 'awaiting_artifact',
+        'label': ('1D · Cassini–Titan (ocean chemistry) — NH₃ joint '
+                  'no-ocean + ocean · awaiting artifact'),
+        'bodyname': 'Titan',
+        'config_path': None,  # TODO(Machine B): final training config
+        'cache_path': None,  # TODO(Machine B): validated joint cache
+        'default_obs': None,  # TODO(Machine B): confirmed config centrals
+        'x_obs_limits': {},  # TODO(Machine B): gate-validated Im k₂ bound
+        'gate_status': 'TODO — awaiting Machine B validation handoff',
+        'scope_note': ('Titan NH₃ JOINT no-ocean+ocean posterior (frozen '
+                       'Titan interiors included). C₂₀/C₂₂ gravity '
+                       'provenance: Petricca et al. 2025. CMR² dropped '
+                       '(would double-count C₂₂); induction + h₂ dropped '
+                       '(no clean Cassini signal). NH₃ ocean w is in '
+                       '[1,70] ppt. Artifact, config/cache paths, observable '
+                       'centrals, and gate status await Machine B handoff.'),
+    },
+    'titan_mgso4_awaiting_artifact': {
+        'slot_id': 'titan_mgso4',
+        'artifact_filename': None,  # TODO(Machine B): artifact handoff
+        'artifact_status': 'awaiting_artifact',
+        'label': ('1D · Cassini–Titan (ocean chemistry) — MgSO₄ ocean · '
+                  'awaiting artifact'),
+        'bodyname': 'Titan',
+        'config_path': None,  # TODO(Machine B): final training config
+        'cache_path': None,  # TODO(Machine B): validated cache
+        'default_obs': None,  # TODO(Machine B): confirmed config centrals
+        'x_obs_limits': {},  # TODO(Machine B): gate-validated Im k₂ bound
+        'gate_status': 'TODO — awaiting Machine B validation handoff',
+        'scope_note': ('Planned Titan MgSO₄ ocean-chemistry posterior. '
+                       'Artifact, config/cache paths, observable centrals, '
+                       'validated Im k₂ domain, and gate status await '
+                       'Machine B handoff.'),
+    },
+    'titan_nacl_awaiting_artifact': {
+        'slot_id': 'titan_nacl',
+        'artifact_filename': None,  # TODO(Machine B): artifact handoff
+        'artifact_status': 'awaiting_artifact',
+        'label': ('1D · Cassini–Titan (ocean chemistry) — NaCl ocean · '
+                  'awaiting artifact'),
+        'bodyname': 'Titan',
+        'config_path': None,  # TODO(Machine B): final training config
+        'cache_path': None,  # TODO(Machine B): validated cache
+        'default_obs': None,  # TODO(Machine B): confirmed config centrals
+        'x_obs_limits': {},  # TODO(Machine B): gate-validated Im k₂ bound
+        'gate_status': 'TODO — awaiting Machine B validation handoff',
+        'scope_note': ('Planned Titan NaCl ocean-chemistry posterior. '
+                       'Artifact, config/cache paths, observable centrals, '
+                       'validated Im k₂ domain, and gate status await '
+                       'Machine B handoff.'),
     },
     'europa_galileo_v1p1_8D_posterior_1m.pt': {
         'label': '1D · Galileo–Europa (Andrade, seawater) — v1.1 honest observables, 8D',
@@ -1756,18 +1817,21 @@ def render_amortized_config():
     """Amortized-mode configuration form. Returns a run-spec dict or None."""
     _stale_library_banner()
     available = []
-    for fname, slot in _SBI_ARTIFACT_SLOTS.items():
-        p = _sbi_artifacts_dir() / fname
-        if not p.exists():
+    for slot_ref, slot in _SBI_ARTIFACT_SLOTS.items():
+        awaiting = slot.get('artifact_status') == 'awaiting_artifact'
+        artifact_fname = slot.get('artifact_filename', slot_ref)
+        if (not awaiting and
+                (artifact_fname is None or
+                 not (_sbi_artifacts_dir() / artifact_fname).exists())):
             continue
         # Collapse channel-family siblings: only the family key (the
         # 'all channels' member) appears in the dropdown; the reduced-channel
         # siblings are reached via the mutually-exclusive channel selector
         # rendered after selection, not as separate dropdown entries.
-        fam = _CHANNEL_FAMILY_OF.get(fname)
-        if fam is not None and fam != fname:
+        fam = _CHANNEL_FAMILY_OF.get(slot_ref)
+        if fam is not None and fam != slot_ref:
             continue
-        available.append((slot['label'], fname))
+        available.append((slot['label'], slot_ref))
     if not available:
         st.warning("No pretrained SBI artifacts found in "
                    "`PlanetProfile/Inference/sbi_artifacts/`. Train and "
@@ -1809,10 +1873,13 @@ def render_amortized_config():
         "Mission–body analysis:", list(groups), key='amort_analysis')
     _vers = list(reversed(groups[sel_analysis]))  # newest first
     _vlabels = [v_ for _, v_, _ in _vers]
+    _vdefault = next((i for i, (_, _, ref) in enumerate(_vers)
+                      if _SBI_ARTIFACT_SLOTS[ref].get('artifact_status')
+                      != 'awaiting_artifact'), 0)
     sel_version = cv_.selectbox(
-        "Model version:", _vlabels, index=0,
+        "Model version:", _vlabels, index=_vdefault,
         key=f'amort_version_{sel_analysis}')
-    choice, _, fname = _vers[_vlabels.index(sel_version)]
+    choice, _, slot_ref = _vers[_vlabels.index(sel_version)]
     st.caption(choice)
 
     # Mutually-exclusive channel selector for artifacts that ship a
@@ -1820,7 +1887,7 @@ def render_amortized_config():
     # channels). All members keep the static gravity channel; the choice
     # swaps between the full model and each single-channel-excluded sibling.
     # A member is only offered if its artifact actually exists on disk.
-    fam = _CHANNEL_FAMILIES.get(fname)
+    fam = _CHANNEL_FAMILIES.get(slot_ref)
     if fam:
         avail_choices = [c for c, mf in fam.items()
                          if (_sbi_artifacts_dir() / mf).exists()]
@@ -1837,13 +1904,15 @@ def render_amortized_config():
                      "tidal k₂/h₂ and magnetic-induction channels.")
             if ch is None:
                 ch = 'all' if 'all' in avail_choices else avail_choices[0]
-            fname = fam[ch]
+            slot_ref = fam[ch]
 
-    slot = _SBI_ARTIFACT_SLOTS[fname]
-    artifact_path = _sbi_artifacts_dir() / fname
+    slot = _SBI_ARTIFACT_SLOTS[slot_ref]
+    artifact_fname = slot.get('artifact_filename', slot_ref)
+    artifact_path = (_sbi_artifacts_dir() / artifact_fname
+                     if artifact_fname is not None else None)
 
-    # Namespace every observable/sigma/truncation widget key by the artifact
-    # filename. Streamlit ignores a widget's value= once its key exists in
+    # Namespace every observable/sigma/truncation widget key by the stable
+    # slot id. Streamlit ignores a widget's value= once its key exists in
     # session_state, so slots that share an observable NAME (e.g. Re_k2 in
     # both the Titan and Clipper slots) would otherwise share the key
     # 'amort_obs_Re_k2' — whichever slot renders FIRST (Titan, 0.608) writes
@@ -1853,7 +1922,8 @@ def render_amortized_config():
     # reseed never fires and the stale value leaks. Distinct keys per artifact
     # make the leak structurally impossible (user-reported 2026-07-20: Clipper
     # x_obs stuck at Titan's Re_k2=0.608 instead of Mazarico 0.23).
-    slot_key = fname.replace('.', '_').replace(' ', '_')
+    slot_key = str(slot.get('slot_id', slot_ref))
+    slot_key = slot_key.replace('.', '_').replace(' ', '_')
 
     # Body-of-record banner. The dropdown has no body-aware default, so it
     # sits on the FIRST slot (Titan) on open — which silently seeds Titan's
@@ -1887,17 +1957,28 @@ def render_amortized_config():
     # Titan to Europa kept Titan's Re_k2=0.608 / Im_k2=0.135 and
     # conditioned the Europa flow far outside its physical k2 range,
     # producing a spurious silicate-dominated heating posterior).
-    if st.session_state.get('amort_active_slot') != fname:
-        st.session_state['amort_active_slot'] = fname
+    if st.session_state.get('amort_active_slot') != slot_ref:
+        st.session_state['amort_active_slot'] = slot_ref
         for k in list(st.session_state.keys()):
             if k.startswith(('amort_obs_', 'amort_sigma_', 'amort_trunc_')):
                 del st.session_state[k]
+
+    # Pending slots stop before any file stat, config read, or runner load.
+    # This is a deliberate visible state, not a missing-file error: Machine B
+    # owns the final artifact names, paths, observable centrals, and gates.
+    if slot.get('artifact_status') == 'awaiting_artifact':
+        st.info("⏳ **Awaiting artifact** — this Titan chemistry slot is "
+                "scaffolded but cannot condition a posterior yet.")
+        if slot.get('scope_note'):
+            st.caption(f"ℹ️ {slot['scope_note']}")
+        st.caption(f"Gate status: {slot.get('gate_status', 'TODO')}")
+        return None
 
     # Slot-specific induction documentation (numbers sourced from each
     # training config; the generic model-assumptions expander stays
     # slot-agnostic because it renders before slot selection).
     with st.expander("🧲 How magnetic induction constrains this model"):
-        if 'clipper' in fname:
+        if 'clipper' in slot_ref:
             st.markdown(
                 "This model conditions on **Europa Clipper-era induction "
                 "measurements directly**: 14 channels "
