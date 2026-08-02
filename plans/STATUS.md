@@ -35,27 +35,39 @@ never delegated to Codex.
 | v1 / v2 | RETIRED | replaced by v1.1 / v4 |
 | v3 | VETOED | wrong k2 bounds; 2D cache reused by v4+ |
 
-## OPEN ADJUDICATION — v5/v6/v7 gate failures are systematic (2026-08-01)
+## ADJUDICATED 2026-08-02 — v5/v6/v7 gates (record: plans/active/europa-v5v6v7-gate-adjudication.md)
 
-All three delivered baselines share the identical failure signature
-(`validation_reports/v{5,6,7}_gate_summary.json` + per-campaign reports):
+Manager + independent Opus-5 adversarial review. Outcomes:
 
-- **SBC passes** (rank-uniformity, BH-FDR) in every baseline arm.
-- **Limits FAIL — prior-box containment**, not monotonicity: v7 containment
-  0.57 vs required 1.0; leakage concentrated at sweep Im_k2 >= 0.2 with
-  Re_k2 pinned 0.23 (2000-sample draws fall to 846/307/124 inside box).
-  Likely off-manifold conditioning (huge loss angle) — gate design question,
-  not necessarily flow defect.
-- **Crosscheck FAIL — same 2 params each time**: `D_iceIh_km` (v7: SBI mean
-  62.9 vs MCMC 61.2 km, diff 1.69 vs tol 1.19; shape fail) and
-  `log10_wOcean_ppt` (v7: mean diff 0.040 dex vs tol 0.026). Small absolute
-  biases (~1.7 km, ~10% salinity) but beyond preregistered tolerance.
+- **Limits FAILs**: superseded-gate artifact (pre-`3fa5a3fc` code demanded
+  containment==1.0 pooled over off-manifold sweep points; unreachable for
+  NSF flows, deploy path rejects out-of-box). Provisionally overturned —
+  official regeneration at HEAD with the constructed sweep grid + anchor
+  mode required (B1/B6) before any PASS is recorded.
+- **v5: NOT ratifiable.** D_iceIh_km shape-EXCESS failure survives HEAD's
+  own decomposition (1.12x tol, headline science param) + zeta_Ih mean
+  1.074x + SBC underpowered (n=108 < 200 spec minimum).
+- **v6: conditionally ratifiable.** Clean pass at HEAD (0 shape-excess,
+  0 mean fails); blocked only on adequately powered SBC (n=102) + report
+  regeneration (B1/B2/B6).
+- **v7: crosscheck FAIL adjudicated a REFERENCE-side artifact.** True v7
+  posterior provably identical to v5's at the fiducial (support strictly
+  enlarged; newly admitted region carries 0.000000 posterior mass in both
+  references); the 1.06 km reference disagreement has the wrong sign for a
+  support effect and the rigid-translation shape of nested-sampling
+  log-volume error. v7 flow passes 22/22 mean+sigma gates against the v5
+  reference. Which reference wandered is OPEN (v5's log_Z_err 0.281 makes
+  it the more suspect run). Blocked on B3/B4/B5.
+- **Top open scientific risk:** every campaign with statistical power flags
+  the same D–w degeneracy pair (v4 SBC FAIL on Tb+log10_w at n=1000; v5
+  shape-excess on D_iceIh; v7 means on D_iceIh+log10_w). B2/B5 test it.
+- **Governance:** deployed v4's ledger row corrected — its own reports
+  contain undisclosed crosscheck mean breaches (zeta_Ih 1.23x, rho_core
+  1.18x) and an SBC FAIL (Tb p=4e-4, log10_w p=0.034, n=1000). Whether v4
+  needs re-adjudication is a USER decision.
 
-Machine B correctly stopped without tuning. NO GUI wiring of v5/v6/v7 until
-Machine A scientific review adjudicates: retrain vs gate-recalibration vs
-reference-MCMC scrutiny. v5 structure cache + Ae sidecar and the v7 reference
-MCMC now exist on Machine A (`Test52_seawater_v5/`, `Test54_seawater_v7/`),
-so A-side re-analysis is unblocked.
+GUI gating (`cb597490`) stays for all v5/v6 slots; v7 remains unwired.
+Machine B follow-up queue B1–B7 in `plans/MACHINE-B-HANDOFF.md` §0.
 
 ## NH3 activity model corrected (2026-07-28, commit 6c5ee2af)
 

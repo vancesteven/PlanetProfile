@@ -9,16 +9,46 @@ after seeing a failure: stop and surface the evidence to Machine A.
 
 Machine B model roster: Claude Opus 4.8 / Sonnet 4.6 / Haiku 4.5.
 
-## 0. HOLD — v5/v6/v7 gate adjudication (Machine A)
+## 0. v5/v6/v7 gate adjudication COMPLETE (2026-08-02) — scoped follow-ups
 
-v5, v6, and v7 are DELIVERED and received (artifacts, caches, reference
-results, gate reports all on origin/genai — thank you). All three baseline
-arms share the same failure signature (sbc pass; limits containment fail;
-crosscheck fail on D_iceIh_km + log10_wOcean_ppt). This is under Machine A
-scientific adjudication. Do NOT retrain, regenerate datasets, or adjust any
-gate for these campaigns until Machine A sends a scoped verdict. Machine A may
-send follow-up diagnostics requests (e.g. extended reference-MCMC chains or
-containment sweeps) — treat those as the next v5/v6/v7 action, nothing else.
+Full record: `plans/active/europa-v5v6v7-gate-adjudication.md` (manager +
+independent Opus-5 scientific review). Verdicts: v5 NOT ratifiable
+(D_iceIh shape-excess survives HEAD, 1.12x; zeta_Ih mean 1.074x; SBC
+underpowered n=108); v6 conditionally ratifiable (clean at HEAD; SBC n=102
+below the >=200 spec minimum); v7 blocked — its crosscheck FAIL is
+adjudicated a REFERENCE-side artifact (true v7 posterior provably identical
+to v5's at the fiducial; mass in the newly opened support region measured
+0.000000 in both references; the 1.06 km reference disagreement has the
+wrong sign and rigid-translation shape of nested-sampling log-volume error;
+which reference wandered is OPEN — v5's log_Z_err 0.281 makes it the more
+suspect run). NO retraining and NO dataset regeneration — execute exactly
+these follow-ups, in order, and stop at any surprise:
+
+- **B1** Regenerate ALL gate reports (v5/v6/v7 baselines + arms) at current
+  HEAD: use the DEFAULT constructed sweep grid (do not pass
+  --sweep-values), record the validate_sbi.py commit SHA in every report,
+  apply BH-FDR uniformly, reconcile `v{5,6,7}_gate_summary.json`.
+- **B2** SBC re-runs at n_sbc_pairs >= 500 for v5/v6 baselines; report raw +
+  BH p for every param, explicitly D_iceIh_km / log10_wOcean_ppt / Tb_K.
+- **B3** Reference wander: re-run BOTH v5 and v7 reference MCMC, >=3 fresh
+  seeds each, SAME pinned environment (note scipy 1.16.3→1.17.1 straddled
+  the originals), n_live >= 2000. Report per-seed D_iceIh/log10_w means and
+  log_Z ± err; success = between-seed scatter brackets the observed
+  1.06 km. Do NOT assume v7 is the outlier.
+- **B4** Evidence-ratio check: ΔlogZ vs −ln(V7/V5), V7/V5 by Monte Carlo
+  over the prior under the two induction-bound sets (expected ~2.5).
+- **B5** v7 flow-side diagnostics (preregistered; required before any v7
+  ratification): (i) flow-vs-flow v5/v7 at the fiducial; (ii) v7-flow vs
+  v5-reference formal crosscheck incl. shape clause; (iii) synthetic-truth
+  bias test; (iv) local expected-coverage (TARP) near the fiducial.
+- **B6** Limits anchor mode (W1 <= 0.25 sigma vs ground-truth MCMC) at
+  reachable Im_k2 values, all three campaigns.
+- **B7** Record outcomes as FAIL-ADJUDICATED-ACCEPTABLE where applicable;
+  never relabel a FAIL to PASS.
+
+Priority vs Titan: Titan NH3 Task #68 (section 1) remains your active task;
+run B1–B6 after the 3x4 validation completes, before the full NH3
+production build.
 
 ## 1. Titan NH3 — JOINT no-ocean+ocean cache + SBI (Task #68 governs)
 
