@@ -24,7 +24,7 @@ No unclaimed tasks.
 
 ## Completed
 
-### C4 — Amortized widget-key namespacing + Titan slot stubs [status: implemented, unverified]
+### C4 — Amortized widget-key namespacing + Titan slot stubs [status: verified]
 
 Source: Machine B addendum `plans/STATUS-2026-08-01-machineB-joint-nh3.md`,
 section "What Machine A can safely plan + change now". Target:
@@ -75,6 +75,22 @@ Phase-A, Test50, and Clipper `Re_k2` keys were distinct; Clipper retained
 gate status, and disabled Generate without exceptions. `py_compile` and
 `git diff --check` passed. Browser confirmation was not performed and remains
 with the manager. Claim commit `220ec593`; implementation commit `f4090c33`.
+
+**Manager verification (Claude, 2026-08-02):** `verified`. Independent
+scripted AppTest: Cassini–Titan group lists all five versions with the
+shipped Phase-A slot as default; each of the three placeholders renders its
+own label, the awaiting-artifact info, TODO gate status, and zero observable
+widgets; the NH3 scope note carries the joint/Petricca/[1,70] ppt content;
+Titan vs Clipper Re_k2 keys are disjoint with correct per-slot values
+(0.608 / 0.23). One earlier apparent NH3-scope failure was a manager test
+harness bug (stale selectbox handle), not a code defect. Full
+`tests/app_globe_panel_test.py` suite 7/7 after the follow-on gating fix.
+
+**Side finding during verification (manager, fixed in `cb597490`):** the
+v5/v6 slot registrations (`7211f002`) predate the adjudication hold and
+made unratified v6 the silent Clipper default. Fixed by gating those six
+slots with `artifact_status='not_ratified'` via the C4 status mechanism;
+v4 is the Clipper default again.
 
 ### C3 — Perple_X geotherm-overlay figure in Mineralogy tab [status: verified]
 

@@ -29,9 +29,9 @@ never delegated to Codex.
 | Titan NaCl ocean | **awaiting artifact** | GUI placeholder; paths/centrals/gates unset |
 | Galileo–Europa v1.1 8D | DEPLOYED 2026-07-20 | gates 8/8 |
 | Clipper–Europa v4 geodesy 11D | DEPLOYED 2026-07-21 | user-ratified |
-| Clipper–Europa v5 thick-ice ablation trio | **delivered, NOT ratified** | baseline gates: sbc 0, limits 2, crosscheck 2; nok2 arm sbc 2 |
-| Clipper–Europa v6 freegrav trio | **delivered, NOT ratified** | baseline gates: sbc 0, limits 2, crosscheck 2; noinduction arm sbc 2 |
-| Clipper–Europa v7 open-\|Ae\| 11D | **delivered, NOT ratified** | gates: sbc 0, limits 2, crosscheck 2 |
+| Clipper–Europa v5 thick-ice ablation trio | **delivered, NOT ratified — GUI-gated** | baseline gates: sbc 0, limits 2, crosscheck 2; nok2 arm sbc 2; slots render hold warning, conditioning disabled (`cb597490`) |
+| Clipper–Europa v6 freegrav trio | **delivered, NOT ratified — GUI-gated** | baseline gates: sbc 0, limits 2, crosscheck 2; noinduction arm sbc 2; was silently the Clipper default — now gated, v4 default restored (`cb597490`) |
+| Clipper–Europa v7 open-\|Ae\| 11D | **delivered, NOT ratified** | gates: sbc 0, limits 2, crosscheck 2; never wired into GUI |
 | v1 / v2 | RETIRED | replaced by v1.1 / v4 |
 | v3 | VETOED | wrong k2 bounds; 2D cache reused by v4+ |
 
@@ -77,9 +77,10 @@ rectangle Tb [248,257] K x w [30,100] ppt. Spec:
   Perple_X native-domain density heatmap + selected-draw geotherm overlay
   (Codex C3) is `verified` 2026-08-02: AppTest + manager visual inspection
   of rendered CV3/CI figures. Titan amortized Phase-A/NH₃/MgSO₄/NaCl slot
-  scaffolding (Codex C4) is `implemented, unverified`: six shipped slots and
-  three awaiting-artifact states pass structural AppTest; manager browser
-  confirmation remains.
+  scaffolding (Codex C4) is `verified` 2026-08-02 (manager AppTest: Phase-A
+  default, placeholder states, disjoint per-slot widget keys). Follow-on
+  manager fix `cb597490` gates the unratified v5/v6 slots (adjudication
+  hold enforcement; suite 7/7).
 - Fixes: Titan "C/MR^2 = None" message (SetCMR2strings guard + SetupInit
   call); PREM porosity-table path; NaCl `_warn_once` broadcast crash;
   `bulk_overrides` threading in `build_tbw_grid_cache`.
@@ -97,8 +98,7 @@ v5/v6/v7 slots (not wired pending adjudication).
 
 - Machine A (Claude): v5/v6/v7 gate adjudication (scientific-reviewer pass);
   then wire ratified slots; maintain queues.
-- Machine A (Codex 5.6): queue empty — C1/C2/C3 are `verified`; C4 is
-  `implemented, unverified` and awaits manager browser confirmation. Next
+- Machine A (Codex 5.6): queue empty — C1/C2/C3/C4 all `verified`. Next
   tasks to be curated by the manager; candidate: C2's classic-MoI finding
   needs manager adjudication first.
 - Machine B: Task #68 Titan JOINT no-ocean+ocean NH3 posterior in flight —
