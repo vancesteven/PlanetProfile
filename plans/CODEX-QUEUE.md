@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-02 at genai `49d39eba`. Curated by the Claude model manager
+Updated: 2026-08-02 at genai `400f84e5`. Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -20,20 +20,7 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-### C2 — Titan classic-MoI reconnaissance [status: in progress (Codex)]
-
-Report-only, NO code changes. Classic MoI-matching Titan runs historically
-fail with achievable C/MR^2 ~0.317 vs Cmeasured 0.341. Survey the Sil/core
-parameter space to answer: which (silicate EOS table, core size/density,
-porosity, hydrosphere) combinations can reach 0.341? Use short targeted runs
-or direct MoI integration over candidate structures — NOT a heavy sweep
-(Machine B owns heavy compute; keep total runtime under ~30 min). Deliver:
-`plans/active/titan-classic-moi-recon.md` with the achievable C/MR^2 range
-per configuration family, what limits it, and whether any physically
-defensible configuration closes the gap. Cite exact configs/commands so runs
-are reproducible.
-
-### C3 — Perple_X geotherm-overlay figure in Mineralogy tab [status: queued]
+### C3 — Perple_X geotherm-overlay figure in Mineralogy tab [status: in progress (Codex)]
 
 `PlanetProfileApp/pages/Inference.py` Mineralogy tab + helpers in
 `PlanetProfileApp/Utilities/radial_profiles.py`. Add an expander "Geotherm vs
@@ -51,6 +38,22 @@ in-browser/visual confirmation stays with the manager, so top status you can
 claim alone is `implemented, unverified` + AppTest evidence.
 
 ## Completed
+
+### C2 — Titan classic-MoI reconnaissance [status: verified]
+
+Report-only reconnaissance of the silicate EOS, core, porosity, and
+hydrosphere parameter space. Deliverable:
+`plans/active/titan-classic-moi-recon.md`.
+
+**Report (Codex, 2026-08-02):** `verified`. Targeted full-profile runs
+exercised `FindInnerWithMoIAndEOS`; a direct 1-km core-radius integration used
+the production `structure_derivation` helpers. Total runtime was under one
+minute. The report renders with Python-Markdown (7 tables, 2 code blocks) and
+`git diff --check` passed. Finding for manager adjudication: current
+self-consistent families top out near 0.3395--0.3398; numerical 0.341 crossings
+require either the reduced uniform-density stack or an MgSO4/CV3 boundary case
+outside current EOS/density safeguards. Claim commit `e8c73142`;
+implementation commit `400f84e5`.
 
 ### C1 — Artifact ledger refresh [status: verified]
 
