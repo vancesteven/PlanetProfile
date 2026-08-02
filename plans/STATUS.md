@@ -1,6 +1,6 @@
 # PlanetProfile genai — current status
 
-Updated: 2026-08-02 at genai `400f84e5`. Single current-state source of truth.
+Updated: 2026-08-02 at genai `2a31c345`. Single current-state source of truth.
 Freshness rule: any session that pushes commits, integrates Machine B
 artifacts, or changes a queue must refresh this file's `Updated:` line and the
 affected sections in the same session. If this file is >7 days older than
@@ -70,7 +70,10 @@ rectangle Tb [248,257] K x w [30,100] ppt. Spec:
   rewritten `tests/coolprop_nh3_test.py` (15 green).
 - GUI: heating-tab radiogenic inventory selector (BSE/CI + age slider);
   Mineralogy tab (post-hoc Perple_X grain-density consistency, tolerance band
-  + porosity headroom + cold-edge flags) — both AppTest-verified.
+  + porosity headroom + cold-edge flags) — both AppTest-verified. The new
+  Perple_X native-domain density heatmap + selected-draw geotherm overlay is
+  `implemented, unverified`: structural AppTest passed; manager visual check
+  remains.
 - Fixes: Titan "C/MR^2 = None" message (SetCMR2strings guard + SetupInit
   call); PREM porosity-table path; NaCl `_warn_once` broadcast crash;
   `bulk_overrides` threading in `build_tbw_grid_cache`.
@@ -88,7 +91,8 @@ v5/v6/v7 slots (not wired pending adjudication).
 
 - Machine A (Claude): v5/v6/v7 gate adjudication (scientific-reviewer pass);
   then wire ratified slots; maintain queues.
-- Machine A (Codex 5.6): work `plans/CODEX-QUEUE.md`.
+- Machine A (Codex 5.6): C3 report awaits manager review; no unclaimed task
+  remains in `plans/CODEX-QUEUE.md`.
 - Machine B: RUNNING (2026-08-02) a long integration test of the corrected
   NH3 activity model to check it addresses all concerns; Titan NH3 Phase 0
   re-run follows its outcome. HOLD on any v5/v6/v7 retraining until

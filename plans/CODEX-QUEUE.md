@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-02 at genai `400f84e5`. Curated by the Claude model manager
+Updated: 2026-08-02 at genai `2a31c345`. Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -20,7 +20,11 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-### C3 — Perple_X geotherm-overlay figure in Mineralogy tab [status: in progress (Codex)]
+No unclaimed tasks.
+
+## Completed
+
+### C3 — Perple_X geotherm-overlay figure in Mineralogy tab [status: implemented, unverified]
 
 `PlanetProfileApp/pages/Inference.py` Mineralogy tab + helpers in
 `PlanetProfileApp/Utilities/radial_profiles.py`. Add an expander "Geotherm vs
@@ -37,7 +41,20 @@ overlay path P,T ranges match the sampled profile = structural verification;
 in-browser/visual confirmation stays with the manager, so top status you can
 claim alone is `implemented, unverified` + AppTest evidence.
 
-## Completed
+**Report (Codex, 2026-08-02):** `implemented, unverified`. Added the exact
+expander and a Mineralogy-namespaced composition selectbox backed by
+`PERPLEX_SILICATE_TABLES`. The heatmap uses `GetInnerEOS` and the loaded
+RectBivariateSpline knots over the native P,T endpoints, with bounded cached
+sampling; it overlays the selected draw's existing silicate P,T path and
+shades `T < Tmin + 25 K`. The crisp figure cache token includes the result,
+sample, composition, and figure version. Structural evidence:
+`tests/app_globe_panel_test.py::test_apptest_mineralogy_tab` passed (1 passed,
+one pre-existing TidalPy deprecation warning), asserting the expander,
+selectbox, figure exports/object, grid shape/native endpoints, and exact path
+range equality with `mineralogy_for_sample`. `py_compile` and
+`git diff --check` passed. Browser/visual confirmation was not performed and
+remains with the manager. Claim commit `e41d725a`; implementation commit
+`2a31c345`.
 
 ### C2 — Titan classic-MoI reconnaissance [status: verified]
 
