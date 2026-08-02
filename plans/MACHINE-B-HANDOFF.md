@@ -20,22 +20,37 @@ gate for these campaigns until Machine A sends a scoped verdict. Machine A may
 send follow-up diagnostics requests (e.g. extended reference-MCMC chains or
 containment sweeps) — treat those as the next v5/v6/v7 action, nothing else.
 
-## 1. Titan NH3-ocean campaign — Phase 0 RE-RUN (top executable item)
+## 1. Titan NH3 — JOINT no-ocean+ocean cache + SBI (Task #68 governs)
 
-The NH3 water-activity model was corrected 2026-07-28 (commit `6c5ee2af`,
-Melinder-anchored; the CoolProp mixture excess had the wrong sign and the
-"L-K 2002" shift was deleted). Any earlier Phase-0 feasibility scan is void —
-it would bake a 24–32 km D_iceIh bias into the training set.
+RECONCILED by Machine A 2026-08-02 per the user's firm decision (2026-07-30,
+re-affirmed 2026-08-02) and Machine B's addendum
+`plans/STATUS-2026-08-01-machineB-joint-nh3.md`. The earlier "Phase-0
+rectangle re-run" framing here is WITHDRAWN: the provisional rectangle
+Tb [248,257] K x w [30,100] ppt would re-condition the posterior on "an ocean
+exists" and exceeds the 70 ppt NH3 ceiling. The corrected-activity-model
+directive (`6c5ee2af`) COMPOSES with, not supersedes, the joint design — its
+requirement is satisfied because the joint validations and cache are built at
+a HEAD that includes the correction. Any pre-correction feasibility numbers
+remain void.
 
-- Full executable spec: `plans/active/titan-nh3-ocean-campaign-spec.md`
-  (read the "IMPORTANT — activity model corrected" section first).
-- Prereqs: pull genai >= `6c5ee2af`; `pip install CoolProp` in PPcl;
-  sanity `python -m pytest tests/coolprop_nh3_test.py` (15 pass, ~3 min).
-- Provisional Phase-1 rectangle: Tb in [248, 257] K x w in [30, 100] ppt —
-  confirm with the Phase-0 scan before building the 2D cache.
-- Then Phases 1–3 per spec (2D cache -> config + reference MCMC -> SBI +
-  gates). Send the Phase-1 rectangle and the production config to Machine A
-  for freeze before generating the production dataset.
+- JOINT posterior over the FULL range Tb in [249, 263] K x w in [1, 70] ppt
+  NH3. Frozen (Tb, w) nodes build as REAL no-ocean interiors via
+  `build_tbw_grid_cache(..., retry_frozen_as_no_ocean=True)`, tagged
+  `has_ocean=False`, and STAY in support — do not truncate Tb, do not drop
+  frozen nodes.
+- Config `configs/test54_titan_nh3_freegrav.json`: no
+  `phase_stability.enforce` guard in either direction; density-inversion
+  guard + k2 support bounds still apply.
+- Continue Task #68 as planned: 3x4 joint validation -> scientific-reviewer
+  interpretation -> author config -> USER go-ahead -> full-range production
+  cache + 1M NH3 build + gates.
+- Commit and push the builder edits (typed `NoIceLiquidTransitionError`,
+  `do_overrides` channel, `retry_frozen_as_no_ocean` flag) once the 3x4
+  validation confirms them — Machine A needs them on origin before wiring
+  anything that reads the new cache metadata (`has_ocean`,
+  `n_no_ocean_nodes`).
+- Spec: `plans/active/titan-nh3-ocean-campaign-spec.md` (joint-posterior
+  supersession note at top; per-phase mechanics otherwise still apply).
 
 ## 2. Cassini–Enceladus production
 

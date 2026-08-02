@@ -10,6 +10,20 @@ campaign uses the free-gravity C20/C22 configuration (CMR2 dropped as
 observable, mass-conservation rho_sil), so classic MoI matching is
 NOT required and its current failure mode for Titan does not block.
 
+## SUPERSEDED IN PART 2026-08-02 — JOINT no-ocean+ocean posterior governs
+
+User decision (firm 2026-07-30, re-affirmed 2026-08-02; Machine A reconciled
+2026-08-02): the NH3 artifact is a JOINT no-ocean + ocean posterior over the
+FULL Tb in [249, 263] K x w in [1, 70] ppt range. Frozen nodes build as real
+no-ocean interiors (`retry_frozen_as_no_ocean=True`, `has_ocean=False`) and
+remain in support. The "provisional replacement rectangle" below
+([248,257] x [30,100]) is RETIRED — it conditioned on "an ocean exists" and
+exceeded the 70 ppt NH3 ceiling. `test_campaign_rectangle_buildable` remains
+in the test suite as a liquidus-solvability guard only, not campaign policy.
+Authoritative execution state: `plans/STATUS-2026-08-01-machineB-joint-nh3.md`
+and `plans/MACHINE-B-HANDOFF.md` §1. The activity-model correction below
+still applies in full.
+
 ## IMPORTANT — activity model corrected 2026-07-28 (scientific review)
 
 The water-activity model inside the mu-equality liquidus changed from

@@ -94,10 +94,13 @@ v5/v6/v7 slots (not wired pending adjudication).
 - Machine A (Codex 5.6): queue empty — C1/C2/C3 all closed (C3
   manager-verified 2026-08-02). Next tasks to be curated by the manager;
   candidate: C2's classic-MoI finding needs manager adjudication first.
-- Machine B: RUNNING (2026-08-02) a long integration test of the corrected
-  NH3 activity model to check it addresses all concerns; Titan NH3 Phase 0
-  re-run follows its outcome. HOLD on any v5/v6/v7 retraining until
-  adjudication.
+- Machine B: Task #68 Titan JOINT no-ocean+ocean NH3 posterior in flight —
+  3x4 validation cache running (~5 h) on the corrected activity model;
+  builder edits (`retry_frozen_as_no_ocean` etc.) live in B's working tree,
+  to be pushed after validation. Machine A reconciled the queue to the joint
+  design 2026-08-02 (see `plans/STATUS-2026-08-01-machineB-joint-nh3.md` +
+  `MACHINE-B-HANDOFF.md` §1): full Tb [249,263] K x w [1,70] ppt, frozen
+  nodes kept in support. HOLD on any v5/v6/v7 retraining until adjudication.
 - USER: HF redeploy; browser click-throughs (globe sample-picker, amortized
   body banner, selector dropdown wrap CSS — all `implemented, unverified`).
 

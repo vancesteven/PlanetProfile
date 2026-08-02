@@ -20,7 +20,38 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-No unclaimed tasks.
+### C4 — Amortized widget-key namespacing + Titan slot stubs [status: queued]
+
+Source: Machine B addendum `plans/STATUS-2026-08-01-machineB-joint-nh3.md`,
+section "What Machine A can safely plan + change now". Target:
+`PlanetProfileApp/pages/Inference.py` ONLY. Two parts:
+
+1. **Widget-key namespacing (the must-fix):** the amortized observable-input
+   widgets use global keys (e.g. `amort_obs_Re_k2`, ~line 1740) shared
+   across slots. With multiple Titan slots + Clipper all exposing Re_k2,
+   namespace the keys per slot id. Follow the precedent of commit
+   `ec711672` (per-slot namespaced widget keys for Clipper).
+2. **Titan slot stubs:** add four Titan entries to `_SBI_ARTIFACT_SLOTS`
+   (~line 1049): no-ocean (Phase A, already shipped — real paths) + NH3
+   (joint) + MgSO4 + NaCl. For the three not-yet-built slots use
+   clearly-marked TODO placeholders for `cache_path` / `config_path` /
+   `default_obs` centrals and gate status — do NOT hardcode NH3 artifact
+   paths; Machine B hands those over. NH3 `scope_note` must state: JOINT
+   no-ocean+ocean posterior (frozen Titan interiors included), gravity
+   provenance Petricca 2025, CMR2 dropped (C22 double-count), induction+h2
+   dropped (no clean Cassini signal), NH3 ocean w in [1,70] ppt. Gate the
+   placeholder slots so they render as "awaiting artifact" rather than
+   erroring.
+
+FORBIDDEN (Machine B owns, collision risk): `cache_builder.py`,
+`LayerPropagators.py`, `defineStructs.py`, `configs/test54_*`,
+`PlanetProfile/Test/mcmc_results/Titan/Test54_nh3_ocean/`,
+`plans/scripts/titanG_*`.
+
+Verification: AppTest — existing slots still load; per-slot keys present and
+distinct; placeholder Titan slots render their awaiting-artifact state
+without exceptions. In-browser confirmation stays with the manager, so top
+solo status is `implemented, unverified` + AppTest evidence.
 
 ## Completed
 
