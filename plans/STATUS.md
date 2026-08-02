@@ -1,6 +1,6 @@
 # PlanetProfile genai — current status
 
-Updated: 2026-08-02 at genai `54106fbd`. Single current-state source of truth.
+Updated: 2026-08-02 at genai `9cfc3c14`. Single current-state source of truth.
 Freshness rule: any session that pushes commits, integrates Machine B
 artifacts, or changes a queue must refresh this file's `Updated:` line and the
 affected sections in the same session. If this file is >7 days older than

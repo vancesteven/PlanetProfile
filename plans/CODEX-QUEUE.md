@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-01 at genai `54106fbd`. Curated by the Claude model manager
+Updated: 2026-08-02 at genai `9cfc3c14`. Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -20,7 +20,7 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-### C1 — Artifact ledger refresh [status: queued]
+### C1 — Artifact ledger refresh [status: in progress (Codex)]
 
 Update `PlanetProfile/Inference/sbi_artifacts/INDEX.md` so every shipped
 artifact has a current row: v5 trio, v6 trio, v7 open-|Ae|, titan_freegrav —
