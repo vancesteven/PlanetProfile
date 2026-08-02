@@ -1,6 +1,6 @@
 # PlanetProfile genai — current status
 
-Updated: 2026-08-02 at genai `2a31c345`. Single current-state source of truth.
+Updated: 2026-08-02 at genai `f4090c33`. Single current-state source of truth.
 Freshness rule: any session that pushes commits, integrates Machine B
 artifacts, or changes a queue must refresh this file's `Updated:` line and the
 affected sections in the same session. If this file is >7 days older than
@@ -24,6 +24,9 @@ never delegated to Codex.
 |---|---|---|
 | Titan (Andrade, no-ocean) Test50 8D | DEPLOYED | unchanged |
 | Titan freegrav no-ocean | delivered | artifact + gate reports in repo |
+| Titan NH₃ joint no-ocean+ocean | **awaiting artifact** | GUI placeholder; Machine B Task #68 in flight |
+| Titan MgSO₄ ocean | **awaiting artifact** | GUI placeholder; paths/centrals/gates unset |
+| Titan NaCl ocean | **awaiting artifact** | GUI placeholder; paths/centrals/gates unset |
 | Galileo–Europa v1.1 8D | DEPLOYED 2026-07-20 | gates 8/8 |
 | Clipper–Europa v4 geodesy 11D | DEPLOYED 2026-07-21 | user-ratified |
 | Clipper–Europa v5 thick-ice ablation trio | **delivered, NOT ratified** | baseline gates: sbc 0, limits 2, crosscheck 2; nok2 arm sbc 2 |
@@ -73,7 +76,10 @@ rectangle Tb [248,257] K x w [30,100] ppt. Spec:
   + porosity headroom + cold-edge flags) — both AppTest-verified. The
   Perple_X native-domain density heatmap + selected-draw geotherm overlay
   (Codex C3) is `verified` 2026-08-02: AppTest + manager visual inspection
-  of rendered CV3/CI figures.
+  of rendered CV3/CI figures. Titan amortized Phase-A/NH₃/MgSO₄/NaCl slot
+  scaffolding (Codex C4) is `implemented, unverified`: six shipped slots and
+  three awaiting-artifact states pass structural AppTest; manager browser
+  confirmation remains.
 - Fixes: Titan "C/MR^2 = None" message (SetCMR2strings guard + SetupInit
   call); PREM porosity-table path; NaCl `_warn_once` broadcast crash;
   `bulk_overrides` threading in `build_tbw_grid_cache`.
@@ -91,9 +97,10 @@ v5/v6/v7 slots (not wired pending adjudication).
 
 - Machine A (Claude): v5/v6/v7 gate adjudication (scientific-reviewer pass);
   then wire ratified slots; maintain queues.
-- Machine A (Codex 5.6): queue empty — C1/C2/C3 all closed (C3
-  manager-verified 2026-08-02). Next tasks to be curated by the manager;
-  candidate: C2's classic-MoI finding needs manager adjudication first.
+- Machine A (Codex 5.6): queue empty — C1/C2/C3 are `verified`; C4 is
+  `implemented, unverified` and awaits manager browser confirmation. Next
+  tasks to be curated by the manager; candidate: C2's classic-MoI finding
+  needs manager adjudication first.
 - Machine B: Task #68 Titan JOINT no-ocean+ocean NH3 posterior in flight —
   3x4 validation cache running (~5 h) on the corrected activity model;
   builder edits (`retry_frozen_as_no_ocean` etc.) live in B's working tree,

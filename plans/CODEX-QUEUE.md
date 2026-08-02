@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-02 at genai `e9df7e86`. Curated by the Claude model manager
+Updated: 2026-08-02 at genai `f4090c33`. Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -20,7 +20,11 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-### C4 — Amortized widget-key namespacing + Titan slot stubs [status: in progress (Codex)]
+No unclaimed tasks.
+
+## Completed
+
+### C4 — Amortized widget-key namespacing + Titan slot stubs [status: implemented, unverified]
 
 Source: Machine B addendum `plans/STATUS-2026-08-01-machineB-joint-nh3.md`,
 section "What Machine A can safely plan + change now". Target:
@@ -53,7 +57,24 @@ distinct; placeholder Titan slots render their awaiting-artifact state
 without exceptions. In-browser confirmation stays with the manager, so top
 solo status is `implemented, unverified` + AppTest evidence.
 
-## Completed
+**Report (Codex, 2026-08-02):** `implemented, unverified`. The earlier
+`ec711672` repair already namespaced observable/sigma/truncation/Ae keys by
+artifact; C4 preserves that behavior and gives the shipped Phase-A slot an
+explicit stable `slot_id` namespace. Registered the NH₃ joint, MgSO₄, and
+NaCl Titan placeholders with `artifact_filename`, `config_path`,
+`cache_path`, and `default_obs` unset and gate fields marked TODO. Placeholder
+discovery is deliberate and selectable, but returns before any file stat,
+config read, or runner load; the Generate button is disabled. The shipped
+Phase-A slot remains the default. The NH₃ scope note records the required
+joint frozen/ocean support, Petricca-2025 gravity, CMR² and induction/h₂
+exclusions, and `[1,70] ppt` range. AppTest structural evidence using
+`AppTest.from_file(PlanetProfileApp/pages/Inference.py)`: all six shipped
+top-level slots rendered without exceptions and with enabled Generate;
+Phase-A, Test50, and Clipper `Re_k2` keys were distinct; Clipper retained
+`Re_k2 = 0.23`; all three placeholders rendered `Awaiting artifact`, TODO
+gate status, and disabled Generate without exceptions. `py_compile` and
+`git diff --check` passed. Browser confirmation was not performed and remains
+with the manager. Claim commit `220ec593`; implementation commit `f4090c33`.
 
 ### C3 — Perple_X geotherm-overlay figure in Mineralogy tab [status: verified]
 
