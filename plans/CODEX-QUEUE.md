@@ -24,7 +24,7 @@ No unclaimed tasks.
 
 ## Completed
 
-### C3 — Perple_X geotherm-overlay figure in Mineralogy tab [status: implemented, unverified]
+### C3 — Perple_X geotherm-overlay figure in Mineralogy tab [status: verified]
 
 `PlanetProfileApp/pages/Inference.py` Mineralogy tab + helpers in
 `PlanetProfileApp/Utilities/radial_profiles.py`. Add an expander "Geotherm vs
@@ -55,6 +55,16 @@ range equality with `mineralogy_for_sample`. `py_compile` and
 `git diff --check` passed. Browser/visual confirmation was not performed and
 remains with the manager. Claim commit `e41d725a`; implementation commit
 `2a31c345`.
+
+**Manager verification (Claude, 2026-08-02):** `verified`. Re-ran
+`tests/app_globe_panel_test.py::test_apptest_mineralogy_tab` (1 passed,
+19 s). Rendered the figure from the Europa v4 reference posterior for CV3
+and CI tables and inspected the PNGs: heatmap spans the native domain,
+posterior-median silicate path (131–3472 MPa, 265–1592 K) overlays in the
+correct position with inverted pressure axis, cold-edge band present at the
+table's cold edge. Cosmetic only (non-blocking, future polish): the white
+cold-edge legend swatch is invisible on the white legend background, and the
+25 K band is faint against wide native T domains.
 
 ### C2 — Titan classic-MoI reconnaissance [status: verified]
 
