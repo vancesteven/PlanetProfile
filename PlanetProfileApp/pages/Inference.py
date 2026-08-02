@@ -2582,7 +2582,7 @@ _mpl.rcParams['text.usetex'] = False
 # Bump when the globe-panel figure/table code changes shape: cached
 # export bytes in live sessions carry the version, so a code update
 # invalidates them instead of replaying stale figures.
-_GLOBE_FIG_VER = 5
+_GLOBE_FIG_VER = 6
 
 
 def _result_token():
@@ -3954,7 +3954,10 @@ def render_results():
 
                 with _tab_min:
                     from Utilities.radial_profiles import (
-                        mineralogy_for_sample)
+                        PERPLEX_SILICATE_TABLES,
+                        build_perplex_geotherm_figure,
+                        mineralogy_for_sample,
+                        perplex_geotherm_overlay_data)
                     _min, _mnote = mineralogy_for_sample(
                         result, sel_idx, parent_directory)
                     if _min is None:
@@ -3990,6 +3993,55 @@ def render_results():
                                      width='stretch')
                         for _n in _min['notes']:
                             st.caption(f"⚠ {_n}")
+                        with st.expander("Geotherm vs Perple_X table"):
+                            _perplex_labels = {
+                                fname: label for fname, label
+                                in PERPLEX_SILICATE_TABLES}
+                            _perplex_table = st.selectbox(
+                                "Perple_X composition",
+                                options=list(_perplex_labels),
+                                format_func=lambda fname:
+                                    _perplex_labels[fname],
+                                key='mineralogy_perplex_composition')
+                            _ov, _ovnote = perplex_geotherm_overlay_data(
+                                result, sel_idx, parent_directory,
+                                _perplex_table)
+                            if _ov is None:
+                                st.info("Perple_X geotherm overlay "
+                                        f"unavailable: {_ovnote}")
+                            else:
+                                _otitle = (
+                                    f"{_perplex_labels[_perplex_table]} — "
+                                    + (f"sample #{sel_idx}"
+                                       if sel_idx is not None
+                                       else "posterior median"))
+                                _crisp_display(
+                                    builder=lambda: (
+                                        build_perplex_geotherm_figure(
+                                            _ov, _otitle)),
+                                    key='mineralogy_perplex_geotherm',
+                                    download_label=(
+                                        'Perple_X geotherm overlay'),
+                                    token=(_result_token(), sel_idx,
+                                           _perplex_table,
+                                           _GLOBE_FIG_VER),
+                                    heavy=True)
+                                _oplo, _ophi = \
+                                    _ov['P_path_range_MPa']
+                                _otlo, _othi = _ov['T_path_range_K']
+                                _nplo, _nphi = \
+                                    _ov['P_native_range_MPa']
+                                _ntlo, _nthi = _ov['T_native_range_K']
+                                st.caption(
+                                    "Selected-draw silicate path: "
+                                    f"P = {_oplo:.1f}–{_ophi:.1f} MPa, "
+                                    f"T = {_otlo:.1f}–{_othi:.1f} K. "
+                                    "Heatmap native table domain: "
+                                    f"P = {_nplo:.1f}–{_nphi:.1f} MPa, "
+                                    f"T = {_ntlo:.1f}–{_nthi:.1f} K. "
+                                    "The translucent band marks the "
+                                    "table's cold-edge warning region "
+                                    f"below {_ov['Tmin_K'] + 25.0:.1f} K.")
                         st.caption(
                             "POST-HOC consistency check, not part of "
                             "the inference: each shipped Perple_X "

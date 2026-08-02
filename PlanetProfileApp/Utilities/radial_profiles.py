@@ -516,6 +516,91 @@ PERPLEX_SILICATE_TABLES = (
 )
 
 
+@st.cache_data(show_spinner=False, max_entries=len(PERPLEX_SILICATE_TABLES))
+def _perplex_density_grid(table_fname: str, max_axis_points: int = 240
+                          ) -> Dict:
+    """Load one Perple_X table through PlanetProfile and sample its native
+    P,T spline domain for display.
+
+    ``GetInnerEOS`` owns table parsing and the RectBivariateSpline machinery;
+    this helper only obtains the spline knots and evaluates that loaded EOS.
+    The axes preserve both native endpoints while bounded thinning keeps the
+    heatmap/export responsive in Streamlit.
+    """
+    from PlanetProfile.Thermodynamics.InnerEOS import GetInnerEOS
+    from PlanetProfile.Utilities.defineStructs import EOSlist
+
+    eos = GetInnerEOS(table_fname)
+    raw = EOSlist.loaded[eos.key]
+    P_native, T_native = (
+        np.unique(np.asarray(axis, float))
+        for axis in raw.ufn_rho_kgm3.get_knots())
+
+    def _thin(axis):
+        if axis.size <= max_axis_points:
+            return axis
+        inds = np.unique(np.linspace(
+            0, axis.size - 1, max_axis_points).round().astype(int))
+        return axis[inds]
+
+    P_axis = _thin(P_native)
+    T_axis = _thin(T_native)
+    rho = np.asarray(eos.fn_rho_kgm3(
+        P_axis, T_axis, grid=True), float)
+    return {
+        'table': table_fname,
+        'P_axis_MPa': P_axis,
+        'T_axis_K': T_axis,
+        'rho_grid_kgm3': rho,
+        'P_native_range_MPa': (float(raw.Pmin), float(raw.Pmax)),
+        'T_native_range_K': (float(raw.Tmin), float(raw.Tmax)),
+        'Tmin_K': float(raw.Tmin),
+    }
+
+
+def perplex_geotherm_overlay_data(result, sel_idx: Optional[int],
+                                  parent_directory, table_fname: str
+                                  ) -> Tuple[Optional[Dict], str]:
+    """Perple_X density grid plus the selected draw's silicate P,T path.
+
+    Display-only: the path comes from the same cached radial profile and
+    silicate phase mask as :func:`mineralogy_for_sample`; no values feed back
+    into inference or alter the thermodynamic table.
+    """
+    valid_tables = {fname for fname, _ in PERPLEX_SILICATE_TABLES}
+    if table_fname not in valid_tables:
+        return None, f'unknown Perple_X silicate table: {table_fname}'
+    prof, note = profile_for_sample(result, sel_idx, parent_directory)
+    if prof is None:
+        return None, note
+    ph = prof.get('phases')
+    P = prof.get('P_MPa')
+    T = prof.get('T_K')
+    if any(v is None for v in (ph, P, T)):
+        return None, 'draw profile lacks P or T'
+    ph = np.asarray(ph)
+    P = np.asarray(P, float)
+    T = np.asarray(T, float)
+    sil = (ph >= 50) & (ph < 100)
+    ok = sil & np.isfinite(P) & np.isfinite(T)
+    if not np.any(ok):
+        return None, 'no finite silicate P, T path in this draw'
+    try:
+        out = dict(_perplex_density_grid(table_fname))
+    except Exception as e:
+        return None, f'Perple_X table unavailable: {e}'
+    Ps, Ts = P[ok], T[ok]
+    order = np.argsort(Ps)
+    Ps, Ts = Ps[order], Ts[order]
+    out.update({
+        'P_path_MPa': Ps,
+        'T_path_K': Ts,
+        'P_path_range_MPa': (float(Ps.min()), float(Ps.max())),
+        'T_path_range_K': (float(Ts.min()), float(Ts.max())),
+    })
+    return out, ''
+
+
 def mineralogy_for_sample(result, sel_idx: Optional[int], parent_directory,
                           phiTop_max_frac: float = 0.5,
                           Pclosure_MPa: float = 350.0,
@@ -813,6 +898,38 @@ def build_geotherm_figure(prof: Dict, title: str):
     if Ppos.size:
         ax.set_ylim(float(np.nanmax(P)) * 1.1, float(Ppos.min()) * 0.9)
     ax.set_title(title, fontsize=11)
+    fig.tight_layout()
+    return fig
+
+
+def build_perplex_geotherm_figure(data: Dict, title: str):
+    """Grain-density heatmap over a table's native P,T domain with the
+    selected draw's silicate geotherm and the 25 K cold-edge band.
+    """
+    import matplotlib.pyplot as plt
+
+    P = np.asarray(data['P_axis_MPa'], float)
+    T = np.asarray(data['T_axis_K'], float)
+    rho = np.asarray(data['rho_grid_kgm3'], float)
+    P_path = np.asarray(data['P_path_MPa'], float)
+    T_path = np.asarray(data['T_path_K'], float)
+    Tmin = float(data['Tmin_K'])
+
+    fig, ax = plt.subplots(figsize=(7.4, 5.8))
+    mesh = ax.pcolormesh(T, P, rho, shading='auto', cmap='viridis')
+    cbar = fig.colorbar(mesh, ax=ax, pad=0.02)
+    cbar.set_label(r'Grain density $\rho$ (kg m$^{-3}$)')
+    ax.axvspan(Tmin, min(Tmin + 25.0, float(T.max())),
+               color='white', alpha=0.28, linewidth=0,
+               label=r'cold edge: $T < T_\min + 25$ K')
+    ax.plot(T_path, P_path, color='crimson', linewidth=2.0,
+            label='selected draw silicate path')
+    ax.set_xlim(float(T.min()), float(T.max()))
+    ax.set_ylim(float(P.max()), float(P.min()))
+    ax.set_xlabel('Temperature $T$ (K)')
+    ax.set_ylabel('Pressure $P$ (MPa)')
+    ax.set_title(title, fontsize=11)
+    ax.legend(fontsize=8, loc='lower right', framealpha=0.9)
     fig.tight_layout()
     return fig
 

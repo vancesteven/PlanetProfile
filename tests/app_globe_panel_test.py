@@ -275,6 +275,43 @@ def test_apptest_mineralogy_tab():
     mets = [str(getattr(m, 'label', '')) for m in at.main
             if type(m).__name__ == 'Metric']
     assert 'Inferred bulk silicate density' in mets
+    expanders = [str(getattr(e, 'label', '')) for e in at.get('expander')]
+    assert 'Geotherm vs Perple_X table' in expanders
+    composition = next(
+        s for s in at.selectbox
+        if str(getattr(s, 'key', '')) == 'mineralogy_perplex_composition')
+    assert composition.value.endswith('.tab')
+    download_keys = [str(getattr(b, 'key', ''))
+                     for b in at.get('download_button')]
+    assert 'mineralogy_perplex_geotherm_pdf' in download_keys
+    assert 'mineralogy_perplex_geotherm_png' in download_keys
+
+    # The overlay helper must preserve the exact selected-draw silicate
+    # P,T ranges used by the mineralogy summary (posterior median here).
+    from Utilities.radial_profiles import (
+        build_perplex_geotherm_figure, mineralogy_for_sample,
+        perplex_geotherm_overlay_data)
+    summary, note = mineralogy_for_sample(res, None, REPO)
+    assert summary is not None, note
+    overlay, note = perplex_geotherm_overlay_data(
+        res, None, REPO, composition.value)
+    assert overlay is not None, note
+    assert np.allclose(overlay['P_path_range_MPa'],
+                       summary['P_sil_range_MPa'])
+    assert np.allclose(overlay['T_path_range_K'],
+                       summary['T_sil_range_K'])
+    assert overlay['rho_grid_kgm3'].shape == (
+        len(overlay['P_axis_MPa']), len(overlay['T_axis_K']))
+    assert overlay['P_native_range_MPa'] == (
+        float(overlay['P_axis_MPa'][0]),
+        float(overlay['P_axis_MPa'][-1]))
+    assert overlay['T_native_range_K'] == (
+        float(overlay['T_axis_K'][0]),
+        float(overlay['T_axis_K'][-1]))
+    fig = build_perplex_geotherm_figure(overlay, 'test overlay')
+    assert len(fig.axes) == 2  # heatmap axis + density colorbar
+    assert fig.axes[0].get_lines(), 'selected-draw P,T path missing'
+    matplotlib.pyplot.close(fig)
 
 
 @pytest.mark.skipif(not EUROPA_V4_PKL.exists(),
