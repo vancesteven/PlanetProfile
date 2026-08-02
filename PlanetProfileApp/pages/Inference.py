@@ -1284,6 +1284,14 @@ _SBI_ARTIFACT_SLOTS = {
         # Trained torch 2.8.0 / sbi 0.26.1 — same runtime; no pair needed.
     },
     'europa_clipper_v5_geodesy_11D_posterior_1m.pt': {
+        # Adjudication hold (manager, 2026-08-02): v5/v6 baselines share the
+        # systematic limits-containment + crosscheck gate failures recorded in
+        # plans/STATUS.md. Delivered artifacts stay visible but must not
+        # condition a posterior until the gates are adjudicated.
+        'artifact_status': 'not_ratified',
+        'gate_status': ('NOT RATIFIED — baseline gates: sbc pass, limits '
+                        'containment FAIL, crosscheck FAIL (D_iceIh_km, '
+                        'log10_wOcean_ppt); see plans/STATUS.md'),
         'label': ('1D · Clipper–Europa (Andrade, seawater) — v5 geodesy, '
                   '11D ice-thickness reparam + non-hydrostatic gravity'),
         'bodyname': 'Europa',
@@ -1340,6 +1348,9 @@ _SBI_ARTIFACT_SLOTS = {
     # the geodesy central values — only the names present in each config's
     # observable set are read, so the extra keys are inert. ---
     'europa_clipper_v5_noinduction_7obs_posterior_1m.pt': {
+        'artifact_status': 'not_ratified',
+        'gate_status': ('NOT RATIFIED — v5 family under gate adjudication; '
+                        'see plans/STATUS.md'),
         'label': ('1D · Clipper–Europa (Andrade, seawater) — v5 geodesy, '
                   '11D · channels: gravity + tidal k₂/h₂ (no induction)'),
         'bodyname': 'Europa',
@@ -1362,6 +1373,9 @@ _SBI_ARTIFACT_SLOTS = {
                        'FAILED-this-pass; do not cite as ratified.'),
     },
     'europa_clipper_v5_nok2_17obs_posterior_1m.pt': {
+        'artifact_status': 'not_ratified',
+        'gate_status': ('NOT RATIFIED — v5 family under gate adjudication; '
+                        'see plans/STATUS.md'),
         'label': ('1D · Clipper–Europa (Andrade, seawater) — v5 geodesy, '
                   '11D · channels: gravity + induction (no tidal k₂/h₂)'),
         'bodyname': 'Europa',
@@ -1414,6 +1428,10 @@ _SBI_ARTIFACT_SLOTS = {
     # constraint. Same channel-family slicing as v5 (paired column slices of
     # one 1M dataset). ---
     'europa_clipper_v6_freegrav_11D_posterior_1m.pt': {
+        'artifact_status': 'not_ratified',
+        'gate_status': ('NOT RATIFIED — baseline gates: sbc pass, limits '
+                        'containment FAIL, crosscheck FAIL (D_iceIh_km, '
+                        'log10_wOcean_ppt); see plans/STATUS.md'),
         'label': ('1D · Clipper–Europa (Andrade, seawater) — v6 free-gravity, '
                   '11D · free C₂₀/C₂₂ (agnostic), CMR₂ dropped'),
         'bodyname': 'Europa',
@@ -1472,6 +1490,9 @@ _SBI_ARTIFACT_SLOTS = {
     # channels. default_obs reuses the baseline centrals — only names present
     # in each config's observable set are read, so extra keys are inert. ---
     'europa_clipper_v6_freegrav_noinduction_6obs_posterior_1m.pt': {
+        'artifact_status': 'not_ratified',
+        'gate_status': ('NOT RATIFIED — v6 family under gate adjudication; '
+                        'see plans/STATUS.md'),
         'label': ('1D · Clipper–Europa (Andrade, seawater) — v6 free-gravity, '
                   '11D · channels: gravity + tidal k₂/h₂ (no induction)'),
         'bodyname': 'Europa',
@@ -1495,6 +1516,9 @@ _SBI_ARTIFACT_SLOTS = {
                        'only (no interior-C/MR² claim until Task D, #36).'),
     },
     'europa_clipper_v6_freegrav_nok2_16obs_posterior_1m.pt': {
+        'artifact_status': 'not_ratified',
+        'gate_status': ('NOT RATIFIED — v6 family under gate adjudication; '
+                        'see plans/STATUS.md'),
         'label': ('1D · Clipper–Europa (Andrade, seawater) — v6 free-gravity, '
                   '11D · channels: gravity + induction (no tidal k₂/h₂)'),
         'bodyname': 'Europa',
@@ -1873,9 +1897,12 @@ def render_amortized_config():
         "Mission–body analysis:", list(groups), key='amort_analysis')
     _vers = list(reversed(groups[sel_analysis]))  # newest first
     _vlabels = [v_ for _, v_, _ in _vers]
+    # Default to the newest slot with NO gating status — placeholders
+    # (awaiting_artifact) and delivered-but-unratified artifacts
+    # (not_ratified) are selectable for transparency but never the default.
     _vdefault = next((i for i, (_, _, ref) in enumerate(_vers)
-                      if _SBI_ARTIFACT_SLOTS[ref].get('artifact_status')
-                      != 'awaiting_artifact'), 0)
+                      if not _SBI_ARTIFACT_SLOTS[ref].get('artifact_status')),
+                     0)
     sel_version = cv_.selectbox(
         "Model version:", _vlabels, index=_vdefault,
         key=f'amort_version_{sel_analysis}')
@@ -1972,6 +1999,21 @@ def render_amortized_config():
         if slot.get('scope_note'):
             st.caption(f"ℹ️ {slot['scope_note']}")
         st.caption(f"Gate status: {slot.get('gate_status', 'TODO')}")
+        return None
+
+    # Delivered artifacts under scientific-gate adjudication are listed so
+    # their existence and gate state are visible, but conditioning is
+    # disabled until the manager ratifies them (adjudication hold,
+    # plans/STATUS.md 2026-08-01: preregistered limits/crosscheck gates
+    # failed; do not present unratified posteriors as results).
+    if slot.get('artifact_status') == 'not_ratified':
+        st.warning("🔬 **Delivered, not ratified** — this artifact's "
+                   "validation gates failed preregistered tolerances and "
+                   "are under scientific adjudication. Conditioning is "
+                   "disabled until ratification.")
+        if slot.get('scope_note'):
+            st.caption(f"ℹ️ {slot['scope_note']}")
+        st.caption(f"Gate status: {slot.get('gate_status', 'see STATUS.md')}")
         return None
 
     # Slot-specific induction documentation (numbers sourced from each
