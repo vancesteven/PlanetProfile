@@ -24,6 +24,11 @@ CFG = ROOT / "PlanetProfile/Inference/configs/test54_titan_nh3_freegrav.json"
 REPORTS = ROOT / "validation_reports/titan_freegrav_nh3_1m"
 REF_MCMC = (ROOT / "validation_reports/titan_freegrav_nh3_1m/reference/"
             "titan_freegrav_nh3_reference_result.pkl")
+# Training dataset for the posterior-predictive + prior-predictive-interior
+# diagnostic (built by titanG_nh3_gen_dataset.py in /tmp). Optional: the PPC
+# step is skipped with a note if it is absent.
+DATASET = Path("/tmp/titanG_build/datasets/titanG_nh3_1m.npz")
+PPC = [str(ROOT / "plans/scripts/titanG_ppc_interior_check.py")]
 VALIDATE = ["python", "-m", "PlanetProfile.Inference.validate_sbi"]
 SEED = "72"
 
@@ -73,6 +78,21 @@ def main():
             REPORTS / "crosscheck.log")
     else:
         rc["crosscheck"] = f"MISSING reference MCMC: {REF_MCMC} — run titanG_nh3_reference_mcmc.py"
+
+    # Posterior-predictive coverage + prior-predictive interior check.
+    # DIAGNOSTIC (not a gate — never tuned to pass). Answers the user's
+    # "k2 has an extraordinarily broad range" observation quantitatively:
+    # does the conditioned posterior reproduce the data, and is x_obs
+    # interior to the prior-predictive envelope? Skipped (noted) if the
+    # training .npz is absent (it lives in /tmp, may be cleared).
+    if DATASET.exists():
+        rc["ppc"] = run(["python"] + PPC + [
+            "--artifact", str(ART), "--config", str(CFG),
+            "--dataset", str(DATASET),
+            "--output-dir", str(REPORTS / "ppc"),
+            "--n-post", "4000", "--seed", SEED], REPORTS / "ppc.log")
+    else:
+        rc["ppc"] = f"SKIPPED (diagnostic): training dataset absent at {DATASET}"
 
     with open(REPORTS / "titanG_nh3_gate_summary.json", "w") as f:
         json.dump({"seed": int(SEED), "artifact": str(ART), "config": str(CFG),

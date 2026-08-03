@@ -2128,7 +2128,8 @@ class MCMCRunner:
                              apply_support_guard: bool = False, imag_convention: str = 'signed',
                              drop_nonfinite: bool = False, seed: Optional[int] = None,
                              provenance: Optional[dict] = None,
-                             obs_noise: bool = False, noise_seed: Optional[int] = None):
+                             obs_noise: bool = False, noise_seed: Optional[int] = None,
+                             theta_override: Optional[np.ndarray] = None):
         """
         Generate (theta, x) dataset by sampling from the prior.
 
@@ -2194,6 +2195,15 @@ class MCMCRunner:
                 observation noise (independent of the prior-draw ``seed`` so
                 the same theta set can be re-noised reproducibly). None draws
                 from a fresh nondeterministic Generator.
+            theta_override: If provided, evaluate the forward model on THIS
+                (n, D) theta array instead of drawing n_samples from the prior
+                (``n_samples`` is then ignored and set to len(theta_override)).
+                Used by the posterior-predictive-check diagnostic to push
+                posterior draws back through the identical theta->x loop the
+                training set uses — guaranteeing byte-identical forward
+                physics (same ``_derive_gravity_pair`` / ``forward_model_k2_
+                flexible`` / support-guard code) with no re-implementation.
+                Default None preserves prior-draw behavior byte-identically.
 
         Returns:
             (theta, x) tuple. When ``apply_support_guard`` or
@@ -2225,8 +2235,14 @@ class MCMCRunner:
         if seed is not None:
             np.random.seed(seed)
 
-        # Sample from prior
-        theta = self.prior.rvs(n_samples)
+        # Sample from prior — unless the caller supplied an explicit theta
+        # array (posterior-predictive-check diagnostic): then evaluate the
+        # forward model on those exact draws through the identical loop below.
+        if theta_override is not None:
+            theta = np.asarray(theta_override, dtype=float)
+            n_samples = len(theta)
+        else:
+            theta = self.prior.rvs(n_samples)
 
         x = []
         theta_kept = []

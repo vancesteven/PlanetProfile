@@ -1,7 +1,9 @@
 # PlanetProfile genai — current status
 
-Updated: 2026-08-03 (Machine A: NH3 slot repair `255585c0` — see Titan NH3
-section for the missing-cache blocker). Single current-state source of truth.
+Updated: 2026-08-03 (Machine B: committed missing NH3 cache `3e9a275a`
+[unblocks slot repair]; added PPC+interior diagnostic — SBI Im_k2 pushforward
+discrepancy under reviewer adjudication, see Titan NH3 section). Single
+current-state source of truth.
 Freshness rule: any session that pushes commits, integrates Machine B
 artifacts, or changes a queue must refresh this file's `Updated:` line and the
 affected sections in the same session. If this file is >7 days older than
@@ -123,6 +125,25 @@ once the cache lands.
 
 Next in Phase B: MgSO4 (seeds 73/7373/73, salinity log10[0,2.288]), then NaCl
 (74/7474/74, log10[0,2.477]) — each own config + 2D cache + artifact.
+
+**Posterior-predictive + interior diagnostic (2026-08-03, in gate runner).**
+`plans/scripts/titanG_ppc_interior_check.py` (wired into `titanG_nh3_run_gates.py`
+→ inherited by MgSO4/NaCl gate scripts) pushes SBI posterior draws back through
+the identical theta→x forward loop (new `theta_override` kwarg on
+`generate_sbi_dataset`; forward path validated exact, max|fwd−stored|=0) and
+reports posterior-predictive coverage vs x_obs + the prior-predictive percentile
+of x_obs. NH3 result: x_obs interior on all 4 channels (C20 42/C22 60/Re_k2 80/
+Im_k2 86 pctile) — the flow interpolates, confirming the prior verdict. BUT a
+NEW finding surfaced: SBI posterior-predictive |Im_k2| median 0.042 vs the MCMC
+reference 0.093 (obs 0.135) — the SBI flow over-weights the low-dissipation
+branch, traced to log10_zeta/eta_Ih shifts that pass the per-param crosscheck by
+the thinnest margins (90–92% of tol) and compound in Im_k2. The per-param
+crosscheck gate provably cannot see this (it never pushes forward to k2).
+**Scientific-reviewer adjudicating whether this changes the NH3 ratification and
+what MgSO4/NaCl must satisfy — verdict PENDING; do not start MgSO4 compute until
+it lands.** Report: `validation_reports/titan_freegrav_nh3_1m/ppc/`.
+Deployed sampling path confirmed `reject_outside_prior=True` (reviewer MINOR
+closed).
 
 ## Landed on genai since the 8e91d440 HF snapshot (selection)
 
