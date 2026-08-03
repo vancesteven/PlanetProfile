@@ -50,6 +50,21 @@ Priority vs Titan: Titan NH3 Task #68 (section 1) remains your active task;
 run B1–B6 after the 3x4 validation completes, before the full NH3
 production build.
 
+## 0.5 URGENT — push the Titan NH3 structure cache (2026-08-03)
+
+Your `a76ababa` delivery omitted
+`PlanetProfile/Test/mcmc_results/Titan/Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl`
+— the artifact + config landed, the cache did not (same miss as the v5 cache
+in July). The GUI slot errors on every machine but yours; Machine A patched
+the selector default + messaging (`255585c0`), but the slot stays
+non-functional off-B until the cache pkl (and any sidecar) is committed and
+pushed. Size precedent: v5 2D cache 21 MB is in-repo. Also: add the ocean
+composition to future cache metadata (MgSO4/NaCl builds) so the GUI need
+not rely on slot-side assertions. Process note going forward: GUI slot
+wiring and ratification countersign are Machine A manager duties — deliver
+artifact + gates + RATIFICATION recommendation, and let A wire + verify the
+slot (your wiring was kept this time; A repaired the fallout).
+
 ## 1. Titan NH3 — JOINT no-ocean+ocean cache + SBI (Task #68 governs)
 
 RECONCILED by Machine A 2026-08-02 per the user's firm decision (2026-07-30,

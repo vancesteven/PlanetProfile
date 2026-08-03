@@ -1,8 +1,7 @@
 # PlanetProfile genai — current status
 
-Updated: 2026-08-02 (integrating Titan NH3 joint 1M artifact — ratified verified
-2026-08-03, GUI slot wired — onto genai `f4090c33`). Single current-state source
-of truth.
+Updated: 2026-08-03 (Machine A: NH3 slot repair `255585c0` — see Titan NH3
+section for the missing-cache blocker). Single current-state source of truth.
 Freshness rule: any session that pushes commits, integrates Machine B
 artifacts, or changes a queue must refresh this file's `Updated:` line and the
 affected sections in the same session. If this file is >7 days older than
@@ -106,6 +105,21 @@ version; widget keys already namespaced by artifact filename (no shared-key
 collision). Headless load+sample verified (artifact loads at deployed path,
 2000 finite draws at the slot fiducial, salinity+Tb span the full joint plane).
 In-browser render (`implemented, unverified`) still pending.
+
+**BLOCKER found 2026-08-03 (Machine A, user-reported):** the structure cache
+`Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl` was NOT committed —
+the slot errors ("Structure cache not found") on every machine but B, and as
+the newest Titan version it had become the DEFAULT, breaking the Titan model
+selector for users. Repairs on `255585c0` (verified, AppTest 8/8): version
+default skips slots whose artifact/cache is missing locally (NH3 stays
+selectable with awaiting-cache guidance, Generate disabled); NH3 tag added to
+the dropdown-visible label tail; wedge now labels the ocean with the run's
+asserted composition (NH3) instead of Titan's MgSO4 body default, threaded
+via the slot -> result config (training JSON/config hash untouched).
+**Machine B: commit + push the Test54 cache pkl** (v5 precedent, 21 MB) —
+until then the NH3 slot is non-functional on Machine A and any HF deploy.
+Manager countersign of the B-side ratification + in-browser verify follow
+once the cache lands.
 
 Next in Phase B: MgSO4 (seeds 73/7373/73, salinity log10[0,2.288]), then NaCl
 (74/7474/74, log10[0,2.477]) — each own config + 2D cache + artifact.
