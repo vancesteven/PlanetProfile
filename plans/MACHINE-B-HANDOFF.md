@@ -74,6 +74,58 @@ v1.1 first** (they are on the public app), then v5/v6/v7. If v4's k2 or
 gravity pushforward sits at the prior-predictive median, surface
 immediately — do not wait for the rest of the batch.
 
+## 0.6 Manager advisory (2026-08-04) — Europa PPC batch + under-update diagnosis
+
+Advice, not new scope — sequencing and design guardrails for §0.5/B5. The
+user is HOLDING the HF redeploy until the v4/v1.1 PPC verdict, so that pair
+is the critical path.
+
+**Sequencing.** (1) PPC v4 + v1.1 (cheap: existing artifacts, references,
+and forward-model machinery; generalize `plans/scripts/titanG_ppc_interior_check.py`
+rather than reimplementing). (2) Report both, whatever they show. (3) Only
+then the under-update diagnosis experiments (pilot-scale). (4) MgSO4/NaCl
+compute starts only after the diagnosis explains the NH3 miss — training a
+third artifact with an unexplained conditioning deficiency is waste.
+
+**PPC design notes.**
+- v4: push all 21 channels (gravity pair, k2/h2, 14 Bind via the Ae
+  sidecar), not just k2 — the D–w degeneracy signal (adjudication doc) may
+  surface in induction or gravity rather than k2. v1.1: CMR2 + the k2/h2
+  hypothetical channels (label them as such in the report).
+- Keep the pushforward NOISELESS and compare three medians per channel:
+  prior-predictive (from the training dataset), SBI posterior-predictive,
+  MCMC posterior-predictive, plus the observed value — the NH3 four-way
+  table is the template.
+- Preregister the reading BEFORE running: an SBI channel is flagged when
+  |median_pp(SBI) − median_pp(MCMC)| > 0.5·sigma_obs. Sanity: this flags
+  both NH3 k2 channels (Re 0.83σ, Im 1.46σ) and neither NH3 gravity channel
+  (~0.03σ). Report the statistic for every channel either way; never move
+  the 0.5 after seeing results. This same statistic is the candidate
+  first-class pushforward gate for MgSO4/NaCl — validate it here first.
+
+**Under-update diagnosis — ranked hypotheses to test at pilot scale
+(~100k sims / small flows), cheapest-first:**
+1. **Noise-augmentation swamping:** if training x pairs get noise drawn at
+   sigma_obs while the k2 prior-predictive spread is only ~3–7x sigma, the
+   flow may rationally down-weight those channels. Test: retrain a pilot
+   flow with reduced (or zero) k2 noise augmentation, PPC it — if the
+   under-update shrinks, the noise convention is the mechanism.
+2. **Tail sparsity at the datum:** the Titan Im_k2 datum sits at the 86th
+   prior-predictive percentile — few training pairs nearby. Test: PPC the
+   pilot flow at synthetic x_obs placed at the 50th vs 85th vs 95th
+   prior-predictive percentile of Im_k2; if update strength collapses with
+   percentile, it is a coverage problem → remedy is a truncated/sequential
+   second training round near the datum (TSNPE-style), not more uniform sims.
+3. **x-normalization scale:** check the artifact's x_norm stats for the k2
+   channels — z-scoring by a spread much larger than sigma_obs compresses
+   exactly the dynamic range the conditional needs.
+4. **Capacity/embedding:** last resort — deeper flow or a separate embedding
+   for the low-dimensional obs vector; test only if 1–3 come back clean.
+
+Report per hypothesis: tested / mechanism confirmed / ruled out, with the
+pilot artifacts + seeds. Stop and surface anything surprising; do not fold
+any fix into a production build without a frozen config from Machine A.
+
 ## 1. Titan NH3 — JOINT no-ocean+ocean cache + SBI (Task #68 governs)
 
 RECONCILED by Machine A 2026-08-02 per the user's firm decision (2026-07-30,

@@ -201,8 +201,11 @@ v5/v6/v7 slots (not wired pending adjudication).
   design 2026-08-02 (see `plans/STATUS-2026-08-01-machineB-joint-nh3.md` +
   `MACHINE-B-HANDOFF.md` §1): full Tb [249,263] K x w [1,70] ppt, frozen
   nodes kept in support. HOLD on any v5/v6/v7 retraining until adjudication.
-- USER: HF redeploy; browser click-throughs (globe sample-picker, amortized
-  body banner, selector dropdown wrap CSS — all `implemented, unverified`).
+- USER: HF redeploy ON HOLD (user 2026-08-04) until the v4/v1.1 PPC verdict
+  from Machine B — it decides whether the public v4 slot needs a sector
+  warning first. Browser click-throughs still pending (globe sample-picker,
+  amortized body banner, selector dropdown wrap CSS, NH3 slot render — all
+  `implemented, unverified`).
 
 ## Reference docs
 
