@@ -9,19 +9,33 @@
     "crosscheck": 2
   },
   "ratification": {
-    "status": "verified",
+    "status": "split",
+    "status_detail": {
+      "gravity_structure": "verified — C20, C22, R_core, rho_core, log10_wOcean_ppt, Tb, dC20_nh/dC22_nh (null)",
+      "tidal_k2_dissipation": "NOT verified — SBI flow under-updates Re_k2/Im_k2/zeta/eta at the Titan datum; MCMC reference authoritative"
+    },
     "adjudicated_by": "scientific-reviewer",
     "date": "2026-08-03",
-    "verdict": "RATIFY with scoped caveats — see RATIFICATION.md",
+    "verdict": "SPLIT after posterior-predictive check — see RATIFICATION.md (amended)",
+    "ppc_finding": {
+      "SBI_pp_median": {"Re_k2": 0.541, "Im_k2": 0.042},
+      "MCMC_pp_median": {"Re_k2": 0.581, "Im_k2": 0.093},
+      "prior_pred_median": {"Re_k2": 0.526, "Im_k2": 0.037},
+      "observed": {"Re_k2": 0.608, "Im_k2": 0.135},
+      "diagnosis": "SBI k2 pushforward sits at prior-predictive median (under-updates informative tidal sector); ~1.2 sigma shared data-model tension + ~1.7 sigma flow deficiency. Mechanism: log10_zeta/eta_Ih/eta_III shift toward less dissipation, each passing per-param crosscheck at 90-92% of tol, compounding in nonlinear k2. Per-param gate structurally blind to it.",
+      "report": "ppc/ppc_interior_report.json"
+    },
     "gate_fail_disposition": {
       "limits": "mis-specified for JOINT mixture (eta_Ih-monotone-vs-Im_k2 premise N/A; 0.4-sigma noise wander, all in-support) — documented N/A, NOT tuned",
-      "crosscheck": "benign — only 3 unconstrained eta medians (<=0.28 sigma); all load-bearing params pass mean/sigma/median/shape"
+      "crosscheck": "FAIL is NOT benign-nuisance-only: the per-param gate is blind to the joint tidal-sector under-update the PPC surfaced. eta medians exceed tol AND the k2 pushforward is biased."
     },
     "caveats": [
-      "log10_eta_Ih/III/VI are prior-dominated nuisances; do not quote SBI point estimates",
+      "TIDAL SECTOR NOT VERIFIED: do not quote SBI Re_k2, Im_k2, log10_zeta, or eta at the Titan datum; MCMC reference is authoritative for k2/dissipation quantities",
       "limits monotonicity gate N/A for joint no-ocean+ocean mixtures",
-      "uniform ~1.1-1.3x sigma_ratio: SBI CIs marginally conservative vs pocoMC; within [0.7,1.4] sub-gate; SBC supersedes pilot HOLD trigger"
+      "SBC (prior-averaged) PASS coexists with local miscalibration at the informative Titan datum — no paradox",
+      "uniform ~1.1-1.3x sigma_ratio: SBI CIs marginally conservative vs pocoMC; within [0.7,1.4] sub-gate"
     ],
+    "mgso4_nacl_requirements": "run PPC pushforward + prior-pred interior recheck; promote pushforward-observable crosscheck to first-class gate (must flag NH3 k2 miss); diagnose flow under-update before more compute — see RATIFICATION.md inheritance section",
     "config_hash_check": "MCMC 1611b65f vs SBI e596574d differ ONLY by mode string; all load-bearing fields byte-identical (verified 2026-08-03)"
   }
 }

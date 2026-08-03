@@ -1,9 +1,9 @@
 # PlanetProfile genai — current status
 
-Updated: 2026-08-03 (Machine B: committed missing NH3 cache `3e9a275a`
-[unblocks slot repair]; added PPC+interior diagnostic — SBI Im_k2 pushforward
-discrepancy under reviewer adjudication, see Titan NH3 section). Single
-current-state source of truth.
+Updated: 2026-08-03 (Machine B: committed missing NH3 cache `3e9a275a`; PPC
+diagnostic → reviewer SPLIT the NH3 ratification [gravity/structure verified,
+tidal k₂ sector NOT] — RATIFICATION.md / gate_summary / GUI scope_note / memory
+amended, see Titan NH3 section). Single current-state source of truth.
 Freshness rule: any session that pushes commits, integrates Machine B
 artifacts, or changes a queue must refresh this file's `Updated:` line and the
 affected sections in the same session. If this file is >7 days older than
@@ -27,7 +27,7 @@ never delegated to Codex.
 |---|---|---|
 | Titan (Andrade, no-ocean) Test50 8D | DEPLOYED | unchanged |
 | Titan freegrav no-ocean | delivered | artifact + gate reports in repo |
-| Titan NH₃ joint no-ocean+ocean | **RATIFIED (verified) 2026-08-03; GUI slot wired (in-browser render pending)** | `titan_freegrav_nh3_posterior_1m.pt`; SBC pass; 2 benign gate FAILs (limits N/A for mixture; eta-median nuisances) — see `validation_reports/titan_freegrav_nh3_1m/RATIFICATION.md`. Real slot replaced the placeholder; headless load+sample verified (2000 finite draws at fiducial, joint spans full Tb×w plane) |
+| Titan NH₃ joint no-ocean+ocean | **SPLIT ratification 2026-08-03: gravity/structure VERIFIED, tidal (k₂) sector NOT verified**; GUI slot wired (in-browser render pending) | `titan_freegrav_nh3_posterior_1m.pt`; SBC pass; PPC shows flow under-updates k₂ (SBI pushforward at prior-pred median vs MCMC/data) — MCMC reference authoritative for k₂/dissipation, do NOT quote SBI Re_k₂/Im_k₂/ζ/η. See amended `validation_reports/titan_freegrav_nh3_1m/RATIFICATION.md`. Real slot replaced placeholder; headless load+sample verified |
 | Titan MgSO₄ ocean | **awaiting artifact** | GUI placeholder; paths/centrals/gates unset |
 | Titan NaCl ocean | **awaiting artifact** | GUI placeholder; paths/centrals/gates unset |
 | Galileo–Europa v1.1 8D | DEPLOYED 2026-07-20 | gates 8/8 |
@@ -82,24 +82,26 @@ campaign Phase 0 MUST re-run under the corrected model; provisional Phase-1
 rectangle Tb [248,257] K x w [30,100] ppt. Spec:
 `plans/active/titan-nh3-ocean-campaign-spec.md`.
 
-## Titan NH3 JOINT no-ocean+ocean artifact — RATIFIED (2026-08-03)
+## Titan NH3 JOINT no-ocean+ocean artifact — SPLIT ratification (2026-08-03)
 
 Task #68 delivered: frozen (Tb,w) grid nodes build as REAL no-ocean interiors
 and appear in the posterior (not rejected), per the user's 2026-07-30 decision.
-Full campaign complete and scientific-reviewer-ratified (verified):
+Full campaign complete; reviewer status is SPLIT (gravity/structure verified,
+tidal sector not — see the PPC subsection above):
 
 - Cache `Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl` (sha256
   `3d837cf8…`, `retry_frozen_as_no_ocean=True`); 1M gen 689,845 kept; reference
   MCMC 4461 samples; 1M nsf flow `titan_freegrav_nh3_posterior_1m.pt`.
-- Gates: **SBC PASS** (353 pairs, min BH-adj KS p 0.772). crosscheck + limits
-  FAIL but both **benign and documented, NOT tuned**: limits monotonicity is
-  N/A for a joint mixture (HP ices carry tidal response in the no-ocean branch);
-  the 3 crosscheck-median fails are prior-dominated eta nuisances (≤0.28σ). All
-  load-bearing params pass. Verdict + caveats in
+- Gates: **SBC PASS** (353 pairs, min BH-adj KS p 0.772). limits FAIL is N/A for
+  a joint mixture (HP ices carry tidal response in the no-ocean branch;
+  documented, NOT tuned). crosscheck FAIL is **NOT benign-nuisance-only** — the
+  PPC proved the per-param gate is blind to a joint tidal-sector under-update.
+- **Split status:** gravity/structure (C20, C22, R_core, rho_core, salinity, Tb,
+  dC20/dC22 null) VERIFIED; tidal (k2/zeta/eta) NOT verified — MCMC reference
+  authoritative. Amended verdict + PPC finding in
   `validation_reports/titan_freegrav_nh3_1m/RATIFICATION.md`.
-- These two gate mis-specifications are intrinsic to the joint design →
-  **MgSO4/NaCl joint campaigns inherit the corrected gate scope** (do not
-  re-litigate). Uncommitted (user opt-in for commit/push).
+- **MgSO4/NaCl inherit the split-status discipline + the new PPC/pushforward-gate
+  requirements** (NOT the old benign-nuisance framing). Committed 2026-08-03.
 
 GUI: NH3 joint slot wired into `_SBI_ARTIFACT_SLOTS`
 (`PlanetProfileApp/pages/Inference.py`) 2026-08-02 as the newest Cassini–Titan
@@ -135,13 +137,24 @@ reports posterior-predictive coverage vs x_obs + the prior-predictive percentile
 of x_obs. NH3 result: x_obs interior on all 4 channels (C20 42/C22 60/Re_k2 80/
 Im_k2 86 pctile) — the flow interpolates, confirming the prior verdict. BUT a
 NEW finding surfaced: SBI posterior-predictive |Im_k2| median 0.042 vs the MCMC
-reference 0.093 (obs 0.135) — the SBI flow over-weights the low-dissipation
-branch, traced to log10_zeta/eta_Ih shifts that pass the per-param crosscheck by
-the thinnest margins (90–92% of tol) and compound in Im_k2. The per-param
-crosscheck gate provably cannot see this (it never pushes forward to k2).
-**Scientific-reviewer adjudicating whether this changes the NH3 ratification and
-what MgSO4/NaCl must satisfy — verdict PENDING; do not start MgSO4 compute until
-it lands.** Report: `validation_reports/titan_freegrav_nh3_1m/ppc/`.
+reference 0.093 (obs 0.135) — the SBI flow under-updates the tidal sector,
+traced to log10_zeta/eta_Ih/eta_III shifts that pass the per-param crosscheck by
+the thinnest margins (90–92% of tol) and compound in the nonlinear k2
+pushforward. The per-param crosscheck gate provably cannot see this (it never
+pushes forward to k2).
+
+**Reviewer verdict (2026-08-03): ratification SPLIT.** Gravity/structure sector
+VERIFIED; tidal (k₂/dissipation) sector NOT verified — MCMC reference
+authoritative, do not quote SBI Re_k2/Im_k2/zeta/eta at the Titan datum. SBC
+(prior-averaged) PASS coexists with local miscalibration at the informative
+datum (no paradox). RATIFICATION.md, gate_summary.json, GUI scope_note, and the
+`project_joint_mixture_gate_scope` memory all amended to the split status (the
+old "benign eta nuisance" framing is superseded). **MgSO4/NaCl requirements
+before ratification:** run the PPC + prior-pred interior recheck; promote a
+pushforward-observable crosscheck to a FIRST-CLASS gate (must flag the known NH3
+k2 miss); diagnose the flow under-update before more compute (don't assume "more
+epochs" fixes it). **Do not start MgSO4 compute until the flow-diagnosis
+approach is chosen.** Report: `validation_reports/titan_freegrav_nh3_1m/ppc/`.
 Deployed sampling path confirmed `reject_outside_prior=True` (reviewer MINOR
 closed).
 
