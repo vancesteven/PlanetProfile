@@ -1,9 +1,11 @@
 # PlanetProfile genai — current status
 
-Updated: 2026-08-03 (Machine B: committed missing NH3 cache `3e9a275a`; PPC
-diagnostic → reviewer SPLIT the NH3 ratification [gravity/structure verified,
-tidal k₂ sector NOT] — RATIFICATION.md / gate_summary / GUI scope_note / memory
-amended, see Titan NH3 section). Single current-state source of truth.
+Updated: 2026-08-04 (Machine A: split ratification COUNTERSIGNED — PPC
+independently reproduced end-to-end on A, SBI pushforward 0.542/0.042 ==
+B's 0.541/0.042; results-panel sector warning added + slot verified
+functional post-cache; PPC requirement extended to all Europa artifacts,
+deployed v4/v1.1 first — see MACHINE-B-HANDOFF §0.5). Single current-state
+source of truth.
 Freshness rule: any session that pushes commits, integrates Machine B
 artifacts, or changes a queue must refresh this file's `Updated:` line and the
 affected sections in the same session. If this file is >7 days older than

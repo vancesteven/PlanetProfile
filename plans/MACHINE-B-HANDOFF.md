@@ -50,20 +50,29 @@ Priority vs Titan: Titan NH3 Task #68 (section 1) remains your active task;
 run B1–B6 after the 3x4 validation completes, before the full NH3
 production build.
 
-## 0.5 URGENT — push the Titan NH3 structure cache (2026-08-03)
+## 0.5 RESOLVED — NH3 cache delivered; split ratification COUNTERSIGNED (2026-08-04)
 
-Your `a76ababa` delivery omitted
-`PlanetProfile/Test/mcmc_results/Titan/Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl`
-— the artifact + config landed, the cache did not (same miss as the v5 cache
-in July). The GUI slot errors on every machine but yours; Machine A patched
-the selector default + messaging (`255585c0`), but the slot stays
-non-functional off-B until the cache pkl (and any sidecar) is committed and
-pushed. Size precedent: v5 2D cache 21 MB is in-repo. Also: add the ocean
-composition to future cache metadata (MgSO4/NaCl builds) so the GUI need
-not rely on slot-side assertions. Process note going forward: GUI slot
-wiring and ratification countersign are Machine A manager duties — deliver
-artifact + gates + RATIFICATION recommendation, and let A wire + verify the
-slot (your wiring was kept this time; A repaired the fallout).
+Cache landed (`3e9a275a`) — the GUI slot now runs end-to-end on Machine A.
+The PPC finding and SPLIT ratification (`a5f83050`) are **countersigned by
+the manager after independent reproduction on A**: a full GUI generate gives
+SBI pushforward medians Re_k2 = 0.542 / |Im_k2| = 0.042, matching your PPC
+(0.541/0.042) against obs 0.608/0.135 and MCMC 0.581/0.093. Machine A added
+a results-panel sector warning threaded from the slot (the k2 panes and
+heating tab display the unverified sector; scope-note-only disclosure was
+insufficient). Standing requirements you set for MgSO4/NaCl (PPC + a
+first-class pushforward-observable crosscheck gate that must flag the NH3
+miss + flow-under-update diagnosis before more compute) are ADOPTED as
+manager policy. Reminders: add ocean composition to future cache metadata;
+GUI wiring + ratification countersign are Machine A duties — deliver
+artifact + gates + recommendation.
+
+**B5 EXTENDED (2026-08-04):** the NH3 PPC proved SBC-PASS + per-param
+crosscheck can coexist with datum-local pushforward under-update. Run the
+same PPC (posterior-predictive at the fiducial, SBI vs reference MCMC vs
+data, per observable channel) for ALL Europa artifacts: **deployed v4 and
+v1.1 first** (they are on the public app), then v5/v6/v7. If v4's k2 or
+gravity pushforward sits at the prior-predictive median, surface
+immediately — do not wait for the rest of the batch.
 
 ## 1. Titan NH3 — JOINT no-ocean+ocean cache + SBI (Task #68 governs)
 

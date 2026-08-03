@@ -1155,6 +1155,18 @@ _SBI_ARTIFACT_SLOTS = {
         # ocean_overrides at cache build); thread it to the result so the
         # wedge labels the ocean NH3 instead of Titan's MgSO4 body default.
         'ocean_comp': 'NH3',
+        # Split ratification (2026-08-03, countersigned by the manager after
+        # independent reproduction on Machine A): shown atop the results
+        # panel because the k2 panes + heating tab display these quantities.
+        'sector_warning': (
+            'Split ratification: the gravity/structure sector (layer '
+            'thicknesses, salinity, Tb, core) is verified, but the '
+            'tidal/dissipation sector is NOT — this model under-updates k₂ '
+            '(posterior-predictive Re k₂ ≈ 0.54, |Im k₂| ≈ 0.04 vs observed '
+            '0.608/0.135). Do not quote its Re k₂, Im k₂, ζ, or η '
+            'posteriors; the reference MCMC is authoritative for those. '
+            'Details: validation_reports/titan_freegrav_nh3_1m/'
+            'RATIFICATION.md.'),
         # NOTE: the version dropdown shows only the text AFTER ' — ' (the
         # analysis grouping eats the head), so the composition tag must
         # appear in the tail or the user cannot tell this is the NH3 model.
@@ -2475,6 +2487,7 @@ def render_amortized_config():
         'cache_path': cache_path,
         'config_path': slot.get('config_path'),
         'ocean_comp': slot.get('ocean_comp'),
+        'sector_warning': slot.get('sector_warning'),
         'validated_version_pairs': slot.get('validated_version_pairs', ()),
     }
 
@@ -2617,6 +2630,11 @@ def render_amortized_run_button(spec, InferenceConfig):
             config.ocean_overrides = {
                 **(getattr(config, 'ocean_overrides', {}) or {}),
                 'comp': spec['ocean_comp']}
+        # Sector-verification warning travels with the result (and any
+        # exported pickle) the same way.
+        if spec.get('sector_warning'):
+            config.metadata = {**(getattr(config, 'metadata', {}) or {}),
+                               'sector_warning': spec['sector_warning']}
 
         runner = SBIRunner(config)
 
@@ -2804,6 +2822,15 @@ def render_results():
 
     # Results available
     result = st.session_state.inference_results
+
+    # Sector-level verification warning (slot-threaded via config.metadata,
+    # e.g. the Titan NH3 split ratification: structure verified, tidal not).
+    # Shown at the top of the results panel because the k2 panes and heating
+    # tab below display quantities from the unverified sector.
+    _swarn = ((getattr(result.config, 'metadata', None) or {})
+              .get('sector_warning'))
+    if _swarn:
+        st.warning(f"🔬 {_swarn}")
 
     st.markdown("### 📊 Inference Results")
 
