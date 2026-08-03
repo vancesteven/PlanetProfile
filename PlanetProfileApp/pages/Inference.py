@@ -1151,9 +1151,17 @@ _SBI_ARTIFACT_SLOTS = {
     # keys are stable slot ids, not guessed future artifact filenames.
     'titan_freegrav_nh3_posterior_1m.pt': {
         'slot_id': 'titan_nh3_joint',
+        # The run asserts the ocean composition (comp='NH3' via
+        # ocean_overrides at cache build); thread it to the result so the
+        # wedge labels the ocean NH3 instead of Titan's MgSO4 body default.
+        'ocean_comp': 'NH3',
+        # NOTE: the version dropdown shows only the text AFTER ' — ' (the
+        # analysis grouping eats the head), so the composition tag must
+        # appear in the tail or the user cannot tell this is the NH3 model.
         'label': ('1D · Cassini–Titan (NH₃, joint no-ocean+ocean) — '
-                  'free-gravity, 13D · free C₂₀/C₂₂ (agnostic) + measured k₂ '
-                  '+ sampled salinity, CMR₂ dropped'),
+                  'NH₃ joint no-ocean+ocean free-gravity, 13D · free '
+                  'C₂₀/C₂₂ (agnostic) + measured k₂ + sampled salinity, '
+                  'CMR₂ dropped'),
         'bodyname': 'Titan',
         'config_path': ('PlanetProfile/Inference/configs/'
                         'test54_titan_nh3_freegrav.json'),
@@ -1923,12 +1931,24 @@ def render_amortized_config():
         "Mission–body analysis:", list(groups), key='amort_analysis')
     _vers = list(reversed(groups[sel_analysis]))  # newest first
     _vlabels = [v_ for _, v_, _ in _vers]
-    # Default to the newest slot with NO gating status — placeholders
-    # (awaiting_artifact) and delivered-but-unratified artifacts
-    # (not_ratified) are selectable for transparency but never the default.
+    # Default to the newest slot that is READY on this machine: no gating
+    # status (placeholders and unratified artifacts stay selectable for
+    # transparency but never default) AND its artifact + declared structure
+    # cache actually exist locally (a just-delivered slot whose cache has
+    # not been pushed here yet would otherwise error as the landing page).
+    def _vslot_ready(ref):
+        s_ = _SBI_ARTIFACT_SLOTS[ref]
+        if s_.get('artifact_status'):
+            return False
+        _fn = s_.get('artifact_filename', ref)
+        if _fn is None or not (_sbi_artifacts_dir() / _fn).exists():
+            return False
+        _cp = s_.get('cache_path')
+        if _cp and not (Path(parent_directory) / _cp).exists():
+            return False
+        return True
     _vdefault = next((i for i, (_, _, ref) in enumerate(_vers)
-                      if not _SBI_ARTIFACT_SLOTS[ref].get('artifact_status')),
-                     0)
+                      if _vslot_ready(ref)), 0)
     sel_version = cv_.selectbox(
         "Model version:", _vlabels, index=_vdefault,
         key=f'amort_version_{sel_analysis}')
@@ -2434,6 +2454,9 @@ def render_amortized_config():
     else:
         st.error(f"❌ Structure cache not found: {full_cache} — rebuild it "
                  f"(see sbi_artifacts/INDEX.md) before running.")
+        st.info("If this model was just delivered, its structure cache may "
+                "not have been pushed to this machine yet — pick an earlier "
+                "model version above meanwhile.")
         return None
 
     return {
@@ -2450,6 +2473,7 @@ def render_amortized_config():
         'seed': int(seed),
         'cache_path': cache_path,
         'config_path': slot.get('config_path'),
+        'ocean_comp': slot.get('ocean_comp'),
         'validated_version_pairs': slot.get('validated_version_pairs', ()),
     }
 
@@ -2585,6 +2609,14 @@ def render_amortized_run_button(spec, InferenceConfig):
                 structure_cache_path=spec['cache_path'],
                 random_state=spec['seed'],
             )
+        # Slot-asserted ocean composition (e.g. Titan NH3): recorded on the
+        # in-memory result config only — the training JSON is never edited,
+        # so the artifact's config hash stays valid.
+        if spec.get('ocean_comp'):
+            config.ocean_overrides = {
+                **(getattr(config, 'ocean_overrides', {}) or {}),
+                'comp': spec['ocean_comp']}
+
         runner = SBIRunner(config)
 
         progress_placeholder = st.empty()
@@ -2731,7 +2763,7 @@ _mpl.rcParams['text.usetex'] = False
 # Bump when the globe-panel figure/table code changes shape: cached
 # export bytes in live sessions carry the version, so a code update
 # invalidates them instead of replaying stale figures.
-_GLOBE_FIG_VER = 6
+_GLOBE_FIG_VER = 7
 
 
 def _result_token():
@@ -3889,9 +3921,16 @@ def render_results():
                                 or 'rho_sil_kgm3' in
                                 (getattr(result.config, 'param_space',
                                          {}) or {}))
+                            # Run-asserted ocean composition (slot-threaded
+                            # via config.ocean_overrides, e.g. Titan NH3) —
+                            # overrides the body default label in the wedge.
+                            _ocomp = ((getattr(result.config,
+                                               'ocean_overrides', None)
+                                       or {}).get('comp'))
                             _svg, _pdf, _png, _wnotes = pp_wedge_exports(
                                 _geo, parent_directory, body or 'Europa',
-                                w_ppt=_w_ppt, rho_sil_free=_rho_free)
+                                w_ppt=_w_ppt, rho_sil_free=_rho_free,
+                                ocean_comp=_ocomp)
                             _wentry = {'token': _wtok, 'svg': _svg,
                                        'pdf': _pdf, 'png': _png,
                                        'notes': _wnotes}
@@ -3915,8 +3954,9 @@ def render_results():
                             "drawn fully conductive (the inference "
                             "carries no convection partition); mantle/"
                             "core/ocean composition labels are the "
-                            "body's PP defaults unless the run samples "
-                            "them (e.g. salinity), and are not "
+                            "body's PP defaults unless the run asserts "
+                            "or samples them (e.g. the model's ocean "
+                            "composition, salinity), and are not "
                             "inferred."
                             + (f" Note: {_wextra}." if _wextra else ""))
                     else:

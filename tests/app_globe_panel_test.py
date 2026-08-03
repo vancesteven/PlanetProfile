@@ -349,3 +349,50 @@ def test_apptest_noocean_axis_gating_and_subset_note():
     notes = [c for c in caps if c.startswith('Note:')]
     assert notes and 'distinct nodes' in notes[0] \
         and 'posterior draws carry' in notes[0]
+
+
+def test_apptest_titan_slot_readiness_fallback():
+    # A just-delivered slot whose structure cache is not present on this
+    # machine must never be the default model version (2026-08-03: the NH3
+    # joint slot landed cache-less and became the erroring Titan default).
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_file(
+        str(REPO / 'PlanetProfileApp/pages/Inference.py'),
+        default_timeout=900)
+    at.run()
+    radio = next(r for r in at.radio
+                 if 'method' in str(getattr(r, 'label', '')).lower())
+    radio.set_value(next(o for o in radio.options
+                         if 'mort' in str(o) or 'pretrained' in str(o).lower()))
+    at.run()
+
+    def _fresh(pfx):
+        return next(s for s in at.selectbox
+                    if str(getattr(s, 'key', '')).startswith(pfx))
+    _fresh('amort_analysis').select(
+        next(o for o in _fresh('amort_analysis').options if 'Titan' in o))
+    at.run()
+    ver = _fresh('amort_version_')
+    nh3_cache = (REPO / 'PlanetProfile/Test/mcmc_results/Titan/'
+                 'Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl')
+    nh3_opt = next(o for o in ver.options if 'NH' in str(o))
+    if nh3_cache.exists():
+        # Cache present: newest ready slot (NH3) is the legitimate default.
+        assert str(ver.value) == str(nh3_opt)
+    else:
+        # Cache absent: default falls back to the newest READY slot; the
+        # NH3 version stays selectable and shows the awaiting-cache
+        # guidance with Generate disabled.
+        assert 'Phase A' in str(ver.value)
+        _fresh('amort_version_').select(nh3_opt)
+        at.run()
+        errs = ' '.join(str(e.value) for e in at.error)
+        infos = ' '.join(str(i.value) for i in at.info)
+        assert 'Structure cache not found' in errs
+        assert 'may not have been pushed to this machine yet' in infos
+        gen = next(b for b in at.button
+                   if 'Generate' in str(getattr(b, 'label', '')))
+        assert gen.disabled
+    # The NH3 model must be identifiable in the version dropdown (the
+    # grouping split eats the label head, so the tail must carry the tag).
+    assert 'NH' in str(nh3_opt)

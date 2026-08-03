@@ -990,7 +990,8 @@ def build_wedge_figure(R_km: float, thicknesses: List[Tuple[str, float]],
 
 def pp_wedge_exports(geo: Dict, parent_directory, bodyname: str,
                      w_ppt: Optional[float] = None,
-                     rho_sil_free: bool = False):
+                     rho_sil_free: bool = False,
+                     ocean_comp: Optional[str] = None):
     """Render the interior wedge with PlanetProfile's OWN PlotWedge
     (Plotting/ProfilePlots.py), not a lookalike: deepcopy the body's PP
     config Planet, inject the selected draw's layer geometry, and let the
@@ -1070,6 +1071,14 @@ def pp_wedge_exports(geo: Dict, parent_directory, bodyname: str,
     Planet.Magnetic.ionosBounds_m = None
     if w_ppt is not None and np.isfinite(w_ppt):
         Planet.Ocean.wOcean_ppt = float(w_ppt)
+    # Run-asserted ocean composition (set via ocean_overrides at cache
+    # build, e.g. Titan NH3): label the drawn ocean with the run's comp
+    # instead of the body default (Titan's PP default is MgSO4).
+    if ocean_comp and d_oc > 0.0:
+        Planet.Ocean.comp = str(ocean_comp)
+        notes.append(
+            f"ocean composition {ocean_comp} asserted by this run's "
+            "model (body default overridden)")
     # State WHICH mantle EOS database the structure came from (user
     # 2026-07-25): the cache build ran full PlanetProfile with the body
     # config's Perple_X-derived table, so name it rather than hide it —
