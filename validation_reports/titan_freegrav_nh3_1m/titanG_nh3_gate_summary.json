@@ -1,0 +1,27 @@
+{
+  "seed": 72,
+  "artifact": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/sbi_artifacts/titan_freegrav_nh3_posterior_1m.pt",
+  "config": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/configs/test54_titan_nh3_freegrav.json",
+  "ref_mcmc": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/titan_freegrav_nh3_1m/reference/titan_freegrav_nh3_reference_result.pkl",
+  "gates": {
+    "sbc": 0,
+    "limits": 2,
+    "crosscheck": 2
+  },
+  "ratification": {
+    "status": "verified",
+    "adjudicated_by": "scientific-reviewer",
+    "date": "2026-08-03",
+    "verdict": "RATIFY with scoped caveats — see RATIFICATION.md",
+    "gate_fail_disposition": {
+      "limits": "mis-specified for JOINT mixture (eta_Ih-monotone-vs-Im_k2 premise N/A; 0.4-sigma noise wander, all in-support) — documented N/A, NOT tuned",
+      "crosscheck": "benign — only 3 unconstrained eta medians (<=0.28 sigma); all load-bearing params pass mean/sigma/median/shape"
+    },
+    "caveats": [
+      "log10_eta_Ih/III/VI are prior-dominated nuisances; do not quote SBI point estimates",
+      "limits monotonicity gate N/A for joint no-ocean+ocean mixtures",
+      "uniform ~1.1-1.3x sigma_ratio: SBI CIs marginally conservative vs pocoMC; within [0.7,1.4] sub-gate; SBC supersedes pilot HOLD trigger"
+    ],
+    "config_hash_check": "MCMC 1611b65f vs SBI e596574d differ ONLY by mode string; all load-bearing fields byte-identical (verified 2026-08-03)"
+  }
+}

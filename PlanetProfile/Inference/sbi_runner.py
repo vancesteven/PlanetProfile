@@ -403,10 +403,27 @@ class SBIRunner:
 
     def _support_guard_active(self) -> bool:
         """True when the config enforces a support cut: the no-ocean
-        phase-stability guard and/or one-sided induction bounds (ratified
-        2026-07-12; e.g. Europa's |Ae_synodic| > 0.7)."""
-        phase_stability = self.config.sampler_settings.get('phase_stability', {}) or {}
+        phase-stability guard, an explicit ``apply_support_guard`` opt-in
+        (e.g. the k2 physical-support box on a JOINT no-ocean+ocean config
+        that deliberately drops the no-ocean enforce flag), and/or one-sided
+        induction bounds (ratified 2026-07-12; e.g. Europa's |Ae_synodic| >
+        0.7).
+
+        The k2 box (calibration hygiene, applied in SBI-gen only — see
+        mcmc_runner.generate_sbi_dataset) was previously bundled behind the
+        ``phase_stability.enforce=='no_ocean_Ih'`` flag. A joint config drops
+        that flag to admit both regimes, which silently disabled the k2 box.
+        Honoring the standalone ``apply_support_guard`` key decouples the two:
+        the k2/density-inversion support cut turns on while ``no_ocean_guard``
+        (mcmc_runner.py, gated on ``enforce``) stays off, so both the frozen
+        no-ocean and ocean regimes remain admitted (scientific-reviewer
+        directive afc74fe6, 2026-08-02: matches the ratified Phase A behavior,
+        makes the config metadata true, does not alter the target posterior)."""
+        sampler_settings = self.config.sampler_settings or {}
+        phase_stability = sampler_settings.get('phase_stability', {}) or {}
         if phase_stability.get('enforce') == 'no_ocean_Ih':
+            return True
+        if bool(sampler_settings.get('apply_support_guard')):
             return True
         return bool(getattr(self.config, 'induction_bounds', {}) or {})
 

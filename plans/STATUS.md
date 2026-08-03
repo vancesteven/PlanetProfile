@@ -1,6 +1,8 @@
 # PlanetProfile genai — current status
 
-Updated: 2026-08-02 at genai `f4090c33`. Single current-state source of truth.
+Updated: 2026-08-02 (integrating Titan NH3 joint 1M artifact — ratified verified
+2026-08-03, GUI slot wired — onto genai `f4090c33`). Single current-state source
+of truth.
 Freshness rule: any session that pushes commits, integrates Machine B
 artifacts, or changes a queue must refresh this file's `Updated:` line and the
 affected sections in the same session. If this file is >7 days older than
@@ -24,7 +26,7 @@ never delegated to Codex.
 |---|---|---|
 | Titan (Andrade, no-ocean) Test50 8D | DEPLOYED | unchanged |
 | Titan freegrav no-ocean | delivered | artifact + gate reports in repo |
-| Titan NH₃ joint no-ocean+ocean | **awaiting artifact** | GUI placeholder; Machine B Task #68 in flight |
+| Titan NH₃ joint no-ocean+ocean | **RATIFIED (verified) 2026-08-03; GUI slot wired (in-browser render pending)** | `titan_freegrav_nh3_posterior_1m.pt`; SBC pass; 2 benign gate FAILs (limits N/A for mixture; eta-median nuisances) — see `validation_reports/titan_freegrav_nh3_1m/RATIFICATION.md`. Real slot replaced the placeholder; headless load+sample verified (2000 finite draws at fiducial, joint spans full Tb×w plane) |
 | Titan MgSO₄ ocean | **awaiting artifact** | GUI placeholder; paths/centrals/gates unset |
 | Titan NaCl ocean | **awaiting artifact** | GUI placeholder; paths/centrals/gates unset |
 | Galileo–Europa v1.1 8D | DEPLOYED 2026-07-20 | gates 8/8 |
@@ -78,6 +80,35 @@ DELETED (unattributable; dilute slope 2x too shallow). Consequence: Titan NH3
 campaign Phase 0 MUST re-run under the corrected model; provisional Phase-1
 rectangle Tb [248,257] K x w [30,100] ppt. Spec:
 `plans/active/titan-nh3-ocean-campaign-spec.md`.
+
+## Titan NH3 JOINT no-ocean+ocean artifact — RATIFIED (2026-08-03)
+
+Task #68 delivered: frozen (Tb,w) grid nodes build as REAL no-ocean interiors
+and appear in the posterior (not rejected), per the user's 2026-07-30 decision.
+Full campaign complete and scientific-reviewer-ratified (verified):
+
+- Cache `Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl` (sha256
+  `3d837cf8…`, `retry_frozen_as_no_ocean=True`); 1M gen 689,845 kept; reference
+  MCMC 4461 samples; 1M nsf flow `titan_freegrav_nh3_posterior_1m.pt`.
+- Gates: **SBC PASS** (353 pairs, min BH-adj KS p 0.772). crosscheck + limits
+  FAIL but both **benign and documented, NOT tuned**: limits monotonicity is
+  N/A for a joint mixture (HP ices carry tidal response in the no-ocean branch);
+  the 3 crosscheck-median fails are prior-dominated eta nuisances (≤0.28σ). All
+  load-bearing params pass. Verdict + caveats in
+  `validation_reports/titan_freegrav_nh3_1m/RATIFICATION.md`.
+- These two gate mis-specifications are intrinsic to the joint design →
+  **MgSO4/NaCl joint campaigns inherit the corrected gate scope** (do not
+  re-litigate). Uncommitted (user opt-in for commit/push).
+
+GUI: NH3 joint slot wired into `_SBI_ARTIFACT_SLOTS`
+(`PlanetProfileApp/pages/Inference.py`) 2026-08-02 as the newest Cassini–Titan
+version; widget keys already namespaced by artifact filename (no shared-key
+collision). Headless load+sample verified (artifact loads at deployed path,
+2000 finite draws at the slot fiducial, salinity+Tb span the full joint plane).
+In-browser render (`implemented, unverified`) still pending.
+
+Next in Phase B: MgSO4 (seeds 73/7373/73, salinity log10[0,2.288]), then NaCl
+(74/7474/74, log10[0,2.477]) — each own config + 2D cache + artifact.
 
 ## Landed on genai since the 8e91d440 HF snapshot (selection)
 

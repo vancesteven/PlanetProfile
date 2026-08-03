@@ -82,6 +82,8 @@ def build_single_structure(
     Tb_K: float,
     ocean_overrides: Dict[str, Any] | None = None,
     bulk_overrides: Dict[str, Any] | None = None,
+    planet_overrides: Dict[str, Any] | None = None,
+    do_overrides: Dict[str, Any] | None = None,
     extrap_ocean: bool = False,
 ) -> Dict[str, Any]:
     """Run PlanetProfile once and return the cache dict for one ``Tb_K``.
@@ -169,6 +171,38 @@ def build_single_structure(
                 )
             setattr(Planet.Bulk, key, value)
         log.info(f"Applied bulk_overrides: {bulk_overrides}")
+
+    # Planet-level overrides (top-level Planet attributes, NOT Planet.Ocean or
+    # Planet.Bulk). Needed for e.g. PfreezeUpper_MPa (the GetPfreeze ice-Ih
+    # transition search ceiling, defined on Planet directly in defineStructs;
+    # default 230 MPa), which the cold/fresh NH3 grid corners exceed. Applied
+    # to the deep-copied Planet only — source module is unaffected.
+    if planet_overrides:
+        for key, value in planet_overrides.items():
+            if not hasattr(Planet, key):
+                log.warning(
+                    f"planet_overrides: Planet has no attribute {key!r}; "
+                    "setting it anyway."
+                )
+            setattr(Planet, key, value)
+        log.info(f"Applied planet_overrides: {planet_overrides}")
+
+    # Do overrides (Planet.Do switch flags, NOT Planet / Planet.Ocean /
+    # Planet.Bulk). Used by the 2D cache builder's frozen-node retry to set
+    # ``NO_OCEAN_EXCEPT_INNER_ICES=True`` so a genuinely-frozen (Tb,w) node
+    # builds as a real no-ocean structure (HP-ice column, own k2/gravity)
+    # instead of raising — the mechanism behind the joint no-ocean+ocean Titan
+    # NH3 posterior. Applied to the deep-copied Planet.Do only; the source
+    # template module is unaffected.
+    if do_overrides:
+        for key, value in do_overrides.items():
+            if not hasattr(Planet.Do, key):
+                log.warning(
+                    f"do_overrides: Planet.Do has no attribute {key!r}; "
+                    "setting it anyway."
+                )
+            setattr(Planet.Do, key, value)
+        log.info(f"Applied do_overrides: {do_overrides}")
 
     # Inject orbital params if the PP default config didn't set them.
     # Required by the k2 forward model (rheology path); not used by the v2
@@ -581,6 +615,9 @@ def _bisect_transition(
     eps_T: float = 0.01,
     max_iter: int = 20,
     ocean_overrides: Dict[str, Any] | None = None,
+    bulk_overrides: Dict[str, Any] | None = None,
+    planet_overrides: Dict[str, Any] | None = None,
+    do_overrides: Dict[str, Any] | None = None,
     extrap_ocean: bool = False,
 ) -> List[Tuple[float, Dict[str, Any]]]:
     """Bisect ``[Tb_lo, Tb_hi]`` to localise a layer-set transition.
@@ -611,6 +648,9 @@ def _bisect_transition(
             s_mid = build_single_structure(
                 planet_template_module, float(Tb_mid),
                 ocean_overrides=ocean_overrides,
+                bulk_overrides=bulk_overrides,
+                planet_overrides=planet_overrides,
+                do_overrides=do_overrides,
                 extrap_ocean=extrap_ocean,
             )
         except Exception as exc:
@@ -636,12 +676,18 @@ def _bisect_transition(
                 planet_template_module, Tb_lo, Tb_mid,
                 regions_lo, regions_mid, eps_T, max_iter,
                 ocean_overrides=ocean_overrides,
+                bulk_overrides=bulk_overrides,
+                planet_overrides=planet_overrides,
+                do_overrides=do_overrides,
                 extrap_ocean=extrap_ocean,
             )
             above = _bisect_transition(
                 planet_template_module, Tb_mid, Tb_hi,
                 regions_mid, regions_hi, eps_T, max_iter,
                 ocean_overrides=ocean_overrides,
+                bulk_overrides=bulk_overrides,
+                planet_overrides=planet_overrides,
+                do_overrides=do_overrides,
                 extrap_ocean=extrap_ocean,
             )
             discovered.append((Tb_mid, s_mid))
@@ -662,6 +708,8 @@ def build_tb_grid_cache(
     eps_T: float = 0.01,
     ocean_overrides: Dict[str, Any] | None = None,
     bulk_overrides: Dict[str, Any] | None = None,
+    planet_overrides: Dict[str, Any] | None = None,
+    do_overrides: Dict[str, Any] | None = None,
     extrap_ocean: bool = False,
 ) -> Dict[str, Any]:
     """Build a Tb-grid cache by repeatedly calling ``build_single_structure``.
@@ -736,6 +784,8 @@ def build_tb_grid_cache(
                 planet_template_module, float(Tb_K),
                 ocean_overrides=ocean_overrides,
                 bulk_overrides=bulk_overrides,
+                planet_overrides=planet_overrides,
+                do_overrides=do_overrides,
                 extrap_ocean=extrap_ocean,
             )
         except Exception as exc:
@@ -784,6 +834,9 @@ def build_tb_grid_cache(
                 s0.get("region_phases"), s1.get("region_phases"),
                 eps_T=eps_T,
                 ocean_overrides=ocean_overrides,
+                bulk_overrides=bulk_overrides,
+                planet_overrides=planet_overrides,
+                do_overrides=do_overrides,
                 extrap_ocean=extrap_ocean,
             )
             for Tb_new, s_new in new_points:
@@ -835,7 +888,10 @@ def build_tbw_grid_cache(
     progress: bool = True,
     ocean_overrides: Dict[str, Any] | None = None,
     bulk_overrides: Dict[str, Any] | None = None,
+    planet_overrides: Dict[str, Any] | None = None,
+    do_overrides: Dict[str, Any] | None = None,
     extrap_ocean: bool = False,
+    retry_frozen_as_no_ocean: bool = False,
 ) -> Dict[str, Any]:
     """Build a 2D (Tb × wOcean_ppt) structure-grid cache (schema ``v3.0``).
 
@@ -900,9 +956,26 @@ def build_tbw_grid_cache(
     ``(Tb_K_grid[i_Tb], wOcean_ppt_grid[i_w])``. Failed/rejected builds are
     stored as explicit ``None`` (never silently dropped) so the 2D lookup can
     reject those (Tb, w) corners. Each structure carries both ``Tb_K`` and
-    ``wOcean_ppt``. The absence of ``wOcean_ppt_grid`` in a cache signals the
-    legacy 1D path, so v1/v2 artifacts stay servable.
+    ``wOcean_ppt`` plus a ``has_ocean`` bool. The absence of ``wOcean_ppt_grid``
+    in a cache signals the legacy 1D path, so v1/v2 artifacts stay servable.
+
+    retry_frozen_as_no_ocean
+        When True (used by the joint no-ocean+ocean Titan NH3 campaign), a node
+        that raises :class:`NoIceLiquidTransitionError` (genuinely frozen: no
+        ice-Ih->liquid transition for this Tb/w) is retried ONCE as a real
+        no-ocean structure via ``do_overrides={'NO_OCEAN_EXCEPT_INNER_ICES':
+        True}`` and stored (tagged ``has_ocean=False``) instead of ``None``.
+        This is the ONLY failure that triggers the retry — thin-shell /
+        PHydroMax / EOS-extrapolation failures (and any retry that itself
+        fails) still store ``None``. Default False preserves the ocean-only
+        behavior of every existing 2D cache (Europa v3/v5/v6/v7). The cache
+        dict then also carries ``retry_frozen_as_no_ocean`` and
+        ``n_no_ocean_nodes``.
     """
+    # Deferred (defineStructs pulls in matplotlib/cmasher); only needed when the
+    # frozen-node retry is active, but cheap to import unconditionally here.
+    from PlanetProfile.Utilities.defineStructs import NoIceLiquidTransitionError
+
     Tb_arr = np.asarray(list(Tb_grid), dtype=np.float64)
     w_arr = np.asarray(list(wOcean_ppt_grid), dtype=np.float64)
     if Tb_arr.ndim != 1 or Tb_arr.size < 2:
@@ -945,8 +1018,59 @@ def build_tbw_grid_cache(
                     ocean_overrides={**base_overrides,
                                      "wOcean_ppt": float(w_ppt)},
                     bulk_overrides=bulk_overrides,
+                    planet_overrides=planet_overrides,
+                    do_overrides=do_overrides,
                     extrap_ocean=extrap_ocean,
                 )
+                struct["has_ocean"] = True
+            except NoIceLiquidTransitionError as frozen_exc:
+                # Genuinely-frozen node: Tb is too cold (given this w's
+                # freezing-point depression) for a liquid ocean to exist in the
+                # Pfreeze window — GetPfreeze found no ice-Ih->liquid transition
+                # (typed subclass; NOT a thin-shell / PHydroMax / EOS failure).
+                # For the joint no-ocean+ocean posterior, retry this node ONCE
+                # as a real no-ocean structure (NO_OCEAN_EXCEPT_INNER_ICES: the
+                # "ocean" cells become high-pressure ice; k2/gravity computed on
+                # the frozen column) so it enters the cache instead of being
+                # stored as None (which the 2D interpolant would reject,
+                # implicitly conditioning the posterior on "an ocean exists").
+                # comp is kept (e.g. NH3): the NH3-depressed liquidus still sets
+                # the HP-ice temperature profile via GetTfreeze, so these frozen
+                # structures are NOT identical to a PureH2O no-ocean build.
+                if not retry_frozen_as_no_ocean:
+                    log.warning(
+                        f"    × (Tb={Tb_K:.4f}, w={w_ppt:.4f}) → None — "
+                        f"NoIceLiquidTransitionError: {frozen_exc}"
+                    )
+                    structures[flat] = None
+                    n_fail += 1
+                    continue
+                try:
+                    struct = build_single_structure(
+                        planet_template_module, float(Tb_K),
+                        ocean_overrides={**base_overrides,
+                                         "wOcean_ppt": float(w_ppt)},
+                        bulk_overrides=bulk_overrides,
+                        planet_overrides=planet_overrides,
+                        do_overrides={**(do_overrides or {}),
+                                      "NO_OCEAN_EXCEPT_INNER_ICES": True},
+                        extrap_ocean=extrap_ocean,
+                    )
+                    struct["has_ocean"] = False
+                    if progress:
+                        log.info(
+                            f"    ↻ (Tb={Tb_K:.4f}, w={w_ppt:.4f}) frozen → "
+                            f"rebuilt as no-ocean (NO_OCEAN_EXCEPT_INNER_ICES)"
+                        )
+                except Exception as retry_exc:
+                    log.warning(
+                        f"    × (Tb={Tb_K:.4f}, w={w_ppt:.4f}) frozen retry "
+                        f"failed → None — "
+                        f"{type(retry_exc).__name__}: {retry_exc}"
+                    )
+                    structures[flat] = None
+                    n_fail += 1
+                    continue
             except Exception as exc:
                 log.warning(
                     f"    × (Tb={Tb_K:.4f}, w={w_ppt:.4f}) → None — "
@@ -961,7 +1085,8 @@ def build_tbw_grid_cache(
                 log.info(
                     f"    → CMR²={struct.get('CMR2', float('nan')):.4f}, "
                     f"D_ocean={struct.get('D_ocean_km', 0.0):.1f} km, "
-                    f"D_iceIh={struct.get('D_iceIh_km', 0.0):.1f} km"
+                    f"D_iceIh={struct.get('D_iceIh_km', 0.0):.1f} km, "
+                    f"has_ocean={struct.get('has_ocean')}"
                 )
 
     if n_ok == 0:
@@ -969,12 +1094,26 @@ def build_tbw_grid_cache(
             f"All {total} (Tb, w) nodes failed; no cache to write."
         )
 
+    n_no_ocean = sum(
+        1 for s in structures if s is not None and s.get("has_ocean") is False
+    )
     cache = {
         "Tb_K_grid": Tb_arr,
         "wOcean_ppt_grid": w_arr,
         "structures": structures,
         "ocean_comp": ocean_comp,
         "schema_version": "v3.0",
+        # Joint no-ocean+ocean metadata. When retry_frozen_as_no_ocean is on,
+        # genuinely-frozen (low-w, cold-Tb) nodes are rebuilt as no-ocean
+        # structures (tagged has_ocean=False) and enter the cache instead of
+        # being stored as None — so the amortized posterior spans BOTH frozen
+        # and ocean Titan interiors rather than being implicitly conditioned on
+        # "an ocean exists". The frozen branch models NO residual brine (the
+        # eutectic thin-brine regime is out of scope; ices are pure H2O with
+        # NH3 rejected to the — here absent — liquid). Each structure carries a
+        # per-node ``has_ocean`` bool.
+        "retry_frozen_as_no_ocean": bool(retry_frozen_as_no_ocean),
+        "n_no_ocean_nodes": int(n_no_ocean),
     }
     _save_cache_atomic(cache, output_path)
     if progress:

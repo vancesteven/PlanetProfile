@@ -1,0 +1,36 @@
+{
+  "kind": "titanG_nh3_joint_reference_mcmc",
+  "config": "PlanetProfile/Inference/configs/test54_titan_nh3_freegrav.json",
+  "config_hash": "1611b65fff3f06c9",
+  "seed": 72,
+  "n_effective": 500,
+  "n_samples": 4461,
+  "log_Z": -14.23820370899847,
+  "log_Z_err": 0.30555256536131287,
+  "elapsed_time_s": 1981.0531237125397,
+  "obs_names": [
+    "C20",
+    "C22",
+    "Re_k2",
+    "Im_k2"
+  ],
+  "param_names": [
+    "alpha",
+    "log10_zeta",
+    "log10_eta_Ih",
+    "log10_eta_III",
+    "log10_eta_V",
+    "log10_eta_VI",
+    "log10_eta_sil",
+    "Tb_K",
+    "log10_wOcean_ppt",
+    "R_core_km",
+    "rho_core_kgm3",
+    "dC20_nh",
+    "dC22_nh"
+  ],
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Titan/Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl",
+  "structure_cache_sha256": "3d837cf853ad6b5945a4ab43693399a3c4fceae8c46ba967a8bc4d51ec328648",
+  "git_sha": "33a7ef9edee364bcd6a1a8881add2bcbde946705",
+  "note": "Titan free-gravity NH3 JOINT no-ocean+ocean reference. Observable set {C20,C22,Re_k2,Im_k2}. 2D (Tb x w) NH3 cache with retry_frozen_as_no_ocean=True; log10_wOcean_ppt axis."
+}

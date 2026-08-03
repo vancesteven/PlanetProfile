@@ -1145,30 +1145,56 @@ _SBI_ARTIFACT_SLOTS = {
                        'titan_freegrav_noocean_1m/. NO interior-C/MR² claim '
                        'until the Task D reweighter lands (#36).'),
     },
-    # Titan ocean-chemistry slots reserved for Machine B handoff. These are
-    # intentionally selectable so the planned model family is visible, but
-    # artifact/config/cache paths and observable centrals MUST remain unset
-    # until the corresponding artifact and gates arrive. Registry keys are
-    # stable slot ids, not guessed future artifact filenames.
-    'titan_nh3_joint_awaiting_artifact': {
+    # Titan ocean-chemistry slots. NH₃ is the delivered joint no-ocean+ocean
+    # artifact (Task #68, ratified 2026-08-03); MgSO₄/NaCl remain reserved
+    # placeholders until their artifacts and gates arrive. Placeholder registry
+    # keys are stable slot ids, not guessed future artifact filenames.
+    'titan_freegrav_nh3_posterior_1m.pt': {
         'slot_id': 'titan_nh3_joint',
-        'artifact_filename': None,  # TODO(Machine B): artifact handoff
-        'artifact_status': 'awaiting_artifact',
-        'label': ('1D · Cassini–Titan (ocean chemistry) — NH₃ joint '
-                  'no-ocean + ocean · awaiting artifact'),
+        'label': ('1D · Cassini–Titan (NH₃, joint no-ocean+ocean) — '
+                  'free-gravity, 13D · free C₂₀/C₂₂ (agnostic) + measured k₂ '
+                  '+ sampled salinity, CMR₂ dropped'),
         'bodyname': 'Titan',
-        'config_path': None,  # TODO(Machine B): final training config
-        'cache_path': None,  # TODO(Machine B): validated joint cache
-        'default_obs': None,  # TODO(Machine B): confirmed config centrals
-        'x_obs_limits': {},  # TODO(Machine B): gate-validated Im k₂ bound
-        'gate_status': 'TODO — awaiting Machine B validation handoff',
-        'scope_note': ('Titan NH₃ JOINT no-ocean+ocean posterior (frozen '
-                       'Titan interiors included). C₂₀/C₂₂ gravity '
-                       'provenance: Petricca et al. 2025. CMR² dropped '
-                       '(would double-count C₂₂); induction + h₂ dropped '
-                       '(no clean Cassini signal). NH₃ ocean w is in '
-                       '[1,70] ppt. Artifact, config/cache paths, observable '
-                       'centrals, and gate status await Machine B handoff.'),
+        'config_path': ('PlanetProfile/Inference/configs/'
+                        'test54_titan_nh3_freegrav.json'),
+        'cache_path': ('PlanetProfile/Test/mcmc_results/Titan/'
+                       'Test54_nh3_ocean/'
+                       'titan_nh3_joint_structure_grid_2d.pkl'),
+        # Fiducial = config observable centrals: C20/C22 = Petricca et al.
+        # 2025 (J2 = 33.511e-6 → C20 = -3.3511e-5; C22 = 10.107e-6) at
+        # R_ref = 2575 km; Re_k2/Im_k2 = measured Titan tidal Love numbers.
+        # 13th sampled param = log10_wOcean_ppt over the NH3 salinity axis
+        # (1–70 ppt). JOINT posterior: frozen (Tb,w) nodes build as REAL
+        # no-ocean interiors and appear in the distribution (not rejected).
+        'default_obs': {
+            'C20': -3.3511e-05, 'C22': 1.0107e-05,
+            'Re_k2': 0.608, 'Im_k2': 0.135,
+        },
+        # Same physical-k2 support guard as the no-ocean free-gravity slot.
+        'x_obs_limits': {'Im_k2': (0.0, 0.30)},
+        'scope_note': ('Titan free-gravity JOINT no-ocean+ocean (NH₃): the '
+                       'posterior spans BOTH frozen no-ocean interiors and '
+                       'NH₃-ocean interiors over the full Tb∈[249,263] K × '
+                       '1–70 ppt range — genuinely-frozen (Tb,w) grid nodes '
+                       'build as REAL no-ocean structures (own recomputed '
+                       'k₂/C₂₀/C₂₂) and are RETAINED in the distribution, not '
+                       'silently rejected. CMR₂ DROPPED (removes hydrostatic '
+                       'double-count of C₂₂); C₂₀/C₂₂ = Petricca et al. 2025; '
+                       'ΔC₂₀ⁿʰ/ΔC₂₂ⁿʰ freely-sampled non-hydrostatic offsets '
+                       '(gravity interior-agnostic). Induction + h₂ dropped '
+                       '(no clean Cassini signal). Reviewer RATIFIED (verified) '
+                       '2026-08-03: SBC PASS (all 13 params, min BH-adj KS '
+                       'p = 0.772). Two gate exits are FAIL-adjudicated-benign '
+                       'and DOCUMENTED (never tuned): the limits monotonicity '
+                       'test is N/A for a joint mixture (HP ices, not ice Ih, '
+                       'carry the tidal response in the no-ocean branch); the '
+                       'crosscheck fails only on 3 prior-dominated ice-viscosity '
+                       'MEDIANS (log10_eta_Ih/III/VI, ≤0.28σ) — DO NOT quote SBI '
+                       'point estimates for those three. All scientifically '
+                       'load-bearing params (α, ζ, η_sil, Tb, salinity, R_core, '
+                       'ρ_core, ΔC₂₀/ΔC₂₂, η_V) pass mean/σ/median/shape. Gate '
+                       'details + caveats: validation_reports/'
+                       'titan_freegrav_nh3_1m/RATIFICATION.md.'),
     },
     'titan_mgso4_awaiting_artifact': {
         'slot_id': 'titan_mgso4',

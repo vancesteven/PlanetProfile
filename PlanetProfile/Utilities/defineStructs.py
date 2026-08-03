@@ -31,6 +31,25 @@ import platformdirs
 log = logging.getLogger('PlanetProfile')
 timeLog = logging.getLogger('PlanetProfile.Timing')
 
+
+class NoIceLiquidTransitionError(ValueError):
+    """Raised when GetPfreeze finds no ice-Ih -> liquid phase transition.
+
+    This is the *specific* signature of a genuinely frozen hydrosphere: the
+    basal temperature Tb_K is cold enough (given the ocean composition's
+    freezing-point depression) that no liquid ocean exists anywhere in the
+    Pfreeze search window (ice Ih passes directly into a high-pressure ice).
+    It subclasses ValueError so pre-existing ``except ValueError`` callers are
+    unaffected, but lets the 2D structure-cache builder distinguish the frozen
+    corner (which it retries as a NO_OCEAN_EXCEPT_INNER_ICES no-ocean structure
+    for the joint no-ocean+ocean Titan posterior) from other build failures
+    such as thin-shell / PHydroMax-exceeded / EOS-extrapolation errors (which
+    are ocean-bearing or genuinely unbuildable and must NOT be retried as
+    no-ocean). Raised at LayerPropagators.SelfConsistentIceLayer.
+    """
+    pass
+
+
 # Component lists
 zComps = ['Amp', 'Bx', 'By', 'Bz', 'Bcomps']
 xyzComps = ['x', 'y', 'z']

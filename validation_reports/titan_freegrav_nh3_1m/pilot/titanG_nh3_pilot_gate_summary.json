@@ -1,0 +1,12 @@
+{
+  "seed": 72,
+  "n_pilot": 100000,
+  "artifact": "/tmp/titanG_build/pilot/titan_freegrav_nh3_posterior_pilot.pt",
+  "config": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/configs/test54_titan_nh3_freegrav.json",
+  "ref_mcmc": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/titan_freegrav_nh3_1m/reference/titan_freegrav_nh3_reference_result.pkl",
+  "gates": {
+    "n_pilot": 100000,
+    "sbc": 0,
+    "crosscheck": 2
+  }
+}

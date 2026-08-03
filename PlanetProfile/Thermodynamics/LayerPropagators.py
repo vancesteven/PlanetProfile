@@ -19,7 +19,7 @@ from PlanetProfile.Thermodynamics.ThermalProfiles.IceConduction import IceIWhole
     IceVIConductSolid, IceVIConductPorous
 from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import ConvectionKalousova2018, ConvectionDeschampsSotin2001
 from PlanetProfile.Thermodynamics.Geophysical import PropogateConductionFromDepth
-from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
+from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing, NoIceLiquidTransitionError
 import time
 
 # Assign logger
@@ -113,7 +113,15 @@ def SelfConsistentIceLayer(Planet, Params):
                                 Planet.invalidReason = f'No valid phase transition was found for Tb_K = {Planet.Bulk.Tb_K:.3f} K for P in the range ' + \
                                                     f'[{Planet.PfreezeLower_MPa:.1f} MPa, {Planet.PfreezeUpper_MPa:.1f} MPa]. '
                             else:
-                                raise ValueError(msg)
+                                # Typed subclass of ValueError: this is the
+                                # *specific* no-liquid frozen-hydrosphere case
+                                # (PbI_MPa is NaN -> no ice-Ih->liquid transition
+                                # in the Pfreeze window). The 2D cache builder
+                                # retries only this signature as a no-ocean
+                                # structure; other build failures keep raising
+                                # plain ValueError / their own types and are not
+                                # retried. Message text unchanged.
+                                raise NoIceLiquidTransitionError(msg)
                     Planet.PbI_MPa = 0.0
                 log.debug(f'Ice Ih transition pressure: {Planet.PbI_MPa:.3f} MPa.')
             if Planet.PbI_MPa > 0:
