@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-04 at genai `297a2843`. Curated by the Claude model manager
+Updated: 2026-08-04 at genai `5284a318`. Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -20,7 +20,11 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-### C5 — Deploy script: derive serve-time cache list from the slot registry [status: in progress (Codex)]
+No unclaimed tasks.
+
+## Completed
+
+### C5 — Deploy script: derive serve-time cache list from the slot registry [status: verified]
 
 `plans/scripts/build_deploy_branch.sh` hand-maintains the list of structure
 cache pkls to ship; it has now missed a newly wired slot twice (v5 cache in
@@ -36,7 +40,20 @@ build-only (comment/skip the git push or run in a scratch clone — do NOT
 force-push app-deploy during testing), then diff the staged pkl set against
 the registry cache_paths: exact match = `verified`; cite the diff output.
 
-### C6 — Wedge cold-edge legend polish [status: in progress (Codex)]
+**Report (Codex, 2026-08-04):** `verified`. Added a literal-safe AST helper
+that extracts unique non-None `cache_path` values without importing or
+executing the Streamlit page. The deploy script now copies that derived set,
+retains `.ae_sidecar.pkl` and `_offsets.json` handling per path, fails on a
+missing registry cache, and blocks when staged primary PKLs differ from the
+registry. Added `--build-only`, which commits the temporary snapshot but
+skips both local and remote `app-deploy` pushes. Evidence from
+`plans/scripts/build_deploy_branch.sh --build-only`: “Verified staged SBI
+cache set: 6 registry paths, exact match”; no `diff -u` output; 299 MB, 528
+files; “Build-only verification passed; skipped all app-deploy pushes”.
+`bash -n`, helper `py_compile`, and `git diff --check` passed. Claim commit
+`d8503fdb`; implementation commit `a28e11f0`.
+
+### C6 — Wedge cold-edge legend polish [status: implemented, unverified]
 
 From C3 manager verification (cosmetic, non-blocking):
 `PlanetProfileApp/Utilities/radial_profiles.py::build_perplex_geotherm_figure`
@@ -51,7 +68,19 @@ confirm band + legend visibility; AppTest mineralogy test must stay green.
 Top solo status: `implemented, unverified` + PNG paths for manager visual
 check.
 
-## Completed
+**Report (Codex, 2026-08-04):** `implemented, unverified`. Replaced the
+white-on-white span with a pale-blue, blue-edged hatched patch at the same
+exact `Tmin` to `Tmin + 25 K` interval and raised the red silicate path above
+it. Bumped `_GLOBE_FIG_VER` 7→8. Structural assertions now require a hatch,
+nonzero outline, and non-white fill. AppTest evidence:
+`tests/app_globe_panel_test.py::test_apptest_mineralogy_tab` passed (1 passed,
+one pre-existing TidalPy deprecation warning). Rendered Europa-v4
+posterior-median artifacts:
+`/private/tmp/ppgenai-c6-legend/europa_v4_CV3_cold_edge.png` and
+`/private/tmp/ppgenai-c6-legend/europa_v4_CI_cold_edge.png`; both contain the
+visible on-plot band and outlined/hatched legend swatch. `py_compile` and
+`git diff --check` passed. Manager visual confirmation remains required.
+Claim commit `d8503fdb`; implementation commit `5284a318`.
 
 ### C4 — Amortized widget-key namespacing + Titan slot stubs [status: verified]
 

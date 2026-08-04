@@ -10,10 +10,10 @@ v5/v7 refs pre-B3, PPC orthogonal to parameter-space wander). Flow-fidelity
 diagnostic ONLY — does NOT affect the v5/v6/v7 ratification blocks; baselines
 only (ablation arms need their own reference MCMC). Report:
 validation_reports/EUROPA_PPC_BATCH_v5_v6_v7.md; details MACHINE-B-HANDOFF §0.5.
-Earlier 2026-08-04: HF Space DEPLOYED at d53385f1, user-confirmed running,
-Codex C5+C6 queued; v4+v1.1 PPC verdict 0-flagged both, HF redeploy UNBLOCKED,
-COUNTERSIGNED + reproduced by manager, HF hold lifted.) Single current-state
-source of truth.
+Also 2026-08-04: Codex C5 `verified` (registry-derived deploy cache list);
+C6 wedge legend polish. Earlier 2026-08-04: HF Space DEPLOYED at d53385f1,
+user-confirmed running; v4+v1.1 PPC verdict 0-flagged both, COUNTERSIGNED +
+reproduced by manager, HF hold lifted.) Single current-state source of truth.
 Freshness rule: any session that pushes commits, integrates Machine B
 artifacts, or changes a queue must refresh this file's `Updated:` line and the
 affected sections in the same session. If this file is >7 days older than
@@ -181,7 +181,9 @@ closed).
   scaffolding (Codex C4) is `verified` 2026-08-02 (manager AppTest: Phase-A
   default, placeholder states, disjoint per-slot widget keys). Follow-on
   manager fix `cb597490` gates the unratified v5/v6 slots (adjudication
-  hold enforcement; suite 7/7).
+  hold enforcement; suite 7/7). Perple_X cold-edge band/legend polish (C6)
+  is `implemented, unverified`; CV3/CI PNGs and AppTest evidence are recorded
+  in `plans/CODEX-QUEUE.md`.
 - Fixes: Titan "C/MR^2 = None" message (SetCMR2strings guard + SetupInit
   call); PREM porosity-table path; NaCl `_warn_once` broadcast crash;
   `bulk_overrides` threading in `build_tbw_grid_cache`.
@@ -198,16 +200,18 @@ NH3 composition), v5/v6 not-ratified GUI gating with v4 as Clipper default,
 mineralogy tab + Perple_X geotherm overlay, heating radiogenic-inventory
 selector, ready-slot default fallback, NaCl `_warn_once` fix, and the NH3
 activity-model correction underneath. Deploy-script cache list now includes
-Test54 (`d53385f1`); note the list is still hand-maintained (Codex C6 will
-derive it from the slot registry).
+Test54 (`d53385f1`). C5 subsequently made future deploy snapshots derive and
+exact-diff the full cache set from `_SBI_ARTIFACT_SLOTS`; build-only evidence
+is `verified`, but no new deploy was pushed.
 
 ## Awaiting
 
 - Machine A (Claude): v5/v6/v7 gate adjudication (scientific-reviewer pass);
   then wire ratified slots; maintain queues.
-- Machine A (Codex 5.6): queue empty — C1/C2/C3/C4 all `verified`. Next
-  tasks to be curated by the manager; candidate: C2's classic-MoI finding
-  needs manager adjudication first.
+- Machine A (Codex 5.6): queue empty — C1/C2/C3/C4/C5 are `verified`; C6 is
+  `implemented, unverified` and awaits manager PNG/browser confirmation.
+  Next tasks to be curated by the manager; candidate: C2's classic-MoI
+  finding needs manager adjudication first.
 - Machine B: Task #68 Titan JOINT no-ocean+ocean NH3 posterior in flight —
   3x4 validation cache running (~5 h) on the corrected activity model;
   builder edits (`retry_frozen_as_no_ocean` etc.) live in B's working tree,
