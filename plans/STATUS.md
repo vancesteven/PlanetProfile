@@ -1,6 +1,19 @@
 # PlanetProfile genai — current status
 
-Updated: 2026-08-04 (Machine B: v5/v6/v7 baseline PPC batch — all three clean,
+Updated: 2026-08-04 (Machine B: NH3 flow under-update DIAGNOSIS complete — no
+retraining. #3 (x-norm scale) RULED OUT and obs-vector width (4ch) RULED OUT as
+causal (Titan no-ocean control assimilates informative Re_k2 3.92σ→0.05σ,
+0/4 flagged); mechanism localized to the ocean-admitting apparatus (joint
+mixture AND the co-varying salinity axis — the control bundles a 13th param +
+phase-guard removal, so the mixture is NOT isolated alone); bimodal
+mode-assignment is a candidate, not established; #1 cleared for Re_k2 but
+UNTESTED for the dominant Im_k2 miss (control non-informative there). Reviewer
+PASS WITH CONCERNS, 4 corrections folded. MgSO4/NaCl inheritance CONDITIONAL;
+compute stays HELD; two cheap separators (ocean-only-with-salinity PPC; #1
+Im_k2 pilot) + proceed-vs-remediate are a manager/user call. Report:
+validation_reports/FLOW_UNDERUPDATE_DIAGNOSIS.md; control PPC JSON under
+titan_freegrav_noocean_1m/ppc/; details MACHINE-B-HANDOFF §0.6 RESOLVED block.
+Earlier 2026-08-04: v5/v6/v7 baseline PPC batch — all three clean,
 0 channels flagged (v5 0/21, v6 0/20, v7 0/21), and non-trivially so: the flow
 faithfully reproduces the reference-MCMC pushforward across many strongly-
 informative channels, up to v7 Bind_synodic_x_real's 52.9σ MCMC update tracked

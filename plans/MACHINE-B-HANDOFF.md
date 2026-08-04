@@ -229,6 +229,43 @@ Report per hypothesis: tested / mechanism confirmed / ruled out, with the
 pilot artifacts + seeds. Stop and surface anything surprising; do not fold
 any fix into a production build without a frozen config from Machine A.
 
+**RESOLVED 2026-08-04 (B) — under-update diagnosis: #3 + width ruled out,
+mechanism localized to the ocean-admitting apparatus (NOT yet fully
+mechanized). No retraining.** Two no-retrain experiments, cheapest-first per
+the §0.6 ranking. Report: `validation_reports/FLOW_UNDERUPDATE_DIAGNOSIS.md`;
+control PPC JSON at `titan_freegrav_noocean_1m/ppc/ppc_pushforward_report.json`
+(seed 58, 0/4 flagged). Scientific-reviewer **PASS WITH CONCERNS** (2026-08-04),
+all four required corrections folded.
+- **#3 (x-norm scale): RULED OUT** by pure artifact inspection (reviewer
+  reproduced every ratio exactly). NH3 k2 channels have the LOWEST
+  train_std/σ_obs (~3.4) in their own vector (median 14) — the opposite of the
+  compression #3 predicts — and k2 S/N (~3.2) matches/beats clean Europa k2.
+  Corollary: the per-channel form of #1 is weakened by the same quantity.
+- **Obs-vector width (4ch): RULED OUT as causal.** The Titan free-gravity
+  NO-OCEAN artifact (same 4 channels/body/σ_obs/Petricca datum) assimilates a
+  strongly-informative **Re_k2 (3.92σ MCMC-pp update) to 0.05σ** — a 4-channel
+  flow resolves informative k2 fine. Kills the width reading positively.
+- **Mechanism localized, NOT fully established.** The no-ocean control differs
+  from NH3 by MORE than the mixture (12 vs 13 params — extra `log10_wOcean_ppt`;
+  `phase_stability` enforce vs None), so it isolates the whole ocean-admitting
+  apparatus (joint mixture AND the co-varying salinity axis + removed guard),
+  not the mixture alone. Bimodal mode-assignment is a **candidate** (NH3 SBI
+  Re_k2 median 0.541 sits near the ocean value, not dragged to the frozen 0.113;
+  would need the NH3 SBI k2 pushforward shown bimodal to establish).
+- **#1 (noise swamping): cleared for Re_k2 only; UNTESTED for the dominant
+  Im_k2 miss.** The control is non-informative for Im_k2 (0.10σ), and NH3 flags
+  Im_k2 harder (1.64σ) than Re_k2 (0.94σ). Im_k2 is where the abs-fold +
+  additive-noise convention matters most → the #1 reduced-noise pilot remains a
+  live cheap probe for Im_k2, NOT off the table.
+- **MgSO4/NaCl:** inheritance is CONDITIONAL on the (not-yet-established)
+  mechanism; verify the joint-build flag from actual cache metadata per build.
+  **Compute stays HELD.** Two cheap separators before any remediation build:
+  (a) an ocean-only-with-salinity PPC (isolates salinity axis from bimodality);
+  (b) the #1 reduced-noise pilot for Im_k2. Proceed-as-split-status vs.
+  separate-first vs. remediate is a **manager/user call** — surfaced, not acted
+  on. Variance-subtraction under the abs-fold confirmed valid by the reviewer
+  (noise post-fold, ⟂ θ, not re-folded).
+
 ## 1. Titan NH3 — JOINT no-ocean+ocean cache + SBI (Task #68 governs)
 
 RECONCILED by Machine A 2026-08-02 per the user's firm decision (2026-07-30,
