@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-02 at genai `f4090c33`. Curated by the Claude model manager
+Updated: 2026-08-04 at genai `297a2843`. Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -20,7 +20,7 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-### C5 — Deploy script: derive serve-time cache list from the slot registry [status: queued]
+### C5 — Deploy script: derive serve-time cache list from the slot registry [status: in progress (Codex)]
 
 `plans/scripts/build_deploy_branch.sh` hand-maintains the list of structure
 cache pkls to ship; it has now missed a newly wired slot twice (v5 cache in
@@ -36,7 +36,7 @@ build-only (comment/skip the git push or run in a scratch clone — do NOT
 force-push app-deploy during testing), then diff the staged pkl set against
 the registry cache_paths: exact match = `verified`; cite the diff output.
 
-### C6 — Wedge cold-edge legend polish [status: queued]
+### C6 — Wedge cold-edge legend polish [status: in progress (Codex)]
 
 From C3 manager verification (cosmetic, non-blocking):
 `PlanetProfileApp/Utilities/radial_profiles.py::build_perplex_geotherm_figure`
