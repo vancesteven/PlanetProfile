@@ -1,6 +1,20 @@
 # PlanetProfile genai — current status
 
-Updated: 2026-08-04 (Manager decision on the surfaced NH3-diagnosis call:
+Updated: 2026-08-04 (LAUNCHED on Machine B: §0.7 step-1 B3 reference-wander
+[plans/scripts/b3_reference_wander.py — v5+v7, seeds 101/202/303,
+n_effective=2000/n_active=1024] + the two §0.8 separators as a sequential
+chain [nh3_diag_capped_anchor.py → s1_ocean_only.py → s2_reduced_noise.py,
+all on the existing NH3 1M dataset, no new sims]. Both reviewer-ratified
+PASS-WITH-CONCERNS before launch, corrections folded: (B3) pocoMC has no
+n_live → n_effective=2000 with n_active raised in step to preserve regime,
+matched-resolution paired v5-v7 gap replaces the stale n_eff=500 1.06 km
+anchor, env+sampler-knob provenance recorded; (pilots) S1 has_ocean recovery
+faithful [99.8% agreement, 100% at boundaries], S2 clean-signal recovery exact
+[source-confirmed one-shot post-fold noise], capped full-joint anchor added so
+pilots compare cap-vs-cap not vs the historical 0.042. Committed bb70cab3.
+Runner change: sampler_settings.n_active exposed (additive, existing runs
+unchanged). MgSO4/NaCl stay HELD until S1/S2 report + remedy chosen. Earlier
+Manager decision on the surfaced NH3-diagnosis call:
 run BOTH separators — S1 ocean-only-with-salinity pilot, S2 reduced-noise
 Im_k2 pilot, both on the existing dataset, no new sims — while the §0.7 B3
 reference chains run; MgSO4/NaCl stay HELD until S1/S2 report and a remedy

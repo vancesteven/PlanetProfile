@@ -177,6 +177,43 @@ would ship every future ocean campaign with a permanent tidal-sector asterisk.
   proceed / remedy (+ reviewer and user sign-off if the remedy changes
   artifact design).
 
+### LAUNCHED 2026-08-04 (Machine B, commit bb70cab3)
+
+Both B3 (§0.7 step 1) and the two separators are RUNNING; scripts written and
+reviewer-ratified (PASS-WITH-CONCERNS) before launch, corrections folded.
+
+- **B3** — `plans/scripts/b3_reference_wander.py`, v5+v7, seeds 101/202/303.
+  pocoMC 1.2.6 has NO `n_live`; "n_live>=2000" mapped to `n_effective=2000`
+  with `n_active=1024` raised in step (reviewer: raising n_effective alone is a
+  regime change; ratio-preserving n_active keeps train cadence). The driver
+  computes the **matched-resolution paired v5-v7 gap** at n_eff=2000 (the
+  step-3 comparison) — NOT the stale n_eff=500 1.06 km anchor. Env versions +
+  n_active/n_total/n_evidence recorded. Per-seed pickles → /tmp; committed
+  primaries untouched. Runner: `sampler_settings.n_active` now exposed
+  (additive; existing runs default to pocoMC 256, unchanged). Log
+  /tmp/b3_reference_wander.log; report → validation_reports/b3_reference_wander/.
+- **Separators** run as a sequential chain (anchor→S1→S2) so torch trainings
+  don't all hit CPU at once alongside B3:
+  - `nh3_diag_capped_anchor.py` — capped full-JOINT reference so the pilots
+    compare **cap-vs-cap**, not against the historical converged 0.042
+    (reviewer required-validation). If this anchor also under-updates at the
+    cap, pilot "gap unchanged" readings are trustworthy.
+  - `nh3_diag_s1_ocean_only.py` — has_ocean recovered per row via
+    `grid_interp_2d` nearest node (reviewer: 99.8% agreement w/ the forward
+    model's selection, 100% at boundary cells; forward model picks the
+    higher-weight corner, no cross-branch x-blend).
+  - `nh3_diag_s2_reduced_noise.py` — x_clean recovered EXACTLY by reproducing
+    the one-shot post-fold `default_rng(7272)` noise draw and subtracting
+    (reviewer + empirical: reconstructed |Im_k2| min 0.0, 0% negative =
+    abs-fold signature). Reduced arm (k2 σ/4) is a deterministic scaling of
+    the original draw (seed reuse); zero-k2 arm added.
+  All pilots cap at 60 epochs and record `epochs_trained` (confirm early-stop
+  fired before trusting any "unchanged" reading). Log /tmp/nh3_pilot_chain.log;
+  reports → validation_reports/nh3_diagnosis/{capped_full_joint_anchor,
+  s1_ocean_only,s2_reduced_noise}/. NO new forward sims.
+- **Next**: scientific-reviewer interprets B3 matched-gap + the three PPC
+  four-way tables; manager chooses proceed/remedy for MgSO4/NaCl.
+
 ## 0.7 USER DIRECTIVE (2026-08-04) — v5 and v6 must be FIXED and DEPLOYED to HF
 
 This is now the TOP Europa priority, superseding the earlier "after Titan"
