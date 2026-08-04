@@ -114,6 +114,36 @@ for what DIFFERS between the NH3 and v4 training setups (e.g. 4-channel vs
 weight that a 4-channel NH3 vector loses; also the joint no-ocean mixture
 may bimodalize the conditional). HF redeploy decision returned to the USER.
 
+**RESOLVED 2026-08-04 (B) — v5/v6/v7 baseline PPC batch: all three clean.**
+0 channels flagged (v5 0/21, v6 0/20, v7 0/21) at the deployed defaults. Report:
+`validation_reports/EUROPA_PPC_BATCH_v5_v6_v7.md`; JSONs under
+`europa_clipper_{v5_baseline,v6_baseline,v7_openae}_1m/ppc/`. Scientific-reviewer
+**PASS WITH CONCERNS** (2026-08-04), all corrections folded. Key points:
+- **Non-trivially clean, unlike v4/v1.1.** These 11D baselines carry MANY
+  strongly-informative channels and the flow tracks the MCMC on all of them: v5
+  C20 22.6σ update → 0.12σ; v6 Re_k2 1.66σ + synodic_x 2.8–3.1σ → ≤0.07σ; v7
+  Bind_synodic_x_real **52.9σ** update → 0.18σ (the most stringent single test in
+  the whole PPC program). Batch-max gap 0.27σ, well under the 0.5σ flag.
+- **BASELINES ONLY.** The noinduction/nok2 ablation ARMS condition on different
+  observable subsets and have NO matching reference MCMC, so the |SBI−MCMC| flag
+  is undefined for them — they need their own reference MCMC before a PPC. These
+  arms are the genuinely controlled probe for the obs-vector-width hypothesis
+  (§0.6 diagnosis) — a 6-channel v6-noinduction tests width at fixed body/physics/
+  sampler. Cheapest next diagnostic ahead of any retraining.
+- **Obs-vector-width read (this batch is supporting, NOT controlled).** All 5
+  clean Europa PPCs are 20–21ch; the only under-update (NH3) is 4ch. Consistent
+  with hypotheses #1/#3, but confounded (body/comp/sampler/joint-mixture) — the
+  arms PPC is the controlled test.
+- **v7 caveat carried to B5.** v7's observable-space gaps are batch-largest
+  (0.10–0.27σ, ~2–3× v5/v6) — likely MC noise from the diffuse open-|Ae|
+  posterior, unconfirmed; carry as a flow-side input to B5. Also: the v5/v7
+  references are the pre-B3 (possibly-wandered) runs, but this PPC is ORTHOGONAL
+  to the wander (parameter-space D_iceIh shift, ≈0 observable-space mass diff) —
+  when B3 re-runs the references, re-confirm these PPC medians are stable as cheap
+  corroboration.
+- **Flow-fidelity diagnostic ONLY** — does NOT affect the ratification blocks (v5
+  D_iceIh shape-excess, v6 powered-SBC, v7 reference-wander B3–B5).
+
 ## 0.6 Manager advisory (2026-08-04) — Europa PPC batch + under-update diagnosis
 
 Advice, not new scope — sequencing and design guardrails for §0.5/B5. The

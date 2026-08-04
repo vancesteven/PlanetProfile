@@ -1,15 +1,19 @@
 # PlanetProfile genai — current status
 
-Updated: 2026-08-04 (HF Space DEPLOYED at d53385f1, user-confirmed running; Codex C5+C6 queued. Earlier: Machine B v4 + v1.1 PPC verdict — 0 channels flagged
-on both deployed artifacts; NO tidal-sector warning needed; HF redeploy
-UNBLOCKED on this criterion. Reviewer PASS WITH CONCERNS: clean result
-carried by v4 Re_k2 (informative extreme-tail datum, SBI tracks MCMC's 1.43σ
-update to 0.04σ), NOT by "wide σ"; v1.1 tidal channels non-informative by
-construction. NH3 license persisted, model-adequacy caveat recorded. Report:
-validation_reports/EUROPA_PPC_BATCH_v4_v1p1.md; details MACHINE-B-HANDOFF
-§0.5. Prior 2026-08-04: split ratification COUNTERSIGNED, sector warning
-added, PPC requirement extended to all Europa artifacts.) Single
-current-state source of truth.
+Updated: 2026-08-04 (Machine B: v5/v6/v7 baseline PPC batch — all three clean,
+0 channels flagged (v5 0/21, v6 0/20, v7 0/21), and non-trivially so: the flow
+faithfully reproduces the reference-MCMC pushforward across many strongly-
+informative channels, up to v7 Bind_synodic_x_real's 52.9σ MCMC update tracked
+to 0.18σ. Reviewer PASS WITH CONCERNS; corrections folded (obs-vector-width
+evidence is same-width not controlled; v7 gap gradient 0.10–0.27σ carried to B5;
+v5/v7 refs pre-B3, PPC orthogonal to parameter-space wander). Flow-fidelity
+diagnostic ONLY — does NOT affect the v5/v6/v7 ratification blocks; baselines
+only (ablation arms need their own reference MCMC). Report:
+validation_reports/EUROPA_PPC_BATCH_v5_v6_v7.md; details MACHINE-B-HANDOFF §0.5.
+Earlier 2026-08-04: HF Space DEPLOYED at d53385f1, user-confirmed running,
+Codex C5+C6 queued; v4+v1.1 PPC verdict 0-flagged both, HF redeploy UNBLOCKED,
+COUNTERSIGNED + reproduced by manager, HF hold lifted.) Single current-state
+source of truth.
 Freshness rule: any session that pushes commits, integrates Machine B
 artifacts, or changes a queue must refresh this file's `Updated:` line and the
 affected sections in the same session. If this file is >7 days older than
@@ -38,9 +42,9 @@ never delegated to Codex.
 | Titan NaCl ocean | **awaiting artifact** | GUI placeholder; paths/centrals/gates unset |
 | Galileo–Europa v1.1 8D | DEPLOYED 2026-07-20 | gates 8/8; PPC 2026-08-04: 0/5 flagged, no tidal warning (tidal channels non-informative by construction) |
 | Clipper–Europa v4 geodesy 11D | DEPLOYED 2026-07-21 | user-ratified; PPC 2026-08-04: 0/21 flagged, no tidal warning (Re_k2 informative extreme-tail datum, SBI tracks MCMC 1.43σ update to 0.04σ — decisive clean evidence) |
-| Clipper–Europa v5 thick-ice ablation trio | **delivered, NOT ratified — GUI-gated** | baseline gates: sbc 0, limits 2, crosscheck 2; nok2 arm sbc 2; slots render hold warning, conditioning disabled (`cb597490`) |
-| Clipper–Europa v6 freegrav trio | **delivered, NOT ratified — GUI-gated** | baseline gates: sbc 0, limits 2, crosscheck 2; noinduction arm sbc 2; was silently the Clipper default — now gated, v4 default restored (`cb597490`) |
-| Clipper–Europa v7 open-\|Ae\| 11D | **delivered, NOT ratified** | gates: sbc 0, limits 2, crosscheck 2; never wired into GUI |
+| Clipper–Europa v5 thick-ice ablation trio | **delivered, NOT ratified — GUI-gated** | baseline gates: sbc 0, limits 2, crosscheck 2; nok2 arm sbc 2; slots render hold warning, conditioning disabled (`cb597490`). PPC 2026-08-04 (baseline): 0/21 flagged, non-trivially clean (C20 22.6σ update tracked 0.12σ); flow-fidelity only, does NOT clear ratification blocks |
+| Clipper–Europa v6 freegrav trio | **delivered, NOT ratified — GUI-gated** | baseline gates: sbc 0, limits 2, crosscheck 2; noinduction arm sbc 2; was silently the Clipper default — now gated, v4 default restored (`cb597490`). PPC 2026-08-04 (baseline): 0/20 flagged (gravity loosened by design 0.4–0.5σ, Re_k2 1.66σ + synodic 2.8–3.1σ tracked ≤0.07σ); flow-fidelity only |
+| Clipper–Europa v7 open-\|Ae\| 11D | **delivered, NOT ratified** | gates: sbc 0, limits 2, crosscheck 2; never wired into GUI. PPC 2026-08-04: 0/21 flagged (Bind_synodic_x_real 52.9σ update tracked 0.18σ); gaps batch-largest 0.10–0.27σ carried to B5; PPC orthogonal to the B3 parameter-space reference-wander block |
 | v1 / v2 | RETIRED | replaced by v1.1 / v4 |
 | v3 | VETOED | wrong k2 bounds; 2D cache reused by v4+ |
 
