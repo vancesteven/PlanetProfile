@@ -207,11 +207,15 @@ v5/v6/v7 slots (not wired pending adjudication).
   nodes kept in support. HOLD on any v5/v6/v7 retraining until adjudication.
 - USER: HF redeploy — v4/v1.1 PPC verdict DELIVERED 2026-08-04 (0/21 + 0/5
   flagged; no tidal-sector warning needed; reviewer PASS WITH CONCERNS, all
-  corrections folded). **UNBLOCKED on the PPC criterion** — redeploy is a USER
-  action (deploy one-liner + HF_TOKEN). Report:
-  `validation_reports/EUROPA_PPC_BATCH_v4_v1p1.md`. Browser click-throughs
-  still pending (globe sample-picker, amortized body banner, selector dropdown
-  wrap CSS, NH3 slot render — all `implemented, unverified`).
+  corrections folded). **UNBLOCKED and manager-COUNTERSIGNED** (A-side
+  reproduction: v4 GUI generate pushforward 0.2531/0.0031 vs B's
+  0.2534/0.0030) — redeploy is a USER action (deploy one-liner + HF_TOKEN);
+  snapshot picks up everything since `8e91d440` incl. the NH3 joint slot +
+  sector warning, v5/v6 gating, mineralogy tab, heating inventory selector.
+  Report: `validation_reports/EUROPA_PPC_BATCH_v4_v1p1.md`. Browser
+  click-throughs still pending (globe sample-picker, amortized body banner,
+  selector dropdown wrap CSS, NH3 slot render — all
+  `implemented, unverified`).
 
 ## Reference docs
 

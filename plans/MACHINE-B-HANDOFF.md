@@ -103,6 +103,17 @@ flag insensitivity with flow verification):
   untested; a follow-up PPC there is recommended before the GUI relies on the flow
   for user-supplied extreme tidal hypotheticals. Does not gate this redeploy.
 
+**COUNTERSIGNED by the manager 2026-08-04** after independent A-side
+reproduction: full GUI generate on the v4 slot gives SBI pushforward medians
+Re_k2 = 0.2531 / |Im_k2| = 0.0031 vs your report's 0.2534/0.0030 (MC noise).
+The v4 Re_k2 result also weakens diagnosis hypothesis #2 (tail sparsity) as
+a standalone mechanism — when you run the under-update diagnosis, lead with
+hypothesis #1 (noise-augmentation swamping) and #3 (x-norm scale), and look
+for what DIFFERS between the NH3 and v4 training setups (e.g. 4-channel vs
+21-channel obs vector: with 21 channels the k2 pair may retain relative
+weight that a 4-channel NH3 vector loses; also the joint no-ocean mixture
+may bimodalize the conditional). HF redeploy decision returned to the USER.
+
 ## 0.6 Manager advisory (2026-08-04) — Europa PPC batch + under-update diagnosis
 
 Advice, not new scope — sequencing and design guardrails for §0.5/B5. The
