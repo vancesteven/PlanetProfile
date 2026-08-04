@@ -144,6 +144,39 @@ may bimodalize the conditional). HF redeploy decision returned to the USER.
 - **Flow-fidelity diagnostic ONLY** — does NOT affect the ratification blocks (v5
   D_iceIh shape-excess, v6 powered-SBC, v7 reference-wander B3–B5).
 
+## 0.7 USER DIRECTIVE (2026-08-04) — v5 and v6 must be FIXED and DEPLOYED to HF
+
+This is now the TOP Europa priority, superseding the earlier "after Titan"
+ordering. Goal: bring v5 and v6 to ratifiable state, manager re-adjudicates,
+Machine A unwires the not_ratified gating, snapshot ships. Your v5/v6/v7 PPC
+batch (all clean, countersign pending nothing — accepted as flow-fidelity
+evidence) already closes one requirement. Execute in this order:
+
+1. **B3 first (it feeds everything):** multi-seed v5 + v7 reference re-runs
+   (>=3 seeds, n_live >= 2000, pinned env). Besides settling the v7
+   reference question, the v5 between-seed scatter gives the EMPIRICAL
+   reference-noise floor that the current self-D bootstrap understates
+   (it resamples correlated nested-sampling draws and misses log-volume
+   error — adjudication doc, "other items" #1).
+2. **B1 + B2 for v5/v6:** HEAD gate regeneration (constructed sweep grid,
+   gate-code SHA, uniform BH-FDR) + powered SBC (n >= 500; report
+   D_iceIh_km / log10_wOcean_ppt / Tb_K explicitly).
+3. **v5 shape-excess re-evaluation (preregistered, NOT tuning):** recompute
+   the crosscheck d_floor/d_tol for v5 D_iceIh_km with the B3 empirical
+   reference scatter included in the null (state the formula in the report
+   BEFORE computing the new statistic; accept whatever it gives). If the
+   excess survives the honest floor AND powered SBC flags D/w again →
+   retrain path, come back for a frozen config. If it clears (or is
+   marginal with clean powered SBC + the already-clean PPC) → package for
+   manager re-adjudication as FAIL-ADJUDICATED-ACCEPTABLE or clean pass.
+4. **B6 anchor-mode limits** for v5/v6 (reachable Im_k2 anchors).
+5. Ship everything to origin; Machine A re-adjudicates, unwires gating for
+   whatever ratifies, rebuilds the snapshot (registry-derived cache list is
+   live as of `2613ed6d`), and the user ships to HF.
+
+v6's expected path is short (it was already clean at HEAD — B1/B2/B6 are
+confirmation). v5 is the real question; do not skip step 3's preregistration.
+
 ## 0.6 Manager advisory (2026-08-04) — Europa PPC batch + under-update diagnosis
 
 Advice, not new scope — sequencing and design guardrails for §0.5/B5. The

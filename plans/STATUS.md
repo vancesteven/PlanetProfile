@@ -10,10 +10,16 @@ v5/v7 refs pre-B3, PPC orthogonal to parameter-space wander). Flow-fidelity
 diagnostic ONLY — does NOT affect the v5/v6/v7 ratification blocks; baselines
 only (ablation arms need their own reference MCMC). Report:
 validation_reports/EUROPA_PPC_BATCH_v5_v6_v7.md; details MACHINE-B-HANDOFF §0.5.
-Also 2026-08-04: Codex C5 `verified` (registry-derived deploy cache list);
-C6 wedge legend polish. Earlier 2026-08-04: HF Space DEPLOYED at d53385f1,
-user-confirmed running; v4+v1.1 PPC verdict 0-flagged both, COUNTERSIGNED +
-reproduced by manager, HF hold lifted.) Single current-state source of truth.
+Also 2026-08-04: Codex C5+C6 both manager-`verified`; USER DIRECTIVE — v5/v6
+must be fixed + deployed to HF, executable path in MACHINE-B-HANDOFF §0.7
+(B3 refs first → B1/B2 → preregistered v5 shape-excess re-eval with the
+empirical reference floor → B6 → manager re-adjudication → unwire gating →
+ship). User reports the HF Space was restarting repeatedly today (possibly
+connection-interrupted upload); if it persists, check the Space Logs tab
+(build vs runtime) and re-run the upload one-liner on a stable connection —
+upload_folder is an idempotent clean-sync. Earlier 2026-08-04: HF Space
+DEPLOYED at d53385f1, user-confirmed running; v4+v1.1 PPC 0-flagged both,
+COUNTERSIGNED + reproduced by manager.) Single current-state source of truth.
 Freshness rule: any session that pushes commits, integrates Machine B
 artifacts, or changes a queue must refresh this file's `Updated:` line and the
 affected sections in the same session. If this file is >7 days older than

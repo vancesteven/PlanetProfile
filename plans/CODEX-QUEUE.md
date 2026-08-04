@@ -53,7 +53,7 @@ files; “Build-only verification passed; skipped all app-deploy pushes”.
 `bash -n`, helper `py_compile`, and `git diff --check` passed. Claim commit
 `d8503fdb`; implementation commit `a28e11f0`.
 
-### C6 — Wedge cold-edge legend polish [status: implemented, unverified]
+### C6 — Wedge cold-edge legend polish [status: verified]
 
 From C3 manager verification (cosmetic, non-blocking):
 `PlanetProfileApp/Utilities/radial_profiles.py::build_perplex_geotherm_figure`
@@ -81,6 +81,14 @@ posterior-median artifacts:
 visible on-plot band and outlined/hatched legend swatch. `py_compile` and
 `git diff --check` passed. Manager visual confirmation remains required.
 Claim commit `d8503fdb`; implementation commit `5284a318`.
+
+**Manager verification (Claude, 2026-08-04):** `verified`. Inspected the
+rendered CV3 PNG: hatched pale-blue band with blue edge clearly visible at
+the table cold edge, legend swatch readable, silicate path above the band;
+suite 8/8. C5 also accepted: extractor code reviewed (literal-eval only,
+path-traversal guards, blocking staged-vs-registry invariant) + Codex's
+cited build-only evidence. Both commits pushed (rebased over B's PPC batch;
+one STATUS.md merge resolved by the manager).
 
 ### C4 — Amortized widget-key namespacing + Titan slot stubs [status: verified]
 
