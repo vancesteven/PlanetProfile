@@ -7,7 +7,7 @@
 # registry names), commits it as a single orphan commit, and pushes it to
 # origin/app-deploy (force: the branch has no history by design).
 #
-# Usage: plans/scripts/build_deploy_branch.sh [--no-push]
+# Usage: plans/scripts/build_deploy_branch.sh [--no-push|--build-only]
 # Rerun after verifying genai — this is the ONLY redeploy path; the public
 # app never tracks dev pushes.
 set -euo pipefail
@@ -16,6 +16,12 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 SRC_SHA="$(git -C "$REPO_ROOT" rev-parse --short HEAD)"
 STAGE="$(mktemp -d /tmp/pp-app-deploy.XXXXXX)"
 trap 'rm -rf "$STAGE"' EXIT
+
+MODE="${1:-}"
+if [[ -n "$MODE" && "$MODE" != "--no-push" && "$MODE" != "--build-only" ]]; then
+  echo "Usage: $0 [--no-push|--build-only]" >&2
+  exit 2
+fi
 
 echo "Staging deploy snapshot of ${SRC_SHA} in ${STAGE}"
 
@@ -46,19 +52,25 @@ echo "Staging deploy snapshot of ${SRC_SHA} in ${STAGE}"
   done
 )
 
-# Serve-time data from Test/: the structure grids the _SBI_ARTIFACT_SLOTS
-# cache_paths reference (plus their dirs), and the v3/v4 2D salinity cache.
+# Serve-time data from Test/: every unique structure grid referenced by a
+# non-placeholder _SBI_ARTIFACT_SLOTS cache_path. The literal-safe AST helper
+# avoids importing/executing the Streamlit page while keeping this list tied
+# to the registry that consumes it.
 # For each, ship its Ae precompute sidecar too (*.ae_sidecar.pkl) when
 # present — it turns the first per-run mpmath induction precompute
 # (minutes for the ~1300-node 2D cache) into an instant reload.
-for f in \
-  "PlanetProfile/Test/mcmc_results/Europa/Test51_seawater/europa_seawater_structure_grid.pkl" \
-  "PlanetProfile/Test/mcmc_results/Europa/Test52_seawater_v3/europa_seawater_structure_grid_v3_2d.pkl" \
-  "PlanetProfile/Test/mcmc_results/Europa/Test52_seawater_v5/europa_seawater_structure_grid_v5_2d.pkl" \
-  "PlanetProfile/Test/mcmc_results/Titan/Test50_andrade_noocean_yao2014/titan_allice_yao2014_structure_grid.pkl" \
-  "PlanetProfile/Test/mcmc_results/Titan/Test52_andrade_noocean_diff/titan_diff_noocean_structure_grid.pkl" \
-  "PlanetProfile/Test/mcmc_results/Titan/Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl" \
-  ; do
+EXPECTED_CACHES="$STAGE/.expected-sbi-caches"
+ACTUAL_CACHES="$STAGE/.actual-sbi-caches"
+"${PP_PYTHON:-/opt/miniconda3/envs/PP/bin/python}" \
+  "$REPO_ROOT/plans/scripts/extract_sbi_cache_paths.py" \
+  "$REPO_ROOT/PlanetProfileApp/pages/Inference.py" > "$EXPECTED_CACHES"
+
+while IFS= read -r f; do
+  [[ -n "$f" ]] || continue
+  if [[ ! -f "$REPO_ROOT/$f" ]]; then
+    echo "Registry cache is missing: $f" >&2
+    exit 1
+  fi
   mkdir -p "$STAGE/$(dirname "$f")"
   cp "$REPO_ROOT/$f" "$STAGE/$f"
   # Optional sidecars; the trailing `|| true` keeps set -e from killing
@@ -69,7 +81,19 @@ for f in \
   # Offsets sidecar (Titan diff cache): JSON next to the pkl.
   _off="${f%.pkl}_offsets.json"
   [ -f "$REPO_ROOT/$_off" ] && cp "$REPO_ROOT/$_off" "$STAGE/$_off" || true
-done
+done < "$EXPECTED_CACHES"
+
+# Blocking invariant: the staged primary cache set must exactly match the
+# registry-derived set. Sidecar pkls are excluded from this comparison.
+find "$STAGE/PlanetProfile/Test" -type f -name '*.pkl' \
+  ! -name '*.ae_sidecar.pkl' \
+  | sed "s#^$STAGE/##" | sort -u > "$ACTUAL_CACHES"
+if ! diff -u "$EXPECTED_CACHES" "$ACTUAL_CACHES"; then
+  echo "ERROR: staged SBI cache set differs from the slot registry" >&2
+  exit 1
+fi
+echo "Verified staged SBI cache set: $(wc -l < "$ACTUAL_CACHES" | tr -d ' ') registry paths, exact match"
+rm -f "$EXPECTED_CACHES" "$ACTUAL_CACHES"
 
 # README with Hugging Face Spaces YAML frontmatter (harmless on GitHub).
 # HF retired the native streamlit SDK; this deploys as a Docker Space.
@@ -160,9 +184,14 @@ git -c user.name="deploy-script" -c user.email="noreply@planetprofile" \
 
 echo "Snapshot commit: $(git rev-parse --short HEAD) ($(git ls-files | wc -l | tr -d ' ') files)"
 
+if [[ "$MODE" == "--build-only" ]]; then
+  echo "Build-only verification passed; skipped all app-deploy pushes"
+  exit 0
+fi
+
 # Push into the local repo (branch is never checked out there), then to origin.
 git push -q -f "$REPO_ROOT" app-deploy:app-deploy
-if [[ "${1:-}" != "--no-push" ]]; then
+if [[ "$MODE" != "--no-push" ]]; then
   git -C "$REPO_ROOT" push -f origin app-deploy
   echo "Pushed origin/app-deploy (source ${SRC_SHA})"
 else
