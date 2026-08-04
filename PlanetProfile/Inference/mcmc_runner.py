@@ -226,6 +226,11 @@ class MCMCRunner:
 
         # MCMC settings
         self.n_effective = config.sampler_settings.get('n_effective', 500)
+        # n_active: pocoMC active-particle count. None -> pocoMC default (256).
+        # Exposed so a resolution study can raise it in step with n_effective to
+        # preserve the sampler regime (the n_effective/n_active ratio drives flow
+        # train cadence + annealing), rather than only changing n_effective.
+        self.n_active = config.sampler_settings.get('n_active', None)
         self.random_state = config.random_state
         self.n_reeval = config.sampler_settings.get('n_reeval', 500)
 
@@ -1714,12 +1719,15 @@ class MCMCRunner:
         def _log_like(theta):
             return self.log_likelihood_fn(theta)
 
-        sampler = pc.Sampler(
+        _sampler_kwargs = dict(
             prior=self.prior,
             likelihood=_log_like,
             n_effective=self.n_effective,
             random_state=self.random_state,
         )
+        if self.n_active is not None:
+            _sampler_kwargs['n_active'] = int(self.n_active)
+        sampler = pc.Sampler(**_sampler_kwargs)
 
         # --- JSONL progress streaming ----------------------------------------
         # pocoMC's run() is a blocking call with no native per-iteration
@@ -2109,12 +2117,15 @@ class MCMCRunner:
         # Rebuild sampler from saved state
         import pocomc as pc
 
-        sampler = pc.Sampler(
+        _sampler_kwargs = dict(
             prior=self.prior,
             likelihood=self.log_likelihood_fn,
             n_effective=self.n_effective,
             random_state=checkpoint['random_state'],
         )
+        if self.n_active is not None:
+            _sampler_kwargs['n_active'] = int(self.n_active)
+        sampler = pc.Sampler(**_sampler_kwargs)
 
         # Restore internal state
         sampler.__dict__.update(checkpoint['sampler_state'])
