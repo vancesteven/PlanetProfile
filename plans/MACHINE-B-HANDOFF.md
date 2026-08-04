@@ -144,6 +144,39 @@ may bimodalize the conditional). HF redeploy decision returned to the USER.
 - **Flow-fidelity diagnostic ONLY** — does NOT affect the ratification blocks (v5
   D_iceIh shape-excess, v6 powered-SBC, v7 reference-wander B3–B5).
 
+## 0.8 MANAGER DECISION (2026-08-04) — run both separators; MgSO4/NaCl stay HELD
+
+Adjudicating the decision your diagnosis surfaced (FLOW_UNDERUPDATE_DIAGNOSIS.md
+"Consequences" 3): run BOTH cheap separators before any MgSO4/NaCl compute.
+Rationale: each MgSO4/NaCl campaign costs a cache + ~1M sims + reference MCMC;
+the separators cost two pilot flow trainings on data that already exists. If
+the mixture is the driver, the remedy (e.g. a has_ocean-labelled conditional
+or mixture-aware embedding — an artifact-design change needing reviewer + user
+sign-off) must be chosen BEFORE those campaigns; proceeding under split-status
+would ship every future ocean campaign with a permanent tidal-sector asterisk.
+
+- **S1 — ocean-only-with-salinity pilot.** Filter the EXISTING NH3 1M dataset
+  to ocean-branch rows (recover has_ocean per row from the cache node tags /
+  the same lookup generation used — state the method in the report), retrain
+  a pilot flow with the same 13-param space and architecture (fewer epochs
+  acceptable at pilot scale), PPC at the Titan datum. Preregistered reading:
+  clean k2 assimilation → the joint MIXTURE is the driver; a persistent miss
+  → the salinity degeneracy (or another shared element) is implicated and
+  the mixture reading weakens.
+- **S2 — reduced-noise Im_k2 pilot.** Same dataset (joint, unfiltered), k2
+  noise augmentation reduced (e.g. sigma/4, and zero if cheap to add as a
+  second arm), retrain pilot, PPC. Preregistered reading: the Im_k2 gap
+  shrinking materially → the abs-fold/noise convention contributes for
+  Im_k2; unchanged → #1 closed for Im_k2 as well.
+- No new forward-model sims are authorized for S1/S2. Report the standard
+  four-way tables + the flag statistic for both pilots, either outcome.
+- **Ordering:** §0.7 (v5/v6 fix path) stays the top priority. The pilots are
+  GPU/CPU flow trainings — run them while the B3 reference chains cook, not
+  before launching B3.
+- **MgSO4/NaCl remain HELD** until S1/S2 report and the manager chooses
+  proceed / remedy (+ reviewer and user sign-off if the remedy changes
+  artifact design).
+
 ## 0.7 USER DIRECTIVE (2026-08-04) — v5 and v6 must be FIXED and DEPLOYED to HF
 
 This is now the TOP Europa priority, superseding the earlier "after Titan"

@@ -1,6 +1,11 @@
 # PlanetProfile genai — current status
 
-Updated: 2026-08-04 (Machine B: NH3 flow under-update DIAGNOSIS complete — no
+Updated: 2026-08-04 (Manager decision on the surfaced NH3-diagnosis call:
+run BOTH separators — S1 ocean-only-with-salinity pilot, S2 reduced-noise
+Im_k2 pilot, both on the existing dataset, no new sims — while the §0.7 B3
+reference chains run; MgSO4/NaCl stay HELD until S1/S2 report and a remedy
+is chosen. Details MACHINE-B-HANDOFF §0.8. Earlier: Machine B NH3 flow
+under-update DIAGNOSIS complete — no
 retraining. #3 (x-norm scale) RULED OUT and obs-vector width (4ch) RULED OUT as
 causal (Titan no-ocean control assimilates informative Re_k2 3.92σ→0.05σ,
 0/4 flagged); mechanism localized to the ocean-admitting apparatus (joint
