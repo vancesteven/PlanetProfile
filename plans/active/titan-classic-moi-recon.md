@@ -182,3 +182,34 @@ from `PlanetProfile.Inference.structure_derivation` over
 `R_core_km = np.arange(0, 2001, 1)` and the six core-density values
 `[2591, 3000, 3600, 5150, 6500, 8000] kg/m3`.
 
+
+## Manager adjudication (2026-08-04)
+
+Recon accepted as delivered; `verified` status stands. Dispositions:
+
+1. **Classic MoI-matching for Titan stays unsupported** in the current
+   configuration space. The ~0.0014 gap between the best self-consistent
+   family (CV3 + Fe-S, 0.3396–0.3398) and Cmeasured = 0.341 is not a
+   numerical artifact (the direct core-radius screen shows the moment
+   integral crosses 0.341 easily at mean mantle density ~2525 kg/m3); it is
+   the incompatibility between that low required density and the shipped
+   EOS/porosity physics. The two numerical crossings are rejected as
+   solutions: one requires porosity 0.29–0.41 against a configured-law
+   yield of 0.011, the other sits on the MgSO4 EOS clamp with
+   rho_sil = 3663 kg/m3 above the inference support.
+2. **The free-gravity route (CMR2 dropped) remains the sanctioned Titan
+   configuration** — unchanged from the user's 2026-07-25 ratification, now
+   with quantitative backing for WHY classic matching fails.
+3. **Model-adequacy finding worth its own follow-up: the MgSO4 property
+   table ends at 800 MPa** while thick Titan hydrospheres reach ~1.8 GPa —
+   any deep MgSO4 Titan run silently nearest-clamps above 800 MPa, not just
+   this recon. Roadmap item: extend the MgSO4(aq) EOS coverage toward
+   ~2 GPa or emit a prominent per-run warning when the hydrosphere exceeds
+   table range.
+4. **The physically motivated path to higher C/MR2 is a hydrated
+   (serpentinized) mantle table** (grain densities ~2500–2900 kg/m3), not
+   porosity inflation. Adding one is a scientific-assumption change:
+   requires a scientific-reviewer pass and user sign-off before any
+   implementation. Roadmap, not queued.
+5. No code changes from this adjudication; the report is evidence for
+   items 3–4 when they are taken up.
