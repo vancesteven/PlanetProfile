@@ -80,7 +80,7 @@ needed; HF redeploy UNBLOCKED on this criterion.** Both deployed artifacts:
 `validation_reports/EUROPA_PPC_BATCH_v4_v1p1.md`; JSONs under
 `europa_clipper_v4_1m/ppc/` + `europa_galileo_v1p1_1m/ppc/`. Scientific-reviewer
 **PASS WITH CONCERNS** (2026-08-04), all required corrections folded in. The
-honest basis is NOT "wide σ = clean" (that framing was retracted — it conflates
+clean verdict does NOT rest on "wide σ = clean" (that framing was retracted — it conflates
 flag insensitivity with flow verification):
 - **v4 Re_k2 is the decisive positive result:** datum at the 0.3 prior-predictive
   percentile (a *more* extreme tail than NH3's 86th), MCMC-pp updates 1.43σ off
@@ -127,7 +127,7 @@ may bimodalize the conditional). HF redeploy decision returned to the USER.
 - **BASELINES ONLY.** The noinduction/nok2 ablation ARMS condition on different
   observable subsets and have NO matching reference MCMC, so the |SBI−MCMC| flag
   is undefined for them — they need their own reference MCMC before a PPC. These
-  arms are the genuinely controlled probe for the obs-vector-width hypothesis
+  arms are the controlled probe for the obs-vector-width hypothesis
   (§0.6 diagnosis) — a 6-channel v6-noinduction tests width at fixed body/physics/
   sampler. Cheapest next diagnostic ahead of any retraining.
 - **Obs-vector-width read (this batch is supporting, NOT controlled).** All 5
@@ -165,7 +165,7 @@ evidence) already closes one requirement. Execute in this order:
    the crosscheck d_floor/d_tol for v5 D_iceIh_km with the B3 empirical
    reference scatter included in the null (state the formula in the report
    BEFORE computing the new statistic; accept whatever it gives). If the
-   excess survives the honest floor AND powered SBC flags D/w again →
+   excess survives the corrected floor AND powered SBC flags D/w again →
    retrain path, come back for a frozen config. If it clears (or is
    marginal with clean powered SBC + the already-clean PPC) → package for
    manager re-adjudication as FAIL-ADJUDICATED-ACCEPTABLE or clean pass.

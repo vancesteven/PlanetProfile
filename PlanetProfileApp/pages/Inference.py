@@ -1139,7 +1139,7 @@ _SBI_ARTIFACT_SLOTS = {
                        'dC20_nh+3.333·dC22_nh agrees MCMC↔SBI to 0.019σ, both '
                        'consistent with zero). Two gate exits are '
                        'FAIL-adjudicated-acceptable: crosscheck = conservative '
-                       'dC22_nh nuisance limitation; limits = genuine Titan '
+                       'dC22_nh nuisance limitation; limits = real Titan '
                        'physics (reference MCMC is also non-monotone at low '
                        'Im_k2). Gate details: validation_reports/'
                        'titan_freegrav_noocean_1m/. NO interior-C/MR² claim '
@@ -1195,7 +1195,8 @@ _SBI_ARTIFACT_SLOTS = {
         'scope_note': ('Titan free-gravity JOINT no-ocean+ocean (NH₃): the '
                        'posterior spans BOTH frozen no-ocean interiors and '
                        'NH₃-ocean interiors over the full Tb∈[249,263] K × '
-                       '1–70 ppt range — genuinely-frozen (Tb,w) grid nodes '
+                       '1–70 ppt range — frozen (Tb,w) grid nodes (no liquidus '
+                       'crossing) '
                        'build as REAL no-ocean structures (own recomputed '
                        'k₂/C₂₀/C₂₂) and are RETAINED in the distribution, not '
                        'silently rejected. CMR₂ DROPPED (removes hydrostatic '
@@ -1252,7 +1253,7 @@ _SBI_ARTIFACT_SLOTS = {
                        'Machine B handoff.'),
     },
     'europa_galileo_v1p1_8D_posterior_1m.pt': {
-        'label': '1D · Galileo–Europa (Andrade, seawater) — v1.1 honest observables, 8D',
+        'label': '1D · Galileo–Europa (Andrade, seawater) — v1.1 measured-data observables, 8D',
         'bodyname': 'Europa',
         'config_path': ('PlanetProfile/Inference/configs/'
                         'europa_galileo_v1p1_8D.json'),
@@ -1270,7 +1271,7 @@ _SBI_ARTIFACT_SLOTS = {
         # Same synodic induction support edge as v1 (identical cut + cache):
         # no conductive ocean below ~261.5 K; restore the hard edge.
         'default_truncate': {'Tb_K': (261.5, None)},
-        'scope_note': ('Galileo v1.1 (replaces v1): honest-data framing — '
+        'scope_note': ('Galileo v1.1 (replaces v1): measured-data framing — '
                        'only C/MR² (Gomez Casajus et al. 2021) and the '
                        'synodic induction support cut are Galileo-era '
                        'measurements; the k2/h2 inputs are HYPOTHETICAL '
@@ -4363,7 +4364,7 @@ def render_results():
                         # columns render float NaN as the literal string
                         # "None" in the frontend (user 2026-07-25, Titan
                         # Cp/α rows for non-H2O phases) — blank is the
-                        # honest rendering for a missing value. Wide-range
+                        # explicit rendering for a missing value. Wide-range
                         # columns get e-notation, the rest %.6g.
                         _shown = _shown.copy()
                         for _c in _shown.columns:
