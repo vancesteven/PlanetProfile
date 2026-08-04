@@ -920,10 +920,11 @@ def build_perplex_geotherm_figure(data: Dict, title: str):
     cbar = fig.colorbar(mesh, ax=ax, pad=0.02)
     cbar.set_label(r'Grain density $\rho$ (kg m$^{-3}$)')
     ax.axvspan(Tmin, min(Tmin + 25.0, float(T.max())),
-               color='white', alpha=0.28, linewidth=0,
+               facecolor='#d9edf7', edgecolor='#2878a5',
+               alpha=0.48, linewidth=1.2, hatch='////', zorder=2,
                label=r'cold edge: $T < T_\min + 25$ K')
     ax.plot(T_path, P_path, color='crimson', linewidth=2.0,
-            label='selected draw silicate path')
+            zorder=3, label='selected draw silicate path')
     ax.set_xlim(float(T.min()), float(T.max()))
     ax.set_ylim(float(P.max()), float(P.min()))
     ax.set_xlabel('Temperature $T$ (K)')

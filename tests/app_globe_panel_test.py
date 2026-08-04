@@ -311,6 +311,10 @@ def test_apptest_mineralogy_tab():
     fig = build_perplex_geotherm_figure(overlay, 'test overlay')
     assert len(fig.axes) == 2  # heatmap axis + density colorbar
     assert fig.axes[0].get_lines(), 'selected-draw P,T path missing'
+    band = fig.axes[0].patches[0]
+    assert band.get_hatch(), 'cold-edge band hatch missing'
+    assert band.get_linewidth() > 0, 'cold-edge band outline missing'
+    assert band.get_facecolor()[:3] != (1.0, 1.0, 1.0)
     matplotlib.pyplot.close(fig)
 
 
