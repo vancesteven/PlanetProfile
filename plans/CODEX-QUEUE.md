@@ -20,7 +20,24 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-No unclaimed tasks.
+### C7 — Warn when the hydrosphere exceeds the MgSO4 EOS table range [status: queued]
+
+From the classic-MoI recon adjudication (`plans/active/titan-classic-moi-recon.md`
+item 3): the MgSO4(aq) property table ends at 800 MPa, and thick Titan
+hydrospheres reach ~1.8 GPa — above 800 MPa properties are silently
+nearest-clamped. Add a clear, once-per-run log warning when an MgSO4 ocean
+EOS is evaluated beyond its table's pressure ceiling, naming the ceiling,
+the requested maximum pressure, and the clamping behavior. Warning ONLY —
+do not change any EOS value, bound, or scientific assumption (extending the
+table is a separate, reviewer-gated roadmap item). Pattern reference: the
+NH3 branch's Pmax reset warning in `Thermodynamics/HydroEOS.py` (~line 296)
+and the `_warn_once` mechanics used for NaCl. Scope: the MgSO4 path in
+`HydroEOS.py`/its property loader; find the actual clamp site first and
+name it in your report. Verification: a targeted unit-style test or REPL
+run showing (a) the warning fires exactly once for a P grid crossing the
+ceiling, (b) no warning for an in-range grid, (c) returned property values
+are bit-identical before/after the change. `verified` requires all three
+cited.
 
 ## Completed
 
