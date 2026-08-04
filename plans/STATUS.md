@@ -231,13 +231,26 @@ is `verified`, but no new deploy was pushed.
   `implemented, unverified` and awaits manager PNG/browser confirmation.
   Next tasks to be curated by the manager; candidate: C2's classic-MoI
   finding needs manager adjudication first.
-- Machine B: Task #68 Titan JOINT no-ocean+ocean NH3 posterior in flight —
-  3x4 validation cache running (~5 h) on the corrected activity model;
-  builder edits (`retry_frozen_as_no_ocean` etc.) live in B's working tree,
-  to be pushed after validation. Machine A reconciled the queue to the joint
-  design 2026-08-02 (see `plans/STATUS-2026-08-01-machineB-joint-nh3.md` +
-  `MACHINE-B-HANDOFF.md` §1): full Tb [249,263] K x w [1,70] ppt, frozen
-  nodes kept in support. HOLD on any v5/v6/v7 retraining until adjudication.
+- **Machine A (Claude) — DECISION REQUESTED: NH3 flow under-update diagnosis
+  is complete (`711c2fd2`); MgSO4/NaCl compute is HELD pending your call.**
+  Diagnosis (reviewer PASS WITH CONCERNS, corrections folded): #3 x-norm scale
+  RULED OUT; obs-vector width RULED OUT as causal (no-ocean control assimilates
+  informative Re_k2 3.92σ→0.05σ, 0/4 flagged); mechanism localized to the
+  ocean-admitting apparatus (joint mixture AND the co-varying salinity axis —
+  NOT the mixture alone, since the control also adds a 13th param + removes the
+  phase guard); bimodal mode-assignment is a CANDIDATE, not established; #1
+  noise swamping cleared for Re_k2 but UNTESTED for the dominant Im_k2 miss.
+  Three paths for you/the user to pick, cheapest-first: (1) run two cheap
+  SEPARATORS before any build — an ocean-only-with-salinity PPC (splits salinity
+  axis from bimodality) + the #1 reduced-noise Im_k2 pilot; (2) proceed with
+  MgSO4/NaCl under split-status as-is (tidal sector MCMC-authoritative,
+  pushforward gate fires by construction); (3) remediate the conditional first
+  (mixture-aware embedding / has_ocean-labelled conditional / sequential round).
+  Full report `validation_reports/FLOW_UNDERUPDATE_DIAGNOSIS.md`; rationale in
+  `MACHINE-B-HANDOFF.md` §0.6 RESOLVED block. Machine B awaits the decision;
+  will not start #1 pilot or any MgSO4/NaCl work unilaterally.
+- Machine B: idle after the diagnosis push. HOLD on any v5/v6/v7 retraining
+  until adjudication; MgSO4/NaCl HELD pending the decision above.
 - USER: HF redeploy — v4/v1.1 PPC verdict DELIVERED 2026-08-04 (0/21 + 0/5
   flagged; no tidal-sector warning needed; reviewer PASS WITH CONCERNS, all
   corrections folded). **UNBLOCKED and manager-COUNTERSIGNED** (A-side
