@@ -20,7 +20,36 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-No unclaimed tasks.
+### C5 — Deploy script: derive serve-time cache list from the slot registry [status: queued]
+
+`plans/scripts/build_deploy_branch.sh` hand-maintains the list of structure
+cache pkls to ship; it has now missed a newly wired slot twice (v5 cache in
+July, NH3 cache `d53385f1`). Replace the hardcoded `for f in ...` list with
+a step that extracts every `cache_path` from
+`PlanetProfileApp/pages/Inference.py::_SBI_ARTIFACT_SLOTS` at build time
+(small python helper invoked by the script is fine — e.g. import the module
+with streamlit stubbed, or a conservative regex over the registry block;
+prefer the import if clean). Keep the existing sidecar handling
+(`.ae_sidecar.pkl`, `_offsets.json`) for every derived path. Placeholder
+slots with `cache_path: None` must be skipped. Verification: run the script
+build-only (comment/skip the git push or run in a scratch clone — do NOT
+force-push app-deploy during testing), then diff the staged pkl set against
+the registry cache_paths: exact match = `verified`; cite the diff output.
+
+### C6 — Wedge cold-edge legend polish [status: queued]
+
+From C3 manager verification (cosmetic, non-blocking):
+`PlanetProfileApp/Utilities/radial_profiles.py::build_perplex_geotherm_figure`
+— the cold-edge `axvspan` legend swatch is white-on-white (invisible in the
+legend box) and the 25 K band is faint against wide native T domains. Give
+the span a visible edge (e.g. hatch pattern or light-blue fill with a
+colored edgecolor) so both the on-plot band and its legend entry read
+clearly, without obscuring the heatmap underneath. Bump `_GLOBE_FIG_VER`
+(the figure changes shape). Verification: render CV3 + CI figures from the
+Europa v4 reference posterior (the C3 verification recipe), save PNGs, and
+confirm band + legend visibility; AppTest mineralogy test must stay green.
+Top solo status: `implemented, unverified` + PNG paths for manager visual
+check.
 
 ## Completed
 

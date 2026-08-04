@@ -1,6 +1,6 @@
 # PlanetProfile genai — current status
 
-Updated: 2026-08-04 (Machine B: v4 + v1.1 PPC verdict — 0 channels flagged
+Updated: 2026-08-04 (HF Space DEPLOYED at d53385f1, user-confirmed running; Codex C5+C6 queued. Earlier: Machine B v4 + v1.1 PPC verdict — 0 channels flagged
 on both deployed artifacts; NO tidal-sector warning needed; HF redeploy
 UNBLOCKED on this criterion. Reviewer PASS WITH CONCERNS: clean result
 carried by v4 Re_k2 (informative extreme-tail datum, SBI tracks MCMC's 1.43σ
@@ -186,10 +186,16 @@ closed).
 
 ## Public deployment boundary
 
-Hugging Face Space (vsteven-planetprofile.hf.space) still at `8e91d440`
-(2026-07-21) — now MANY commits stale. Redeploy is a USER action (deploy
-one-liner + HF_TOKEN). Nothing since the snapshot is deploy-blocked except
-v5/v6/v7 slots (not wired pending adjudication).
+Hugging Face Space (vsteven-planetprofile.hf.space) is CURRENT at genai
+`d53385f1`, deployed 2026-08-04 (user ran the upload one-liner; USER
+confirmed the Space running). The batch replaces the 2026-07-21 `8e91d440`
+snapshot and adds: Titan NH3 joint slot (+ its cache, sector warning, wedge
+NH3 composition), v5/v6 not-ratified GUI gating with v4 as Clipper default,
+mineralogy tab + Perple_X geotherm overlay, heating radiogenic-inventory
+selector, ready-slot default fallback, NaCl `_warn_once` fix, and the NH3
+activity-model correction underneath. Deploy-script cache list now includes
+Test54 (`d53385f1`); note the list is still hand-maintained (Codex C6 will
+derive it from the slot registry).
 
 ## Awaiting
 
