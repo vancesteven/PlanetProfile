@@ -1,0 +1,82 @@
+{
+  "kind": "ppc_pushforward_four_way",
+  "note": "DIAGNOSTIC, not a gate. Noiseless pushforward (obs_noise=False). Preregistered flag: |median_pp(SBI)-median_pp(MCMC)| > 0.5*sigma_obs. FLAG_K fixed before running; never moved after seeing results.",
+  "label": "titan_nh3_joint (license sanity)",
+  "artifact": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/sbi_artifacts/titan_freegrav_nh3_posterior_1m.pt",
+  "config": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/configs/test54_titan_nh3_freegrav.json",
+  "mcmc_reference": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/titan_freegrav_nh3_1m/reference/titan_freegrav_nh3_reference_result.pkl",
+  "prior_predictive_source": "regenerated_from_prior:n=10000",
+  "flag_k": 0.5,
+  "obs_names": [
+    "C20",
+    "C22",
+    "Re_k2",
+    "Im_k2"
+  ],
+  "x_obs": {
+    "C20": -3.3511e-05,
+    "C22": 1.0107e-05,
+    "Re_k2": 0.608,
+    "Im_k2": 0.135
+  },
+  "sigma": {
+    "C20": 4.71e-07,
+    "C22": 6.2e-08,
+    "Re_k2": 0.048,
+    "Im_k2": 0.035
+  },
+  "n_post": 4000,
+  "seed": 72,
+  "prior_predictive_all_interior_5_95": true,
+  "n_channels_flagged": 2,
+  "flagged_channels": [
+    "Re_k2",
+    "Im_k2"
+  ],
+  "channels": {
+    "C20": {
+      "obs": -3.3511e-05,
+      "sigma_obs": 4.71e-07,
+      "prior_pred_median": -3.069473338968957e-05,
+      "sbi_pp_median": -3.356972866588684e-05,
+      "obs_pctile_in_prior_pred": 42.63408992337719,
+      "mcmc_pp_median": -3.3553155155406666e-05,
+      "sbi_minus_mcmc_abs": 1.6573510480176012e-08,
+      "sbi_minus_mcmc_sigma": 0.03518792034007646,
+      "flagged": false
+    },
+    "C22": {
+      "obs": 1.0107e-05,
+      "sigma_obs": 6.2e-08,
+      "prior_pred_median": 9.243499012855261e-06,
+      "sbi_pp_median": 1.0109496078077643e-05,
+      "obs_pctile_in_prior_pred": 58.89836634379066,
+      "mcmc_pp_median": 1.0113752806065294e-05,
+      "sbi_minus_mcmc_abs": 4.25672798765095e-09,
+      "sbi_minus_mcmc_sigma": 0.06865690302662823,
+      "flagged": false
+    },
+    "Re_k2": {
+      "obs": 0.608,
+      "sigma_obs": 0.048,
+      "prior_pred_median": 0.5225235921637168,
+      "sbi_pp_median": 0.5413414611494052,
+      "obs_pctile_in_prior_pred": 83.18314506917122,
+      "mcmc_pp_median": 0.5865766276690698,
+      "sbi_minus_mcmc_abs": 0.04523516651966464,
+      "sbi_minus_mcmc_sigma": 0.9423993024930133,
+      "flagged": true
+    },
+    "Im_k2": {
+      "obs": 0.135,
+      "sigma_obs": 0.035,
+      "prior_pred_median": 0.026193164895536556,
+      "sbi_pp_median": 0.0423365408478166,
+      "obs_pctile_in_prior_pred": 86.97804289884503,
+      "mcmc_pp_median": 0.09988668770248124,
+      "sbi_minus_mcmc_abs": 0.05755014685466464,
+      "sbi_minus_mcmc_sigma": 1.6442899101332753,
+      "flagged": true
+    }
+  }
+}

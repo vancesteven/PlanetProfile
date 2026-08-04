@@ -1,0 +1,93 @@
+{
+  "kind": "ppc_pushforward_four_way",
+  "note": "DIAGNOSTIC, not a gate. Noiseless pushforward (obs_noise=False). Preregistered flag: |median_pp(SBI)-median_pp(MCMC)| > 0.5*sigma_obs. FLAG_K fixed before running; never moved after seeing results.",
+  "label": "Europa-v1.1-Galileo-8D",
+  "artifact": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/sbi_artifacts/europa_galileo_v1p1_8D_posterior_1m.pt",
+  "config": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/configs/europa_galileo_v1p1_8D.json",
+  "mcmc_reference": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/europa_galileo_v1p1_1m/reference/europa_galileo_v1p1_reference_result.pkl",
+  "prior_predictive_source": "regenerated_from_prior:n=8000",
+  "flag_k": 0.5,
+  "obs_names": [
+    "CMR2",
+    "Re_k2",
+    "Im_k2",
+    "Re_h2",
+    "Im_h2"
+  ],
+  "x_obs": {
+    "CMR2": 0.3547,
+    "Re_k2": 0.23,
+    "Im_k2": 0.004,
+    "Re_h2": 1.2,
+    "Im_h2": 0.0
+  },
+  "sigma": {
+    "CMR2": 0.0024,
+    "Re_k2": 0.05,
+    "Im_k2": 0.05,
+    "Re_h2": 0.1,
+    "Im_h2": 0.1
+  },
+  "n_post": 4000,
+  "seed": 50,
+  "prior_predictive_all_interior_5_95": false,
+  "n_channels_flagged": 0,
+  "flagged_channels": [],
+  "channels": {
+    "CMR2": {
+      "obs": 0.3547,
+      "sigma_obs": 0.0024,
+      "prior_pred_median": 0.36173005450282947,
+      "sbi_pp_median": 0.3549460478199261,
+      "obs_pctile_in_prior_pred": 31.64612676056338,
+      "mcmc_pp_median": 0.3551304222524133,
+      "sbi_minus_mcmc_abs": 0.00018437443248719987,
+      "sbi_minus_mcmc_sigma": 0.07682268020299995,
+      "flagged": false
+    },
+    "Re_k2": {
+      "obs": 0.23,
+      "sigma_obs": 0.05,
+      "prior_pred_median": 0.27422518557473863,
+      "sbi_pp_median": 0.2691947440571031,
+      "obs_pctile_in_prior_pred": 0.8193058245195889,
+      "mcmc_pp_median": 0.26952124853782844,
+      "sbi_minus_mcmc_abs": 0.00032650448072535365,
+      "sbi_minus_mcmc_sigma": 0.006530089614507073,
+      "flagged": false
+    },
+    "Im_k2": {
+      "obs": 0.004,
+      "sigma_obs": 0.05,
+      "prior_pred_median": 0.0024227975059503957,
+      "sbi_pp_median": 0.0015860907146143153,
+      "obs_pctile_in_prior_pred": 60.21152986742142,
+      "mcmc_pp_median": 0.0015925080724950513,
+      "sbi_minus_mcmc_abs": 6.417357880735995e-06,
+      "sbi_minus_mcmc_sigma": 0.0001283471576147199,
+      "flagged": false
+    },
+    "Re_h2": {
+      "obs": 1.2,
+      "sigma_obs": 0.1,
+      "prior_pred_median": 1.2222308473689616,
+      "sbi_pp_median": 1.207617205267065,
+      "obs_pctile_in_prior_pred": 30.448383733055266,
+      "mcmc_pp_median": 1.2089255122190017,
+      "sbi_minus_mcmc_abs": 0.001308306951936622,
+      "sbi_minus_mcmc_sigma": 0.01308306951936622,
+      "flagged": false
+    },
+    "Im_h2": {
+      "obs": 0.0,
+      "sigma_obs": 0.1,
+      "prior_pred_median": 0.006717095579219894,
+      "sbi_pp_median": 0.0053841830400220055,
+      "obs_pctile_in_prior_pred": 0.0,
+      "mcmc_pp_median": 0.005467232042419718,
+      "sbi_minus_mcmc_abs": 8.304900239771221e-05,
+      "sbi_minus_mcmc_sigma": 0.0008304900239771221,
+      "flagged": false
+    }
+  }
+}

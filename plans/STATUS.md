@@ -1,11 +1,15 @@
 # PlanetProfile genai — current status
 
-Updated: 2026-08-04 (Machine A: split ratification COUNTERSIGNED — PPC
-independently reproduced end-to-end on A, SBI pushforward 0.542/0.042 ==
-B's 0.541/0.042; results-panel sector warning added + slot verified
-functional post-cache; PPC requirement extended to all Europa artifacts,
-deployed v4/v1.1 first — see MACHINE-B-HANDOFF §0.5). Single current-state
-source of truth.
+Updated: 2026-08-04 (Machine B: v4 + v1.1 PPC verdict — 0 channels flagged
+on both deployed artifacts; NO tidal-sector warning needed; HF redeploy
+UNBLOCKED on this criterion. Reviewer PASS WITH CONCERNS: clean result
+carried by v4 Re_k2 (informative extreme-tail datum, SBI tracks MCMC's 1.43σ
+update to 0.04σ), NOT by "wide σ"; v1.1 tidal channels non-informative by
+construction. NH3 license persisted, model-adequacy caveat recorded. Report:
+validation_reports/EUROPA_PPC_BATCH_v4_v1p1.md; details MACHINE-B-HANDOFF
+§0.5. Prior 2026-08-04: split ratification COUNTERSIGNED, sector warning
+added, PPC requirement extended to all Europa artifacts.) Single
+current-state source of truth.
 Freshness rule: any session that pushes commits, integrates Machine B
 artifacts, or changes a queue must refresh this file's `Updated:` line and the
 affected sections in the same session. If this file is >7 days older than
@@ -32,8 +36,8 @@ never delegated to Codex.
 | Titan NH₃ joint no-ocean+ocean | **SPLIT ratification 2026-08-03: gravity/structure VERIFIED, tidal (k₂) sector NOT verified**; GUI slot wired (in-browser render pending) | `titan_freegrav_nh3_posterior_1m.pt`; SBC pass; PPC shows flow under-updates k₂ (SBI pushforward at prior-pred median vs MCMC/data) — MCMC reference authoritative for k₂/dissipation, do NOT quote SBI Re_k₂/Im_k₂/ζ/η. See amended `validation_reports/titan_freegrav_nh3_1m/RATIFICATION.md`. Real slot replaced placeholder; headless load+sample verified |
 | Titan MgSO₄ ocean | **awaiting artifact** | GUI placeholder; paths/centrals/gates unset |
 | Titan NaCl ocean | **awaiting artifact** | GUI placeholder; paths/centrals/gates unset |
-| Galileo–Europa v1.1 8D | DEPLOYED 2026-07-20 | gates 8/8 |
-| Clipper–Europa v4 geodesy 11D | DEPLOYED 2026-07-21 | user-ratified |
+| Galileo–Europa v1.1 8D | DEPLOYED 2026-07-20 | gates 8/8; PPC 2026-08-04: 0/5 flagged, no tidal warning (tidal channels non-informative by construction) |
+| Clipper–Europa v4 geodesy 11D | DEPLOYED 2026-07-21 | user-ratified; PPC 2026-08-04: 0/21 flagged, no tidal warning (Re_k2 informative extreme-tail datum, SBI tracks MCMC 1.43σ update to 0.04σ — decisive clean evidence) |
 | Clipper–Europa v5 thick-ice ablation trio | **delivered, NOT ratified — GUI-gated** | baseline gates: sbc 0, limits 2, crosscheck 2; nok2 arm sbc 2; slots render hold warning, conditioning disabled (`cb597490`) |
 | Clipper–Europa v6 freegrav trio | **delivered, NOT ratified — GUI-gated** | baseline gates: sbc 0, limits 2, crosscheck 2; noinduction arm sbc 2; was silently the Clipper default — now gated, v4 default restored (`cb597490`) |
 | Clipper–Europa v7 open-\|Ae\| 11D | **delivered, NOT ratified** | gates: sbc 0, limits 2, crosscheck 2; never wired into GUI |
@@ -201,11 +205,13 @@ v5/v6/v7 slots (not wired pending adjudication).
   design 2026-08-02 (see `plans/STATUS-2026-08-01-machineB-joint-nh3.md` +
   `MACHINE-B-HANDOFF.md` §1): full Tb [249,263] K x w [1,70] ppt, frozen
   nodes kept in support. HOLD on any v5/v6/v7 retraining until adjudication.
-- USER: HF redeploy ON HOLD (user 2026-08-04) until the v4/v1.1 PPC verdict
-  from Machine B — it decides whether the public v4 slot needs a sector
-  warning first. Browser click-throughs still pending (globe sample-picker,
-  amortized body banner, selector dropdown wrap CSS, NH3 slot render — all
-  `implemented, unverified`).
+- USER: HF redeploy — v4/v1.1 PPC verdict DELIVERED 2026-08-04 (0/21 + 0/5
+  flagged; no tidal-sector warning needed; reviewer PASS WITH CONCERNS, all
+  corrections folded). **UNBLOCKED on the PPC criterion** — redeploy is a USER
+  action (deploy one-liner + HF_TOKEN). Report:
+  `validation_reports/EUROPA_PPC_BATCH_v4_v1p1.md`. Browser click-throughs
+  still pending (globe sample-picker, amortized body banner, selector dropdown
+  wrap CSS, NH3 slot render — all `implemented, unverified`).
 
 ## Reference docs
 

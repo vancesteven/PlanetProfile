@@ -74,6 +74,35 @@ v1.1 first** (they are on the public app), then v5/v6/v7. If v4's k2 or
 gravity pushforward sits at the prior-predictive median, surface
 immediately — do not wait for the rest of the batch.
 
+**RESOLVED 2026-08-04 (B) — v4 + v1.1 PPC verdict: no tidal-sector warning
+needed; HF redeploy UNBLOCKED on this criterion.** Both deployed artifacts:
+0 channels flagged (v4 0/21, v1.1 0/5) at the deployed defaults. Report:
+`validation_reports/EUROPA_PPC_BATCH_v4_v1p1.md`; JSONs under
+`europa_clipper_v4_1m/ppc/` + `europa_galileo_v1p1_1m/ppc/`. Scientific-reviewer
+**PASS WITH CONCERNS** (2026-08-04), all required corrections folded in. The
+honest basis is NOT "wide σ = clean" (that framing was retracted — it conflates
+flag insensitivity with flow verification):
+- **v4 Re_k2 is the decisive positive result:** datum at the 0.3 prior-predictive
+  percentile (a *more* extreme tail than NH3's 86th), MCMC-pp updates 1.43σ off
+  the prior, SBI-pp tracks to 0.04σ. On the one *informative* deployed tidal
+  channel where the NH3 under-update could appear, it does not — on a harder datum
+  than NH3's. **This contradicts the "tail → under-update" causal story**; keep it
+  in mind for the diagnosis (hypothesis #2 tail-sparsity is not sufficient alone).
+- **v1.1's tidal channels are non-informative by construction** (hypothetical
+  k2/h2, σ 0.05/0.10; MCMC updates ≤0.13σ) — the NH3 pathology cannot arise at a
+  non-informative default, so 0-flagged there is expected, not verification.
+- **License persisted:** the identical generalized statistic on NH3 flags both k2
+  (Re 0.94σ, Im 1.64σ), neither gravity — archived at
+  `titan_freegrav_nh3_1m/ppc/ppc_pushforward_report.json`.
+- **Model-adequacy caveat (not a warning trigger):** deployed default Im_h2 = 0 is
+  physically unreachable (dissipation > 0) and Re_k2 = 0.23 sits below the
+  prior-predictive tail; both samplers agree at the model edge (≤0.013σ). Recorded,
+  no action.
+- **Untested regime:** the PPC covers deployed defaults only. Flow behavior at an
+  *off-default informative* k2 (tight σ, extreme value — the NH3 regime) is
+  untested; a follow-up PPC there is recommended before the GUI relies on the flow
+  for user-supplied extreme tidal hypotheticals. Does not gate this redeploy.
+
 ## 0.6 Manager advisory (2026-08-04) — Europa PPC batch + under-update diagnosis
 
 Advice, not new scope — sequencing and design guardrails for §0.5/B5. The
