@@ -57,6 +57,7 @@ for f in \
   "PlanetProfile/Test/mcmc_results/Europa/Test52_seawater_v5/europa_seawater_structure_grid_v5_2d.pkl" \
   "PlanetProfile/Test/mcmc_results/Titan/Test50_andrade_noocean_yao2014/titan_allice_yao2014_structure_grid.pkl" \
   "PlanetProfile/Test/mcmc_results/Titan/Test52_andrade_noocean_diff/titan_diff_noocean_structure_grid.pkl" \
+  "PlanetProfile/Test/mcmc_results/Titan/Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl" \
   ; do
   mkdir -p "$STAGE/$(dirname "$f")"
   cp "$REPO_ROOT/$f" "$STAGE/$f"
