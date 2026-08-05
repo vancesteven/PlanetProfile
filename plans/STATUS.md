@@ -242,17 +242,14 @@ is `verified`, but no new deploy was pushed.
   will not start #1 pilot or any MgSO4/NaCl work unilaterally.
 - Machine B: idle after the diagnosis push. HOLD on any v5/v6/v7 retraining
   until adjudication; MgSO4/NaCl HELD pending the decision above.
-- USER: HF redeploy — v4/v1.1 PPC verdict DELIVERED 2026-08-04 (0/21 + 0/5
-  flagged; no tidal-sector warning needed; reviewer PASS WITH CONCERNS, all
-  corrections folded). **UNBLOCKED and manager-COUNTERSIGNED** (A-side
-  reproduction: v4 GUI generate pushforward 0.2531/0.0031 vs B's
-  0.2534/0.0030) — redeploy is a USER action (deploy one-liner + HF_TOKEN);
-  snapshot picks up everything since `8e91d440` incl. the NH3 joint slot +
-  sector warning, v5/v6 gating, mineralogy tab, heating inventory selector.
-  Report: `validation_reports/EUROPA_PPC_BATCH_v4_v1p1.md`. Browser
-  click-throughs still pending (globe sample-picker, amortized body banner,
-  selector dropdown wrap CSS, NH3 slot render — all
-  `implemented, unverified`).
+- USER: live-app click-throughs DONE 2026-08-05 — one change requested and
+  shipped (`01649f3f`, verified): Europa induction conditioning defaults
+  Re Ae = 0.9 for the synodic band + second harmonic (imaginary parts and
+  the orbital band keep config-derived values; inputs stay editable). The
+  Space runs the d53385f1 snapshot; the Ae-default change reaches it at the
+  next redeploy. v5/v6 ratification (user priority) is executing via
+  MACHINE-B-HANDOFF §0.7 — B3 done, B1/B2 against the fresh references
+  next.
 
 ## Reference docs
 
