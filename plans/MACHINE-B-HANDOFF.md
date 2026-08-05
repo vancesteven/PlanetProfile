@@ -144,6 +144,53 @@ may bimodalize the conditional). HF redeploy decision returned to the USER.
 - **Flow-fidelity diagnostic ONLY** — does NOT affect the ratification blocks (v5
   D_iceIh shape-excess, v6 powered-SBC, v7 reference-wander B3–B5).
 
+## 0.9 MANAGER JUDGEMENT (2026-08-05) — B3 accepted; reorder the follow-ups: #3, #2, then #1 only if needed
+
+**B3 accepted and consequential.** The legacy 1.06 km v5-v7 reference
+disagreement is adjudicated a resolution artifact of the n_eff=500 SMC runs;
+at matched n_eff=2000 the gap is −0.19 ± 0.22 km, inside the between-seed
+floor. Neither old reference was "the outlier" — BOTH wandered (fresh
+converged means: v5 61.35–61.65, v7 61.61–61.80 vs old 62.1/61.0). Two
+record corrections follow:
+- My 2026-08-02 statement "v7 flow passes 22/22 gates against the v5
+  reference" is VOID — it was measured against the old wandered v5
+  reference. Against the fresh references, v5-flow D_iceIh sits ~+0.7 km
+  high (inside 0.25σ tol) and v7-flow ~+1.2 km high (at/near tol). Both
+  offsets share a sign — the D–w degeneracy-direction signal persists and
+  B2/B5 remain the tests that matter. The adjudication record gets an
+  addendum this session.
+- **§0.7 steps 2–3 must target the FRESH references:** pool the three
+  n_eff=2000 seeds per config as the crosscheck target, take the mean_tol
+  MC-error term from the between-seed scatter, and use the preregistered
+  step-3 shape-excess floor of 0.36 km (the reviewer's 2× conservative
+  factor on the 0.18 km empirical floor). Do not crosscheck anything
+  against the seed-51/71 n_eff=500 references again.
+
+**Separators accepted:** S1 rules the joint mixture OUT as the Im_k2 driver
+(ocean-only moved it the wrong way); S2 closes noise-swamping for Im_k2.
+The elimination now rests entirely on the size of the real gap — which is
+measured against an n_eff=500 NH3 reference (MCMC-pp ceiling 0.100) of
+exactly the resolution class B3 just discredited. Therefore:
+
+**Follow-up order (reordered from the reviewer's #1-first):**
+1. **#3 first (free):** plot the anchor's Im_k2 pushforward distribution —
+   concentration-failure vs wrong-mode shape, no compute.
+2. **#2 second (decisive, cheap):** re-run the NH3 reference MCMC at
+   n_eff=2000 (>=2 seeds if affordable) and re-measure the MCMC-pp ceiling.
+   The entire "flow under-updates by 0.042-vs-0.100" magnitude inherits the
+   discredited resolution class; measure the target before chasing it.
+3. **#1 (salinity-fixed retrain) ONLY IF a material gap survives #2** — its
+   interpretation depends on the matched-resolution ceiling.
+
+**MgSO4/NaCl release criteria (preregistered):** if the matched-resolution
+NH3 SBI-vs-MCMC-pp gap falls below the 0.5σ_obs flag threshold, the
+under-update is substantially a reference artifact — MgSO4/NaCl PROCEED
+with the standard gate set + the pushforward gate, and the NH3 split
+ratification comes back to the manager for re-adjudication (the tidal
+sector warning may be softened). If the gap survives, run #1; remedy
+selection (with reviewer + user sign-off if artifact design changes)
+before any MgSO4/NaCl compute. Either way, report the four-way table.
+
 ## 0.8 MANAGER DECISION (2026-08-04) — run both separators; MgSO4/NaCl stay HELD
 
 Adjudicating the decision your diagnosis surfaced (FLOW_UNDERUPDATE_DIAGNOSIS.md

@@ -102,3 +102,24 @@ B7 Documentation: record outcomes with FAIL-ADJUDICATED-ACCEPTABLE
 Machine A side of B7 done this session: v4 INDEX row corrected; STATUS.md
 updated; this record committed. Titan freegrav gates (containment 0.975
 old-gate; dC20/dC22 mean fails) get a separate pass after B1 lands.
+
+## Addendum — B3 outcome (2026-08-05)
+
+B3 multi-seed references (n_eff=2000, seeds 101/202/303, pinned env) resolve
+the open reference question and correct one claim above:
+
+- The 1.06 km v5-v7 reference disagreement was a resolution artifact of the
+  n_eff=500 runs. At matched resolution the gap is −0.19 ± 0.22 km (inside
+  the 0.18 km between-seed floor) — consistent with the proof that the two
+  posteriors are identical. NEITHER old reference was singly at fault; both
+  wandered (fresh means: v5 61.35–61.65 km, v7 61.61–61.80 km, vs old
+  62.1 / 61.0).
+- CORRECTION: "v7 flow passes 22/22 mean+sigma gates against the v5
+  reference" was measured against the old wandered v5 reference and is
+  void. Against the fresh references: v5-flow D_iceIh +0.6–0.8 km (inside
+  the 0.25σ tolerance), v7-flow +1.1–1.3 km (at/near tolerance). Both
+  flows offset in the SAME direction — the D–w degeneracy-direction risk
+  flagged above stands and is now the sharpest open question for B2/B5.
+- All §0.7 crosscheck re-evaluations target the pooled fresh references;
+  the preregistered v5 shape-excess floor is 0.36 km (2× the empirical
+  0.18 km between-seed floor, per reviewer).
