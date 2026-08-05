@@ -2333,6 +2333,13 @@ def render_amortized_config():
             d_re = defaults_obs.get(f'Bind_{lab}_{ref_comp}_real', 0.0)
             d_im = defaults_obs.get(f'Bind_{lab}_{ref_comp}_imag', 0.0)
             ae_default = (complex(d_re, d_im) / be_ref) if be_ref else 0j
+            # User-directed default (2026-08-05, live-app click-through):
+            # Europa induction conditioning starts at Re Ae = 0.9 for the
+            # synodic band and its harmonic; the imaginary part keeps the
+            # config-derived value. Inputs stay fully editable.
+            if (slot.get('bodyname') == 'Europa'
+                    and lab in ('synodic', 'synodic 2nd')):
+                ae_default = complex(0.9, ae_default.imag)
             c1, c2 = st.columns(2)
             with c1:
                 ae_re = st.number_input(f"Re Ae ({lab}):",
