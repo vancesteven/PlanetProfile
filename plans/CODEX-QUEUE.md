@@ -20,7 +20,16 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-_No queued tasks._
+### C8 — First doc-doctor pass [status: queued]
+
+Execute the full checklist in `plans/DOC-DOCTOR.md` against the current
+tree (all wired GUI slots incl. gated ones, README/DEPLOYING, the NH3 and
+v4 campaigns for methods-extractability). Deliverable: a report at
+`validation_reports/doc_doctor/2026-08-06_first_pass.md` with per-item
+PASS / FINDING (file:line) / N/A and a short findings summary at top.
+Report-only — do NOT fix findings in this task; the manager triages them
+into follow-up tasks. Verification: `verified` = every checklist item has
+an entry with evidence cited (grep/paths), and the report renders.
 
 ## Completed
 

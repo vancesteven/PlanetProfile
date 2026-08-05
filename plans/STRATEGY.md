@@ -69,6 +69,49 @@ verified. Options for MgSO4/NaCl:
   caches + datasets now, run the #4 pilot meanwhile, and pick the flow
   architecture at training time with the pilot's answer in hand.
 
+## Architecture principles (user-ratified 2026-08-06)
+
+The GUI is an engine for scientific exploration, which imposes four
+standing constraints on all development:
+
+1. **Traceability.** Every model assumption must be traceable to how the
+   calculation is made: config → structure cache → artifact → gate
+   reports → GUI scope note form an unbroken, documented chain.
+2. **Reproducibility & core parity.** Any individual model inside an
+   inference run must be reproducible as a single PlanetProfile run
+   (GUI or CLI), and core PlanetProfile evolves WITH the inference work —
+   no inference-only physics (NH3 set the precedent: it landed as a
+   standard `Ocean.comp` first). The GUI should make switching physical
+   features on/off easy. Known documented exception: the freegrav
+   rho_sil mass-conservation rescale (roadmap: self-consistent Perple_X
+   refit).
+3. **Explorability.** Model assumptions must be easy to understand in the
+   GUI (assumptions expanders, scope notes, sector warnings) and results
+   easy to explore (the 3D globe panel direction).
+4. **Uniform organization across mission-body models.** Same tab/panel
+   structure per slot wherever possible. Known accepted deviation: the
+   experimental k2 complex-plane / induction plot (not scheduled for
+   repair; new slots should follow the standard organization, and any
+   intentional deviation gets recorded here).
+
+## Documentation program
+
+- **Format adjudication: Markdown stays the source of truth.** GitHub
+  renders .md natively; raw .html files in a repo display as source, not
+  pages (HTML is only useful via GitHub Pages or an external host). If a
+  browsable site is wanted later, generate it FROM the .md (MkDocs/Sphinx
+  on a Pages branch) rather than authoring HTML — same reasoning as the
+  handoff-format adjudication (diffable, agent-readable, no build step).
+- **Doc-doctor:** a recurring documentation audit
+  (`plans/DOC-DOCTOR.md` checklist) run at every integration point —
+  new slot wired, campaign ratified, physics feature added. Codex
+  executes the pass; the manager reviews. First pass queued (C8).
+- **Methods/results support:** per-campaign provenance (config, priors,
+  observables, gate outcomes, versions, seeds) should be liftable into a
+  paper's methods section with minimal rewriting. The doc-doctor
+  checklist includes a "methods-extractability" item; a generated
+  per-campaign methods snippet is roadmap.
+
 ## Standing discipline (unchanged)
 
 Preregistered gates; FAILs adjudicated, never relabeled; Machine B stops

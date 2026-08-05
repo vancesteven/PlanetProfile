@@ -1,5 +1,33 @@
 # Machine B handoff
 
+## 0.10 PRODUCTION AUTHORIZATION (user + manager, 2026-08-06) — MgSO4/NaCl proceed in parallel with the architecture pilot
+
+The user ratified the parallel option (STRATEGY.md). Execute:
+
+1. **MgSO4/NaCl production STARTS NOW at the architecture-independent
+   stages:** build the 2D joint structure caches (same
+   `retry_frozen_as_no_ocean=True` joint design as NH3; per-composition
+   salinity ranges from the campaign spec; ocean comp recorded in cache
+   metadata) and generate the training datasets. Compute priority remains
+   (a) v5/v6 B1/B2/B6 first, (b) these caches/datasets, in that order.
+2. **#4 architecture pilot in parallel (existing NH3 dataset, no new
+   sims):** test whether increased flow capacity and/or an embedding
+   change closes the Im_k2 under-update (target: SBI-pp within 0.5
+   sigma_obs of the matched MCMC-pp ceiling 0.1037). Design freeze with
+   the scientific reviewer before running; report either outcome. This is
+   a PILOT — the production architecture decision is made by manager +
+   reviewer + user with its result.
+3. **MgSO4/NaCl flow TRAINING waits for the pilot verdict** (datasets do
+   not). If the pilot closes the gap, the improved architecture becomes
+   the production architecture (formal sign-off will be recorded); if
+   not, MgSO4/NaCl train on the standard architecture under the
+   split-status discipline (structure sector primary; tidal sector
+   quarantined with the sector warning; pushforward gate mandatory).
+4. **Enceladus production enters the queue after v5/v6 validation ships**
+   — §2 below is the standing spec; confirm the config freeze with
+   Machine A before the production dataset.
+
+
 Updated: 2026-08-05 (Machine B: NH3 follow-ups #3, #2 AND #1 EXECUTED, reviewer
 PASS on all — see §0.9. #1 outcome: PERSIST — fixing salinity at matched N did
 NOT recover the Im_k2 update (banded 0.0313 ≈ control 0.0321, +0.02σ_obs, wrong
