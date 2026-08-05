@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-04 at genai `5284a318`. Curated by the Claude model manager
+Updated: 2026-08-05 at genai `0ccb3524`. Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -20,7 +20,7 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-### C7 — Warn when the hydrosphere exceeds the MgSO4 EOS table range [status: queued]
+### C7 — Warn when the hydrosphere exceeds the MgSO4 EOS table range [status: in progress (Codex)]
 
 From the classic-MoI recon adjudication (`plans/active/titan-classic-moi-recon.md`
 item 3): the MgSO4(aq) property table ends at 800 MPa, and thick Titan
