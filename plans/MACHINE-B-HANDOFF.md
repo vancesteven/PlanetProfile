@@ -245,6 +245,24 @@ user sign-off before any MgSO4/NaCl compute; MgSO4/NaCl PROCEED is falsified.**
 Report: `validation_reports/nh3_diagnosis/matched_reference/matched_reference_report.json`;
 per-seed pickles + progress jsonl copied alongside.
 
+**#1 AUTHORIZED (manager, 2026-08-06).** #2's outcome satisfies the §0.9
+preregistered branch condition, and #1 is a pilot retrain on the existing
+dataset with no artifact-design change — no further sign-off needed to RUN
+it (the reviewer+user sign-off requirement attaches to REMEDY selection
+after #1, if the remedy changes artifact design). Design notes: salinity
+FIXED at the reference posterior's median (state the value in the report);
+ocean-only rows (reuse the validated S1 has_ocean recovery); same
+architecture/seed family and 60-epoch cap as the S-pilots so the capped
+anchor (0.043) stays the comparison; report the four-way table + flag
+statistic against the matched MCMC-pp ceiling 0.1037. Preregistered
+reading: Im_k2 gap collapses → the salinity axis is the driver and the
+remedy discussion (with reviewer + user) starts from
+degeneracy-aware options; gap persists → the remaining candidates are
+capacity/embedding (#4) and the elimination restarts from the widened
+residual. Either way, stop after #1 and surface — remedy selection is a
+manager + reviewer + user decision. v5/v6 §0.7 work keeps priority for
+compute scheduling; MgSO4/NaCl stay HELD.
+
 ## 0.8 MANAGER DECISION (2026-08-04) — run both separators; MgSO4/NaCl stay HELD
 
 Adjudicating the decision your diagnosis surfaced (FLOW_UNDERUPDATE_DIAGNOSIS.md
