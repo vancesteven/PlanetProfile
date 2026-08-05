@@ -1,7 +1,9 @@
 # Machine B handoff
 
-Updated: 2026-08-05 (Machine B: NH3 follow-up #3 EXECUTED, reviewer PASS — see
-§0.9 #3 EXECUTED block; proceeding to #2 matched-resolution MCMC).
+Updated: 2026-08-05 (Machine B: NH3 follow-ups #3 AND #2 EXECUTED, reviewer PASS
+on both — see §0.9. #2 gate outcome: SBI-vs-matched-MCMC-pp gap SURVIVES at
++1.76σ_obs → directs to #1 (salinity-fixed retrain, needs reviewer+user
+sign-off); MgSO4/NaCl PROCEED falsified, stay HELD).
 Prior: 2026-08-01 at genai `54106fbd` (Machine A refresh after v5/v6/v7
 delivery). Authoritative executable queue for compute-intensive work. Machine B
 should pull the exact `origin/genai` commit named by Machine A before each
@@ -211,6 +213,37 @@ ratification comes back to the manager for re-adjudication (the tidal
 sector warning may be softened). If the gap survives, run #1; remedy
 selection (with reviewer + user sign-off if artifact design changes)
 before any MgSO4/NaCl compute. Either way, report the four-way table.
+
+**#2 EXECUTED (Machine B, 2026-08-05) — reviewer PASS. Gate outcome: the gap
+SURVIVES → run #1; MgSO4/NaCl do NOT proceed.** Matched-resolution NH3 reference
+MCMC at n_effective=2000 / n_active=1024 (regime ratio 1.953, identical to the
+legacy 500/256; tracked config UNMUTATED, config_hash 1611b65fff3f06c9 intact),
+seeds 72 + 172, both annealed to β=1 (7187 samples each). **Weighted |Im_k2|
+median pooled 0.1037** (seed 72: 0.1043, seed 172: 0.1031; between-seed std
+0.00086, range 0.0012). Contrast with B3: the ceiling did NOT collapse — it moved
+only +0.0038 (0.0999→0.1037, +0.11σ_obs) and *away* from the SBI value, so the
+n_eff=500 ceiling was NOT a low-resolution artifact.
+
+Four-way table (|Im_k2|):
+| quantity | value | vs obs |
+|---|---|---|
+| prior-predictive median | ~0.05 (broad) | — |
+| **deployed SBI posterior-predictive median** | **0.0423** | −3.2σ_obs |
+| **matched-res MCMC posterior-predictive median** | **0.1037** | −0.89σ_obs |
+| observed | 0.135 (σ 0.035) | — |
+
+**SBI-pp vs matched MCMC-pp gap = 0.0614 = +1.76σ_obs ≫ 0.5σ_obs threshold →
+survives decisively** (robust to seed: worst per-seed still 1.74σ_obs). Reviewer
+clarification (recorded): two distinct offsets exist — (a) matched MCMC-pp sits
+0.89σ below obs = ordinary model/data tension (the physics grid cannot fully
+reach 0.135; expected, NOT a remediation target); (b) SBI-pp sits 1.76σ_obs below
+MCMC-pp = the flow deficiency, the actual target of #1. With #3 (concentration-
+failure confirmed, wrong-mode excluded), the reading is a genuine flow-training
+under-update of the tidal sector, not a comparison artifact and not mode
+collapse. **DECISION: run #1 (salinity-fixed ocean-only retrain) with reviewer +
+user sign-off before any MgSO4/NaCl compute; MgSO4/NaCl PROCEED is falsified.**
+Report: `validation_reports/nh3_diagnosis/matched_reference/matched_reference_report.json`;
+per-seed pickles + progress jsonl copied alongside.
 
 ## 0.8 MANAGER DECISION (2026-08-04) — run both separators; MgSO4/NaCl stay HELD
 

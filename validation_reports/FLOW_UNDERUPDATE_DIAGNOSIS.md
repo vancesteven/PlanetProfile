@@ -361,3 +361,63 @@ Artifacts: `validation_reports/nh3_diagnosis/pushforward_shape/` (anchor) and
 `.../pushforward_shape_deployed/` (deployed 1M) — each has `pushforward_shape_report.json`,
 `pushforward_arrays.npz` (raw prior/sbi/mcmc |Im k2| for re-plot without recompute),
 `anchor_imk2_pushforward.pdf`/`.png`.
+
+## Follow-up #2 EXECUTED — matched-resolution NH3 reference MCMC (2026-08-05)
+
+**Question.** The 0.100 |Im_k2| MCMC-pp "ceiling" the flow was judged against was
+measured at pocoMC n_effective=500 — the resolution class B3 discredited (the
+v5/v7 1.06 km reference wander shrank ~5.6× at n_eff=2000). Re-measure the target
+at matched resolution before spending a retrain chasing it.
+
+**Method.** NH3 joint reference MCMC re-run at n_effective=2000 / n_active=1024
+(regime ratio 1.953, byte-identical to the legacy 500/256 ratio, so flow-train
+cadence + annealing preserved), seeds 72 + 172. The **tracked config was NOT
+mutated** — config_hash `1611b65fff3f06c9` (referenced by the deployed flow and
+the committed n_eff=500 reference) is intact; the knobs are set on the runner
+instance only, exactly as B3. Both seeds annealed to β=1 (7187 samples each).
+Driver: `plans/scripts/nh3_diag_matched_reference.py`. Reviewer-verified PASS
+(numbers reproduced exactly, plumbing confirmed).
+
+**Result — the ceiling is NOT a resolution artifact (decisive contrast with B3).**
+
+| quantity | value |
+|---|---|
+| n_eff=500 ceiling (legacy) | 0.0999 |
+| n_eff=2000 pooled median | **0.1037** (seed 72: 0.1043, seed 172: 0.1031) |
+| move | +0.0038 = +0.11σ_obs, and *away* from the SBI value |
+| between-seed std / range | 0.00086 / 0.0012 |
+
+Unlike B3 (where the target statistic collapsed under the same resolution jump),
+the ceiling held. So the n_eff=500 ceiling was sound.
+
+**Four-way table (|Im_k2|).**
+
+| quantity | value | vs obs (σ 0.035) |
+|---|---|---|
+| deployed SBI posterior-predictive median | 0.0423 | −3.2σ |
+| matched-res MCMC posterior-predictive median | 0.1037 | −0.89σ |
+| observed | 0.135 | — |
+
+**Gate outcome — the gap SURVIVES.** SBI-pp 0.0423 vs matched MCMC-pp 0.1037 →
+gap +0.0614 = **+1.76σ_obs ≫ 0.5σ_obs** threshold (robust to seed: worst per-seed
+still 1.74σ). Combined with #3 (concentration-failure confirmed, wrong-mode
+excluded), the under-update is a **genuine flow-training deficiency of the tidal
+sector**, not a comparison/reference artifact and not mode collapse.
+
+**Reviewer clarification (recorded).** Two distinct offsets — only one is the
+remediation target:
+- (a) matched MCMC-pp sits 0.89σ below obs = ordinary model/data tension (the
+  physics grid cannot fully reach 0.135; expected, NOT a target — a retrain
+  should not and will not force agreement with obs).
+- (b) SBI-pp sits 1.76σ_obs below MCMC-pp = the flow deficiency, the actual
+  target of #1.
+
+**Decision (manager §0.9 preregistered).** Gap survived → **run #1
+(salinity-fixed ocean-only retrain) with reviewer + user sign-off before any
+MgSO4/NaCl compute**; MgSO4/NaCl PROCEED is falsified and those campaigns stay
+HELD.
+
+Artifacts: `validation_reports/nh3_diagnosis/matched_reference/matched_reference_report.json`,
+per-seed pickles `nh3_reference_seed{72,172}_neff2000.pkl` + `prog_seed*.jsonl`.
+Does NOT replace the committed n_eff=500 reference pkl (that stays the
+ratification-time artifact).
