@@ -2726,6 +2726,33 @@ def _registry_labels(param_names, fallback_labels=None):
     return out
 
 
+# Bump when the corner figure's rendering changes shape (cached exports in
+# live sessions carry this token component).
+_CORNER_FIG_VER = 2
+
+
+def _rescale_tiny_columns(samples, labels):
+    """Rescale columns whose magnitudes are unreadable in fixed decimal
+    (e.g. C20/C22/dC2x_nh, O(1e-6)-O(1e-4)): display value × 10^-e with the
+    exponent moved into the axis label, so corner's fixed-decimal quantile
+    titles and tick labels stay meaningful instead of collapsing to 0.00.
+    """
+    samples = np.array(samples, float, copy=True)
+    labels = list(labels)
+    for j in range(samples.shape[1]):
+        col = samples[:, j]
+        finite = col[np.isfinite(col)]
+        if not finite.size:
+            continue
+        m = float(np.max(np.abs(finite)))
+        if m == 0.0 or m >= 1e-2:
+            continue
+        e = int(np.floor(np.log10(m)))
+        samples[:, j] = col * 10.0 ** (-e)
+        labels[j] = f"{labels[j]} [$\\times 10^{{{e}}}$]"
+    return samples, labels
+
+
 def _render_corner_figure(samples, labels, *, seed=0):
     """Build a crisp, Gaussian-smoothed corner figure (2D density rasterized).
 
@@ -2735,6 +2762,7 @@ def _render_corner_figure(samples, labels, *, seed=0):
     import matplotlib.pyplot as plt
     import corner
 
+    samples, labels = _rescale_tiny_columns(samples, labels)
     n_dim = samples.shape[1]
     fig_size = min(_CORNER_MAX_FIGSIZE, max(10.0, 2.5 * n_dim))
     fig = plt.figure(figsize=(fig_size, fig_size))
@@ -2909,17 +2937,24 @@ def render_results():
     with st.expander("📋 Parameter Summary", expanded=True):
         st.markdown("**Posterior Statistics:**")
 
-        # Build summary table
+        # Build summary table. Tiny-magnitude parameters (C20/C22 and the
+        # dC2x_nh offsets, O(1e-6)-O(1e-4)) collapse to 0.0000 in fixed
+        # decimal — switch the whole row to e-notation when the parameter's
+        # magnitude scale calls for it (same thresholds as _prior_fmt).
         summary_data = []
         for i, param_name in enumerate(result.param_names):
             samples_param = result.samples[:, i]
+            _m = float(np.max(np.abs(samples_param))) if samples_param.size \
+                else 0.0
+            _sf = (lambda v: f"{v:.3e}") if (0.0 < _m < 1e-2 or _m >= 1e5) \
+                else (lambda v: f"{v:.4f}")
             summary_data.append({
                 'Parameter': result.param_labels[i],
-                'Mean': f"{np.mean(samples_param):.4f}",
-                'Median': f"{np.median(samples_param):.4f}",
-                'Std': f"{np.std(samples_param):.4f}",
-                '16th %ile': f"{np.percentile(samples_param, 16):.4f}",
-                '84th %ile': f"{np.percentile(samples_param, 84):.4f}",
+                'Mean': _sf(np.mean(samples_param)),
+                'Median': _sf(np.median(samples_param)),
+                'Std': _sf(np.std(samples_param)),
+                '16th %ile': _sf(np.percentile(samples_param, 16)),
+                '84th %ile': _sf(np.percentile(samples_param, 84)),
             })
 
         st.table(summary_data)
@@ -2988,7 +3023,7 @@ def render_results():
                     builder=lambda: _render_corner_figure(
                         corner_samples_plot, corner_labels_plot),
                     key='corner', download_label='corner plot',
-                    token=_result_token())
+                    token=(_result_token(), _CORNER_FIG_VER))
         except ImportError:
             st.info("Install the `corner` library to view corner plots: `pip install corner`")
         except Exception as e:
