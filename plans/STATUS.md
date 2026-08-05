@@ -1,66 +1,19 @@
 # PlanetProfile genai — current status
 
-Updated: 2026-08-04 (REPORTED on Machine B: §0.7 step-1 B3 + the two §0.8
-separators COMPLETE, scientific-reviewer PASS WITH CONCERNS. Results in
-validation_reports/FLOW_UNDERUPDATE_DIAGNOSIS.md "Separators S1/S2 + capped
-anchor" block. Four flows (nsf/seed72/60-epoch cap, all ran to cap, no new
-sims), Im_k2 pp_med: ANCHOR capped-full-joint 0.043 (reproduces deployed
-converged 0.042 → cap not a confound); S1 ocean-only 0.039 (mixture moved
-Im_k2 the WRONG way → mixture CONFIRMED not the driver); S2 σ/4 0.046 + S2
-zero-noise 0.047 (→ noise-swamping #1 CONFIRMED closed for Im_k2 too). B3:
-matched n_eff=2000 v5-v7 D_iceIh gap −0.19±0.22 km collapses into the
-between-seed floor √(0.15²+0.09²)=0.18 km → the legacy 1.06 km wander is a
-resolution/SMC artifact, neither v5 nor v7 an outlier; ~0.18 km (reviewer
-advises 2×=0.36 km conservative) is the §0.7 step-3 shape-excess floor at
-n_eff=2000. RESIDUAL (by elimination, not positively established): flow fails
-to concentrate on the weakly-identified high-k2 ocean tail; salinity axis
-(Tb↔w −0.986) the most probable specific contributor (the one apparatus
-element S1 left in). Reviewer flags: PPCs compared SBI-pp to obs 0.135 not to
-MCMC-pp ceiling 0.100; requires 3 follow-ups before MgSO4/NaCl proceed —
-(1) salinity-fixed ocean-only retrain [decisive cut], (2) re-measure matched
-MCMC-pp for anchor, (3) plot anchor Im_k2 pushforward (concentration vs
-wrong-mode). Committed bb70cab3 (scripts) + this doc refresh. Runner change:
-sampler_settings.n_active exposed (additive, existing runs unchanged).
-MANAGER (Machine A) CALL PENDING: proceed to MgSO4/NaCl vs run reviewer
-follow-up #1 first. MgSO4/NaCl stay HELD until the manager adjudicates. Earlier
-Manager decision on the surfaced NH3-diagnosis call:
-run BOTH separators — S1 ocean-only-with-salinity pilot, S2 reduced-noise
-Im_k2 pilot, both on the existing dataset, no new sims — while the §0.7 B3
-reference chains run; MgSO4/NaCl stay HELD until S1/S2 report and a remedy
-is chosen. Details MACHINE-B-HANDOFF §0.8. Earlier: Machine B NH3 flow
-under-update DIAGNOSIS complete — no
-retraining. #3 (x-norm scale) RULED OUT and obs-vector width (4ch) RULED OUT as
-causal (Titan no-ocean control assimilates informative Re_k2 3.92σ→0.05σ,
-0/4 flagged); mechanism localized to the ocean-admitting apparatus (joint
-mixture AND the co-varying salinity axis — the control bundles a 13th param +
-phase-guard removal, so the mixture is NOT isolated alone); bimodal
-mode-assignment is a candidate, not established; #1 cleared for Re_k2 but
-UNTESTED for the dominant Im_k2 miss (control non-informative there). Reviewer
-PASS WITH CONCERNS, 4 corrections folded. MgSO4/NaCl inheritance CONDITIONAL;
-compute stays HELD; two cheap separators (ocean-only-with-salinity PPC; #1
-Im_k2 pilot) + proceed-vs-remediate are a manager/user call. Report:
-validation_reports/FLOW_UNDERUPDATE_DIAGNOSIS.md; control PPC JSON under
-titan_freegrav_noocean_1m/ppc/; details MACHINE-B-HANDOFF §0.6 RESOLVED block.
-Earlier 2026-08-04: v5/v6/v7 baseline PPC batch — all three clean,
-0 channels flagged (v5 0/21, v6 0/20, v7 0/21), and non-trivially so: the flow
-faithfully reproduces the reference-MCMC pushforward across many strongly-
-informative channels, up to v7 Bind_synodic_x_real's 52.9σ MCMC update tracked
-to 0.18σ. Reviewer PASS WITH CONCERNS; corrections folded (obs-vector-width
-evidence is same-width not controlled; v7 gap gradient 0.10–0.27σ carried to B5;
-v5/v7 refs pre-B3, PPC orthogonal to parameter-space wander). Flow-fidelity
-diagnostic ONLY — does NOT affect the v5/v6/v7 ratification blocks; baselines
-only (ablation arms need their own reference MCMC). Report:
-validation_reports/EUROPA_PPC_BATCH_v5_v6_v7.md; details MACHINE-B-HANDOFF §0.5.
-Also 2026-08-04: Codex C5+C6 both manager-`verified`; USER DIRECTIVE — v5/v6
-must be fixed + deployed to HF, executable path in MACHINE-B-HANDOFF §0.7
-(B3 refs first → B1/B2 → preregistered v5 shape-excess re-eval with the
-empirical reference floor → B6 → manager re-adjudication → unwire gating →
-ship). User reports the HF Space was restarting repeatedly today (possibly
-connection-interrupted upload); if it persists, check the Space Logs tab
-(build vs runtime) and re-run the upload one-liner on a stable connection —
-upload_folder is an idempotent clean-sync. Earlier 2026-08-04: HF Space
-DEPLOYED at d53385f1, user-confirmed running; v4+v1.1 PPC 0-flagged both,
-COUNTERSIGNED + reproduced by manager.) Single current-state source of truth.
+Updated: 2026-08-05 at genai `5ae7d17c`. Manager judgement §0.9 issued:
+B3 accepted — the 1.06 km v5–v7 reference disagreement was an n_eff=500
+resolution artifact; both old references wandered (fresh truth ~61.4–61.8 km);
+§0.7 crosschecks retarget the pooled fresh n_eff=2000 references with a
+preregistered 0.36 km shape-excess floor, and the earlier "v7 flow 22/22 vs
+v5 reference" claim is corrected (void — wandered target). NH3 separators
+accepted: joint mixture and noise-swamping ruled out for the Im_k2 miss;
+follow-ups reordered #3 (pushforward plot) → #2 (matched-resolution NH3
+reference — the 0.100 MCMC-pp ceiling inherits the discredited resolution
+class) → #1 only if a material gap survives; MgSO4/NaCl release criteria
+preregistered on the #2 outcome (details MACHINE-B-HANDOFF §0.9). Also
+2026-08-05: e-notation display fix for C20/C22-scale parameters in the
+corner plot + summary table (`12bdbf56`, verified). Earlier-entry history:
+`git log -p -- plans/STATUS.md`.
 Freshness rule: any session that pushes commits, integrates Machine B
 artifacts, or changes a queue must refresh this file's `Updated:` line and the
 affected sections in the same session. If this file is >7 days older than
