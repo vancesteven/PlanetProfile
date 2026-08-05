@@ -20,7 +20,11 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-### C7 — Warn when the hydrosphere exceeds the MgSO4 EOS table range [status: in progress (Codex)]
+_No queued tasks._
+
+## Completed
+
+### C7 — Warn when the hydrosphere exceeds the MgSO4 EOS table range [status: verified]
 
 From the classic-MoI recon adjudication (`plans/active/titan-classic-moi-recon.md`
 item 3): the MgSO4(aq) property table ends at 800 MPa, and thick Titan
@@ -39,7 +43,26 @@ ceiling, (b) no warning for an in-range grid, (c) returned property values
 are bit-identical before/after the change. `verified` requires all three
 cited.
 
-## Completed
+**Report (Codex, 2026-08-05):** `verified`. The actual clamp site is
+`PlanetProfile/Thermodynamics/MgSO4/MgSO4Props.py::MgSO4Props`, where
+`ResetNearestExtrap` nearest-clamps pressure to
+`MgSO4propsLookup.Pmax` before interpolation. Added a module-level
+once-per-run diagnostic immediately before that existing path; it names the
+800 MPa ceiling, requested maximum, and nearest-table-value behavior without
+changing inputs, outputs, bounds, or scientific assumptions. Focused pytest
+artifact `tests/mgso4_props_warning_test.py`: 2 passed, covering exactly one
+warning across repeated crossing grids, zero warnings for an in-range grid,
+and bit-identical results versus the explicit legacy clamp. A separate
+pre-edit/post-edit REPL comparison for P `[0, 400, 900, 1800]` MPa and T
+`[260, 290]` K asserted equal dtype, shape, `array_equal(equal_nan=True)`,
+and SHA-256 bytes for all six returns; property hashes matched at rho
+`ca4bbd6319488374265a9db34ed518c873f8908eb3e248e5ae3919ab53f40dde`, Cp
+`cbb6e443ae0085ad363f89be0459abe8d0a12264ac66c2d27d23db8cb5def456`,
+alpha `609ee380f382810e648ce531ad813fd440c0e9becae78ed58dda547aa595b0d8`,
+and kTherm
+`3c7c1c06d5b4bf4315f995036fca0e82eaab468da3246e94d1bd3e1daddd53b1`.
+`py_compile` and `git diff --check` passed. Claim commit `379e0bf2`;
+implementation commit `904dd704`.
 
 ### C5 — Deploy script: derive serve-time cache list from the slot registry [status: verified]
 
