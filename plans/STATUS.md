@@ -1,11 +1,12 @@
 # PlanetProfile genai — current status
 
-Updated: 2026-08-05 (Machine B: NH3 follow-ups #3 AND #2 EXECUTED, reviewer PASS
-on both. #2 matched-resolution reference MCMC re-measured the |Im_k2| ceiling at
-n_eff=2000 = 0.1037 (n_eff=500 was 0.0999 — NOT a resolution artifact, unlike
-B3); SBI-pp-vs-matched-MCMC-pp gap SURVIVES at +1.76σ_obs ≫ 0.5σ threshold →
-directs to #1 salinity-fixed retrain (reviewer+user sign-off required); MgSO4/NaCl
-PROCEED falsified, stay HELD. See below).
+Updated: 2026-08-05 (Machine B: NH3 follow-ups #3, #2 AND #1 EXECUTED, reviewer
+PASS on all. #1 salinity-fixed pilot + matched-N control → PERSIST: fixing
+salinity at matched N did NOT recover the Im_k2 update (banded 0.0313 ≈ control
+0.0321, +0.02σ_obs, wrong sign for salinity); size effect small/monotone/toward-obs
+→ salinity axis ELIMINATED as the driver of gap (a); remaining candidate is
+capacity/embedding (#4). STOPPED per protocol — remedy selection is manager +
+reviewer + user. MgSO4/NaCl stay HELD. See below).
 Prior: 2026-08-05 at genai `5ae7d17c`. Manager judgement §0.9 issued:
 B3 accepted — the 1.06 km v5–v7 reference disagreement was an n_eff=500
 resolution artifact; both old references wandered (fresh truth ~61.4–61.8 km);
@@ -34,7 +35,22 @@ under-update is a genuine flow-training deficiency. **Decision: run #1
 falsified, stay HELD.** Reviewer note: matched MCMC-pp itself sits 0.89σ below obs
 (ordinary model/data tension, NOT a remediation target); #1 targets only the
 1.76σ SBI-vs-MCMC gap. See `validation_reports/FLOW_UNDERUPDATE_DIAGNOSIS.md`
-(Follow-ups #3 + #2) and `validation_reports/nh3_diagnosis/matched_reference/`. Also
+(Follow-ups #3 + #2) and `validation_reports/nh3_diagnosis/matched_reference/`.
+**#1 EXECUTED 2026-08-05 (reviewer PASS): PERSIST → salinity ELIMINATED as the
+driver.** Design-review reviewer (PASS WITH CONCERNS) required a sample-size-matched,
+salinity-VARYING control (the fixed-salinity band keeps only ~9%/60,039 rows vs
+~690k — an ~11× cut biases toward under-concentration on its own); folded in +
+band re-documented as a symmetric ±0.084-dex slice about 12.6 ppt. Results (Im_k2
+pp-median): banded(N=60k,fixed) 0.0313 ≈ control(N=60k,varying) 0.0321 → salinity
+axis IN vs OUT = +0.02σ_obs, wrong sign for the salinity hypothesis; control(60k)
+vs S1(643k varying) 0.0392 = −0.20σ (pure size effect, toward obs, discharges the
+confound); banded−ceiling(0.1037) = +2.07σ still-open flow gap. Reviewer PASS:
+salinity cleared for gap (a) [SBI-pp vs MCMC-pp ceiling], remaining candidate
+capacity/embedding (#4); size gain strongly sublinear (11× data → +0.007; ceiling
+needs +0.065) so more ocean-only data won't close it; banded pp 5–95 [0.0023,0.340]
+spans past obs → expressiveness/concentration signature, not support failure.
+STOPPED per protocol; #4 remedy selection is manager + reviewer + user.
+`validation_reports/nh3_diagnosis/f1_salinity_fixed/`. Also
 2026-08-05: e-notation display fix for C20/C22-scale parameters in the
 corner plot + summary table (`12bdbf56`, verified). Earlier-entry history:
 `git log -p -- plans/STATUS.md`.

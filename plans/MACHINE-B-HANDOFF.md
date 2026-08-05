@@ -1,9 +1,12 @@
 # Machine B handoff
 
-Updated: 2026-08-05 (Machine B: NH3 follow-ups #3 AND #2 EXECUTED, reviewer PASS
-on both — see §0.9. #2 gate outcome: SBI-vs-matched-MCMC-pp gap SURVIVES at
-+1.76σ_obs → directs to #1 (salinity-fixed retrain, needs reviewer+user
-sign-off); MgSO4/NaCl PROCEED falsified, stay HELD).
+Updated: 2026-08-05 (Machine B: NH3 follow-ups #3, #2 AND #1 EXECUTED, reviewer
+PASS on all — see §0.9. #1 outcome: PERSIST — fixing salinity at matched N did
+NOT recover the Im_k2 update (banded 0.0313 ≈ control 0.0321, +0.02σ_obs, wrong
+sign for salinity), size effect small/monotone/toward-obs → salinity axis
+ELIMINATED as the driver of gap (a); remaining candidate is capacity/embedding
+(#4). STOPPED and surfacing — remedy selection is manager + reviewer + user.
+MgSO4/NaCl stay HELD).
 Prior: 2026-08-01 at genai `54106fbd` (Machine A refresh after v5/v6/v7
 delivery). Authoritative executable queue for compute-intensive work. Machine B
 should pull the exact `origin/genai` commit named by Machine A before each
@@ -262,6 +265,43 @@ capacity/embedding (#4) and the elimination restarts from the widened
 residual. Either way, stop after #1 and surface — remedy selection is a
 manager + reviewer + user decision. v5/v6 §0.7 work keeps priority for
 compute scheduling; MgSO4/NaCl stay HELD.
+
+**#1 EXECUTED (Machine B, 2026-08-05) — reviewer PASS. Outcome: PERSIST →
+salinity ELIMINATED as the driver; remaining candidate is capacity/embedding
+(#4).** The design-review reviewer (PASS WITH CONCERNS) required a
+sample-size-matched, salinity-VARYING control before the reading could be acted
+on: the fixed-salinity band keeps only ~9% of rows (60,039) vs the anchor's
+~690k — an ~11× cut that on its own biases toward under-concentration (the same
+Im_k2≈0.04 signature). Both corrections folded in (matched-N control added;
+band re-documented as a symmetric ±0.084-dex salinity slice about 12.6 ppt, not
+a Voronoi cell). Both pilots trained to the 60-epoch cap (61 ep, no early-stop);
+config_hash e596574d1e81567c matches S1/anchor (no artifact-design drift).
+
+| Pilot | N_train | salinity | Im_k2 pp-median | dev vs obs |
+|---|---|---|---|---|
+| banded (fixed ~12.6 ppt) | 60,039 | fixed | 0.0313 | 3.16σ |
+| control (varying, matched N) | 60,039 | varying | 0.0321 | 3.15σ |
+| S1 (varying) | 642,558 | varying | 0.0392 | 2.98σ |
+| capped full-joint anchor | ~690k | joint | 0.043 | — |
+| matched MCMC-pp ceiling (#2) | — | — | 0.1037 | — |
+| obs | — | — | 0.135 | — |
+
+Deltas (σ_obs=0.035): **banded−control = +0.02σ** (salinity axis IN vs OUT →
+essentially zero, and wrong sign for the salinity hypothesis); control(60k)−S1(643k)
+= −0.20σ (pure size effect: more data → toward obs, as predicted — discharges the
+MAJOR confound); banded−ceiling = +2.07σ (still-open flow gap). Reviewer PASS
+(2026-08-05): salinity eliminated as the driver of gap (a) [SBI-pp vs MCMC-pp
+ceiling], remaining candidate is capacity/embedding (#4). Two-gap scoping to
+surface: gap (a) +1.76–2.07σ = the flow deficiency (#4); gap (b) ceiling 0.1037
+vs obs 0.135 = +0.95σ model/data tension, NOT #1's target. Size gain is strongly
+sublinear (11× data bought +0.007; ceiling needs +0.065) → more ocean-only data
+won't close gap (a). Banded pp 5–95 = [0.0023, 0.340] already spans past obs →
+an expressiveness/concentration signature, not a support failure. **STOPPED per
+protocol; remedy (#4) selection is manager + reviewer + user.** Optional #4
+hardening (non-blocking): 2–3 seeds for a formal training-noise band; one
+single-node retrain to confirm the ±21% band residual. Driver
+`plans/scripts/nh3_diag_1_salinity_fixed.py`; reports
+`validation_reports/nh3_diagnosis/f1_salinity_fixed/{f1_train_manifest.json,banded/,control_varying/}`.
 
 ## 0.8 MANAGER DECISION (2026-08-04) — run both separators; MgSO4/NaCl stay HELD
 

@@ -1,0 +1,68 @@
+{
+  "kind": "nh3_diag_f1_salinity_fixed_pilot",
+  "config": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/configs/test54_titan_nh3_freegrav.json",
+  "cache": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Test/mcmc_results/Titan/Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl",
+  "ref_log10_w_median": 1.1007,
+  "ref_w_ppt_median": 12.609561959936851,
+  "half_cell_log10_w": 0.0839,
+  "n_ocean": 642558,
+  "n_kept_banded": 60039,
+  "n_total": 689845,
+  "train_seed": 72,
+  "density_estimator": "nsf",
+  "max_epochs": 60,
+  "obs_names": [
+    "C20",
+    "C22",
+    "Re_k2",
+    "Im_k2"
+  ],
+  "runs": {
+    "banded": {
+      "tag": "banded",
+      "artifact": "/tmp/nh3_diag/f1/nh3_f1_banded_pilot.pt",
+      "ppc_output_dir": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/nh3_diagnosis/f1_salinity_fixed/banded",
+      "n_train": 60039,
+      "epochs_trained": 61.0,
+      "early_stop_parity_flag": false,
+      "config_hash": "e596574d1e81567c",
+      "extra": {
+        "kind": "ocean_branch_only_AND_salinity_fixed",
+        "ref_log10_w_median": 1.1007,
+        "ref_w_ppt_median": 12.609561959936851,
+        "half_cell_log10_w": 0.0839,
+        "n_kept": 60039,
+        "n_total_dataset": 689845,
+        "has_ocean_recovery": "nearest-grid-node via grid_interp_2d.bilinear_weights",
+        "band_note": "symmetric +-half-cell log10_w slice about the median; NOT a nearest-node Voronoi cell; forward model blends bilinearly across nodes.",
+        "cache": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Test/mcmc_results/Titan/Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl"
+      }
+    },
+    "control_varying": {
+      "tag": "control_varying",
+      "artifact": "/tmp/nh3_diag/f1/nh3_f1_control_varying_pilot.pt",
+      "ppc_output_dir": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/nh3_diagnosis/f1_salinity_fixed/control_varying",
+      "n_train": 60039,
+      "epochs_trained": 61.0,
+      "early_stop_parity_flag": false,
+      "config_hash": "e596574d1e81567c",
+      "extra": {
+        "kind": "ocean_branch_only_salinity_VARYING_matched_N",
+        "n_kept": 60039,
+        "n_ocean_pool": 642558,
+        "subsample_seed": 72,
+        "purpose": "matched-N control isolating the salinity axis from the ~11x training-set-size reduction; read banded-vs-control at matched N, NOT banded-vs-690k.",
+        "cache": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Test/mcmc_results/Titan/Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl"
+      }
+    }
+  },
+  "comparison_anchors": {
+    "capped_anchor_imk2": 0.043,
+    "matched_mcmc_pp_ceiling": 0.1037,
+    "obs_imk2": 0.135,
+    "sigma_imk2": 0.035
+  },
+  "anchor_note": "PRIMARY read = banded-vs-control at matched N (isolates the salinity axis from the ~11x size reduction). SECONDARY = each pilot's SBI-pp |Im_k2| vs the capped anchor (0.043) and matched MCMC-pp ceiling (0.1037); cap-vs-cap.",
+  "preregistered_reading": "banded-vs-control Im_k2 gap COLLAPSES -> salinity axis/degeneracy is the driver; gap PERSISTS (banded ~= control, both under-updated) -> capacity/embedding (#4). If the CONTROL alone under-updates vs S1's 643k, that is the pure size effect and must be subtracted before reading the salinity axis. STOP after #1 and surface; remedy selection is manager + reviewer + user.",
+  "reviewer": "PASS WITH CONCERNS (2026-08-05): matched-N varying control added (MAJOR); band rationale corrected to a symmetric salinity slice, not a Voronoi cell (MODERATE); epochs_trained + early-stop parity flag recorded per pilot (MINOR)."
+}

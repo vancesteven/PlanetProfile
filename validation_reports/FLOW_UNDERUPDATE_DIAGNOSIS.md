@@ -421,3 +421,87 @@ Artifacts: `validation_reports/nh3_diagnosis/matched_reference/matched_reference
 per-seed pickles `nh3_reference_seed{72,172}_neff2000.pkl` + `prog_seed*.jsonl`.
 Does NOT replace the committed n_eff=500 reference pkl (that stays the
 ratification-time artifact).
+
+## Follow-up #1 EXECUTED — salinity-fixed ocean-only pilot + matched-N control (2026-08-05)
+
+**Manager AUTHORIZED (§0.9, 2026-08-06):** #2's gap-survives outcome satisfied the
+preregistered branch, and #1 is a pilot retrain on the existing 1M dataset with no
+artifact-design change — no further sign-off needed to RUN it (reviewer + user
+sign-off attaches to REMEDY selection after #1).
+
+**Question #1 separates.** S1 (ocean-only, salinity still varying) left the strong
+Tb↔w salinity degeneracy (corr −0.986) intact. #1 removes it: fix salinity at the
+reference posterior weighted median (log10_w = 1.1007 = 12.61 ppt) and retrain an
+ocean-only pilot on that slice. Preregistered reading: Im_k2 gap COLLAPSES →
+salinity axis is the driver; PERSISTS → capacity/embedding (#4).
+
+**Design review (scientific-reviewer, PASS WITH CONCERNS 2026-08-05).** Required
+before the reading could be acted on:
+- MAJOR — the fixed-salinity band keeps only ~9% of rows (60,039) vs the capped
+  anchor's ~690k, an ~11× cut. Under-resourced training generically biases a flow
+  toward under-concentration (the same Im_k2≈0.04 signature under diagnosis), so
+  a PERSIST read against the 690k anchor alone would confound "salinity removed"
+  with "11× less data." Fix: also train a **sample-size-matched, salinity-VARYING
+  control** (same 60,039 rows, seed 72, nsf, 60-epoch cap). Read banded-vs-control
+  at matched N.
+- MODERATE — the "nearest w-node IS the median node" rationale is false (the band
+  is not the node's Voronoi cell, and the forward model blends bilinearly). Physics
+  unbiased; re-documented as a symmetric ±0.084-dex (~±21%) salinity slice about
+  12.6 ppt centered on the true median.
+- MINOR — record epochs_trained + early-stop parity per pilot.
+All three folded in; both pilots trained to the 60-epoch cap (61 ep, no early-stop),
+config_hash e596574d1e81567c matches S1/anchor (no artifact-design drift). Banded
+kept-log10_w 5/50/95 = [1.026, 1.102, 1.176] confirms centering on the true median.
+
+**Results (PPC posterior-predictive, noiseless, n_post=4000):**
+
+| pilot | N_train | salinity | Im_k2 pp-median | dev vs obs | frac ≤3σ | n_finite |
+|---|---|---|---|---|---|---|
+| banded (fixed ~12.6 ppt) | 60,039 | fixed | 0.03132 | 3.16σ | 0.429 | 3788 |
+| control (varying, matched N) | 60,039 | varying | 0.03213 | 3.15σ | 0.436 | 3768 |
+| S1 (varying) | 642,558 | varying | 0.03918 | 2.98σ | 0.504 | 3787 |
+| capped full-joint anchor | ~690k | joint | 0.043 | — | — | — |
+| matched MCMC-pp ceiling (#2) | — | — | 0.1037 | — | — | — |
+| observed | — | — | 0.135 | — | — | — |
+
+**Key deltas (σ_obs = 0.035):**
+- **banded − control = +0.023σ_obs** — salinity axis IN vs OUT at matched N is
+  essentially zero, and in the WRONG SIGN for the salinity hypothesis (fixing
+  salinity should have raised Im_k2, not lowered it).
+- control(60k) − S1(643k) = −0.201σ_obs — the pure size effect: more data moves
+  TOWARD obs, exactly the under-concentration-from-data-starvation the MAJOR
+  control was added to isolate. Discharges the confound.
+- banded − ceiling(0.1037) = +2.07σ_obs — the still-open flow gap.
+
+**Outcome — PERSIST. Reviewer PASS (2026-08-05).** Fixing salinity at matched N
+produced no recovery of the Im_k2 update; the pure size effect is small, monotone,
+and toward obs (cannot rescue salinity); the SBI-pp remains ~2σ_obs below the
+matched-MCMC ceiling. **The salinity axis/degeneracy is ELIMINATED as the driver
+of the ocean-branch under-update; the remaining candidate is flow capacity /
+embedding (#4).**
+
+**Two-gap scoping to surface (reviewer).** #1 addresses only gap (a):
+- Gap (a): SBI-pp (0.039–0.043) vs MCMC-pp ceiling (0.1037), +1.76–2.07σ_obs — the
+  flow deficiency; salinity now cleared → #4 (capacity/embedding) is the right
+  remaining candidate. The banded pp 5–95 = [0.0023, 0.340] already spans past
+  obs → an expressiveness/concentration signature, not a support failure.
+- Gap (b): MCMC-pp ceiling (0.1037) vs obs (0.135), +0.95σ_obs — forward-model /
+  prior-support / obs tension; #1 neither tests nor targets this.
+
+The size gain is strongly sublinear — 11× data bought +0.007 in Im_k2, while
+closing gap (a) to the ceiling needs +0.065 (~9× that gain) — so more ocean-only
+data will not plausibly close gap (a). (Two size points, so treat the saturation
+shape as heuristic; direction/magnitude robust.)
+
+**STOPPED per protocol.** Remedy (#4) selection is a manager + reviewer + user
+decision — NOT Machine B's call; MgSO4/NaCl stay HELD. Optional #4 hardening
+(non-blocking, if #4 is later authorized): 2–3 additional training seeds for
+banded + control to attach a formal training-noise band to the 0.023σ null; one
+single-salinity-node retrain to confirm the ±21% band residual does not carry the
+null.
+
+Artifacts: `plans/scripts/nh3_diag_1_salinity_fixed.py` (driver);
+`validation_reports/nh3_diagnosis/f1_salinity_fixed/f1_train_manifest.json`;
+`validation_reports/nh3_diagnosis/f1_salinity_fixed/{banded,control_varying}/ppc_interior_report.json`.
+Pilot .pt artifacts under `/tmp/nh3_diag/f1/` (not committed; diagnostic pilots,
+not deployment artifacts).
