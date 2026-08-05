@@ -1,5 +1,8 @@
 # PlanetProfile genai — current status
 
+Big-picture program map: `plans/STRATEGY.md` (production line states,
+what current work buys). This file is the tactical log.
+
 Updated: 2026-08-05 (Machine B: NH3 follow-ups #3, #2 AND #1 EXECUTED, reviewer
 PASS on all. #1 salinity-fixed pilot + matched-N control → PERSIST: fixing
 salinity at matched N did NOT recover the Im_k2 update (banded 0.0313 ≈ control
