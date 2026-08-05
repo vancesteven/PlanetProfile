@@ -1,6 +1,8 @@
 # PlanetProfile genai — current status
 
-Updated: 2026-08-05 at genai `5ae7d17c`. Manager judgement §0.9 issued:
+Updated: 2026-08-05 (Machine B: NH3 follow-up #3 pushforward-shape diagnostic
+EXECUTED on anchor + deployed flow, reviewer PASS — see below).
+Prior: 2026-08-05 at genai `5ae7d17c`. Manager judgement §0.9 issued:
 B3 accepted — the 1.06 km v5–v7 reference disagreement was an n_eff=500
 resolution artifact; both old references wandered (fresh truth ~61.4–61.8 km);
 §0.7 crosschecks retarget the pooled fresh n_eff=2000 references with a
@@ -10,7 +12,15 @@ accepted: joint mixture and noise-swamping ruled out for the Im_k2 miss;
 follow-ups reordered #3 (pushforward plot) → #2 (matched-resolution NH3
 reference — the 0.100 MCMC-pp ceiling inherits the discredited resolution
 class) → #1 only if a material gap survives; MgSO4/NaCl release criteria
-preregistered on the #2 outcome (details MACHINE-B-HANDOFF §0.9). Also
+preregistered on the #2 outcome (details MACHINE-B-HANDOFF §0.9).
+**#3 EXECUTED 2026-08-05 (reviewer PASS):** pushforward-shape diagnostic on
+BOTH the capped anchor AND the deployed 1M flow confirms concentration-failure
+and EXCLUDES wrong-mode — deployed concentration ratio 1.215 (>1: posterior
+not narrower than prior), high-k2 tail retained (frac≥ceiling 0.233), but
+frac≥obs moved only 0.128→0.161 (ceiling-independent under-update evidence).
+Nonfinite-drop bias closed (<0.25% of draws, conservative direction). #3 does
+NOT obviate #2 — matched-resolution MCMC re-measure next; gates MgSO4/NaCl.
+See `validation_reports/FLOW_UNDERUPDATE_DIAGNOSIS.md` (Follow-up #3 EXECUTED). Also
 2026-08-05: e-notation display fix for C20/C22-scale parameters in the
 corner plot + summary table (`12bdbf56`, verified). Earlier-entry history:
 `git log -p -- plans/STATUS.md`.

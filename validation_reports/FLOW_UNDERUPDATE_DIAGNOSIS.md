@@ -293,3 +293,71 @@ s2_reduced_noise}/`; `validation_reports/b3_reference_wander/`. Drivers:
 **Manager (Machine A) call pending:** proceed to MgSO4/NaCl vs. run reviewer
 follow-up #1 (salinity-fixed) first. MgSO4/NaCl remain HELD per §0.8 until the manager
 adjudicates.
+
+---
+
+## Follow-up #3 EXECUTED — pushforward-shape diagnostic (2026-08-05)
+
+Manager §0.9 (MACHINE-B-HANDOFF, 5ae7d17c) reordered the reviewer's follow-ups
+to **#3 first** (FREE, no new MCMC), then #2 (matched-resolution MCMC re-measure),
+then #1 (salinity-fixed retrain) only if a material gap survives #2. Follow-up #3
+is done. Driver: `plans/scripts/nh3_diag_pushforward_plot.py`. Method: sample
+N=4000 flow draws at x_obs, push theta back through the byte-identical forward
+physics (`generate_sbi_dataset(theta_override, obs_noise=False)`), take |Im_k2|;
+prior-predictive is the clean-recovered training column (one-shot additive noise
+subtracted, min≥0 confirmed); MCMC reference is the weighted tidal posterior.
+
+Run on BOTH the 60-epoch capped anchor AND the deployed 1M flow (reviewer-required
+transfer check — the manager's conclusion is about the deployed flow, and the cap
+alone cannot separate undertraining from non-identifiability).
+
+| |Im k2\| | prior-pp | capped anchor | deployed 1M | MCMC ref (wtd) |
+|---|---|---|---|---|
+| p5 | 0.0021 | 0.0037 | 0.0034 | 0.0308 |
+| median | 0.0265 | 0.0431 | 0.0423 | 0.0999 |
+| p95 | 0.263 | 0.340 | 0.321 | 0.165 |
+| iqr90 | 0.261 | 0.337 | 0.317 | 0.134 |
+| concentration ratio vs prior | 1.0 | **1.289** | **1.215** | — |
+| frac ≥ 0.100 (ceiling) | 0.176 | 0.250 | 0.233 | — |
+| frac ≥ 0.135 (obs) | 0.128 | 0.173 | 0.161 | — |
+
+**Verdict — concentration-failure CONFIRMED, wrong-mode EXCLUDED (scientific-reviewer
+PASS, 2026-08-05).** Both concerns the reviewer raised on the first #3 run are closed:
+
+- **Transfer (concern 1) — CLOSED.** The deployed 1M flow reproduces the capped
+  anchor's shape: concentration ratio 1.215 vs 1.289 (both **>1** — the posterior-
+  predictive is not narrower than the prior, it is marginally *broader*), high-k2 tail
+  retained (p95 0.321 exceeds even the prior p95 0.263), near-zero pile retained
+  (p5 0.0034). frac≥obs 0.161 (anchor 0.173), median 0.0423 (anchor 0.0431). The
+  shape is a property of the trained flow, not of the cap. concentration ratio >1 is
+  *stronger* than "barely narrows": the flow fails to condition this observable at all.
+- **Nonfinite-drop bias (concern 2) — CLOSED on magnitude.** Only 7/3842 (0.18%)
+  deployed draws drop for nonfinite forward output (anchor 9/3827, 0.22%). The dropped
+  subset does lean *high-dissipation* (deployed: log10_zeta −1.64 vs kept −1.07;
+  log10_eta_Ih 11.97 vs 12.89 — both directions raise |Im k2|), so the drop is
+  *conservative*: including those draws would nudge SBI-pp mass toward obs, weakening
+  the apparent under-update, never manufacturing it. Max conceivable shift to frac≥obs
+  ~0.002 vs an under-update gap ~0.34. Closed on magnitude + conservative direction,
+  NOT on kept/dropped similarity (reviewer correction — the drivers are not neutral).
+
+**Ceiling-INDEPENDENT evidence (replaces the earlier "returns the prior" framing).**
+obs=0.135 is reachable under the prior (12.8% of prior draws already exceed it). A
+posterior correctly conditioned on 0.135±0.035 should heavily up-weight that mass —
+qualitatively toward frac≥obs ~0.5 (heuristic target for a symmetric noiseless
+pushforward centred on obs, not an exact identity). The flow moved frac≥obs only
+0.128→0.161 (deployed) / →0.173 (anchor). This under-update is measured **entirely
+against the prior** and does NOT depend on where the MCMC ceiling (0.100) sits — so it
+survives whatever follow-up #2 finds.
+
+**#3 does NOT obviate #2.** The dichotomy #3 tests is concentration-failure vs
+wrong-mode only; it does not rule out reference/forward-model issues in the MCMC
+ceiling itself. #2 (matched-resolution NH3 reference MCMC at n_eff=2000, re-measure the
+0.100 ceiling — measured at the B3-discredited n_eff=500) still gates MgSO4/NaCl:
+if the matched-resolution SBI-vs-MCMC-pp gap < 0.5 σ_obs → MgSO4/NaCl PROCEED (standard
+gates + pushforward gate); if it survives → run #1 (salinity-fixed retrain) with
+reviewer + user sign-off before any MgSO4/NaCl compute.
+
+Artifacts: `validation_reports/nh3_diagnosis/pushforward_shape/` (anchor) and
+`.../pushforward_shape_deployed/` (deployed 1M) — each has `pushforward_shape_report.json`,
+`pushforward_arrays.npz` (raw prior/sbi/mcmc |Im k2| for re-plot without recompute),
+`anchor_imk2_pushforward.pdf`/`.png`.

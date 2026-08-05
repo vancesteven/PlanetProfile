@@ -1,6 +1,8 @@
 # Machine B handoff
 
-Updated: 2026-08-01 at genai `54106fbd` (Machine A refresh after v5/v6/v7
+Updated: 2026-08-05 (Machine B: NH3 follow-up #3 EXECUTED, reviewer PASS — see
+§0.9 #3 EXECUTED block; proceeding to #2 matched-resolution MCMC).
+Prior: 2026-08-01 at genai `54106fbd` (Machine A refresh after v5/v6/v7
 delivery). Authoritative executable queue for compute-intensive work. Machine B
 should pull the exact `origin/genai` commit named by Machine A before each
 campaign, use the `PPcl` mamba environment, record package versions and seeds,
@@ -181,6 +183,25 @@ exactly the resolution class B3 just discredited. Therefore:
    discredited resolution class; measure the target before chasing it.
 3. **#1 (salinity-fixed retrain) ONLY IF a material gap survives #2** — its
    interpretation depends on the matched-resolution ceiling.
+
+**#3 EXECUTED (Machine B, 2026-08-05) — reviewer PASS.** Pushforward-shape
+diagnostic run on BOTH the capped anchor AND the deployed 1M flow (reviewer-
+required transfer check). Result: **concentration-failure CONFIRMED, wrong-mode
+EXCLUDED.** Deployed flow concentration ratio 1.215 (anchor 1.289) — both >1, so
+the posterior-predictive |Im_k2| is not narrower than the prior (it is marginally
+broader); the high-k2 tail is fully retained (frac≥0.100 = 0.233 deployed / 0.250
+anchor), not collapsed. The flow updates in the correct direction but grossly too
+little: frac≥obs moved only 0.128→0.161 (deployed) / →0.173 (anchor) where a
+correctly-conditioned posterior should approach ~0.5. **This is measured against
+the PRIOR, so it is ceiling-INDEPENDENT and survives whatever #2 finds.**
+Nonfinite-drop bias closed: <0.25% of draws drop, and their dissipation-proxy
+direction is conservative (dropped set leans high-dissipation, so including them
+would raise SBI-pp toward obs — weakening, not manufacturing, the under-update).
+**#3 does NOT obviate #2** — it only fixes the *mechanism* (fails to concentrate,
+not wrong mode); the *magnitude* still needs the matched-resolution ceiling.
+Proceeding to #2. Report: `validation_reports/FLOW_UNDERUPDATE_DIAGNOSIS.md`
+(Follow-up #3 EXECUTED); artifacts `validation_reports/nh3_diagnosis/
+pushforward_shape{,_deployed}/`.
 
 **MgSO4/NaCl release criteria (preregistered):** if the matched-resolution
 NH3 SBI-vs-MCMC-pp gap falls below the 0.5σ_obs flag threshold, the
