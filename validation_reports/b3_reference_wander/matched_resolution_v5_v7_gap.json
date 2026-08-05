@@ -1,0 +1,29 @@
+{
+  "kind": "b3_matched_resolution_v5_v7_gap",
+  "legacy_neff500_gap_km": 1.06,
+  "note": "legacy gap was v5(n_eff=500) vs v7(n_eff=500); the matched gaps below are at the fresh resolution and ARE the step-3 comparison \u2014 the legacy number is NOT directly comparable.",
+  "per_param": {
+    "D_iceIh_km": {
+      "per_seed_v5_minus_v7": {
+        "101": -0.08419654334537086,
+        "202": -0.04932377735371318,
+        "303": -0.44129609857604635
+      },
+      "mean_gap": -0.19160547309171014,
+      "gap_std": 0.2169402770189218,
+      "v5_within_config_floor_std": 0.1507225415107982,
+      "v7_within_config_floor_std": 0.09235631830201735
+    },
+    "log10_wOcean_ppt": {
+      "per_seed_v5_minus_v7": {
+        "101": -0.0016525511647089708,
+        "202": 0.00010325719092718622,
+        "303": -0.008382594498202778
+      },
+      "mean_gap": -0.003310629490661521,
+      "gap_std": 0.004479323333241604,
+      "v5_within_config_floor_std": 0.003466256942660921,
+      "v7_within_config_floor_std": 0.002520931877328027
+    }
+  }
+}

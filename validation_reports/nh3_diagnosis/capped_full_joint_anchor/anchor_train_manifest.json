@@ -1,0 +1,20 @@
+{
+  "kind": "nh3_diag_capped_full_joint_anchor",
+  "artifact": "/tmp/nh3_diag/anchor/nh3_capped_full_joint_anchor.pt",
+  "config": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/configs/test54_titan_nh3_freegrav.json",
+  "max_epochs": 60,
+  "epochs_trained": 61.0,
+  "best_validation_log_prob": null,
+  "train_summary_keys": [
+    "epochs_trained",
+    "best_validation_loss",
+    "validation_loss",
+    "training_loss",
+    "epoch_durations_sec"
+  ],
+  "train_seed": 72,
+  "density_estimator": "nsf",
+  "n_train": 689845,
+  "config_hash": "e596574d1e81567c",
+  "purpose": "head-to-head cap-vs-cap anchor for S1/S2 pilots; if this under-updates like the deployed flow (|Im_k2|~0.04) the cap is not the cause and pilot 'unchanged' readings are trusted."
+}

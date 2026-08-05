@@ -230,3 +230,66 @@ mode-assignment downgraded to candidate; (3) clean-assimilation restricted to Re
 Im_k2 miss untested by the control; (4) MgSO4/NaCl inheritance made conditional +
 verify the joint-build flag from cache metadata. Abstract Im_k2 reference reconciled
 to the JSON `mcmc_pp_median` 0.100.
+
+## Separators S1/S2 + capped anchor (2026-08-04, complete)
+All four flows: nsf, seed 72, max_num_epochs=60 (all ran to cap, epochs_trained=61,
+no early stop), n_post=4000, PPC noiseless. No new forward sims.
+
+| flow | Re_k2 pp_med | Im_k2 pp_med | (obs Re 0.608 / Im 0.135; MCMC-pp Im 0.100) |
+|---|---|---|---|
+| **ANCHOR** capped full joint | 0.5446 | 0.0431 | reproduces deployed converged 0.042 |
+| **S1** ocean-only (mixture off) | 0.5408 | 0.0392 | — |
+| **S2** k2 σ/4 | 0.5381 | 0.0461 | — |
+| **S2** k2 zero-noise | 0.5400 | 0.0469 | — |
+
+**Findings (scientific-reviewer PASS WITH CONCERNS, 2026-08-04):**
+- **Cap validity — CONFIRMED.** Capped anchor (0.0431) reproduces the externally
+  converged deployed value (0.042), so 60 epochs suffice for the Im_k2 statistic and
+  cap-vs-cap pilot readings are trustworthy. Depends on the deployed 0.042 being
+  genuinely converged. `best_validation_log_prob` is null in all manifests (loss
+  trajectory not independently inspectable — minor).
+- **Mixture (S1) — CONFIRMED not the driver, direction strengthens it.** Removing the
+  frozen no-ocean branch moved Im_k2 the WRONG way (0.0431→0.0392): a bimodal
+  low-k2-drag mode would have RAISED the median toward obs. Robust to boundary-row
+  misclassification (effect would have to reverse sign, not shrink).
+- **Noise-swamping #1 (S2) — CONFIRMED closed for Im_k2.** Zero-noise (0.0469) and
+  σ/4 (0.0461) both ≈ anchor despite fully removing k2 training noise. The zero-noise
+  *prior*-pp median did drop (0.0369→0.0265), confirming the abs-fold+additive-noise
+  convention inflates the prior Im — but the posterior-pp still cannot reach even
+  0.10. Strongest possible falsification of #1 for Im_k2.
+- **B3 reference-wander — CONFIRMED artifact.** Matched n_eff=2000 D_iceIh gap
+  −0.19±0.22 km vs between-seed floor √(0.15²+0.09²)=0.18 km (|mean|/std=0.88, <1σ).
+  Legacy 1.06 km shrinks ~5.6×; residual dominated by one seed (303 −0.44) inside the
+  scatter. Neither v5 nor v7 is an outlier. ~0.18 km is a defensible 1σ floor for the
+  §0.7 step-3 shape-excess re-eval **only at matched n_eff=2000**; reviewer advises a
+  conservative ~2× (0.36 km) gate.
+
+**Residual mechanism (by elimination, PLAUSIBLE not positively established):** the
+amortized conditional fails to concentrate on the weakly-identified high-k2
+ocean-branch tail (SBI-pp Im_k2 ≈ prior-pp ~0.04 vs MCMC-pp 0.100); the near-degenerate
+salinity axis (Tb↔w −0.986) is the most probable specific contributor because it is
+the one apparatus element S1 left in. S1/S2 do NOT rule out: (a) the salinity axis,
+(b) the abs-fold *as a representation* (S2 changed only noise; x_clean is still the
+folded |Im|), (c) the k2 support guard, (d) intrinsic sub-ceiling identifiability
+(obs 0.135 > MCMC-pp 0.100, so part of the miss-vs-obs is model-datum tension).
+
+**Reviewer note (important):** all four PPCs compare SBI-pp to obs (0.135), not to the
+reachable MCMC-pp ceiling (0.100); the true SBI-vs-MCMC gap (~0.043 vs 0.100) was not
+re-measured this pass.
+
+**Reviewer-required follow-up separators before MgSO4/NaCl proceed:**
+1. **Salinity-fixed (or sharply-narrowed-w) ocean-only retrain** at same cap/seed/arch
+   — the one axis S1 could not touch; decisive cut for salinity-vs-fold/support.
+2. **Re-measure matched MCMC-pp** for the anchor (ideally ocean-only) so the reported
+   target is SBI-pp vs MCMC-pp, not vs obs.
+3. **Plot the anchor SBI Im_k2 pushforward distribution** (not just median):
+   unimodal-under-concentrated near 0.04 vs a mode near 0.10–0.13 — distinguishes
+   "fails to concentrate" from "concentrates on the wrong mode."
+
+Artifacts: `validation_reports/nh3_diagnosis/{capped_full_joint_anchor,s1_ocean_only,
+s2_reduced_noise}/`; `validation_reports/b3_reference_wander/`. Drivers:
+`plans/scripts/nh3_diag_*.py`, `plans/scripts/b3_reference_wander.py`.
+
+**Manager (Machine A) call pending:** proceed to MgSO4/NaCl vs. run reviewer
+follow-up #1 (salinity-fixed) first. MgSO4/NaCl remain HELD per §0.8 until the manager
+adjudicates.

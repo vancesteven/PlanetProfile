@@ -214,6 +214,50 @@ reviewer-ratified (PASS-WITH-CONCERNS) before launch, corrections folded.
 - **Next**: scientific-reviewer interprets B3 matched-gap + the three PPC
   four-way tables; manager chooses proceed/remedy for MgSO4/NaCl.
 
+### REPORTED 2026-08-04 (Machine B) — B3 + separators COMPLETE, reviewer PASS WITH CONCERNS
+
+Both compute streams finished (exit 0); scientific-reviewer adjudicated (this is
+a scientific-adjudication call, not delegated). Full write-up:
+`validation_reports/FLOW_UNDERUPDATE_DIAGNOSIS.md` "Separators S1/S2 + capped
+anchor" block. Four flows nsf/seed72/max-epochs60 (all ran to cap,
+epochs_trained=61 — no early stop), n_post=4000, PPC noiseless.
+
+| flow | Re_k2 pp_med | Im_k2 pp_med |
+|---|---|---|
+| ANCHOR capped full joint | 0.5446 | 0.0431 |
+| S1 ocean-only (mixture off) | 0.5408 | 0.0392 |
+| S2 k2 σ/4 | 0.5381 | 0.0461 |
+| S2 k2 zero-noise | 0.5400 | 0.0469 |
+
+obs Re=0.608 / Im=0.135; MCMC-pp Im ceiling 0.100.
+
+Reviewer verdicts: **cap CONFIRMED** not a confound (anchor 0.043 = deployed
+converged 0.042); **mixture CONFIRMED not the driver** (S1 moved Im_k2 the WRONG
+way — a bimodal low-k2 drag would have raised it); **noise-swamping #1 CONFIRMED
+closed for Im_k2** (zero-noise + σ/4 both ≈ anchor). **B3 CONFIRMED artifact**:
+matched n_eff=2000 D_iceIh gap −0.19±0.22 km collapses into the between-seed
+floor 0.18 km (|mean|/std 0.88); neither v5 nor v7 an outlier; step-3
+shape-excess floor ~0.18 km at n_eff=2000 (reviewer advises 2×=0.36 km gate).
+
+Residual mechanism (by elimination, PLAUSIBLE not established): flow fails to
+concentrate on the weakly-identified high-k2 ocean tail; salinity axis
+(Tb↔w −0.986) most probable specific contributor (the one apparatus element S1
+left in). NOT ruled out: salinity axis, the abs-fold *as a representation*
+(S2 changed only noise, x_clean still folded |Im|), the k2 support guard, and
+sub-ceiling identifiability (obs 0.135 > MCMC 0.100 → part is model-datum
+tension). Reviewer flag: PPCs compared SBI-pp to obs 0.135, not to MCMC-pp 0.100.
+
+**Reviewer-required follow-ups BEFORE MgSO4/NaCl proceed:**
+1. Salinity-fixed (or sharply-narrowed-w) ocean-only retrain at same cap/seed/arch
+   — decisive salinity-vs-fold/support cut (the axis S1 could not touch).
+2. Re-measure matched MCMC-pp for the anchor (ideally ocean-only) so the target
+   is SBI-pp vs MCMC-pp, not vs obs.
+3. Plot the anchor SBI Im_k2 pushforward distribution (concentration vs
+   wrong-mode), not just the median.
+
+**MANAGER (Machine A) CALL PENDING:** proceed to MgSO4/NaCl vs run follow-up #1
+first. MgSO4/NaCl stay HELD per §0.8 until the manager adjudicates.
+
 ## 0.7 USER DIRECTIVE (2026-08-04) — v5 and v6 must be FIXED and DEPLOYED to HF
 
 This is now the TOP Europa priority, superseding the earlier "after Titan"

@@ -1,19 +1,28 @@
 # PlanetProfile genai — current status
 
-Updated: 2026-08-04 (LAUNCHED on Machine B: §0.7 step-1 B3 reference-wander
-[plans/scripts/b3_reference_wander.py — v5+v7, seeds 101/202/303,
-n_effective=2000/n_active=1024] + the two §0.8 separators as a sequential
-chain [nh3_diag_capped_anchor.py → s1_ocean_only.py → s2_reduced_noise.py,
-all on the existing NH3 1M dataset, no new sims]. Both reviewer-ratified
-PASS-WITH-CONCERNS before launch, corrections folded: (B3) pocoMC has no
-n_live → n_effective=2000 with n_active raised in step to preserve regime,
-matched-resolution paired v5-v7 gap replaces the stale n_eff=500 1.06 km
-anchor, env+sampler-knob provenance recorded; (pilots) S1 has_ocean recovery
-faithful [99.8% agreement, 100% at boundaries], S2 clean-signal recovery exact
-[source-confirmed one-shot post-fold noise], capped full-joint anchor added so
-pilots compare cap-vs-cap not vs the historical 0.042. Committed bb70cab3.
-Runner change: sampler_settings.n_active exposed (additive, existing runs
-unchanged). MgSO4/NaCl stay HELD until S1/S2 report + remedy chosen. Earlier
+Updated: 2026-08-04 (REPORTED on Machine B: §0.7 step-1 B3 + the two §0.8
+separators COMPLETE, scientific-reviewer PASS WITH CONCERNS. Results in
+validation_reports/FLOW_UNDERUPDATE_DIAGNOSIS.md "Separators S1/S2 + capped
+anchor" block. Four flows (nsf/seed72/60-epoch cap, all ran to cap, no new
+sims), Im_k2 pp_med: ANCHOR capped-full-joint 0.043 (reproduces deployed
+converged 0.042 → cap not a confound); S1 ocean-only 0.039 (mixture moved
+Im_k2 the WRONG way → mixture CONFIRMED not the driver); S2 σ/4 0.046 + S2
+zero-noise 0.047 (→ noise-swamping #1 CONFIRMED closed for Im_k2 too). B3:
+matched n_eff=2000 v5-v7 D_iceIh gap −0.19±0.22 km collapses into the
+between-seed floor √(0.15²+0.09²)=0.18 km → the legacy 1.06 km wander is a
+resolution/SMC artifact, neither v5 nor v7 an outlier; ~0.18 km (reviewer
+advises 2×=0.36 km conservative) is the §0.7 step-3 shape-excess floor at
+n_eff=2000. RESIDUAL (by elimination, not positively established): flow fails
+to concentrate on the weakly-identified high-k2 ocean tail; salinity axis
+(Tb↔w −0.986) the most probable specific contributor (the one apparatus
+element S1 left in). Reviewer flags: PPCs compared SBI-pp to obs 0.135 not to
+MCMC-pp ceiling 0.100; requires 3 follow-ups before MgSO4/NaCl proceed —
+(1) salinity-fixed ocean-only retrain [decisive cut], (2) re-measure matched
+MCMC-pp for anchor, (3) plot anchor Im_k2 pushforward (concentration vs
+wrong-mode). Committed bb70cab3 (scripts) + this doc refresh. Runner change:
+sampler_settings.n_active exposed (additive, existing runs unchanged).
+MANAGER (Machine A) CALL PENDING: proceed to MgSO4/NaCl vs run reviewer
+follow-up #1 first. MgSO4/NaCl stay HELD until the manager adjudicates. Earlier
 Manager decision on the surfaced NH3-diagnosis call:
 run BOTH separators — S1 ocean-only-with-salinity pilot, S2 reduced-noise
 Im_k2 pilot, both on the existing dataset, no new sims — while the §0.7 B3

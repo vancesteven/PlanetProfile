@@ -1,0 +1,34 @@
+{
+  "kind": "nh3_diag_s2_reduced_noise_pilot",
+  "config": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/configs/test54_titan_nh3_freegrav.json",
+  "dataset": "/tmp/titanG_build/datasets/titanG_nh3_1m.npz",
+  "orig_sigma": {
+    "C20": 4.71e-07,
+    "C22": 6.2e-08,
+    "Re_k2": 0.048,
+    "Im_k2": 0.035
+  },
+  "k2_channels": [
+    "Re_k2",
+    "Im_k2"
+  ],
+  "k2_factor": 0.25,
+  "arms": {
+    "k2_sigma_over_4": {
+      "artifact": "/tmp/nh3_diag/s2/k2_sigma_over_4/nh3_s2_k2_sigma_over_4_pilot.pt",
+      "ppc_report": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/nh3_diagnosis/s2_reduced_noise/k2_sigma_over_4/ppc_interior_report.json",
+      "epochs_trained": 61.0
+    },
+    "k2_zero_noise": {
+      "artifact": "/tmp/nh3_diag/s2/k2_zero_noise/nh3_s2_k2_zero_noise_pilot.pt",
+      "ppc_report": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/nh3_diagnosis/s2_reduced_noise/k2_zero_noise/ppc_interior_report.json",
+      "epochs_trained": 61.0
+    }
+  },
+  "train_seed": 72,
+  "density_estimator": "nsf",
+  "max_epochs": 60,
+  "clean_recovery": "x_clean = x_saved - default_rng(noise_seed).normal*sigmas; verified abs-fold signature (Im min>=0).",
+  "preregistered_reading": "Im_k2 pushforward gap shrinks materially vs the CAPPED full-joint anchor (nh3_diag_capped_anchor.py, cap-vs-cap) -> noise/abs-fold convention contributes; unchanged -> #1 closed for Im_k2.",
+  "anchor_note": "compare against the capped full-joint anchor at the SAME max_epochs/n_post/seed, NOT the historical converged 0.042; a 'gap unchanged' reading is only trustworthy if the anchor also under-updates at this cap."
+}

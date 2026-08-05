@@ -1,0 +1,321 @@
+{
+  "kind": "b3_reference_wander",
+  "which": "v5",
+  "provenance": {
+    "config": "PlanetProfile/Inference/configs/europa_clipper_v5_geodesy_11D.json",
+    "config_hash": "cebaf3ddb4367355",
+    "structure_cache_path": "PlanetProfile/Test/mcmc_results/Europa/Test52_seawater_v5/europa_seawater_structure_grid_v5_2d.pkl",
+    "structure_cache_sha256": "0d3638602b2e313242fd23944ee55a8c6ba26700438707d73546631939d22648",
+    "ae_sidecar_sha256": "a5f6be47ebea96cecd36a59da6fe79749f3429ac96719aabb140fe8ed45f070e",
+    "n_effective": 2000,
+    "n_active": 1024,
+    "n_total_termination_ess": 4096,
+    "n_evidence_default": 4096,
+    "env_versions": {
+      "scipy": "1.17.1",
+      "pocomc": "1.2.6",
+      "numpy": "2.4.6",
+      "torch": "2.8.0"
+    },
+    "param_names": [
+      "alpha",
+      "log10_zeta_Ih",
+      "log10_zeta_sil",
+      "log10_eta_Ih",
+      "log10_eta_sil",
+      "D_iceIh_km",
+      "log10_wOcean_ppt",
+      "R_core_km",
+      "rho_core_kgm3",
+      "dC20_nh",
+      "dC22_nh"
+    ]
+  },
+  "git_sha": "cf535e0373132c93353e8762ceb7b4c47f7dcbf8",
+  "observed_v5_v7_D_iceIh_wander_km": 1.06,
+  "seeds": [
+    101,
+    202,
+    303
+  ],
+  "runs": [
+    {
+      "label": "seed51_primary_neff500",
+      "seed": 51,
+      "n_effective_run": 500,
+      "n_samples": 4343,
+      "log_Z": -17.09579804478397,
+      "log_Z_err": 0.28101764455587275,
+      "elapsed_s": null,
+      "equal_res": false
+    },
+    {
+      "label": "seed101_neff2000",
+      "seed": 101,
+      "n_effective_run": 2000,
+      "n_samples": 5994,
+      "log_Z": -17.24191466183531,
+      "log_Z_err": 0.031946760513996766,
+      "elapsed_s": 2002.4079630374908,
+      "equal_res": true
+    },
+    {
+      "label": "seed202_neff2000",
+      "seed": 202,
+      "n_effective_run": 2000,
+      "n_samples": 6067,
+      "log_Z": -17.093636678034613,
+      "log_Z_err": 0.08119528659946995,
+      "elapsed_s": 1951.744157075882,
+      "equal_res": true
+    },
+    {
+      "label": "seed303_neff2000",
+      "seed": 303,
+      "n_effective_run": 2000,
+      "n_samples": 5923,
+      "log_Z": -17.079511936672603,
+      "log_Z_err": 0.10043783221457955,
+      "elapsed_s": 1783.9354598522186,
+      "equal_res": true
+    }
+  ],
+  "per_param": {
+    "alpha": {
+      "means": {
+        "seed51_primary_neff500": 0.31508025351872637,
+        "seed101_neff2000": 0.31597704844059016,
+        "seed202_neff2000": 0.31514182026990023,
+        "seed303_neff2000": 0.3159255118729942
+      },
+      "stds": {
+        "seed51_primary_neff500": 0.07713010865217008,
+        "seed101_neff2000": 0.08337936836352448,
+        "seed202_neff2000": 0.08164120177932904,
+        "seed303_neff2000": 0.08354962626630395
+      },
+      "equal_res_means_by_seed": {
+        "101": 0.31597704844059016,
+        "202": 0.31514182026990023,
+        "303": 0.3159255118729942
+      },
+      "between_seed_mean_range": 0.0008352281706899278,
+      "between_seed_mean_std": 0.00046805174992972166
+    },
+    "log10_zeta_Ih": {
+      "means": {
+        "seed51_primary_neff500": 0.07116894861306614,
+        "seed101_neff2000": 0.17727332872544807,
+        "seed202_neff2000": 0.18283901649788548,
+        "seed303_neff2000": 0.09864884529426231
+      },
+      "stds": {
+        "seed51_primary_neff500": 1.0959851530235438,
+        "seed101_neff2000": 1.2101081828900586,
+        "seed202_neff2000": 1.1774318239520587,
+        "seed303_neff2000": 1.2066532025864032
+      },
+      "equal_res_means_by_seed": {
+        "101": 0.17727332872544807,
+        "202": 0.18283901649788548,
+        "303": 0.09864884529426231
+      },
+      "between_seed_mean_range": 0.08419017120362317,
+      "between_seed_mean_std": 0.04708285463325343
+    },
+    "log10_zeta_sil": {
+      "means": {
+        "seed51_primary_neff500": 0.26550834095285447,
+        "seed101_neff2000": 0.2503876167572767,
+        "seed202_neff2000": 0.14493668699407952,
+        "seed303_neff2000": 0.20828233751469377
+      },
+      "stds": {
+        "seed51_primary_neff500": 1.010864119743297,
+        "seed101_neff2000": 1.0990873136663304,
+        "seed202_neff2000": 1.0776227578564328,
+        "seed303_neff2000": 1.0566422226668406
+      },
+      "equal_res_means_by_seed": {
+        "101": 0.2503876167572767,
+        "202": 0.14493668699407952,
+        "303": 0.20828233751469377
+      },
+      "between_seed_mean_range": 0.1054509297631972,
+      "between_seed_mean_std": 0.053080794656037364
+    },
+    "log10_eta_Ih": {
+      "means": {
+        "seed51_primary_neff500": 13.92543454470315,
+        "seed101_neff2000": 13.749689254010045,
+        "seed202_neff2000": 13.811099760387032,
+        "seed303_neff2000": 13.869694827569061
+      },
+      "stds": {
+        "seed51_primary_neff500": 1.445605096132701,
+        "seed101_neff2000": 1.5815844531394192,
+        "seed202_neff2000": 1.574374275215732,
+        "seed303_neff2000": 1.5663573564878652
+      },
+      "equal_res_means_by_seed": {
+        "101": 13.749689254010045,
+        "202": 13.811099760387032,
+        "303": 13.869694827569061
+      },
+      "between_seed_mean_range": 0.1200055735590162,
+      "between_seed_mean_std": 0.060008290922689625
+    },
+    "log10_eta_sil": {
+      "means": {
+        "seed51_primary_neff500": 20.079899692164247,
+        "seed101_neff2000": 20.192279698098766,
+        "seed202_neff2000": 20.156195528395834,
+        "seed303_neff2000": 20.10429140302306
+      },
+      "stds": {
+        "seed51_primary_neff500": 1.0896933634068566,
+        "seed101_neff2000": 1.127250594660669,
+        "seed202_neff2000": 1.1187142402321077,
+        "seed303_neff2000": 1.1217555277929772
+      },
+      "equal_res_means_by_seed": {
+        "101": 20.192279698098766,
+        "202": 20.156195528395834,
+        "303": 20.10429140302306
+      },
+      "between_seed_mean_range": 0.08798829507570716,
+      "between_seed_mean_std": 0.04423054299951653
+    },
+    "D_iceIh_km": {
+      "means": {
+        "seed51_primary_neff500": 62.075557917665755,
+        "seed101_neff2000": 61.52636296569496,
+        "seed202_neff2000": 61.65432597901499,
+        "seed303_neff2000": 61.3539740977837
+      },
+      "stds": {
+        "seed51_primary_neff500": 5.174574838664604,
+        "seed101_neff2000": 5.841894405224489,
+        "seed202_neff2000": 5.805128099778373,
+        "seed303_neff2000": 5.836061384385477
+      },
+      "equal_res_means_by_seed": {
+        "101": 61.52636296569496,
+        "202": 61.65432597901499,
+        "303": 61.3539740977837
+      },
+      "between_seed_mean_range": 0.3003518812312933,
+      "between_seed_mean_std": 0.1507225415107982
+    },
+    "log10_wOcean_ppt": {
+      "means": {
+        "seed51_primary_neff500": 1.5721150001489255,
+        "seed101_neff2000": 1.564105208560536,
+        "seed202_neff2000": 1.5690386364397786,
+        "seed303_neff2000": 1.5623540108607474
+      },
+      "stds": {
+        "seed51_primary_neff500": 0.1206912598666609,
+        "seed101_neff2000": 0.13426387696881573,
+        "seed202_neff2000": 0.13578529322921398,
+        "seed303_neff2000": 0.13441709864469023
+      },
+      "equal_res_means_by_seed": {
+        "101": 1.564105208560536,
+        "202": 1.5690386364397786,
+        "303": 1.5623540108607474
+      },
+      "between_seed_mean_range": 0.006684625579031156,
+      "between_seed_mean_std": 0.003466256942660921
+    },
+    "R_core_km": {
+      "means": {
+        "seed51_primary_neff500": 534.9572996531158,
+        "seed101_neff2000": 532.3340638249798,
+        "seed202_neff2000": 533.0270214309503,
+        "seed303_neff2000": 531.8755892504769
+      },
+      "stds": {
+        "seed51_primary_neff500": 62.22981692242325,
+        "seed101_neff2000": 69.30081877456342,
+        "seed202_neff2000": 69.70178561961953,
+        "seed303_neff2000": 67.38618410777657
+      },
+      "equal_res_means_by_seed": {
+        "101": 532.3340638249798,
+        "202": 533.0270214309503,
+        "303": 531.8755892504769
+      },
+      "between_seed_mean_range": 1.1514321804734209,
+      "between_seed_mean_std": 0.5796817007875634
+    },
+    "rho_core_kgm3": {
+      "means": {
+        "seed51_primary_neff500": 6332.957342521341,
+        "seed101_neff2000": 6406.633417617808,
+        "seed202_neff2000": 6368.8678204699345,
+        "seed303_neff2000": 6370.34561833852
+      },
+      "stds": {
+        "seed51_primary_neff500": 712.573244146109,
+        "seed101_neff2000": 821.3078836816632,
+        "seed202_neff2000": 811.1876137267542,
+        "seed303_neff2000": 795.5239430079175
+      },
+      "equal_res_means_by_seed": {
+        "101": 6406.633417617808,
+        "202": 6368.8678204699345,
+        "303": 6370.34561833852
+      },
+      "between_seed_mean_range": 37.76559714787345,
+      "between_seed_mean_std": 21.39014021696981
+    },
+    "dC20_nh": {
+      "means": {
+        "seed51_primary_neff500": 4.6414590776164283e-07,
+        "seed101_neff2000": 3.1109591911332744e-07,
+        "seed202_neff2000": 6.861673158244198e-07,
+        "seed303_neff2000": 7.583472578184852e-07
+      },
+      "stds": {
+        "seed51_primary_neff500": 7.36966565867112e-06,
+        "seed101_neff2000": 8.434269735183175e-06,
+        "seed202_neff2000": 8.408245405394278e-06,
+        "seed303_neff2000": 8.360697919183296e-06
+      },
+      "equal_res_means_by_seed": {
+        "101": 3.1109591911332744e-07,
+        "202": 6.861673158244198e-07,
+        "303": 7.583472578184852e-07
+      },
+      "between_seed_mean_range": 4.4725133870515776e-07,
+      "between_seed_mean_std": 2.4011186859136865e-07
+    },
+    "dC22_nh": {
+      "means": {
+        "seed51_primary_neff500": -1.1618499044681468e-07,
+        "seed101_neff2000": -9.500927051655443e-08,
+        "seed202_neff2000": -2.1215075887382547e-07,
+        "seed303_neff2000": -2.3105173868204964e-07
+      },
+      "stds": {
+        "seed51_primary_neff500": 2.212856841421245e-06,
+        "seed101_neff2000": 2.5341974958348125e-06,
+        "seed202_neff2000": 2.5180390752489335e-06,
+        "seed303_neff2000": 2.5131133057108864e-06
+      },
+      "equal_res_means_by_seed": {
+        "101": -9.500927051655443e-08,
+        "202": -2.1215075887382547e-07,
+        "303": -2.3105173868204964e-07
+      },
+      "between_seed_mean_range": 1.360424681654952e-07,
+      "between_seed_mean_std": 7.369636860889342e-08
+    }
+  },
+  "key_params": [
+    "D_iceIh_km",
+    "log10_wOcean_ppt",
+    "Tb_K"
+  ]
+}

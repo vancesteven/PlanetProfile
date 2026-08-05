@@ -1,0 +1,21 @@
+{
+  "kind": "nh3_diag_s1_ocean_only_pilot",
+  "artifact": "/tmp/nh3_diag/s1/nh3_s1_ocean_only_pilot.pt",
+  "config": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/configs/test54_titan_nh3_freegrav.json",
+  "cache": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Test/mcmc_results/Titan/Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl",
+  "n_ocean": 642558,
+  "n_total": 689845,
+  "train_seed": 72,
+  "density_estimator": "nsf",
+  "max_epochs": 60,
+  "epochs_trained": 61.0,
+  "obs_names": [
+    "C20",
+    "C22",
+    "Re_k2",
+    "Im_k2"
+  ],
+  "config_hash": "e596574d1e81567c",
+  "anchor_note": "compare SBI-pp |Im_k2| against the CAPPED full-joint anchor (nh3_diag_capped_anchor.py), NOT the historical converged 0.042 \u2014 cap-vs-cap head-to-head.",
+  "preregistered_reading": "clean k2 assimilation -> joint MIXTURE is the driver; persistent k2 miss -> salinity degeneracy (or shared element) implicated."
+}

@@ -1,0 +1,139 @@
+{
+  "kind": "posterior_predictive_coverage_and_interior_check",
+  "note": "DIAGNOSTIC, not a gate \u2014 interpreted by scientific-reviewer, never tuned to pass. Posterior-predictive is NOISELESS (obs_noise=False); coverage vs config sigma.",
+  "artifact": "/tmp/nh3_diag/s2/k2_zero_noise/nh3_s2_k2_zero_noise_pilot.pt",
+  "config": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/configs/test54_titan_nh3_freegrav.json",
+  "dataset": "/tmp/nh3_diag/s2/k2_zero_noise/nh3_s2_k2_zero_noise_dataset.npz",
+  "obs_names": [
+    "C20",
+    "C22",
+    "Re_k2",
+    "Im_k2"
+  ],
+  "x_obs": {
+    "C20": -3.3511e-05,
+    "C22": 1.0107e-05,
+    "Re_k2": 0.608,
+    "Im_k2": 0.135
+  },
+  "sigma": {
+    "C20": 4.71e-07,
+    "C22": 6.2e-08,
+    "Re_k2": 0.048,
+    "Im_k2": 0.035
+  },
+  "n_post_requested": 4000,
+  "n_post_forward_finite": 3788,
+  "seed": 72,
+  "prior_predictive_interior": {
+    "C20": {
+      "obs": -3.3511e-05,
+      "pctile_in_prior_predictive": 42.0820619124586,
+      "interior_5_95": true,
+      "train_median": -3.033952880725373e-05,
+      "train_5_95": [
+        -4.839223163446433e-05,
+        -1.2326451976342834e-05
+      ],
+      "n_finite": 689845
+    },
+    "C22": {
+      "obs": 1.0107e-05,
+      "pctile_in_prior_predictive": 60.04377795011923,
+      "interior_5_95": true,
+      "train_median": 9.102351271519583e-06,
+      "train_5_95": [
+        4.6077369247072425e-06,
+        1.3620408520713533e-05
+      ],
+      "n_finite": 689845
+    },
+    "Re_k2": {
+      "obs": 0.608,
+      "pctile_in_prior_predictive": 83.14085048090513,
+      "interior_5_95": true,
+      "train_median": 0.5229775203241438,
+      "train_5_95": [
+        0.2619017722198008,
+        0.7700521734862943
+      ],
+      "n_finite": 689845
+    },
+    "Im_k2": {
+      "obs": 0.135,
+      "pctile_in_prior_predictive": 87.18335278214671,
+      "interior_5_95": true,
+      "train_median": 0.026506736317307773,
+      "train_5_95": [
+        0.0020978077896367216,
+        0.26328625486921425
+      ],
+      "n_finite": 689845
+    }
+  },
+  "prior_predictive_all_interior_5_95": true,
+  "posterior_predictive": {
+    "C20": {
+      "obs": -3.3511e-05,
+      "sigma": 4.71e-07,
+      "pp_median": -3.349084874539229e-05,
+      "pp_5_95": [
+        -3.4266451710446046e-05,
+        -3.271419672224953e-05
+      ],
+      "median_dev_sigma": 0.676277972885525,
+      "frac_within_1sig": 0.6821541710665259,
+      "frac_within_2sig": 0.9530095036958818,
+      "frac_within_3sig": 0.9965681098204857,
+      "n_finite": 3788
+    },
+    "C22": {
+      "obs": 1.0107e-05,
+      "sigma": 6.2e-08,
+      "pp_median": 1.0107088927440776e-05,
+      "pp_5_95": [
+        9.994577627630065e-06,
+        1.0216400510935467e-05
+      ],
+      "median_dev_sigma": 0.7096746053647816,
+      "frac_within_1sig": 0.6531151003167899,
+      "frac_within_2sig": 0.9340021119324181,
+      "frac_within_3sig": 0.9923442449841605,
+      "n_finite": 3788
+    },
+    "Re_k2": {
+      "obs": 0.608,
+      "sigma": 0.048,
+      "pp_median": 0.5399898669841546,
+      "pp_5_95": [
+        0.2741777414396522,
+        0.8391208883481389
+      ],
+      "median_dev_sigma": 1.8885118490849666,
+      "frac_within_1sig": 0.2317845828933474,
+      "frac_within_2sig": 0.5319429778247096,
+      "frac_within_3sig": 0.720168954593453,
+      "n_finite": 3788
+    },
+    "Im_k2": {
+      "obs": 0.135,
+      "sigma": 0.035,
+      "pp_median": 0.046928417566807594,
+      "pp_5_95": [
+        0.00302563220507174,
+        0.3948465391236671
+      ],
+      "median_dev_sigma": 2.9234532605050267,
+      "frac_within_1sig": 0.11826821541710665,
+      "frac_within_2sig": 0.2692713833157339,
+      "frac_within_3sig": 0.5234952481520592,
+      "n_finite": 3788
+    }
+  },
+  "posterior_predictive_joint": {
+    "n_finite": 3788,
+    "frac_all_within_1sig": 0.010295670538542767,
+    "frac_all_within_2sig": 0.10797254487856389,
+    "frac_all_within_3sig": 0.35559662090813093
+  }
+}
