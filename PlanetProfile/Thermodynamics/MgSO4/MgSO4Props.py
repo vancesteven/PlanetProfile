@@ -14,6 +14,30 @@ from PlanetProfile.Thermodynamics.Seafreeze.SeafreezeProps import GenerateSeafre
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
+_MGSO4_PRESSURE_CLAMP_WARNED = False
+
+
+def _warn_pressure_clamp_once(P_MPa, Pmax_MPa):
+    """Warn once when MgSO4 property pressures will be nearest-clamped."""
+    global _MGSO4_PRESSURE_CLAMP_WARNED
+    if _MGSO4_PRESSURE_CLAMP_WARNED:
+        return
+
+    P = np.atleast_1d(np.asarray(P_MPa, dtype=np.float64))
+    finiteP = P[np.isfinite(P)]
+    if finiteP.size == 0:
+        return
+
+    requestedPmax_MPa = np.max(finiteP)
+    if requestedPmax_MPa > Pmax_MPa:
+        log.warning(
+            f'MgSO4 properties lookup table pressure ceiling is {Pmax_MPa:g} MPa; '
+            f'the requested maximum pressure is {requestedPmax_MPa:g} MPa. '
+            f'With extrapolation disabled, pressures above {Pmax_MPa:g} MPa are '
+            f'clamped to the nearest table value ({Pmax_MPa:g} MPa).')
+        _MGSO4_PRESSURE_CLAMP_WARNED = True
+
+
 def Molal2ppt(b_molkg, m_gmol):
     """ Convert dissolved salt concentration from molality to ppt
 
@@ -87,6 +111,7 @@ def MgSO4Props(P_MPa, T_K, wOcean_ppt, EXTRAP):
                     f'at {fn_MgSO4Props.fLookup}.')
 
     if not EXTRAP:
+        _warn_pressure_clamp_once(P_MPa, fn_MgSO4Props.Pmax)
         newP_MPa, newT_K = ResetNearestExtrap(P_MPa, T_K, fn_MgSO4Props.Pmin, fn_MgSO4Props.Pmax,
                                                     fn_MgSO4Props.Tmin, fn_MgSO4Props.Tmax)
         if (not np.all(newP_MPa == P_MPa)) and (not np.all(newT_K == T_K)):
