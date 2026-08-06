@@ -1,0 +1,139 @@
+{
+  "kind": "posterior_predictive_coverage_and_interior_check",
+  "note": "DIAGNOSTIC, not a gate \u2014 interpreted by scientific-reviewer, never tuned to pass. Posterior-predictive is NOISELESS (obs_noise=False); coverage vs config sigma.",
+  "artifact": "/tmp/nh3_diag/f4/nh3_f4_A_seed172.pt",
+  "config": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/configs/test54_titan_nh3_freegrav.json",
+  "dataset": "/tmp/titanG_build/datasets/titanG_nh3_1m.npz",
+  "obs_names": [
+    "C20",
+    "C22",
+    "Re_k2",
+    "Im_k2"
+  ],
+  "x_obs": {
+    "C20": -3.3511e-05,
+    "C22": 1.0107e-05,
+    "Re_k2": 0.608,
+    "Im_k2": 0.135
+  },
+  "sigma": {
+    "C20": 4.71e-07,
+    "C22": 6.2e-08,
+    "Re_k2": 0.048,
+    "Im_k2": 0.035
+  },
+  "n_post_requested": 4000,
+  "n_post_forward_finite": 3824,
+  "seed": 172,
+  "prior_predictive_interior": {
+    "C20": {
+      "obs": -3.3511e-05,
+      "pctile_in_prior_predictive": 42.07437902717277,
+      "interior_5_95": true,
+      "train_median": -3.0343239391911185e-05,
+      "train_5_95": [
+        -4.838541314318647e-05,
+        -1.2334924808086843e-05
+      ],
+      "n_finite": 689845
+    },
+    "C22": {
+      "obs": 1.0107e-05,
+      "pctile_in_prior_predictive": 60.06334756358312,
+      "interior_5_95": true,
+      "train_median": 9.103334415077096e-06,
+      "train_5_95": [
+        4.607379411055313e-06,
+        1.3620098645326816e-05
+      ],
+      "n_finite": 689845
+    },
+    "Re_k2": {
+      "obs": 0.608,
+      "pctile_in_prior_predictive": 79.5888931571585,
+      "interior_5_95": true,
+      "train_median": 0.5260880881594353,
+      "train_5_95": [
+        0.2569188798301947,
+        0.7794607284279231
+      ],
+      "n_finite": 689845
+    },
+    "Im_k2": {
+      "obs": 0.135,
+      "pctile_in_prior_predictive": 86.26358094934369,
+      "interior_5_95": true,
+      "train_median": 0.03689785146222258,
+      "train_5_95": [
+        -0.03600068791808868,
+        0.2686315890744499
+      ],
+      "n_finite": 689845
+    }
+  },
+  "prior_predictive_all_interior_5_95": true,
+  "posterior_predictive": {
+    "C20": {
+      "obs": -3.3511e-05,
+      "sigma": 4.71e-07,
+      "pp_median": -3.348709366075868e-05,
+      "pp_5_95": [
+        -3.427181683197761e-05,
+        -3.2677804504105504e-05
+      ],
+      "median_dev_sigma": 0.6819528424518997,
+      "frac_within_1sig": 0.6705020920502092,
+      "frac_within_2sig": 0.9505753138075314,
+      "frac_within_3sig": 0.9984309623430963,
+      "n_finite": 3824
+    },
+    "C22": {
+      "obs": 1.0107e-05,
+      "sigma": 6.2e-08,
+      "pp_median": 1.0107500266099647e-05,
+      "pp_5_95": [
+        9.999773453261103e-06,
+        1.0217655880416509e-05
+      ],
+      "median_dev_sigma": 0.7058194344866318,
+      "frac_within_1sig": 0.6647489539748954,
+      "frac_within_2sig": 0.9327928870292888,
+      "frac_within_3sig": 0.9942468619246861,
+      "n_finite": 3824
+    },
+    "Re_k2": {
+      "obs": 0.608,
+      "sigma": 0.048,
+      "pp_median": 0.5453863198158457,
+      "pp_5_95": [
+        0.29129567657472166,
+        0.8118635804955934
+      ],
+      "median_dev_sigma": 1.7069912765220023,
+      "frac_within_1sig": 0.25287656903765693,
+      "frac_within_2sig": 0.5763598326359832,
+      "frac_within_3sig": 0.7544456066945606,
+      "n_finite": 3824
+    },
+    "Im_k2": {
+      "obs": 0.135,
+      "sigma": 0.035,
+      "pp_median": 0.043254938597473466,
+      "pp_5_95": [
+        0.0036308677041959367,
+        0.3312842428624492
+      ],
+      "median_dev_sigma": 2.9250271168684114,
+      "frac_within_1sig": 0.11270920502092051,
+      "frac_within_2sig": 0.2696129707112971,
+      "frac_within_3sig": 0.5287656903765691,
+      "n_finite": 3824
+    }
+  },
+  "posterior_predictive_joint": {
+    "n_finite": 3824,
+    "frac_all_within_1sig": 0.009414225941422594,
+    "frac_all_within_2sig": 0.11401673640167365,
+    "frac_all_within_3sig": 0.38127615062761505
+  }
+}

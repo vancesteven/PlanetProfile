@@ -1,0 +1,115 @@
+{
+  "kind": "nh3_diag_pushforward_shape_followup3",
+  "note": "DIAGNOSTIC, not a gate \u2014 interpreted by scientific-reviewer, never tuned. Separates concentration-failure (broad, low mass) from wrong-mode (narrow, low mode) using the FULL |Im_k2| pushforward, not just the median.",
+  "artifact": "/tmp/nh3_diag/f4/nh3_f4_A_seed72.pt",
+  "config": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/configs/test54_titan_nh3_freegrav.json",
+  "dataset": "/tmp/titanG_build/datasets/titanG_nh3_1m.npz",
+  "ref_pkl": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/titan_freegrav_nh3_1m/reference/titan_freegrav_nh3_reference_result.pkl",
+  "obs_Im_k2": 0.135,
+  "sigma_Im_k2": 0.035,
+  "mcmc_pp_ceiling_used": 0.1,
+  "prior_predictive_spread": {
+    "p5": 0.0020978077896367216,
+    "median": 0.026506736317307773,
+    "p95": 0.26328625486921425,
+    "iqr90": 0.26118844707957756
+  },
+  "sbi_posterior_predictive_spread": {
+    "p5": 0.003745440587135019,
+    "median": 0.04650659746898875,
+    "p95": 0.3292067002231447,
+    "iqr90": 0.3254612596360097
+  },
+  "mcmc_reference_spread": {
+    "p5": 0.03077039191272571,
+    "median": 0.0998540326019152,
+    "p95": 0.16479190921208342,
+    "iqr90": 0.1340215172993577
+  },
+  "sbi_concentration_ratio_vs_prior": 1.2460783134747526,
+  "sbi_frac_mass_ge_mcmc_ceiling": 0.2639288516871567,
+  "sbi_frac_mass_ge_obs": 0.18702589589327753,
+  "prior_frac_mass_ge_obs": 0.12816647217853286,
+  "prior_frac_mass_ge_mcmc_ceiling": 0.17568584247185962,
+  "ceiling_independent_reading": "obs=0.135 is reachable under the prior (frac>=obs 0.128); a correct posterior conditioned on 0.135+-0.035 should drive frac>=obs toward ~0.5, but the flow moved it only 0.128->0.187. This under-update is measured entirely against the PRIOR and does NOT depend on where the MCMC ceiling sits (#2).",
+  "nonfinite_drop_bias_check": {
+    "n_dropped": 9,
+    "drop_frac": 0.00225,
+    "log10_zeta": {
+      "kept_median": -1.1589752435684204,
+      "dropped_median": -0.36287999153137207,
+      "kept_5_95": [
+        -2.799440550804138,
+        1.6783405780792204
+      ],
+      "dropped_5_95": [
+        -2.7315102577209474,
+        1.052774095535278
+      ]
+    },
+    "log10_eta_Ih": {
+      "kept_median": 13.036386489868164,
+      "dropped_median": 13.205676078796387,
+      "kept_5_95": [
+        10.287967586517334,
+        15.6276065826416
+      ],
+      "dropped_5_95": [
+        11.431572914123535,
+        14.415160369873046
+      ]
+    },
+    "log10_eta_III": {
+      "kept_median": 13.16137981414795,
+      "dropped_median": 14.145086288452148,
+      "kept_5_95": [
+        10.333189392089844,
+        15.703930568695068
+      ],
+      "dropped_5_95": [
+        11.277751541137695,
+        15.55064468383789
+      ]
+    },
+    "log10_eta_V": {
+      "kept_median": 12.560619354248047,
+      "dropped_median": 13.634952545166016,
+      "kept_5_95": [
+        10.203857612609863,
+        15.621982288360595
+      ],
+      "dropped_5_95": [
+        10.593870925903321,
+        15.759568786621093
+      ]
+    },
+    "log10_eta_VI": {
+      "kept_median": 12.433137893676758,
+      "dropped_median": 12.00798225402832,
+      "kept_5_95": [
+        10.23883934020996,
+        15.567217445373535
+      ],
+      "dropped_5_95": [
+        10.5074893951416,
+        14.683286094665526
+      ]
+    },
+    "log10_eta_sil": {
+      "kept_median": 20.0323543548584,
+      "dropped_median": 20.077713012695312,
+      "kept_5_95": [
+        18.172917366027832,
+        21.813121032714843
+      ],
+      "dropped_5_95": [
+        18.30354118347168,
+        20.82192916870117
+      ]
+    }
+  },
+  "label": "A_seed72",
+  "reading_key": "wrong-mode if concentration_ratio << 1 (posterior much narrower than prior) AND frac_mass_ge_mcmc_ceiling ~ 0 (tail dropped); concentration-failure if concentration_ratio ~ 1 (barely narrowed) with mass still reaching the ceiling but median low. The #2 matched-resolution MCMC re-measure will confirm whether the ceiling itself moves.",
+  "arrays_npz": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/nh3_diagnosis/f4_architecture/A_seed72/pushforward/pushforward_arrays.npz",
+  "plot_pdf": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/nh3_diagnosis/f4_architecture/A_seed72/pushforward/anchor_imk2_pushforward.pdf"
+}

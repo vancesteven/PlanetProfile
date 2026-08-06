@@ -1,0 +1,207 @@
+{
+  "kind": "nh3_diag_f4_architecture_pilot",
+  "config": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/configs/test54_titan_nh3_freegrav.json",
+  "dataset": "/tmp/titanG_build/datasets/titanG_nh3_1m.npz",
+  "note": "PILOT ONLY. Production-architecture decision is manager+reviewer+user WITH this table. Do NOT fold any arm into an MgSO4/NaCl production build from this script.",
+  "footing": "FULL ocean-admitting 1M NH3 dataset (deployed flow's footing)",
+  "seeds": [
+    72
+  ],
+  "is_single_seed_screen": true,
+  "stop_after_epochs": 20,
+  "validation_fraction": 0.1,
+  "max_epochs_ceiling": 500,
+  "z_score_theta": "independent",
+  "z_score_x": "independent",
+  "obs_names": [
+    "C20",
+    "C22",
+    "Re_k2",
+    "Im_k2"
+  ],
+  "arms": [
+    {
+      "tag": "D0",
+      "hidden_features": 50,
+      "num_transforms": 5,
+      "num_bins": 10,
+      "embedding_net": null,
+      "role": "converged deployed-arch control / no-regression check"
+    },
+    {
+      "tag": "A",
+      "hidden_features": 128,
+      "num_transforms": 10,
+      "num_bins": 16,
+      "embedding_net": null,
+      "role": "capacity-up"
+    },
+    {
+      "tag": "B",
+      "hidden_features": 50,
+      "num_transforms": 5,
+      "num_bins": 10,
+      "embedding_net": "mlp:64-64",
+      "role": "embedding-only"
+    },
+    {
+      "tag": "C",
+      "hidden_features": 128,
+      "num_transforms": 10,
+      "num_bins": 16,
+      "embedding_net": "mlp:64-64",
+      "role": "capacity + embedding"
+    }
+  ],
+  "comparison_anchors": {
+    "capped_anchor_imk2_WRONG_ref_for_uncapped": 0.043,
+    "deployed_converged_imk2_D0_target": 0.042,
+    "matched_mcmc_pp_ceiling": 0.1037,
+    "obs_imk2": 0.135,
+    "sigma_imk2": 0.035,
+    "primary_target_imk2": 0.0862,
+    "overshoot_flag_imk2": 0.1212
+  },
+  "success_criterion": "JOINT: pp-median |Im_k2| >= 0.0862 AND concentration_ratio < 1 AND frac_ge_obs materially increased vs prior; overshoot > 0.121 flags over-update. D0 must reproduce ~0.042 (no-regression check on the harness extension). Read A/B/C against D0, not against 0.043. A single-seed PASS is a SCREEN only; confirm at >=3 seeds before the production decision.",
+  "reviewer": "PASS WITH CONCERNS 2026-08-06: additive train() capacity/embedding plumbing (CRITICAL); D0 converged control + read vs D0 not 0.043 (MAJOR); >=3 seeds before decision (MAJOR); joint criterion not median-alone (MAJOR); z-scoring fixed 'independent' across arms (MODERATE); epochs/best-val/train-val-gap/drop-fraction per arm (MODERATE).",
+  "runs": [
+    {
+      "tag": "D0_seed72",
+      "arm": "D0",
+      "seed": 72,
+      "artifact": "/tmp/nh3_diag/f4/nh3_f4_D0_seed72.pt",
+      "output_dir": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/nh3_diagnosis/f4_architecture/D0_seed72",
+      "epochs_trained": 124.0,
+      "hit_ceiling": false,
+      "best_validation_log_prob": null,
+      "train_val_gap": null,
+      "architecture_tag": "nsf_h50_t5_b10",
+      "config_hash": "e596574d1e81567c",
+      "pp_imk2_median": 0.04233324209674075,
+      "concentration_ratio": 1.2147360074592275,
+      "frac_ge_obs": 0.16140808344198174,
+      "prior_frac_ge_obs": 0.12816647217853286,
+      "pushforward_drop_fraction": 0.00175,
+      "verdict": {
+        "meets_primary_median": false,
+        "concentrates": false,
+        "overshoot": false,
+        "joint_pass": false,
+        "median_dev_sigma_from_ceiling": -1.7533359400931214
+      }
+    },
+    {
+      "tag": "A_seed72",
+      "arm": "A",
+      "seed": 72,
+      "artifact": "/tmp/nh3_diag/f4/nh3_f4_A_seed72.pt",
+      "output_dir": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/nh3_diagnosis/f4_architecture/A_seed72",
+      "epochs_trained": 40.0,
+      "hit_ceiling": false,
+      "best_validation_log_prob": null,
+      "train_val_gap": null,
+      "architecture_tag": "nsf_h128_t10_b16",
+      "config_hash": "e596574d1e81567c",
+      "pp_imk2_median": 0.04650659746898875,
+      "concentration_ratio": 1.2460783134747526,
+      "frac_ge_obs": 0.18702589589327753,
+      "prior_frac_ge_obs": 0.12816647217853286,
+      "pushforward_drop_fraction": 0.00225,
+      "verdict": {
+        "meets_primary_median": false,
+        "concentrates": false,
+        "overshoot": false,
+        "joint_pass": false,
+        "median_dev_sigma_from_ceiling": -1.6340972151717499
+      }
+    },
+    {
+      "tag": "B_seed72",
+      "arm": "B",
+      "seed": 72,
+      "artifact": "/tmp/nh3_diag/f4/nh3_f4_B_seed72.pt",
+      "output_dir": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/nh3_diagnosis/f4_architecture/B_seed72",
+      "epochs_trained": 90.0,
+      "hit_ceiling": false,
+      "best_validation_log_prob": null,
+      "train_val_gap": null,
+      "architecture_tag": "nsf_h50_t5_b10_embed-mlp-64-64",
+      "config_hash": "e596574d1e81567c",
+      "pp_imk2_median": 0.04286035365282013,
+      "concentration_ratio": 1.2225218308758004,
+      "frac_ge_obs": 0.1737988973483854,
+      "prior_frac_ge_obs": 0.12816647217853286,
+      "pushforward_drop_fraction": 0.00175,
+      "verdict": {
+        "meets_primary_median": false,
+        "concentrates": false,
+        "overshoot": false,
+        "joint_pass": false,
+        "median_dev_sigma_from_ceiling": -1.7382756099194248
+      }
+    },
+    {
+      "tag": "C_seed72",
+      "arm": "C",
+      "seed": 72,
+      "artifact": "/tmp/nh3_diag/f4/nh3_f4_C_seed72.pt",
+      "output_dir": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/nh3_diagnosis/f4_architecture/C_seed72",
+      "epochs_trained": 45.0,
+      "hit_ceiling": false,
+      "best_validation_log_prob": null,
+      "train_val_gap": null,
+      "architecture_tag": "nsf_h128_t10_b16_embed-mlp-64-64",
+      "config_hash": "e596574d1e81567c",
+      "pp_imk2_median": 0.044777154992337365,
+      "concentration_ratio": 1.3217384741149092,
+      "frac_ge_obs": 0.1812926957435628,
+      "prior_frac_ge_obs": 0.12816647217853286,
+      "pushforward_drop_fraction": 0.00425,
+      "verdict": {
+        "meets_primary_median": false,
+        "concentrates": false,
+        "overshoot": false,
+        "joint_pass": false,
+        "median_dev_sigma_from_ceiling": -1.6835098573617895
+      }
+    }
+  ],
+  "per_arm_summary": {
+    "D0": {
+      "n_seeds": 1,
+      "pp_imk2_median_of_seeds": 0.04233324209674075,
+      "pp_imk2_min": 0.04233324209674075,
+      "pp_imk2_max": 0.04233324209674075,
+      "pp_imk2_spread": null,
+      "any_seed_joint_pass": false,
+      "all_seeds_joint_pass": false
+    },
+    "A": {
+      "n_seeds": 1,
+      "pp_imk2_median_of_seeds": 0.04650659746898875,
+      "pp_imk2_min": 0.04650659746898875,
+      "pp_imk2_max": 0.04650659746898875,
+      "pp_imk2_spread": null,
+      "any_seed_joint_pass": false,
+      "all_seeds_joint_pass": false
+    },
+    "B": {
+      "n_seeds": 1,
+      "pp_imk2_median_of_seeds": 0.04286035365282013,
+      "pp_imk2_min": 0.04286035365282013,
+      "pp_imk2_max": 0.04286035365282013,
+      "pp_imk2_spread": null,
+      "any_seed_joint_pass": false,
+      "all_seeds_joint_pass": false
+    },
+    "C": {
+      "n_seeds": 1,
+      "pp_imk2_median_of_seeds": 0.044777154992337365,
+      "pp_imk2_min": 0.044777154992337365,
+      "pp_imk2_max": 0.044777154992337365,
+      "pp_imk2_spread": null,
+      "any_seed_joint_pass": false,
+      "all_seeds_joint_pass": false
+    }
+  }
+}
