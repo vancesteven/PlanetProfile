@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-06 at genai `4506ad89`. Curated by the Claude model manager
+Updated: 2026-08-06 at genai `94ded63f`. Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -20,7 +20,11 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-### C8 — First doc-doctor pass [status: in progress (Codex)]
+_No queued tasks._
+
+## Completed
+
+### C8 — First doc-doctor pass [status: verified]
 
 Execute the full checklist in `plans/DOC-DOCTOR.md` against the current
 tree (all wired GUI slots incl. gated ones, README/DEPLOYING, the NH3 and
@@ -31,7 +35,20 @@ Report-only — do NOT fix findings in this task; the manager triages them
 into follow-up tasks. Verification: `verified` = every checklist item has
 an entry with evidence cited (grep/paths), and the report renders.
 
-## Completed
+**Report (Codex, 2026-08-06):** `verified`. Audited all 13 GUI registry
+entries (11 concrete artifacts plus two intentional placeholders), root and
+plans README routing, DEPLOYING versus the deploy script, all checklist
+reproducibility/organization/caption requirements, and methods provenance for
+Titan NH3 joint and Europa v4. The report at
+`validation_reports/doc_doctor/2026-08-06_first_pass.md` records every item
+1-12 as PASS/FINDING/N/A with file:line evidence and a findings summary; no
+findings were fixed. Result: 2 PASS, 10 FINDING, with two placeholder
+subchecks N/A. Machine checks found 11/11 concrete config/cache paths exact,
+all concrete files present, three v5 observable-central rounding differences,
+all root README local targets present, and six deploy caches. Python-Markdown
+rendered the report successfully (16,976 Markdown chars to 20,696 HTML chars;
+12/12 checklist headings and one table); `git diff --check` passed. Claim
+commit `16be13e1`; report commit `94ded63f`.
 
 ### C7 — Warn when the hydrosphere exceeds the MgSO4 EOS table range [status: verified]
 
