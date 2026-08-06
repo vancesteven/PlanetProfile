@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-05 at genai `0ccb3524`. Curated by the Claude model manager
+Updated: 2026-08-06 at genai `4506ad89`. Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -20,7 +20,7 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-### C8 — First doc-doctor pass [status: queued]
+### C8 — First doc-doctor pass [status: in progress (Codex)]
 
 Execute the full checklist in `plans/DOC-DOCTOR.md` against the current
 tree (all wired GUI slots incl. gated ones, README/DEPLOYING, the NH3 and
