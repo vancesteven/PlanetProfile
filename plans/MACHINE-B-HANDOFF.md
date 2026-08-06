@@ -202,8 +202,19 @@ MgSO4/NaCl 2D joint caches + datasets now (architecture-independent, §0.10
 priority-b).
 
 
-Updated: 2026-08-06 (Machine B: MgSO4/NaCl build gates CLEARED + NaCl production
-cache building. Reviewer (a3c9ed8ae24664527) adjudicated: MgSO4 w=194 low-Tb
+Updated: 2026-08-06 (Machine B: BOTH MgSO4/NaCl PRODUCTION CACHES BUILT,
+VALIDATED, and PUSHED for Machine A review — NaCl at
+Test54_nacl_ocean/titan_nacl_joint_structure_grid_2d.pkl (600 nodes, 314 ocean/
+219 no-ocean/67 None, tilted-diagonal has_ocean map), MgSO4 at
+Test54_mgso4_ocean/titan_mgso4_joint_structure_grid_2d.pkl (272 nodes, 191 ocean/
+81 no-ocean/0 None, ALL reviewer guards CLEAN in-manifest: island invariant 0
+violations, extrap-ceiling 0 rejects [deepest w=194 node 1371<1400 MPa], dρ/dP∈
+[0.14,0.17] all extrap columns, ocean-base T≤300 K, 45 deep + 7 mild
+eos_extrapolated flags on the high-w tail). Ceiling was raised 1200→1400 MPa
+(reviewer, physics clean to 1500). NEXT (Machine B): per-comp gate-3 (half-cell
+Tb-shift, MgSO4 w≥150 corner) then 1M dataset gens; flow TRAINING still HELD on
+per-composition quarantine re-verification. Reviewer (a3c9ed8ae24664527)
+adjudicated: MgSO4 w=194 low-Tb
 island = PATHOLOGICAL Margules melting-monotonicity violation → EXCLUDE by
 construction + post-build has_ocean invariant [see project_mgso4_margules_island
 memory]; NaCl w=290 monotone [/tmp/nacl_monotonicity_check.json] + retry-corner

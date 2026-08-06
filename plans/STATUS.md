@@ -40,9 +40,21 @@ MgSO4 extrap_ocean=True adopted (physics verified monotone/stiffening to 1500
 MPa), ceiling raised 1200→1400 MPa to preserve the w=194 salinity cap, with
 stratified eos_extrapolated flags + dρ/dP band invariant + T-spot-check wired
 into the NEW committed build driver plans/scripts/titanG_build_ocean_cache.py.
-NaCl config test54_titan_nacl_freegrav.json authored; NaCl full production cache
-(40 Tb × 15 w = 600 nodes) building to /tmp. MgSO4 grid/config next. Prior NH3
-#1 → PERSIST (salinity ELIMINATED) below.)
+Both configs authored + BOTH PRODUCTION CACHES BUILT, VALIDATED, and PUSHED for
+Machine A review: NaCl (40 Tb × 15 w = 600 nodes; 314 ocean/219 no-ocean/67 None;
+tilted-diagonal has_ocean map matches onset probe) at
+Test54_nacl_ocean/titan_nacl_joint_structure_grid_2d.pkl; MgSO4 (17 Tb × 16 w =
+272 nodes; 191 ocean/81 no-ocean/0 None) at
+Test54_mgso4_ocean/titan_mgso4_joint_structure_grid_2d.pkl. All MgSO4 reviewer
+guards report CLEAN in-manifest: island invariant OK (0 has_ocean=True at
+w≥180 & Tb<248), extrap-ceiling OK (deepest w=194 node 1371<1400 MPa; 0 rejects),
+dρ/dP∈[0.14,0.17] in all extrap columns, ocean-base T≤300 K everywhere; 45 deep +
+7 mild eos_extrapolated flags on the high-w tail (carry the extrapolation caveat
+in any high-salinity claim). NEXT (Machine B, no user input): per-comp gate-3
+(half-cell Tb-shift → ocean-fraction, MgSO4 in the w≥150 corner), then 1M dataset
+gens (seeds NaCl 74/7474/74, MgSO4 73/7373/73). Flow TRAINING still HELD on
+per-composition quarantine re-verification (§0.10). Prior NH3 #1 → PERSIST
+(salinity ELIMINATED) below.)
 Prior: 2026-08-05 at genai `5ae7d17c`. Manager judgement §0.9 issued:
 B3 accepted — the 1.06 km v5–v7 reference disagreement was an n_eff=500
 resolution artifact; both old references wandered (fresh truth ~61.4–61.8 km);
