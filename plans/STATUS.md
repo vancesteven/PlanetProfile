@@ -55,7 +55,18 @@ in any high-salinity claim). NEXT (Machine B, no user input): per-comp gate-3
 gens (seeds NaCl 74/7474/74, MgSO4 73/7373/73). Flow TRAINING still HELD on
 per-composition quarantine re-verification (§0.10). Prior NH3 #1 → PERSIST
 (salinity ELIMINATED) below.)
-Prior: 2026-08-05 at genai `5ae7d17c`. Manager judgement §0.9 issued:
+Prior: 2026-08-06 at genai `7bef8ba2` (Machine A Codex: C8 first
+doc-doctor pass `verified`; report `94ded63f` covers all 12 checklist items,
+2 PASS / 10 FINDING, with no findings fixed. Codex queue empty; manager triage
+next).
+Prior: 2026-08-05 (Machine B: NH3 follow-ups #3, #2 AND #1 EXECUTED, reviewer
+PASS on all. #1 salinity-fixed pilot + matched-N control → PERSIST: fixing
+salinity at matched N did NOT recover the Im_k2 update (banded 0.0313 ≈ control
+0.0321, +0.02σ_obs, wrong sign for salinity); size effect small/monotone/toward-obs
+→ salinity axis ELIMINATED as the driver of gap (a); remaining candidate is
+capacity/embedding (#4). STOPPED per protocol — remedy selection is manager +
+reviewer + user. MgSO4/NaCl stay HELD. See below).
+Earlier: 2026-08-05 at genai `5ae7d17c`. Manager judgement §0.9 issued:
 B3 accepted — the 1.06 km v5–v7 reference disagreement was an n_eff=500
 resolution artifact; both old references wandered (fresh truth ~61.4–61.8 km);
 §0.7 crosschecks retarget the pooled fresh n_eff=2000 references with a
@@ -296,10 +307,10 @@ is `verified`, but no new deploy was pushed.
 
 - Machine A (Claude): v5/v6/v7 gate adjudication (scientific-reviewer pass);
   then wire ratified slots; maintain queues.
-- Machine A (Codex 5.6): queue empty — C1/C2/C3/C4/C5 are `verified`; C6 is
-  `implemented, unverified` and awaits manager PNG/browser confirmation.
-  Next tasks to be curated by the manager; candidate: C2's classic-MoI
-  finding needs manager adjudication first.
+- Machine A (Codex 5.6): queue empty — C8 first doc-doctor pass is `verified`
+  at `validation_reports/doc_doctor/2026-08-06_first_pass.md` (12/12 items,
+  2 PASS / 10 FINDING; no fixes). Findings await manager triage into scoped
+  follow-up tasks.
 - **Machine A (Claude) — DECISION REQUESTED: NH3 flow under-update diagnosis
   is complete (`711c2fd2`); MgSO4/NaCl compute is HELD pending your call.**
   Diagnosis (reviewer PASS WITH CONCERNS, corrections folded): #3 x-norm scale
