@@ -22,7 +22,16 @@ reachable frac≥obs ~0.19, not 0.5). Reviewer: MgSO4/NaCl proceed on the DEPLOY
 architecture under split-status (re-verify quarantine per-composition); next NH3
 tidal diagnostic is upstream identifiability, NOT a bigger flow. FOR MACHINE A:
 finalize v5 ratification + countersign; deploy v6. See MACHINE-B-HANDOFF §0.11
-(v5/v6), §0.12 (#4). Machine B now building MgSO4/NaCl 2D caches + datasets
+(v5/v6), §0.12 (#4), §0.13 (MgSO4/NaCl build prereqs). MgSO4/NaCl cache builds:
+reviewer SIGN OFF on NaCl extrap_ocean (no-op≡clamp) + SIGN OFF WITH CONDITIONS
+on the per-composition Tb grid; empirical onset probes run — NaCl is a ~39 K
+DISJOINT ocean/frozen diagonal (→30-40 fine Tb nodes, not NH3's 12), MgSO4
+~15 K [240,255] K with a REAL (fine-Pfreeze-confirmed) non-monotone frozen
+island at the w=194 (2-molal) cap. HELD on reviewer adjudication of whether that
+low-Tb ocean island is physical (keep) or pathological (exclude) before sizing
+the MgSO4 grid + running gate-3 (half-cell Tb-shift). #4 corrected 4-arm×3-seed
+re-run in flight (recovers best_val/train_val_gap; A@72/172 ~0.043, no pass —
+corroborates the eliminated-capacity verdict).
 (§0.10 priority-b, architecture-independent). Prior NH3 #1 → PERSIST (salinity
 ELIMINATED) below.)
 Prior: 2026-08-05 at genai `5ae7d17c`. Manager judgement §0.9 issued:

@@ -97,17 +97,38 @@ RHO_SIL_KGM3 = 3539.0
 # For NaCl brine (w=290): expect ocean at Tb < ~241 K (where ice cap exists)
 # For NaCl mid (w=100): expect ocean at Tb ~ 243-246 K
 
-# NaCl: cover full range from brine-friendly to dilute-friendly
-TB_GRID_NACL = [238.0, 241.0, 244.0, 247.0, 250.0, 255.0, 260.0, 265.0, 268.0, 270.0, 272.0]
+# NaCl: cover full range from brine-friendly to dilute-friendly.
+# Reviewer (2026-08-06) computed the ocean-onset diagonal: onset ~251 K at
+# w=1, dropping to ~220 K at w=290 (a ~31 K sweep). NaCl EOS T-floor is 229 K,
+# so the low-Tb end of that diagonal (w>~150, onset<233) is UNREACHABLE — the
+# achievable boundary crossing sits in ~[233, 252] K. Probe densely there and
+# add a couple of near-floor nodes to expose the truncation empirically.
+TB_GRID_NACL = [233.0, 235.0, 238.0, 241.0, 244.0, 247.0, 249.0, 250.0, 251.0,
+                252.0, 255.0, 260.0, 265.0, 270.0, 272.0]
 
-# NH3: cover range respecting 241 K floor
+# MgSO4: reviewer onset ~251.5 K (w=1) -> ~249.5 K (w=100-150) -> ~240 K
+# (w=194); a ~11 K sweep that is nearly flat to ~150 ppt then bends down at the
+# 194 ppt cap. Probe densely over ~[238, 255] K.
+TB_GRID_MGSO4 = [238.0, 240.0, 242.0, 244.0, 246.0, 248.0, 249.0, 250.0, 251.0,
+                 252.0, 253.0, 255.0]
+
+# NH3: cover range respecting 241 K floor (already deployed; kept for parity /
+# re-runs, not run by default).
 TB_GRID_NH3  = [241.0, 243.0, 246.0, 249.0, 252.0, 255.0, 258.0, 260.0, 262.0, 265.0, 268.0]
 
 # Key salinity probe points — chosen to sample the extremes of each axis
 # NaCl: test w=1 (dilute), w=100 (mid/prior-tested), w=290 (max brine)
 W_NACL = [1.0, 100.0, 290.0]
+# MgSO4: w=1 (dilute), w=100 (mid), w=194 (2 molal cap)
+W_MGSO4 = [1.0, 100.0, 194.0]
 # NH3: test w=1 (dilute), w=35 (mid), w=70 (max)
 W_NH3  = [1.0, 35.0, 70.0]
+
+# Scan-resolution ice-Ih/liquid boundary search: 2.0 MPa is reviewer-endorsed
+# for LOCATING the boundary (<1% Pb error) and keeps NaCl/MgSO4 nodes fast. The
+# production CACHE build must use the fine default (reviewer launch-condition 3).
+PROBE_PFREEZE_RES_MPA = 2.0
+PROBE_PFREEZE_UPPER_MPA = 600.0
 
 # Widen Cuncertainty to permit off-default Tb (same as Phase-C1 ocean builds)
 CUNCERTAINTY = 0.060
@@ -428,10 +449,21 @@ def main() -> None:
 
     all_rows: List[Dict[str, Any]] = []
 
-    configs = [
-        ("NaCl", TB_GRID_NACL, W_NACL),
-        ("NH3",  TB_GRID_NH3,  W_NH3),
-    ]
+    # Default run targets the two compositions that still need onset tables
+    # (NaCl + MgSO4). NH3 is already deployed; include it only via --nh3.
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--comps", nargs="+", default=["NaCl", "MgSO4"],
+                    help="subset of NaCl MgSO4 NH3 to probe")
+    args = ap.parse_args()
+
+    ALL_CONFIGS = {
+        "NaCl":  (TB_GRID_NACL,  W_NACL),
+        "MgSO4": (TB_GRID_MGSO4, W_MGSO4),
+        "NH3":   (TB_GRID_NH3,   W_NH3),
+    }
+    configs = [(c, ALL_CONFIGS[c][0], ALL_CONFIGS[c][1])
+               for c in args.comps if c in ALL_CONFIGS]
 
     for comp, tb_grid, w_list in configs:
         print(f"\n{'#'*70}")
@@ -442,7 +474,9 @@ def main() -> None:
         for Tb in tb_grid:
             for w in w_list:
                 print(f"  -> {comp} Tb={Tb:.1f} K  w={w:.1f} ppt ... ", end="", flush=True)
-                r = probe_one(Tb, comp, w)
+                r = probe_one(Tb, comp, w,
+                              PfreezeRes_MPa=PROBE_PFREEZE_RES_MPA,
+                              PfreezeUpper_MPa=PROBE_PFREEZE_UPPER_MPA)
                 if r["status"] == "built":
                     hp = (r["D_iceIII_km"] or 0) + (r["D_iceV_km"] or 0) + (r["D_iceVI_km"] or 0)
                     print(

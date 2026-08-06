@@ -27,6 +27,59 @@ The user ratified the parallel option (STRATEGY.md). Execute:
    — §2 below is the standing spec; confirm the config freeze with
    Machine A before the production dataset.
 
+## 0.13 MgSO4/NaCl build prerequisites — reviewer sign-off + empirical onset tables (Machine B, 2026-08-06)
+
+Two build-gating physics items (flagged by the cache-build recon as NOT covered
+by the ratified acc725ea R1-R5) were adjudicated by the scientific-reviewer, and
+the ocean-onset probe was run for both compositions (scan-res Pfreeze 2 MPa;
+`/tmp/titan_tb_probe_results.json`, log `/tmp/titan_probe/nacl_mgso4_probe.log`).
+
+**Item 1 — NaCl `extrap_ocean`: SIGN OFF = True (effective no-op ≡ clamp).**
+`HydroEOS.py:193` truncates NaCl Pmax at 1000.1 MPa UNCONDITIONALLY, and the
+ocean property interpolants are `RectBivariateSpline` (flat-extrapolation). So
+above 1000.1 MPa, `extrap_ocean=True` and `False` return IDENTICAL values to
+machine precision — a benign ~0.5% clamp bias on a thin/often-absent deep liquid
+sliver. The MgSO4 24-sigma clamp artifact does NOT transfer (MgSO4 uses
+`RegularGridInterpolator` LINEAR extrapolation, `MgSO4Props.py:151-156`).
+REQUIRED: build-note rationale must state this is a no-op for NaCl, not a true
+EOS extrapolation. Frozen no-ocean columns fill depth with SeaFreeze ice VI
+(Pmax ~2300 MPa), in-domain regardless.
+
+**Item 2 — per-composition freeze-line Tb grid: SIGN OFF WITH CONDITIONS.**
+The ocean/no-ocean boundary is a steeply-TILTED diagonal, not a horizontal line;
+a single NH3-style 12-node fine band is INADEQUATE. Empirical onset tables:
+
+- **NaCl** — ocean bands are nearly DISJOINT across salinity (no single Tb has
+  ocean at all w): w=1 → ocean Tb∈[252,272]; w=100 → [244,265]; w=290 →
+  [233,241]. Union boundary sweep ≈ **[233, 272] K (~39 K)**. NaCl EOS T-floor
+  is 229 K, so the w=290 onset (~233 K here) is near but above the floor —
+  reachable. Requires a fine (0.5-1 K) Tb grid across the FULL union diagonal
+  (~30-40 Tb nodes, NOT 12), with frozen corners retried as no-ocean
+  (`retry_frozen_as_no_ocean=True`). Coarse 2-3 K spacing only above the dilute
+  onset (>~252 K).
+- **MgSO4** — onset ~[240, 255] K (~15 K), ~15-20 nodes. BUT the w=194 (2 molal
+  cap) column shows a candidate FROZEN ISLAND at the 2 MPa scan res: ocean at
+  Tb=240 (D_ocean anomalously large ~384 km), frozen 242-249, ocean again
+  250-255. This is exactly the reviewer's Margules eutectic-kink hazard. A
+  fine-Pfreeze (0.25 MPa) re-probe of that column is running
+  (`/tmp/titan_probe/mgso4_island_finecheck.{log,json}`) to settle
+  artifact-vs-real BEFORE the MgSO4 grid is sized. Also add finer w resolution
+  in the 150-194 ppt corner (boundary curvature there drives ocean fraction).
+
+**Launch conditions (both compositions, reviewer):** (1) onset tables inspected
+[DONE — above]; (2) gate-3 half-cell Tb-shift → posterior-ocean-fraction test
+run per composition on the chosen grid (the acceptance criterion that catches
+the tilted-boundary failure); (3) cache build MUST use the production fine
+`PfreezeRes_MPa` default, NOT the probe's 2 MPa; (4) NaCl extrap_ocean rationale
+note corrected. There is NO committed joint-build driver — NH3 was built by a
+now-deleted `/tmp` orchestrator (reconstructable from
+`/tmp/nh3_joint_production_build.json`, `/tmp/nh3_patch_node.py`,
+`/tmp/nh3_joint_production_orchestrator.log`). The MgSO4/NaCl drivers must clone
+`cache_builder.build_tbw_grid_cache(...)` directly with
+`ocean_overrides={'comp':...}`, `bulk_overrides={'Cuncertainty':0.06}`,
+`retry_frozen_as_no_ocean=True`, `extrap_ocean=True`, the non-uniform Tb grid
+above, and the acc725ea R3/R4 w-grid.
+
 ## 0.11 v5/v6 B1/B2/B6 EXECUTED (Machine B, 2026-08-06) — awaiting Machine A finalize
 
 Priority-(a) of §0.10. Reviewer-adjudicated (three design items pre-ruled +
@@ -136,7 +189,11 @@ MgSO4/NaCl 2D joint caches + datasets now (architecture-independent, §0.10
 priority-b).
 
 
-Updated: 2026-08-06 (Machine B: §0.10 EXECUTED — v5/v6 B1/B2/B6 gates run vs the
+Updated: 2026-08-06 (Machine B: §0.13 added — MgSO4/NaCl build prerequisites:
+reviewer SIGN OFF on NaCl extrap_ocean [no-op≡clamp] + SIGN OFF WITH CONDITIONS
+on per-comp Tb grid; empirical onset tables probed [NaCl ~39 K disjoint diagonal
+→ 30-40 nodes; MgSO4 ~15 K + w=194 frozen-island fine-recheck in flight]. §0.10
+EXECUTED — v5/v6 B1/B2/B6 gates run vs the
 FRESH pooled n_eff~2000 v5 reference, reviewer-adjudicated. v5 = PASS WITH
 CONCERNS (ships for its DEPLOYED D_iceIh/ocean/salinity deliverable with a
 mandatory scope-note; Machine A finalizes + countersigns): SBC FAILs on dC22_nh
