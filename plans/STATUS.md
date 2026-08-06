@@ -32,8 +32,17 @@ low-Tb ocean island is physical (keep) or pathological (exclude) before sizing
 the MgSO4 grid + running gate-3 (half-cell Tb-shift). #4 corrected 4-arm×3-seed
 re-run in flight (recovers best_val/train_val_gap; A@72/172 ~0.043, no pass —
 corroborates the eliminated-capacity verdict).
-(§0.10 priority-b, architecture-independent). Prior NH3 #1 → PERSIST (salinity
-ELIMINATED) below.)
+(§0.10 priority-b, architecture-independent). MgSO4/NaCl build gates now CLEARED
+(reviewer a3c9ed8ae24664527, 2026-08-06): MgSO4 w=194 island = PATHOLOGICAL
+(Margules melting-monotonicity violation → excluded by construction + post-build
+has_ocean invariant); NaCl w=290 monotone + retry-corner discriminator PASS;
+MgSO4 extrap_ocean=True adopted (physics verified monotone/stiffening to 1500
+MPa), ceiling raised 1200→1400 MPa to preserve the w=194 salinity cap, with
+stratified eos_extrapolated flags + dρ/dP band invariant + T-spot-check wired
+into the NEW committed build driver plans/scripts/titanG_build_ocean_cache.py.
+NaCl config test54_titan_nacl_freegrav.json authored; NaCl full production cache
+(40 Tb × 15 w = 600 nodes) building to /tmp. MgSO4 grid/config next. Prior NH3
+#1 → PERSIST (salinity ELIMINATED) below.)
 Prior: 2026-08-05 at genai `5ae7d17c`. Manager judgement §0.9 issued:
 B3 accepted — the 1.06 km v5–v7 reference disagreement was an n_eff=500
 resolution artifact; both old references wandered (fresh truth ~61.4–61.8 km);

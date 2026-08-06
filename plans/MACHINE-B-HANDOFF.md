@@ -57,14 +57,27 @@ a single NH3-style 12-node fine band is INADEQUATE. Empirical onset tables:
   (~30-40 Tb nodes, NOT 12), with frozen corners retried as no-ocean
   (`retry_frozen_as_no_ocean=True`). Coarse 2-3 K spacing only above the dilute
   onset (>~252 K).
-- **MgSO4** — onset ~[240, 255] K (~15 K), ~15-20 nodes. BUT the w=194 (2 molal
-  cap) column shows a candidate FROZEN ISLAND at the 2 MPa scan res: ocean at
-  Tb=240 (D_ocean anomalously large ~384 km), frozen 242-249, ocean again
-  250-255. This is exactly the reviewer's Margules eutectic-kink hazard. A
-  fine-Pfreeze (0.25 MPa) re-probe of that column is running
-  (`/tmp/titan_probe/mgso4_island_finecheck.{log,json}`) to settle
-  artifact-vs-real BEFORE the MgSO4 grid is sized. Also add finer w resolution
-  in the 150-194 ppt corner (boundary curvature there drives ocean fraction).
+- **MgSO4** — genuine monotone onset ~[248, 255] K (nearly FLAT, unlike NaCl's
+  diagonal): w=1 → ~252 K; w=100 → ~250 K; w=194 → ~250 K. ~15-20 nodes over a
+  compact fine band ~[248,258] K. The w=194 (2 molal cap) column ALSO shows a
+  low-Tb ocean "island" (ocean Tb=240, frozen 242-249, ocean 250+) —
+  **ADJUDICATED PATHOLOGICAL** by the scientific-reviewer (2026-08-06, agent
+  a3c9ed8ae24664527). Verdict: it is a Margules-lookup melting-monotonicity
+  violation, NOT physical re-entrant melting. Decisive test — at fixed P=215 MPa,
+  w=194: 238 K→ice II, 239 K→LIQUID, 240.5 K→ice III (liquid REFREEZES on
+  heating, thermodynamically impossible), 249.5 K→real liquidus. The spurious
+  liquid occupies a razor-thin ~21 MPa pressure lens and appears ONLY at exactly
+  w=194 (swept 120/150/170/180/190/194 → violation at 194 only), i.e. the
+  Margules free-energy crossover evaluated right at its 2-molal validity edge
+  (`MgSO4Props.py::MgSO4PhaseMargules`). **Exclude via forced no-ocean.** CRITICAL
+  mechanism caveat: `retry_frozen_as_no_ocean` triggers ONLY on
+  `NoIceLiquidTransitionError`; the island nodes build SUCCESSFULLY as (phantom)
+  oceans and do NOT raise, so the retry never fires on them. Two guards required:
+  (a) by construction, place NO Tb nodes below ~248 K at w≳180 ppt (don't
+  straddle the island with the fine band; do NOT extend the fine grid to 239 K
+  "to resolve" a pathology); (b) post-build invariant — assert no cached node
+  with w≳180 ppt AND Tb≲248 K carries `has_ocean=True`. Also add finer w
+  resolution in the 150-194 ppt corner (boundary curvature drives ocean fraction).
 
 **Launch conditions (both compositions, reviewer):** (1) onset tables inspected
 [DONE — above]; (2) gate-3 half-cell Tb-shift → posterior-ocean-fraction test
@@ -189,10 +202,22 @@ MgSO4/NaCl 2D joint caches + datasets now (architecture-independent, §0.10
 priority-b).
 
 
-Updated: 2026-08-06 (Machine B: §0.13 added — MgSO4/NaCl build prerequisites:
-reviewer SIGN OFF on NaCl extrap_ocean [no-op≡clamp] + SIGN OFF WITH CONDITIONS
-on per-comp Tb grid; empirical onset tables probed [NaCl ~39 K disjoint diagonal
-→ 30-40 nodes; MgSO4 ~15 K + w=194 frozen-island fine-recheck in flight]. §0.10
+Updated: 2026-08-06 (Machine B: MgSO4/NaCl build gates CLEARED + NaCl production
+cache building. Reviewer (a3c9ed8ae24664527) adjudicated: MgSO4 w=194 low-Tb
+island = PATHOLOGICAL Margules melting-monotonicity violation → EXCLUDE by
+construction + post-build has_ocean invariant [see project_mgso4_margules_island
+memory]; NaCl w=290 monotone [/tmp/nacl_monotonicity_check.json] + retry-corner
+discriminator PASS [/tmp/nacl_corner_discriminator.json]. MgSO4 extrap_ocean=True
+adopted (linear extrap physically sound: monotone ρ, stiffening K_T verified to
+1400 MPa; clamp is unphysical) with 4 conditions wired into the NEW committed
+build driver plans/scripts/titanG_build_ocean_cache.py [eos_extrapolated flag +
+hard extrap ceiling reject + pre-bake corner check + post-build dρ/dP>0]. OPEN:
+production PPTitan reaches P_basal ~1371 MPa at w=194 (deeper than the PPTest50
+probe's ~1109) so the 1200 MPa ceiling rejects the whole w=194 column — asked
+reviewer to raise to ~1400 (physics verified clean there). NaCl config
+test54_titan_nacl_freegrav.json authored + NaCl full production cache building to
+/tmp (40 Tb × 15 w = 600 nodes). Validation subsets confirmed the tilted-diagonal
+geometry for both comps. §0.13 refreshed. §0.10
 EXECUTED — v5/v6 B1/B2/B6 gates run vs the
 FRESH pooled n_eff~2000 v5 reference, reviewer-adjudicated. v5 = PASS WITH
 CONCERNS (ships for its DEPLOYED D_iceIh/ocean/salinity deliverable with a
