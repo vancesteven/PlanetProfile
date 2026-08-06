@@ -27,14 +27,85 @@ The user ratified the parallel option (STRATEGY.md). Execute:
    — §2 below is the standing spec; confirm the config freeze with
    Machine A before the production dataset.
 
+## 0.11 v5/v6 B1/B2/B6 EXECUTED (Machine B, 2026-08-06) — awaiting Machine A finalize
 
-Updated: 2026-08-05 (Machine B: NH3 follow-ups #3, #2 AND #1 EXECUTED, reviewer
-PASS on all — see §0.9. #1 outcome: PERSIST — fixing salinity at matched N did
-NOT recover the Im_k2 update (banded 0.0313 ≈ control 0.0321, +0.02σ_obs, wrong
-sign for salinity), size effect small/monotone/toward-obs → salinity axis
-ELIMINATED as the driver of gap (a); remaining candidate is capacity/embedding
-(#4). STOPPED and surfacing — remedy selection is manager + reviewer + user.
-MgSO4/NaCl stay HELD).
+Priority-(a) of §0.10. Reviewer-adjudicated (three design items pre-ruled +
+the FAIL adjudicated). NO gate tuning; the FAIL is surfaced, not relabeled.
+
+**Preregistered scientific rulings implemented (reviewer, 2026-08-06):**
+- **Crosscheck empirical-floor (§0.7 step-3):** injected the 0.36 km D_iceIh
+  reference-wander floor into `d_pred` (the shape-excess mean-shift budget),
+  NOT max-combined on `d_tol` (reviewer binding correction: B3 wander is a
+  RIGID translation, physically the same object `_gaussian_ks_pred` subtracts).
+  Opt-in `--empirical-floor` CLI param on `validate_sbi crosscheck`; default
+  None → byte-identical for v6/all others. Relax-only (asserted). D_iceIh_km
+  ONLY; NOT v6 (no measured wander).
+- **B6 (limits anchor):** DEFERRED for v5+v6. Empty anchor set — the entire
+  reachable Europa Im_k2 window sits below the 0.15 MCMC-falsified boundary;
+  the single free anchor at Im_k2=0.004 already passes W1 on the pooled
+  reference. NO new anchor-MCMC compute authorized.
+- **Tb_K:** derived (PCHIP inversion of sampled D_iceIh_km), not sampled → NO
+  SBC row; gate summaries carry an explicit `derived_params_sbc_na.Tb_K` N/A
+  statement (reviewer Item-2).
+
+**Artifacts / provenance:**
+- Fresh pooled v5 reference: `/tmp/b3_build/europa_clipper_v5_reference_pooled_neff2000.pkl`
+  (ESS=12713, D_iceIh wmean 61.950 km, between-seed std 0.055 km; B3 seeds
+  101/202/303 concatenated, weights renormalized). Build script:
+  `plans/scripts/pool_v5_reference_neff2000.py`.
+- Runner edits: `plans/scripts/v5_run_gates.py` (pooled ref, SBC n-sbc→1500,
+  crosscheck `--empirical-floor {"D_iceIh_km":0.36}`, validate_sbi_sha),
+  `plans/scripts/v6_run_gates.py` (SBC n→1500, SHA; keeps its n_eff=500 ref,
+  NO floor).
+- Reports: `validation_reports/v5_gate_summary.json`,
+  `validation_reports/v6_gate_summary.json` (both carry the reviewer
+  adjudication block), per-arm dirs under
+  `validation_reports/europa_clipper_v{5,6}_{baseline,noinduction,nok2}_1m/`.
+
+**Results (baseline arm):**
+
+| gate | v5 | v6 |
+|---|---|---|
+| SBC | **FAIL** — dC22_nh only (raw p=0.0017, BH-adj 0.0185, c2st 0.555); 10/11 PASS; 621 kept | PASS — all 11; dC22_nh BH-adj 0.8504; 560 kept |
+| crosscheck | PASS (floor-augmented; D_iceIh d_excess 0.0171≤0.0281 even w/o floor) | PASS (stock HEAD) |
+| limits | PASS | PASS |
+
+**Reviewer verdict — v5 PASS WITH CONCERNS, v6 clean.** dC22_nh is a real but
+LOCALIZED v5-flow-specific undertraining on the most sharply constrained
+nuisance (prior/σ ~100:1 vs dC20_nh ~23:1 which PASSES p=0.205); v6's identical
+nuisance is clean (p=0.61) → NOT a free-gravity-family systemic defect. The
+B2 n→1500 fix EXPOSED it (old n=108 masked it; detection sharpens with n →
+a true mild effect, not MC noise). rank-CDF (`.../v5_baseline_1m/sbc/
+sbc_rank_cdf.png`) shows a mild MONOTONE dC22_nh deviation below the uniformity
+band (Machine B inspected 2026-08-06) — consistent with real, mild.
+- **Deployed v5 deliverable (D_iceIh/ocean/salinity) is doubly validated**
+  (SBC-clean D_iceIh p=0.996, log10_w p=0.279 + reference-MCMC crosscheck PASS)
+  → v5 ships WITH scope-note; dC22_nh marginal + any non-hydrostaticity readout
+  DEFERRED to v6 (which owns that deliverable, clean). Ablation contrast
+  corr(D,logw)=0.923/0.539/0.914 UNAFFECTED.
+- Optional (Machine A's call): a cheap 2nd-seed SBC to confirm persistence; no
+  retrain warranted for the deployed deliverable.
+
+**FOR MACHINE A:** finalize the v5 ratification (ship-with-scope-note vs require
+2nd-seed confirm) + countersign; deploy v6. Machine B stopped here — ratification
+finalize + GUI wiring are Machine A duties.
+
+
+Updated: 2026-08-06 (Machine B: §0.10 EXECUTED — v5/v6 B1/B2/B6 gates run vs the
+FRESH pooled n_eff~2000 v5 reference, reviewer-adjudicated. v5 = PASS WITH
+CONCERNS (ships for its DEPLOYED D_iceIh/ocean/salinity deliverable with a
+mandatory scope-note; Machine A finalizes + countersigns): SBC FAILs on dC22_nh
+ONLY (BH-adj p=0.0185, 621 kept pairs — the B2 n→1500 fix EXPOSED a
+miscalibration the old n=108 masked), a real but LOCALIZED v5-flow-specific
+undertraining on the ~100:1-compressed nuisance (rank-CDF mild monotone below
+band; NOT free-gravity-family — v6's identical nuisance PASSES p=0.61); the
+deployed marginals are doubly validated (SBC-clean D_iceIh p=0.996 + crosscheck
+PASS even without the 0.36 km floor). v6 = ALL GATES PASS. B6 DEFERRED (empty
+anchor set; window below the 0.15 falsified boundary — reviewer Item-3). #4
+architecture-pilot single-seed SCREEN running in parallel (D0/A/B/C on the
+existing NH3 dataset). See §0.11. Prior NH3 #1 outcome (PERSIST → salinity
+ELIMINATED) recorded in §0.9. MgSO4/NaCl datasets un-HELD per §0.10; flow
+TRAINING still waits on the #4 pilot verdict.
 Prior: 2026-08-01 at genai `54106fbd` (Machine A refresh after v5/v6/v7
 delivery). Authoritative executable queue for compute-intensive work. Machine B
 should pull the exact `origin/genai` commit named by Machine A before each

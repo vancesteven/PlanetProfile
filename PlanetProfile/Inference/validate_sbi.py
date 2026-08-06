@@ -746,8 +746,27 @@ def _run_crosscheck(
     mcmc_weights: Optional[np.ndarray],
     sbi_samples: np.ndarray,
     seed: int,
+    empirical_floor: Optional[Dict[str, float]] = None,
 ) -> Dict[str, Any]:
-    """Per-parameter cross-check gates. All arrays share param_names order."""
+    """Per-parameter cross-check gates. All arrays share param_names order.
+
+    empirical_floor (opt-in; preregistered per §0.7 step-3, reviewer-ratified
+    2026-08-06): {param_name: F_wander} in the PARAMETER'S OWN native units,
+    a measured between-run reference-wander floor (e.g. D_iceIh_km: 0.36, =
+    2x the 0.18 km B3 empirical floor). B3 established that between-seed
+    reference wander is a RIGID TRANSLATION of the marginal (nested-sampling
+    log-volume error moves the mean, not the shape), so it is physically the
+    same object the shape-excess `d_pred` term already subtracts. We therefore
+    add F_wander LINEARLY (in native units) to the measured |dmean| before the
+    native->sigma->KS-D conversion, crediting a mean offset up to
+    (|dmean| + F_wander) as attributable to reference finite-sampling and
+    gating only the residual NON-translational shape defect. This is RELAX-ONLY
+    (d_pred is monotone increasing in |mean_shift|, so d_excess can only shrink;
+    d_tol is unchanged) and never newly-fails a passing param. Reviewer scope:
+    apply ONLY to the param(s) whose wander was measured (D_iceIh_km for v5);
+    do NOT apply to v6 (no measured wander) or to params with no B3 scatter.
+    None => stock HEAD formula, byte-identical for every other campaign."""
+    empirical_floor = empirical_floor or {}
     n_mcmc = mcmc_samples.shape[0]
     w = _normalize_weights(mcmc_weights, n_mcmc)
     ess = _effective_sample_size(w)
@@ -785,12 +804,28 @@ def _run_crosscheck(
         # negative excess means the observed D is smaller than the pure-offset
         # prediction, i.e. no higher-moment defect). Only relaxes; sigma_pass/
         # mean_pass still catch genuine scale/mean misses.
+        f_wander = float(empirical_floor.get(str(name), 0.0))
         if CROSSCHECK_SHAPE_EXCESS and mcmc_std[j] > 0:
+            # Base (stock HEAD) prediction from the measured mean shift alone.
             d_pred = _gaussian_ks_pred(
                 (sbi_mean[j] - mcmc_mean[j]) / mcmc_std[j], sigma_ratio)
-            d_excess = max(0.0, ks_stat - d_pred)
+            # Wander-augmented prediction: credit an extra |dmean| budget of
+            # F_wander (native units) as attributable to reference finite
+            # sampling (rigid translation; §0.7 step-3). Relax-only: |dmean| +
+            # F_wander >= |dmean|, and _gaussian_ks_pred is monotone in the
+            # shift magnitude, so d_pred_aug >= d_pred (assert below).
+            if f_wander > 0.0:
+                shift_sigma_eff = (abs(sbi_mean[j] - mcmc_mean[j]) + f_wander) / mcmc_std[j]
+                d_pred_aug = _gaussian_ks_pred(shift_sigma_eff, sigma_ratio)
+                assert d_pred_aug >= d_pred - 1e-9, (
+                    f"empirical-floor relax-only invariant violated for {name}: "
+                    f"d_pred_aug {d_pred_aug} < d_pred {d_pred}")
+            else:
+                d_pred_aug = d_pred
+            d_excess = max(0.0, ks_stat - d_pred_aug)
         else:
             d_pred = float('nan')
+            d_pred_aug = float('nan')
             d_excess = ks_stat
         d_pass = bool(d_excess <= d_tol)
         median_diff = abs(_weighted_median_1d(mcmc_samples[:, j], w)
@@ -815,7 +850,10 @@ def _run_crosscheck(
             'ks_stat': ks_stat, 'ks_pval': ks_pval, 'ks_n': n_ks,
             'ks_alpha_informational': CROSSCHECK_KS_ALPHA,
             'd_floor_p99': float(d_floor_p99[j]), 'd_tol': float(d_tol),
-            'd_pred_gaussian': float(d_pred), 'd_excess': float(d_excess),
+            'd_pred_gaussian': float(d_pred),
+            'd_pred_wander_augmented': float(d_pred_aug),
+            'empirical_floor_native': f_wander,
+            'd_excess': float(d_excess),
             'd_shape_excess_mode': bool(CROSSCHECK_SHAPE_EXCESS),
             'd_pass': d_pass,
             'median_diff': float(median_diff), 'median_tol': float(median_tol),
@@ -866,8 +904,10 @@ def cmd_crosscheck(args) -> int:
     sbi_samples = runner.sample_posterior(x_obs, n_samples=n_draw, seed=int(args.seed))
     sbi_samples, ordered_names = _reorder_sbi_to_mcmc(runner, sbi_samples, mcmc_param_names)
 
+    empirical_floor = json.loads(args.empirical_floor) if args.empirical_floor else None
     results = _run_crosscheck(
-        ordered_names, mcmc_samples, mcmc_weights, sbi_samples, seed=int(args.seed)
+        ordered_names, mcmc_samples, mcmc_weights, sbi_samples, seed=int(args.seed),
+        empirical_floor=empirical_floor,
     )
     plot_path = _save_crosscheck_plot(
         ordered_names, mcmc_samples, mcmc_weights, sbi_samples, output_dir
@@ -894,6 +934,11 @@ def cmd_crosscheck(args) -> int:
         # gracefully instead of aborting the gate run.
         'mcmc_config_hash': _safe_config_hash(mcmc.config),
         'mcmc_weighted': bool(mcmc_weights is not None),
+        'empirical_floor': empirical_floor,
+        'empirical_floor_note': (
+            'Preregistered §0.7 step-3 reference-wander floor (native units) '
+            'credited to the shape-excess mean-shift budget; relax-only. '
+            'None => stock HEAD formula.' if empirical_floor else None),
         'overlay_plot': plot_path,
         'provenance': _provenance_block(int(args.seed)),
     }
@@ -2040,6 +2085,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_cc.add_argument('--x-obs', help='JSON observed data dict (default: MCMC config observables).')
     p_cc.add_argument('--num-samples', type=int, default=None,
                       help='SBI posterior draws (default: match MCMC sample count).')
+    p_cc.add_argument('--empirical-floor', default=None,
+                      help='JSON {param: F_wander} in the param\'s native units: a '
+                           'measured between-run reference-wander floor credited '
+                           'to the shape-excess mean-shift budget (preregistered '
+                           '§0.7 step-3; e.g. \'{"D_iceIh_km": 0.36}\' for v5). '
+                           'Relax-only; omit for stock HEAD formula (v6, others).')
     _add_common(p_cc)
     p_cc.set_defaults(func=cmd_crosscheck)
 

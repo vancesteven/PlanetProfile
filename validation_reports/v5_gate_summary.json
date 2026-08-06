@@ -2,17 +2,17 @@
   "seed": 51,
   "arms": {
     "baseline": {
-      "sbc": 0,
-      "limits": 2,
-      "crosscheck": 2
+      "sbc": 2,
+      "limits": 0,
+      "crosscheck": 0
     },
     "noinduction": {
       "sbc": 0,
-      "limits": 2,
+      "limits": 0,
       "crosscheck": "n/a (no reference MCMC for this ablation)"
     },
     "nok2": {
-      "sbc": 2,
+      "sbc": 0,
       "limits": "skipped (no k2 channel to sweep)",
       "crosscheck": "n/a (no reference MCMC for this ablation)"
     }
@@ -23,7 +23,7 @@
       "D_iceIh_median_km": 62.369937896728516,
       "D_iceIh_q16_km": 57.15738754272461,
       "D_iceIh_q84_km": 67.5384292602539,
-      "corr_D_logw": 0.9228246313643304,
+      "corr_D_logw": 0.9228246313643309,
       "logw_median": 1.562347173690796
     },
     "noinduction": {
@@ -31,7 +31,7 @@
       "D_iceIh_median_km": 54.92933464050293,
       "D_iceIh_q16_km": 35.30688659667969,
       "D_iceIh_q84_km": 70.28364379882812,
-      "corr_D_logw": 0.5387698285534129,
+      "corr_D_logw": 0.5387698285534128,
       "logw_median": 1.3458619713783264
     },
     "nok2": {
@@ -39,9 +39,29 @@
       "D_iceIh_median_km": 62.34015083312988,
       "D_iceIh_q16_km": 56.937845916748046,
       "D_iceIh_q84_km": 67.47126434326172,
-      "corr_D_logw": 0.9141462832215491,
+      "corr_D_logw": 0.9141462832215481,
       "logw_median": 1.5606387257575989
     }
   },
-  "ref_mcmc": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Test/mcmc_results/Europa/Test52_seawater_v5/europa_clipper_v5_reference_result.pkl"
+  "ref_mcmc": "/tmp/b3_build/europa_clipper_v5_reference_pooled_neff2000.pkl",
+  "ref_mcmc_kind": "fresh pooled n_eff~2000 (B3 seeds 101/202/303)",
+  "n_sbc_requested": 1500,
+  "crosscheck_empirical_floor": {
+    "D_iceIh_km": 0.36
+  },
+  "validate_sbi_sha": "3fa5a3fc18e5414f7fcfa4b60cb708daffec58b5",
+  "derived_params_sbc_na": {
+    "Tb_K": "N/A (derived from sampled D_iceIh_km via per-salinity PCHIP inversion; not a sampled parameter, no SBC rank-uniformity test applicable) \u2014 reviewer Item-2 2026-08-06"
+  },
+  "reviewer_adjudication_2026_08_06": {
+    "verdict": "PASS WITH CONCERNS \u2014 v5 ships for its DEPLOYED deliverable (D_iceIh/ocean/salinity) with mandatory scope-note; Machine A finalizes + countersigns",
+    "sbc_baseline": "FAIL on dC22_nh only (raw p=0.0017, BH-adj p=0.0185, c2st 0.555); 10/11 params PASS under BH; 621 kept pairs (B2 n->1500 fix; old n=300 kept 108 and masked this)",
+    "crosscheck_baseline": "PASS (D_iceIh d_excess 0.0171<=d_tol 0.0281 WITHOUT floor; 0.36km floor drives to 0.0)",
+    "limits_baseline": "PASS",
+    "dC22_nh_finding": "real but LOCALIZED v5-flow-specific undertraining on the most sharply constrained nuisance (prior/sigma ~100:1 vs dC20_nh ~23:1 which PASSES p=0.205); NOT a free-gravity-family defect (v6 identical nuisance PASSES p=0.61); rank-CDF shows a mild MONOTONE deviation below the uniformity band (real, not noise) \u2014 Machine B inspected sbc_rank_cdf.png 2026-08-06",
+    "deployed_marginals": "doubly validated: SBC-clean (D_iceIh p=0.996, log10_w p=0.279) AND reference-MCMC crosscheck PASS",
+    "scope_note": "The dC22_nh marginal and any non-hydrostaticity readout derived from it are NOT SBC-validated in v5 and are DEFERRED to v6 (dC22_nh clean). Ablation contrast corr(D,logw)=0.923/0.539/0.914 UNAFFECTED (dC22_nh near-independent of both marginals).",
+    "optional_confirmation": "2nd-seed SBC (cheap) if Machine A wants persistence confirmation; Machine B read of power-scaling (undetected at n=108, detected at n=621) already indicates a true mild effect, not MC noise",
+    "retrain": "NOT warranted for the deployed deliverable; only if v5 is ever asked to carry the dC22_nh/non-hydrostaticity science (which v6 owns)"
+  }
 }

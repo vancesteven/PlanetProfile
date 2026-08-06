@@ -3,13 +3,21 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-05 (Machine B: NH3 follow-ups #3, #2 AND #1 EXECUTED, reviewer
-PASS on all. #1 salinity-fixed pilot + matched-N control → PERSIST: fixing
-salinity at matched N did NOT recover the Im_k2 update (banded 0.0313 ≈ control
-0.0321, +0.02σ_obs, wrong sign for salinity); size effect small/monotone/toward-obs
-→ salinity axis ELIMINATED as the driver of gap (a); remaining candidate is
-capacity/embedding (#4). STOPPED per protocol — remedy selection is manager +
-reviewer + user. MgSO4/NaCl stay HELD. See below).
+Updated: 2026-08-06 (Machine B: §0.10 priority-(a) v5/v6 B1/B2/B6 gates EXECUTED
+vs the FRESH pooled n_eff~2000 v5 reference, reviewer-adjudicated.
+**v5 = PASS WITH CONCERNS** — ships for its DEPLOYED D_iceIh/ocean/salinity
+deliverable with a mandatory scope-note (Machine A finalizes + countersigns):
+SBC FAILs on dC22_nh ONLY (BH-adj p=0.0185; 621 kept pairs — the B2 n→1500 fix
+EXPOSED a miscalibration the old n=108 masked), a real but LOCALIZED
+v5-flow-specific undertraining on the ~100:1-compressed nuisance (rank-CDF mild
+monotone; NOT free-gravity-family — v6's identical nuisance PASSES p=0.61);
+deployed marginals doubly validated (SBC-clean D_iceIh p=0.996 + crosscheck PASS
+even without the 0.36 km floor). **v6 = ALL GATES PASS.** B6 DEFERRED (empty
+anchor set, below the 0.15 falsified boundary). #4 architecture-pilot single-seed
+SCREEN (D0/A/B/C) running in parallel on the existing NH3 dataset. FOR MACHINE A:
+finalize v5 ratification + countersign; deploy v6. See MACHINE-B-HANDOFF §0.11.
+Prior NH3 #1 → PERSIST (salinity ELIMINATED) below. MgSO4/NaCl datasets un-HELD
+per §0.10; flow TRAINING waits on the #4 verdict.)
 Prior: 2026-08-05 at genai `5ae7d17c`. Manager judgement §0.9 issued:
 B3 accepted — the 1.06 km v5–v7 reference disagreement was an n_eff=500
 resolution artifact; both old references wandered (fresh truth ~61.4–61.8 km);

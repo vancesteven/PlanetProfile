@@ -540,6 +540,59 @@ class SBIRunner:
     # Training
     # ------------------------------------------------------------------
 
+    def _build_density_estimator(self, torch, model, hidden_features,
+                                 num_transforms, num_bins, embedding_net):
+        """Construct an explicit ``posterior_nn`` builder from capacity/
+        embedding hyperparameters and a legible string tag (#4 pilot).
+
+        Unset kwargs fall back to the sbi 0.26.1 ``posterior_nn`` defaults
+        (nsf/maf: hidden_features=50, num_transforms=5, num_bins=10,
+        embedding_net=Identity, z_score_theta/x='independent'). The z-scoring
+        is left at the deployed 'independent' on BOTH theta and raw x so that
+        the capacity/embedding effect is cleanly isolated (reviewer MODERATE).
+
+        embedding_net spec: None -> Identity (deployed default); or
+        ``"mlp:w1-w2-..."`` -> an FCEmbedding MLP on raw x with the listed
+        hidden widths (uniform width in this sbi version; output_dim = last
+        width). Returns (builder_callable, string_tag).
+        """
+        from sbi.neural_nets import posterior_nn
+
+        h = 50 if hidden_features is None else int(hidden_features)
+        t = 5 if num_transforms is None else int(num_transforms)
+        b = 10 if num_bins is None else int(num_bins)
+
+        emb_module = torch.nn.Identity()
+        emb_tag = ''
+        if embedding_net:
+            if not str(embedding_net).startswith('mlp:'):
+                raise ValueError(
+                    f"embedding_net must be None or 'mlp:w1-w2-...'; "
+                    f"got {embedding_net!r}")
+            widths = [int(w) for w in str(embedding_net)[4:].split('-') if w]
+            if not widths:
+                raise ValueError(f"empty MLP spec: {embedding_net!r}")
+            from sbi.neural_nets.embedding_nets import FCEmbedding
+            emb_module = FCEmbedding(
+                input_dim=len(self.obs_names),
+                output_dim=widths[-1],
+                num_layers=len(widths),
+                num_hiddens=max(widths),
+            )
+            emb_tag = '_embed-mlp-' + '-'.join(str(w) for w in widths)
+
+        builder = posterior_nn(
+            model=model,
+            z_score_theta='independent',
+            z_score_x='independent',
+            hidden_features=h,
+            num_transforms=t,
+            num_bins=b,
+            embedding_net=emb_module,
+        )
+        tag = f"{model}_h{h}_t{t}_b{b}{emb_tag}"
+        return builder, tag
+
     def train(
         self,
         theta: np.ndarray,
@@ -547,6 +600,10 @@ class SBIRunner:
         seed: Optional[int] = None,
         density_estimator: str = 'maf',
         show_progress_bars: bool = False,
+        hidden_features: Optional[int] = None,
+        num_transforms: Optional[int] = None,
+        num_bins: Optional[int] = None,
+        embedding_net: Optional[str] = None,
         **train_kwargs,
     ):
         """Train a single-round NPE posterior estimator on (theta, x).
@@ -567,8 +624,28 @@ class SBIRunner:
                 (None = do not reseed).
             density_estimator: 'maf' (default) or 'nsf'.
             show_progress_bars: Forwarded to the sbi trainer.
+            hidden_features: Optional NN width per coupling transform. When
+                None (default), NONE of the four capacity kwargs are set, and
+                the deployed string code path is used byte-identically.
+            num_transforms: Optional number of coupling transforms.
+            num_bins: Optional spline-bin count (nsf only).
+            embedding_net: Optional embedding-net spec, either ``None``
+                (Identity, deployed default) or ``"mlp:h1-h2-..."`` — an MLP
+                on the raw x with the given hidden layer widths. z-scoring is
+                applied to raw x BEFORE the embedding, unchanged from deployed.
             **train_kwargs: Forwarded to ``NPE.train()`` (e.g.
-                training_batch_size, stop_after_epochs).
+                training_batch_size, stop_after_epochs, max_num_epochs).
+
+        Capacity/embedding override (#4 architecture pilot, additive): if ANY
+        of ``hidden_features``/``num_transforms``/``num_bins``/``embedding_net``
+        is set, ``train`` constructs an explicit ``posterior_nn`` builder from
+        those hyperparameters and passes the CALLABLE to ``NPE`` instead of the
+        string. Unset kwargs fall back to sbi 0.26.1 ``posterior_nn`` defaults
+        (nsf: h50/t5/b10, Identity embedding). A legible string architecture
+        tag (e.g. ``"nsf_h128_t10_b16"``, ``"nsf_h50_t5_b10_embed-mlp-64-64"``)
+        is recorded in ``_train_info['density_estimator']`` in place of the
+        non-serializable callable. When NONE are set the deployed default path
+        (string estimator straight into ``NPE``) is byte-identical to before.
 
         Returns:
             Trained ``DirectPosterior`` (also stored on ``self._posterior``).
@@ -606,14 +683,26 @@ class SBIRunner:
         theta_t = torch.as_tensor(theta, dtype=torch.float32)
         x_t = torch.as_tensor(x, dtype=torch.float32)
 
+        # #4 architecture pilot: only build an explicit posterior_nn builder if
+        # a capacity/embedding override was requested. Otherwise pass the
+        # string straight through — byte-identical to the deployed flow.
+        _cap_override = any(v is not None for v in (
+            hidden_features, num_transforms, num_bins, embedding_net))
+        if _cap_override:
+            de_arg, de_tag = self._build_density_estimator(
+                torch, density_estimator, hidden_features, num_transforms,
+                num_bins, embedding_net)
+        else:
+            de_arg, de_tag = density_estimator, density_estimator
+
         log.info(
-            f"Training NPE ({density_estimator}) on {len(theta)} simulations "
+            f"Training NPE ({de_tag}) on {len(theta)} simulations "
             f"({theta.shape[1]}D theta, {x.shape[1]}D x)..."
         )
         t0 = time.time()
         inference = NPE(
             prior=prior,
-            density_estimator=density_estimator,
+            density_estimator=de_arg,
             show_progress_bars=show_progress_bars,
         )
         inference.append_simulations(theta_t, x_t).train(**train_kwargs)
@@ -645,7 +734,7 @@ class SBIRunner:
         # Informational normalization constants (z-scoring itself lives
         # inside the saved estimator; these are recorded for auditability).
         self._train_info.update({
-            'density_estimator': density_estimator,
+            'density_estimator': de_tag,
             'seed': seed,
             'n_train_effective': int(len(theta)),
             'theta_norm': {'mean': theta.mean(axis=0).tolist(),

@@ -22,10 +22,27 @@ ROOT = Path(__file__).resolve().parents[2]
 ART = ROOT / "PlanetProfile/Inference/sbi_artifacts"
 CFG = ROOT / "PlanetProfile/Inference/configs"
 REPORTS = ROOT / "validation_reports"
+# v6 was adjudicated clean at HEAD and has NO B3 wander / no fresh reference;
+# it keeps its committed n_eff=500 reference (recon 2026-08-06). B1/B2 for v6
+# are confirmation runs against this reference.
 REF_MCMC = (ROOT / "PlanetProfile/Test/mcmc_results/Europa/Test53_seawater_v6/"
             "europa_clipper_v6_reference_result.pkl")
 VALIDATE = ["python", "-m", "PlanetProfile.Inference.validate_sbi"]
 SEED = "61"
+# B2: request enough SBC pairs that >=500 survive the ~0.64 support rejection.
+N_SBC = "1500"
+
+
+def _validate_sbi_sha():
+    """HEAD SHA touching validate_sbi.py, for B1's per-run provenance record."""
+    try:
+        r = subprocess.run(
+            ["git", "log", "-1", "--format=%H", "--",
+             "PlanetProfile/Inference/validate_sbi.py"],
+            cwd=ROOT, capture_output=True, text=True)
+        return r.stdout.strip() or None
+    except Exception:
+        return None
 
 # The |Im k2| channel the limits sweep walks; every OTHER observable must be
 # pinned via --fixed-obs or validate_sbi raises (fixed values required for
@@ -109,7 +126,7 @@ def main():
         # SBC: generate fresh held-out pairs from the config forward model.
         rc["sbc"] = run(VALIDATE + [
             "sbc", "--artifact", str(art), "--config", str(cfg),
-            "--n-sbc", "300", "--num-posterior-samples", "1000",
+            "--n-sbc", N_SBC, "--num-posterior-samples", "1000",
             "--seed", SEED, "--output-dir", str(outdir / "sbc")], outdir / "sbc.log")
 
         # limits: |Im k2| sweep only makes sense where Im_k2 is an observable
@@ -142,7 +159,15 @@ def main():
     with open(REPORTS / "v6_gate_summary.json", "w") as f:
         json.dump({"seed": int(SEED), "arms": summary,
                    "ablation_comparison": ablation,
-                   "ref_mcmc": str(REF_MCMC)}, f, indent=2)
+                   "ref_mcmc": str(REF_MCMC),
+                   "ref_mcmc_kind": "committed n_eff=500 (v6 clean at HEAD; no B3 wander)",
+                   "n_sbc_requested": int(N_SBC),
+                   "derived_params_sbc_na": {
+                       "Tb_K": ("N/A (derived from sampled D_iceIh_km via "
+                                "per-salinity PCHIP inversion; not a sampled "
+                                "parameter, no SBC rank-uniformity test "
+                                "applicable) — reviewer Item-2 2026-08-06")},
+                   "validate_sbi_sha": _validate_sbi_sha()}, f, indent=2)
     print(f"\n[gate] summary -> {REPORTS/'v6_gate_summary.json'}")
     print(json.dumps({"arms": summary, "ablation_comparison": ablation}, indent=2))
 

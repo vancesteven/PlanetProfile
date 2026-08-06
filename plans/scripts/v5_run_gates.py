@@ -22,10 +22,35 @@ ROOT = Path(__file__).resolve().parents[2]
 ART = ROOT / "PlanetProfile/Inference/sbi_artifacts"
 CFG = ROOT / "PlanetProfile/Inference/configs"
 REPORTS = ROOT / "validation_reports"
-REF_MCMC = (ROOT / "PlanetProfile/Test/mcmc_results/Europa/Test52_seawater_v5/"
-            "europa_clipper_v5_reference_result.pkl")
+# §0.7 step-2: crosscheck targets the FRESH pooled n_eff~2000 reference (B3
+# seeds 101/202/303), NOT the OLD n_eff=500 pkl (whose 1.06 km v5-v7 wander was
+# a resolution artifact). Build it with plans/scripts/pool_v5_reference_neff2000.py.
+POOLED_REF = Path("/tmp/b3_build/europa_clipper_v5_reference_pooled_neff2000.pkl")
+OLD_REF = (ROOT / "PlanetProfile/Test/mcmc_results/Europa/Test52_seawater_v5/"
+           "europa_clipper_v5_reference_result.pkl")
+REF_MCMC = POOLED_REF
 VALIDATE = ["python", "-m", "PlanetProfile.Inference.validate_sbi"]
 SEED = "51"
+# B2: request enough SBC pairs that >=500 survive the ~0.64 support rejection
+# (500/0.36 ~ 1389; use 1500 for margin). The old n=300 kept only 108 pairs.
+N_SBC = "1500"
+# §0.7 step-3 (reviewer-ratified 2026-08-06): D_iceIh_km reference-wander floor
+# = 2x the 0.18 km B3 empirical floor. Injected into the crosscheck shape-excess
+# mean-shift budget (relax-only). D_iceIh ONLY; NOT applied to v6 (no measured
+# wander) or other params. Passed to `crosscheck --empirical-floor`.
+EMPIRICAL_FLOOR = json.dumps({"D_iceIh_km": 0.36})
+
+
+def _validate_sbi_sha():
+    """HEAD SHA touching validate_sbi.py, for B1's per-run provenance record."""
+    try:
+        r = subprocess.run(
+            ["git", "log", "-1", "--format=%H", "--",
+             "PlanetProfile/Inference/validate_sbi.py"],
+            cwd=ROOT, capture_output=True, text=True)
+        return r.stdout.strip() or None
+    except Exception:
+        return None
 
 # The |Im k2| channel the limits sweep walks; every OTHER observable must be
 # pinned via --fixed-obs or validate_sbi raises (fixed values required for
@@ -98,6 +123,10 @@ def _ablation_comparison(seed=51, n_draw=20000):
 
 
 def main():
+    if not REF_MCMC.exists():
+        raise SystemExit(
+            f"[gate] pooled fresh reference missing: {REF_MCMC}\n"
+            f"       build it first: python plans/scripts/pool_v5_reference_neff2000.py")
     summary = {}
     for tag, (artname, cfgname) in ARMS.items():
         art = ART / artname
@@ -109,7 +138,7 @@ def main():
         # SBC: generate fresh held-out pairs from the config forward model.
         rc["sbc"] = run(VALIDATE + [
             "sbc", "--artifact", str(art), "--config", str(cfg),
-            "--n-sbc", "300", "--num-posterior-samples", "1000",
+            "--n-sbc", N_SBC, "--num-posterior-samples", "1000",
             "--seed", SEED, "--output-dir", str(outdir / "sbc")], outdir / "sbc.log")
 
         # limits: |Im k2| sweep only makes sense where Im_k2 is an observable
@@ -129,6 +158,7 @@ def main():
         if tag == "baseline":
             rc["crosscheck"] = run(VALIDATE + [
                 "crosscheck", "--artifact", str(art), "--mcmc", str(REF_MCMC),
+                "--empirical-floor", EMPIRICAL_FLOOR,
                 "--seed", SEED, "--output-dir", str(outdir / "crosscheck")],
                 outdir / "crosscheck.log")
         else:
@@ -142,7 +172,16 @@ def main():
     with open(REPORTS / "v5_gate_summary.json", "w") as f:
         json.dump({"seed": int(SEED), "arms": summary,
                    "ablation_comparison": ablation,
-                   "ref_mcmc": str(REF_MCMC)}, f, indent=2)
+                   "ref_mcmc": str(REF_MCMC),
+                   "ref_mcmc_kind": "fresh pooled n_eff~2000 (B3 seeds 101/202/303)",
+                   "n_sbc_requested": int(N_SBC),
+                   "crosscheck_empirical_floor": json.loads(EMPIRICAL_FLOOR),
+                   "derived_params_sbc_na": {
+                       "Tb_K": ("N/A (derived from sampled D_iceIh_km via "
+                                "per-salinity PCHIP inversion; not a sampled "
+                                "parameter, no SBC rank-uniformity test "
+                                "applicable) — reviewer Item-2 2026-08-06")},
+                   "validate_sbi_sha": _validate_sbi_sha()}, f, indent=2)
     print(f"\n[gate] summary -> {REPORTS/'v5_gate_summary.json'}")
     print(json.dumps({"arms": summary, "ablation_comparison": ablation}, indent=2))
 

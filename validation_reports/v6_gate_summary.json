@@ -3,12 +3,12 @@
   "arms": {
     "baseline": {
       "sbc": 0,
-      "limits": 2,
-      "crosscheck": 2
+      "limits": 0,
+      "crosscheck": 0
     },
     "noinduction": {
-      "sbc": 2,
-      "limits": 2,
+      "sbc": 0,
+      "limits": 0,
       "crosscheck": "n/a (no reference MCMC for this ablation)"
     },
     "nok2": {
@@ -23,7 +23,7 @@
       "D_iceIh_median_km": 62.22006416320801,
       "D_iceIh_q16_km": 56.79652191162109,
       "D_iceIh_q84_km": 67.54308074951172,
-      "corr_D_logw": 0.9252533875401838,
+      "corr_D_logw": 0.925253387540185,
       "logw_median": 1.5567896366119385
     },
     "noinduction": {
@@ -31,7 +31,7 @@
       "D_iceIh_median_km": 54.48602485656738,
       "D_iceIh_q16_km": 35.088937225341795,
       "D_iceIh_q84_km": 70.04340118408203,
-      "corr_D_logw": 0.515392292873301,
+      "corr_D_logw": 0.5153922928733008,
       "logw_median": 1.3627364039421082
     },
     "nok2": {
@@ -39,9 +39,21 @@
       "D_iceIh_median_km": 62.683616638183594,
       "D_iceIh_q16_km": 57.14962905883789,
       "D_iceIh_q84_km": 67.05941223144531,
-      "corr_D_logw": 0.9135208089020281,
+      "corr_D_logw": 0.9135208089020285,
       "logw_median": 1.5661765336990356
     }
   },
-  "ref_mcmc": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Test/mcmc_results/Europa/Test53_seawater_v6/europa_clipper_v6_reference_result.pkl"
+  "ref_mcmc": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Test/mcmc_results/Europa/Test53_seawater_v6/europa_clipper_v6_reference_result.pkl",
+  "ref_mcmc_kind": "committed n_eff=500 (v6 clean at HEAD; no B3 wander)",
+  "n_sbc_requested": 1500,
+  "validate_sbi_sha": "3fa5a3fc18e5414f7fcfa4b60cb708daffec58b5",
+  "derived_params_sbc_na": {
+    "Tb_K": "N/A (derived from sampled D_iceIh_km via per-salinity PCHIP inversion; not a sampled parameter, no SBC rank-uniformity test applicable) \u2014 reviewer Item-2 2026-08-06"
+  },
+  "reviewer_adjudication_2026_08_06": {
+    "verdict": "ALL GATES PASS (SBC/crosscheck/limits) \u2014 v6 clean at HEAD; owns the non-hydrostaticity deliverable",
+    "sbc_baseline": "PASS all 11 params; dC22_nh BH-adj p=0.8504 c2st 0.567; 560 kept pairs",
+    "crosscheck_baseline": "PASS (stock HEAD formula, existing n_eff=500 reference; NO empirical floor per reviewer)",
+    "limits_baseline": "PASS"
+  }
 }
