@@ -55,7 +55,7 @@ Pre-registered JOINT success criterion (no single metric alone is a PASS):
   OVERSHOOT flag: SBI-pp median > 0.121 (= 0.1037 + 0.5*0.035) signals
   over-update / mode-collapse, NOT success.
 Per arm/seed also report: epochs_trained (+ hit-ceiling flag), best validation
-log-prob, train-vs-validation gap, and the pushforward nonfinite/support-drop
+loss, train-vs-validation loss gap, and the pushforward nonfinite/support-drop
 fraction (a median shift driven by more mass in support-rejected regions is an
 artifact, not assimilation).
 
@@ -154,17 +154,22 @@ def _train_one(arm, seed, theta, x, stats, runner_cfg, args):
     if isinstance(ep, list):
         ep = ep[-1] if ep else None
     hit_ceiling = (ep is not None) and (ep >= args.max_epochs)
-    # best validation log-prob and train-vs-val gap (schema varies; be defensive)
-    val_curve = ts.get("validation_log_probs") or ts.get("validation_log_prob")
-    train_curve = ts.get("training_log_probs") or ts.get("training_log_prob")
-    best_val = ts.get("best_validation_log_prob")
+    # best validation LOSS and train-vs-val gap. sbi 0.26.1 summary keys are
+    # 'best_validation_loss'/'validation_loss'/'training_loss' (LOSSES, minimized
+    # — NOT log-probs). best = MIN of the curve; overfit gap = val_loss -
+    # train_loss at the last epoch (positive = validation worse than training).
+    val_curve = ts.get("validation_loss")
+    train_curve = ts.get("training_loss")
+    best_val = ts.get("best_validation_loss")
+    if isinstance(best_val, list):
+        best_val = min(best_val) if best_val else None
     if best_val is None and isinstance(val_curve, list) and val_curve:
-        best_val = max(val_curve)
+        best_val = min(val_curve)
     train_val_gap = None
     if (isinstance(train_curve, list) and isinstance(val_curve, list)
             and train_curve and val_curve):
         n = min(len(train_curve), len(val_curve))
-        train_val_gap = float(train_curve[n - 1] - val_curve[n - 1])
+        train_val_gap = float(val_curve[n - 1] - train_curve[n - 1])
     print(f"[f4:{tag}] trained in {(time.time()-t1)/60:.1f} min -> {art}; "
           f"epochs={ep} hit_ceiling={hit_ceiling} best_val={best_val} "
           f"train_val_gap={train_val_gap}")
@@ -219,7 +224,7 @@ def _train_one(arm, seed, theta, x, stats, runner_cfg, args):
         "tag": tag, "arm": arm["tag"], "seed": seed,
         "artifact": str(art), "output_dir": str(out),
         "epochs_trained": ep, "hit_ceiling": bool(hit_ceiling),
-        "best_validation_log_prob": best_val, "train_val_gap": train_val_gap,
+        "best_validation_loss": best_val, "train_val_loss_gap": train_val_gap,
         "architecture_tag": runner._train_info.get("density_estimator"),
         "config_hash": runner.config.generate_hash(),
         "pp_imk2_median": pp_imk2, "concentration_ratio": concentration,

@@ -13,11 +13,18 @@ v5-flow-specific undertraining on the ~100:1-compressed nuisance (rank-CDF mild
 monotone; NOT free-gravity-family — v6's identical nuisance PASSES p=0.61);
 deployed marginals doubly validated (SBC-clean D_iceIh p=0.996 + crosscheck PASS
 even without the 0.36 km floor). **v6 = ALL GATES PASS.** B6 DEFERRED (empty
-anchor set, below the 0.15 falsified boundary). #4 architecture-pilot single-seed
-SCREEN (D0/A/B/C) running in parallel on the existing NH3 dataset. FOR MACHINE A:
-finalize v5 ratification + countersign; deploy v6. See MACHINE-B-HANDOFF §0.11.
-Prior NH3 #1 → PERSIST (salinity ELIMINATED) below. MgSO4/NaCl datasets un-HELD
-per §0.10; flow TRAINING waits on the #4 verdict.)
+anchor set, below the 0.15 falsified boundary). **#4 architecture-pilot EXECUTED — capacity/embedding
+ELIMINATED** (reviewer-adjudicated): uniform negative across D0/A/B/C, more
+capacity made concentration WORSE. The Im_k2 gap PARTITIONS — 0.042→~0.093 is a
+real flow-defect (training-signal/identifiability, NOT representational) and
+~0.093→0.135 is a data-limit (obs sits in the upper tail of the EXACT posterior;
+reachable frac≥obs ~0.19, not 0.5). Reviewer: MgSO4/NaCl proceed on the DEPLOYED
+architecture under split-status (re-verify quarantine per-composition); next NH3
+tidal diagnostic is upstream identifiability, NOT a bigger flow. FOR MACHINE A:
+finalize v5 ratification + countersign; deploy v6. See MACHINE-B-HANDOFF §0.11
+(v5/v6), §0.12 (#4). Machine B now building MgSO4/NaCl 2D caches + datasets
+(§0.10 priority-b, architecture-independent). Prior NH3 #1 → PERSIST (salinity
+ELIMINATED) below.)
 Prior: 2026-08-05 at genai `5ae7d17c`. Manager judgement §0.9 issued:
 B3 accepted — the 1.06 km v5–v7 reference disagreement was an n_eff=500
 resolution artifact; both old references wandered (fresh truth ~61.4–61.8 km);

@@ -90,6 +90,51 @@ band (Machine B inspected 2026-08-06) — consistent with real, mild.
 2nd-seed confirm) + countersign; deploy v6. Machine B stopped here — ratification
 finalize + GUI wiring are Machine A duties.
 
+## 0.12 #4 architecture pilot EXECUTED (Machine B, 2026-08-06) — capacity ELIMINATED
+
+§0.10 item 2. Reviewer-adjudicated (design freeze + result interpretation).
+Screen (seed 72, 4 arms D0/A/B/C on the full 690k ocean-admitting NH3 dataset,
+uncapped, deployed early-stopping, z-score fixed). PILOT — production-arch
+decision remains manager+reviewer+user.
+
+**Result = clean uniform NEGATIVE.** D0 (deployed-arch control) reproduced 0.0423
+(no-regression on the additive `train()` capacity/embedding plumbing). No arm
+passes: pp-median 0.042-0.047 (target 0.0862), concentration_ratio >1 for EVERY
+arm (1.215-1.322), and MORE capacity made concentration WORSE (C=1.322,
+early-stops fastest). Capacity (A), embedding (B), both (C) all ineffective.
+
+**Reviewer mechanism reframing (the key output):** the 0.042→0.135 gap
+PARTITIONS —
+- 0.042 (SBI) → ~0.093 (MCMC median): a REAL flow defect, but a
+  TRAINING-SIGNAL / IDENTIFIABILITY problem, NOT representational (the flow fits
+  the sharp C20/C22 channels, gets little gradient to sharpen the weakly-
+  identified Im_k2; larger flows hit the easy optimum faster and never refine
+  it → capacity is the wrong lever).
+- ~0.093 (MCMC) → 0.135 (obs): NOT a flow defect. obs sits in the UPPER TAIL of
+  even the EXACT posterior (frac≥obs only 0.19 for MCMC, NOT ~0.5). The
+  model+prior cannot reach 0.135 while matching the other 3 observables (Tb-w
+  degeneracy). CORRECTION: the "correct posterior drives frac≥obs → ~0.5"
+  language in the pushforward shape reports is MISLEADING — reachable ~0.19.
+
+**Rulings:** (1) capacity/embedding ELIMINATED as tested; a bigger flow is NOT
+the next step. (2) MgSO4/NaCl PROCEED on the DEPLOYED architecture under
+split-status — no arch change helps; but re-verify the tidal quarantine
+PER-COMPOSITION (do NOT port the NH3 concentration-failure verdict by
+assumption; different dissipation physics). (3) next NH3 tidal diagnostic =
+upstream identifiability (mutual-info / conditional variance of Im_k2 given
+{C20,C22,Re_k2} under Tb-w; Im_k2 heavy-tail vs z-scoring), NOT architecture.
+(4) best_val/train_val_gap were NA (driver read sbi log-prob keys; sbi 0.26.1
+uses `*_loss`) — FIXED in the driver; a corrected 4-arm × 3-seed re-run is
+running to recover those diagnostics + give per-arm seed-variance insurance
+(closes the "large arms premature-early-stopped" alternative before the arch
+decision is FINALIZED). Reports: validation_reports/nh3_diagnosis/f4_architecture/.
+
+**Consequence for §0.10:** MgSO4/NaCl datasets un-HELD (were already);
+FLOW TRAINING may proceed on the deployed architecture under split-status once
+the per-composition quarantine is re-verified. Machine B is building the
+MgSO4/NaCl 2D joint caches + datasets now (architecture-independent, §0.10
+priority-b).
+
 
 Updated: 2026-08-06 (Machine B: §0.10 EXECUTED — v5/v6 B1/B2/B6 gates run vs the
 FRESH pooled n_eff~2000 v5 reference, reviewer-adjudicated. v5 = PASS WITH
@@ -102,10 +147,14 @@ band; NOT free-gravity-family — v6's identical nuisance PASSES p=0.61); the
 deployed marginals are doubly validated (SBC-clean D_iceIh p=0.996 + crosscheck
 PASS even without the 0.36 km floor). v6 = ALL GATES PASS. B6 DEFERRED (empty
 anchor set; window below the 0.15 falsified boundary — reviewer Item-3). #4
-architecture-pilot single-seed SCREEN running in parallel (D0/A/B/C on the
-existing NH3 dataset). See §0.11. Prior NH3 #1 outcome (PERSIST → salinity
-ELIMINATED) recorded in §0.9. MgSO4/NaCl datasets un-HELD per §0.10; flow
-TRAINING still waits on the #4 pilot verdict.
+architecture-pilot EXECUTED — capacity/embedding ELIMINATED (§0.12): the Im_k2
+gap partitions into a real flow-defect (0.042→~0.093,
+training-signal/identifiability, NOT representational) + a data-limit
+(~0.093→0.135, obs in the upper tail of the EXACT posterior). Reviewer: proceed
+MgSO4/NaCl on the DEPLOYED architecture under split-status (re-verify quarantine
+per-composition). Machine B building MgSO4/NaCl 2D caches + datasets now. See
+§0.11 (v5/v6 gates), §0.12 (#4). Prior NH3 #1 (PERSIST → salinity ELIMINATED)
+in §0.9.
 Prior: 2026-08-01 at genai `54106fbd` (Machine A refresh after v5/v6/v7
 delivery). Authoritative executable queue for compute-intensive work. Machine B
 should pull the exact `origin/genai` commit named by Machine A before each
