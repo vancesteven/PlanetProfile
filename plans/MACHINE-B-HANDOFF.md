@@ -1,5 +1,44 @@
 # Machine B handoff
 
+## 0.15 GATE-3 VERDICT + shared Tb=252 K defect root-cause (Machine B, 2026-08-07)
+
+The scientific-reviewer adjudicated gate-3 (agent a070eb8cc673d6e76). Verdict:
+- **NaCl: PROCEED-to-1M (PASS WITH CONCERNS).** 2.2% half-cell placement band
+  acceptable; the binding gate is the ABSOLUTE onset placement `half_cell_K` (NaCl
+  0.5 K, MgSO4 0.25 K) — NOT the box-fraction span, which inverts the true ranking
+  (penalizes MgSO4's narrower box despite its FINER grid). Bar: `half_cell_K ≤ 0.5 K`
+  (both pass). Also requires: box-wide melting-monotonicity (0 FROZEN warmer than any
+  OCEAN in a w-column) + no interior None. The 5% MgSO4 fraction is an irreducible
+  narrow-box artifact (`span = dTb/Tb_box`), NOT disqualifying.
+- **MgSO4: BLOCK 1M as-is.** Not for the 5% fraction — for a CRITICAL embedded
+  melting-monotonicity violation at (Tb=252.0, w=4.857): ocean 251.5 → frozen 252.0 →
+  ocean 252.5. Same impossibility class as the w=194 Margules island but at
+  near-pure-water salinity; the w≥180 invariant does not catch it.
+
+**Root cause (Machine B, task #90 — CLOSED).** The reviewer's flagged MgSO4 flip and
+the MAJOR shared failure (NaCl interior None at the IDENTICAL Tb=252.0 K, w-col-3) are
+**one bug: an int-vs-float numeric-type artifact**, not a physics failure. PPTitan
+ships `Planet.PfreezeUpper_MPa = 230` as a Python **int**; the whole cache built with
+it. `fn_phase(230, Tb=252)` returns phase 0 (liquid) with **int** 230 but phase 3
+(ice III) with **float** 230.0 — the int result routes `GetPfreeze` to `GetZero`
+bracketing on a discontinuous phase step → fails → `NoIceLiquidTransitionError` →
+MgSO4 phantom-frozen / NaCl None. Float coercion repairs EXACTLY the two defect nodes
+(MgSO4 252.0→OCEAN D=15.60, NaCl 252.0→OCEAN D=31.06), preserves the genuine frozen
+onset, monotonic D_ocean between neighbors, neighbor likelihood scalars uncontaminated
+(reproduced in fresh per-node processes). Evidence:
+`validation_reports/titan_saltcaches/tb252_rootcause_2026_08_07.json` (commit b09e534f).
+
+**Status.** BOTH 1M gens HELD — NaCl's cache also carries the defect (its 252.0 None),
+so both need a float-coerced rebuild before dataset gen. The fix (cache-build float
+coercion) + the deeper shared `fn_phase` int/float bug are with the scientific-reviewer
+(agent ab2d3748d0b00c78c) for adjudication; NOT self-adjudicated. Machine A: the
+`fn_phase` int/float disagreement at a grid pressure is a LATENT shared-thermodynamics
+bug that could perturb any PP cache built from an int `PfreezeUpper_MPa` template —
+referred for your review alongside the reviewer verdict. On PROCEED-to-rebuild I will:
+rebuild both caches with float coercion, assert box-wide monotonicity (0 flips) + 0
+interior None + a new "no None/frozen sandwiched between two ocean nodes in a column"
+guard, re-run gate-3 reporting absolute `half_cell_K` primary, then release the 1M gens.
+
 ## 0.10 PRODUCTION AUTHORIZATION (user + manager, 2026-08-06) — MgSO4/NaCl proceed in parallel with the architecture pilot
 
 The user ratified the parallel option (STRATEGY.md). Execute:
@@ -234,7 +273,10 @@ MgSO4/NaCl 2D joint caches + datasets now (architecture-independent, §0.10
 priority-b).
 
 
-Updated: 2026-08-07 (Machine A: §0.11 CLOSED — v5 RATIFIED scoped + v6
+Updated: 2026-08-07 (Machine B: §0.15 added — gate-3 reviewer verdict [NaCl
+PROCEED, MgSO4 BLOCK] + shared Tb=252 K defect root-caused to an int/float
+fn_phase artifact; both 1M gens HELD pending float-coerced rebuild verdict.
+Prior Machine A entry:) §0.11 CLOSED — v5 RATIFIED scoped + v6
 RATIFIED, GUI ungated, deploy snapshot rebuilt; §0.14 added — MgSO4/NaCl
 caches ACCEPTED, per-comp gate-3 + 1M dataset gens GO, flow training still
 HELD on per-composition quarantine re-verification; two non-blocking record
