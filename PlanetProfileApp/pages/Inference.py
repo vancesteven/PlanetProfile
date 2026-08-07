@@ -1332,14 +1332,16 @@ _SBI_ARTIFACT_SLOTS = {
         # Trained torch 2.8.0 / sbi 0.26.1 — same runtime; no pair needed.
     },
     'europa_clipper_v5_geodesy_11D_posterior_1m.pt': {
-        # Adjudication hold (manager, 2026-08-02): v5/v6 baselines share the
-        # systematic limits-containment + crosscheck gate failures recorded in
-        # plans/STATUS.md. Delivered artifacts stay visible but must not
-        # condition a posterior until the gates are adjudicated.
-        'artifact_status': 'not_ratified',
-        'gate_status': ('NOT RATIFIED — baseline gates: sbc pass, limits '
-                        'containment FAIL, crosscheck FAIL (D_iceIh_km, '
-                        'log10_wOcean_ppt); see plans/STATUS.md'),
+        # RATIFIED (scoped) 2026-08-06 vs the fresh pooled n_eff~2000
+        # reference: SBC 10/11 PASS at n=1500 with dC22_nh
+        # FAIL-ADJUDICATED-ACCEPTABLE; crosscheck + limits PASS. Scope:
+        # dC22_nh marginal + non-hydrostaticity readout deferred to v6.
+        # plans/active/europa-v5v6v7-gate-adjudication.md, Final ratification.
+        'gate_status': ('RATIFIED (scoped) 2026-08-06 — SBC 10/11 PASS '
+                        '(n=1500); dC22_nh FAIL-ADJUDICATED-ACCEPTABLE '
+                        '(localized nuisance undertraining; readout owned by '
+                        'v6); crosscheck PASS vs fresh pooled reference; '
+                        'limits PASS. sbi_artifacts/INDEX.md'),
         'label': ('1D · Clipper–Europa (Andrade, seawater) — v5 geodesy, '
                   '11D ice-thickness reparam + non-hydrostatic gravity'),
         'bodyname': 'Europa',
@@ -1386,9 +1388,11 @@ _SBI_ARTIFACT_SLOTS = {
                        '(structure moment integral) vs HYDROSTATIC REFERENCE '
                        '(Radau–Darwin from C22); the gap is the inferred '
                        'non-hydrostaticity, read against the ~0.0035 RD floor. '
-                       'v5 ratification FAILED-this-pass (undertraining + '
-                       'gate mis-spec, no model defect); do not cite as '
-                       'ratified. Gate details: sbi_artifacts/INDEX.md.'),
+                       'RATIFIED (scoped) 2026-08-06: cite D_iceIh, ocean '
+                       'state, and salinity (doubly validated); do NOT cite '
+                       'the dC22_nh marginal or a non-hydrostaticity readout '
+                       'from v5 — v6 owns those (its SBC is clean there). '
+                       'Gate details: sbi_artifacts/INDEX.md.'),
     },
     # --- v5 channel-family siblings (reached via the channel selector, not
     # the dropdown). Same body/priors/cache as geodesy_11D; differ only in
@@ -1396,9 +1400,9 @@ _SBI_ARTIFACT_SLOTS = {
     # the geodesy central values — only the names present in each config's
     # observable set are read, so the extra keys are inert. ---
     'europa_clipper_v5_noinduction_7obs_posterior_1m.pt': {
-        'artifact_status': 'not_ratified',
-        'gate_status': ('NOT RATIFIED — v5 family under gate adjudication; '
-                        'see plans/STATUS.md'),
+        'gate_status': ('RATIFIED (scoped) 2026-08-06 as ablation companion '
+                        'to v5 geodesy (same scope note); '
+                        'sbi_artifacts/INDEX.md'),
         'label': ('1D · Clipper–Europa (Andrade, seawater) — v5 geodesy, '
                   '11D · channels: gravity + tidal k₂/h₂ (no induction)'),
         'bodyname': 'Europa',
@@ -1417,13 +1421,14 @@ _SBI_ARTIFACT_SLOTS = {
         'scope_note': ('Clipper v5 channel ablation: gravity + tidal k₂/h₂, '
                        'NO magnetic-induction channel (Galileo synodic support '
                        'still enters as a training-time cut). Same priors and '
-                       '(Tb,w) cache as v5 geodesy. v5 ratification '
-                       'FAILED-this-pass; do not cite as ratified.'),
+                       '(Tb,w) cache as v5 geodesy. RATIFIED (scoped) '
+                       '2026-08-06 with the v5 scope note (no dC22_nh / '
+                       'non-hydrostaticity citation from the v5 family).'),
     },
     'europa_clipper_v5_nok2_17obs_posterior_1m.pt': {
-        'artifact_status': 'not_ratified',
-        'gate_status': ('NOT RATIFIED — v5 family under gate adjudication; '
-                        'see plans/STATUS.md'),
+        'gate_status': ('RATIFIED (scoped) 2026-08-06 as ablation companion '
+                        'to v5 geodesy (same scope note); '
+                        'sbi_artifacts/INDEX.md'),
         'label': ('1D · Clipper–Europa (Andrade, seawater) — v5 geodesy, '
                   '11D · channels: gravity + induction (no tidal k₂/h₂)'),
         'bodyname': 'Europa',
@@ -1458,8 +1463,9 @@ _SBI_ARTIFACT_SLOTS = {
         }],
         'scope_note': ('Clipper v5 channel ablation: gravity + magnetic '
                        'induction, NO tidal k₂/h₂ channel. Same priors and '
-                       '(Tb,w) cache as v5 geodesy. v5 ratification '
-                       'FAILED-this-pass; do not cite as ratified.'),
+                       '(Tb,w) cache as v5 geodesy. RATIFIED (scoped) '
+                       '2026-08-06 with the v5 scope note (no dC22_nh / '
+                       'non-hydrostaticity citation from the v5 family).'),
     },
     # --- v6 "free-gravity" trio (2026-07-22 compute; reviewer PASS-WITH-
     # CONCERNS 2026-07-23). Two decisive changes vs v5: (1) CMR2 DROPPED from
@@ -1476,10 +1482,10 @@ _SBI_ARTIFACT_SLOTS = {
     # constraint. Same channel-family slicing as v5 (paired column slices of
     # one 1M dataset). ---
     'europa_clipper_v6_freegrav_11D_posterior_1m.pt': {
-        'artifact_status': 'not_ratified',
-        'gate_status': ('NOT RATIFIED — baseline gates: sbc pass, limits '
-                        'containment FAIL, crosscheck FAIL (D_iceIh_km, '
-                        'log10_wOcean_ppt); see plans/STATUS.md'),
+        'gate_status': ('RATIFIED 2026-08-06 — ALL GATES PASS: SBC 11/11 '
+                        '(n=1500, dC22_nh BH-adj p=0.85), crosscheck PASS, '
+                        'limits PASS. Owns the dC22_nh/non-hydrostaticity '
+                        'deliverable. sbi_artifacts/INDEX.md'),
         'label': ('1D · Clipper–Europa (Andrade, seawater) — v6 free-gravity, '
                   '11D · free C₂₀/C₂₂ (agnostic), CMR₂ dropped'),
         'bodyname': 'Europa',
@@ -1522,11 +1528,10 @@ _SBI_ARTIFACT_SLOTS = {
                        'SOL-A unconstrained with widened agnostic '
                        'non-hydrostatic offsets, so gravity carries ~zero '
                        'interior C/MR² information — the interior is '
-                       'constrained by k₂/h₂ + induction. Reviewer '
-                       'PASS-WITH-CONCERNS 2026-07-23 (gate "failures" are '
-                       'benign design consequences: OOD limits sweep; '
-                       'fine-shape crosscheck on weakly-identified params; '
-                       'multiplicity-expected marginal SBC). The dual C/MR² '
+                       'constrained by k₂/h₂ + induction. RATIFIED '
+                       '2026-08-06: ALL gates PASS at n_sbc=1500 vs current '
+                       'HEAD gate code (supersedes the 2026-07-23 '
+                       'PASS-WITH-CONCERNS reading). The dual C/MR² '
                        'panel shows ACTUAL (structure integral) vs '
                        'HYDROSTATIC REFERENCE (RD from C₂₂); the published '
                        'literature C/MR² is a DISPLAY reference only. NO '
@@ -1538,9 +1543,8 @@ _SBI_ARTIFACT_SLOTS = {
     # channels. default_obs reuses the baseline centrals — only names present
     # in each config's observable set are read, so extra keys are inert. ---
     'europa_clipper_v6_freegrav_noinduction_6obs_posterior_1m.pt': {
-        'artifact_status': 'not_ratified',
-        'gate_status': ('NOT RATIFIED — v6 family under gate adjudication; '
-                        'see plans/STATUS.md'),
+        'gate_status': ('RATIFIED 2026-08-06 as ablation companion to v6 '
+                        'freegrav_11D; sbi_artifacts/INDEX.md'),
         'label': ('1D · Clipper–Europa (Andrade, seawater) — v6 free-gravity, '
                   '11D · channels: gravity + tidal k₂/h₂ (no induction)'),
         'bodyname': 'Europa',
@@ -1564,9 +1568,8 @@ _SBI_ARTIFACT_SLOTS = {
                        'only (no interior-C/MR² claim until Task D, #36).'),
     },
     'europa_clipper_v6_freegrav_nok2_16obs_posterior_1m.pt': {
-        'artifact_status': 'not_ratified',
-        'gate_status': ('NOT RATIFIED — v6 family under gate adjudication; '
-                        'see plans/STATUS.md'),
+        'gate_status': ('RATIFIED 2026-08-06 as ablation companion to v6 '
+                        'freegrav_11D; sbi_artifacts/INDEX.md'),
         'label': ('1D · Clipper–Europa (Andrade, seawater) — v6 free-gravity, '
                   '11D · channels: gravity + induction (no tidal k₂/h₂)'),
         'bodyname': 'Europa',
@@ -2431,6 +2434,10 @@ def render_amortized_config():
     # --- Validated-domain guard (hard refusal, per deployment conditions) ---
     if slot.get('scope_note'):
         st.caption(f"ℹ️ {slot['scope_note']}")
+    if slot.get('gate_status'):
+        # Traceability: keep the gate verdict visible on ratified slots too,
+        # not only while a slot is held (STRATEGY.md architecture principles).
+        st.caption(f"🔬 Gate status: {slot['gate_status']}")
     domain_violations = []
     for name, (lo, hi) in (slot.get('x_obs_limits') or {}).items():
         val = x_obs.get(name)
