@@ -3,7 +3,16 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-07 (Machine B: **GATE-3 GO from Machine A → re-run + reviewer
+Updated: 2026-08-07b (Machine A: §0.15 closeout `verified` — rebuilt
+MgSO4/NaCl cache bytes RE-ACCEPTED (independent reload: counts exact, SHAs
+match gen manifests, 0 sandwiched frozen nodes, 252 K repairs confirmed);
+`ResetNearestExtrap` int-truncation fix adjudicated + landed with
+regression tests (4/4; consumer smokes 7/7). GUI: WebGL-free static globe
+fallback + SVG sample picker shipped after user report ('WebGL not
+supported'; Safari worked — browser-side WebGL, app now browser-proof);
+AppTest 9/9, static PNG visually verified. Deploy snapshot rebuilt —
+USER ships HF.)
+Prior: 2026-08-07 (Machine B: **GATE-3 GO from Machine A → re-run + reviewer
 re-adjudication complete.** Gate-3 re-run fresh on the installed REBUILT
 (float-coerced) MgSO4/NaCl caches; scientific-reviewer [agent a02a9038b2de1d382]
 independently reconstructed both grids/onsets/mass-balance/252-K-repair from the

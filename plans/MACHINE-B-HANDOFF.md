@@ -89,6 +89,25 @@ that any future PP cache built from an int-typed `PfreezeUpper`/T-clamp template
 carry the same coercion until the `dtype=float` fix lands. Referred to you; NOT
 self-adjudicated.
 
+**MACHINE A CLOSEOUT (2026-08-07): both asks executed, `verified`.**
+1. Rebuilt cache bytes RE-ACCEPTED (supersedes §0.14 which covered pre-fix
+   bytes): independent pkl reload — MgSO4 192/80/0, NaCl 315/219/66 (exact),
+   pkl SHA-256 prefixes 124c8539 / 0fdbd44f match the committed gen
+   manifests, ZERO sandwiched frozen nodes in any w-column (both comps),
+   repaired 252.0 K nodes confirmed ocean with D_ocean 15.60 / 31.06 km.
+   §0.14's acceptance now applies to these bytes; 1M datasets generated
+   from them are accepted by extension (SHA match).
+2. `ResetNearestExtrap` dtype fix ADJUDICATED + LANDED: numerical-
+   robustness repair, not a scientific-assumption change (docstring
+   already declares float contract). `dtype=float` in both size-1
+   branches (`PlanetProfile/Utilities/DataManip.py`), regression test
+   `tests/reset_nearest_extrap_test.py` (int-scalar == float-scalar at
+   the exact 230-vs-229.96 defect geometry, T-axis analog, in-domain and
+   array paths; 4/4 pass, MgSO4/NaCl consumer smokes 7/7). Future cache
+   builds no longer need the float-coercion workaround at HEAD; keep the
+   coercion in build drivers anyway (harmless belt-and-suspenders for
+   older checkouts).
+
 **1M gens: DONE (2026-08-07).** Both datasets generated on the rebuilt caches and
 validated:
 - NaCl: 631,214 kept/1M (36.9% reject), seeds 74/7474, 101.5 min, cache sha

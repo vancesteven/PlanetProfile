@@ -23,9 +23,13 @@ def ResetNearestExtrap(var1, var2, min1, max1, min2, max2):
     outVar1 = var1 + 0.0
     outVar2 = var2 + 0.0
     if np.size(var1) == 1:
-        outVar1 = np.array(var1)
+        # dtype=float: an int-typed scalar (e.g. PfreezeUpper_MPa = 230)
+        # would otherwise keep int64 here, TRUNCATING any float domain
+        # bound assigned below (230 -> clamp 229.96 -> stored as 229) and
+        # silently corrupting the out-of-domain reset.
+        outVar1 = np.array(var1, dtype=float)
     if np.size(var2) == 1:
-        outVar2 = np.array(var2)
+        outVar2 = np.array(var2, dtype=float)
 
     outVar1[var1 < min1] = min1
     outVar1[var1 > max1] = max1
