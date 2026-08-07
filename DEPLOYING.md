@@ -2,7 +2,7 @@
 
 The public GUI is served as a **Hugging Face Docker Space** from an
 auto-generated snapshot — never from this repo's dev branches. Snapshot =
-app + PlanetProfile package + serve-time data only (~205 MB; the full repo
+app + PlanetProfile package + serve-time data only (~300 MB; the full repo
 is ~3 GB and does not fit hosted serving).
 
 Public mode (`PP_PUBLIC_MODE=1`, baked into the Dockerfile) exposes
@@ -34,6 +34,15 @@ values, size cap — see `session_manager.validate_session_state`).
    automatically (~5-10 min). Live Space:
    https://huggingface.co/spaces/vsteven/planetprofile
    (app URL: https://vsteven-planetprofile.hf.space).
+
+   Two verification modes avoid an origin deployment while testing:
+
+   - `--build-only` assembles and verifies the temporary snapshot, then exits
+     before updating any local or remote deploy branch or uploading to the
+     Space.
+   - `--no-push` updates the local `app-deploy` branch but skips the
+     `origin/app-deploy` push. Explicit `DEPLOY_REPO` or Hugging Face upload
+     settings still take effect, so leave those unset for a local-only check.
 
 The script also refreshes the `app-deploy` branch here and, with
 `DEPLOY_REPO=...`, the `PlanetProfileApp-deploy` GitHub mirror. The live
@@ -93,12 +102,28 @@ deliberate redeploy.
 
 ## What's in / out of the snapshot
 
-In: `PlanetProfileApp/`, `PlanetProfile/` (minus `Test/**` except the two
-slot structure-grid pkls named by `_SBI_ARTIFACT_SLOTS`), `SPICE/`,
-`requirements.txt`, `packages.txt`, `.streamlit/`, generated `README.md` +
-`Dockerfile`. Out: `Thermodynamics/` legacy tables (2.5 GB), `papers/`,
-`plans/`, `docs/`, Test bulk. Add new serve-time data files to the script's
-copy list when a new artifact slot needs them.
+In: `PlanetProfileApp/`, `PlanetProfile/` (minus `Test/**` except the six
+structure-grid caches derived from non-placeholder `cache_path` entries in
+`_SBI_ARTIFACT_SLOTS`), `SPICE/`, `requirements.txt`, `packages.txt`,
+`.streamlit/`, generated `README.md` + `Dockerfile`. The current registry set
+is:
+
+- `PlanetProfile/Test/mcmc_results/Europa/Test51_seawater/europa_seawater_structure_grid.pkl`
+- `PlanetProfile/Test/mcmc_results/Europa/Test52_seawater_v3/europa_seawater_structure_grid_v3_2d.pkl`
+- `PlanetProfile/Test/mcmc_results/Europa/Test52_seawater_v5/europa_seawater_structure_grid_v5_2d.pkl`
+- `PlanetProfile/Test/mcmc_results/Titan/Test50_andrade_noocean_yao2014/titan_allice_yao2014_structure_grid.pkl`
+- `PlanetProfile/Test/mcmc_results/Titan/Test52_andrade_noocean_diff/titan_diff_noocean_structure_grid.pkl`
+- `PlanetProfile/Test/mcmc_results/Titan/Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl`
+
+For every derived primary cache, the script also copies any adjacent
+`.ae_sidecar.pkl` and `_offsets.json` sidecars. It then compares the staged
+primary PKLs with the registry-derived list and aborts unless the sets are
+exactly equal (`plans/scripts/build_deploy_branch.sh:55-96`). New artifact
+slots therefore declare `cache_path` in the registry; there is no manual cache
+copy list to maintain.
+
+Out: `Thermodynamics/` legacy tables (2.5 GB), `papers/`, `plans/`, `docs/`,
+and the remainder of `PlanetProfile/Test/`.
 
 ## History
 
