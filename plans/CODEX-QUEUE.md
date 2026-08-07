@@ -136,7 +136,7 @@ strings and the three central pairs; the shared manager process incorporated
 it into its concurrent commit `607c6d34` alongside unrelated WebGL work.
 Claim commit after the manager's concurrent history rewrite: `6b173c24`.
 
-### C12 — Exported-figure provenance (doc-doctor item 12) [status: in progress (Codex)]
+### C12 — Exported-figure provenance (doc-doctor item 12) [status: verified]
 
 `PlanetProfileApp/Utilities/crisp_figs.py`: embed provenance in exports —
 (a) `savefig` metadata (PDF/SVG/PNG support differs; set title/subject or
@@ -149,6 +149,26 @@ conditioning info from the results context with minimal plumbing.
 Verification: download one PDF + one PNG via AppTest or direct call,
 inspect embedded metadata (pikepdf/PIL), cite the inspection output.
 Report `verified`.
+
+**Report (Codex, 2026-08-07):** `verified`. Every crisp figure export now
+receives the active result's model-slot label, artifact filename, and exact
+conditioning values; old result pickles recover their slot from the artifact
+registry, while custom MCMC runs receive an explicit fallback label. PDF,
+SVG, and PNG metadata add that context plus the cheaply resolved app git SHA,
+without changing the matplotlib figure title. Download names now follow
+`<figure>_<slot-short>_<UTC-date>.<ext>`. Direct export inspection produced
+`k2_clipper-v5-geodesy_2026-08-07.pdf`; pikepdf reported `/Creator =
+PlanetProfileApp` and `/Subject = Model slot: 1D · Clipper–Europa — v5
+geodesy 11D; artifact: europa_clipper_v5_geodesy_11D_posterior_1m.pt;
+conditioning: C20=-0.0004355, C22=0.0001309, Re_k2=0.23; app git SHA:
+c12-test-sha`. PIL reported the same provenance in PNG `Description`, with
+`Software = PlanetProfileApp`; SVG inspection found the same subject and the
+unchanged visual title. Automatic SHA resolution matched current HEAD
+(`9d76375e` at inspection time). Representative results-page AppTest
+`tests/app_globe_panel_test.py::test_apptest_europa_v4_globe_panel` passed
+(1 passed, one pre-existing TidalPy deprecation warning). `py_compile`,
+`git diff --check`, and staged diff checks passed. Claim commit `93a93c4e`;
+implementation commit `da59b261`.
 
 ## Completed
 
