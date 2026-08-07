@@ -136,7 +136,7 @@ strings and the three central pairs; the shared manager process incorporated
 it into its concurrent commit `607c6d34` alongside unrelated WebGL work.
 Claim commit after the manager's concurrent history rewrite: `6b173c24`.
 
-### C12 — Exported-figure provenance (doc-doctor item 12) [status: queued]
+### C12 — Exported-figure provenance (doc-doctor item 12) [status: in progress (Codex)]
 
 `PlanetProfileApp/Utilities/crisp_figs.py`: embed provenance in exports —
 (a) `savefig` metadata (PDF/SVG/PNG support differs; set title/subject or
