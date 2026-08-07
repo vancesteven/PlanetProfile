@@ -1,7 +1,7 @@
 {
   "kind": "titanG_gate3_freeze_line_placement",
   "comp": "NaCl",
-  "cache": "/tmp/titan_nacl_joint_structure_grid_2d_v2.pkl",
+  "cache": "PlanetProfile/Test/mcmc_results/Titan/Test54_nacl_ocean/titan_nacl_joint_structure_grid_2d.pkl",
   "config": "PlanetProfile/Inference/configs/test54_titan_nacl_freegrav.json",
   "grid": {
     "n_Tb": 40,

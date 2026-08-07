@@ -3,7 +3,19 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-07 (Machine A manager session: **v5 RATIFIED (scoped) + v6
+Updated: 2026-08-07 (Machine B: **GATE-3 GO from Machine A → re-run + reviewer
+re-adjudication complete.** Gate-3 re-run fresh on the installed REBUILT
+(float-coerced) MgSO4/NaCl caches; scientific-reviewer [agent a02a9038b2de1d382]
+independently reconstructed both grids/onsets/mass-balance/252-K-repair from the
+bytes → **BOTH PASS, no blocking issue for flow training.** NaCl half_cell 0.500 K
+AT the 0.5 K bar (uniform 1.0 K Tb; non-strict ≤ = PASS; ocean-frac diag span
+0.0218); MgSO4 half_cell 0.250 K PASS. MgSO4 w≥150 corner diag FAIL (span 0.05)
+CONFIRMED benign (coarse-denominator, demoted metric). MgSO4 zero-None confirmed
+correct (buildable box + typed-exception retry, NOT masked failure); NaCl 66 None
+= genuine high-w/high-Tb corner. §0.15 updated. Flow TRAINING still HELD on #4
+architecture-pilot verdict. Machine A: re-verify new cache bytes + latent
+ResetNearestExtrap dtype bug (non-blocking for these caches per reviewer).
+Prior: 2026-08-07 (Machine A manager session: **v5 RATIFIED (scoped) + v6
 RATIFIED** — final adjudication appended to
 plans/active/europa-v5v6v7-gate-adjudication.md; dC22_nh recorded
 FAIL-ADJUDICATED-ACCEPTABLE (v5-local nuisance undertraining; v6 owns that

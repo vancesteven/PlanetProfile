@@ -54,11 +54,40 @@ mandatory float-coerced `PfreezeUpper_MPa=230.0` + the sandwich invariant:
 - Installed to Test/ (old bytes preserved in git history). Manifests carry
   `pfreeze_upper_float_coerced=True` + `sandwich_invariant_violations=[]`.
 
+**GATE-3 RE-ADJUDICATED ON REBUILT BYTES — both PASS (reviewer agent a02a9038b2de1d382,
+2026-08-07).** Machine A gave the go-ahead for gate-3; gate-3 was re-run fresh on the
+installed rebuilt bytes and the scientific-reviewer independently reconstructed both
+classification grids, onset structure, mass balance, and the 252 K repair from the
+`.pkl`s (not manifest-trust). Verdict: **NaCl PASS, MgSO4 PASS — gate-3 satisfied on the
+rebuilt bytes; no blocking issue for flow training.**
+- **NaCl at the bar is a PASS.** Tb grid uniform 1.0 K (`np.unique(diff)=[1.0]`) → every
+  onset cell 1.0 K → half_cell=0.500 exactly at the 0.5 K bar; non-strict `≤` is the
+  correct reading, and ocean-fraction diagnostic span 0.0218 confirms the split is not
+  grid-artifact-dominated. Tb refinement to 0.5 K near the 247–252 K onset band is
+  RECOMMENDED (non-blocking) only if NaCl posterior ocean-fraction becomes a headline.
+- **MgSO4 w≥150 corner diagnostic FAIL is benign (CONFIRMED).** Corner spans 4 columns
+  (w=160/175/185/194), all onset Tb=249.5 K with 0.5 K cell; span 0.05 is a
+  coarse-denominator artifact (one-row shift ≈ 1/16 of corner mass), exactly the demoted
+  metric — not a phantom-ocean leak. Binding corner half_cell 0.25 K passes.
+- **MgSO4 zero-None is correct, NOT a masked failure.** Prior box entirely buildable;
+  retry fires only on the typed `NoIceLiquidTransitionError` (not thin-shell/PHydroMax).
+  Reviewer inspected a frozen MgSO4 node (Tb=248, w=4.86): full HP-ice stack
+  (D_iceIh=159, III=82.8, V=154.8, VI=207.9 km), conserved Mtot=1.345e23, CMR²=0.3193.
+  NaCl's 66 None sit in the genuine high-w/high-Tb corner where even the no-ocean retry
+  fails — correctly excluded from support.
+- 252 K repair independently verified: MgSO4 (252,4.86) D_ocean=15.60 monotonic; NaCl
+  (252,4.13) D_ocean=31.056 monotonic. Prior CRITICAL flip resolved.
+
 **MACHINE A — please re-verify the NEW cache bytes** (your §0.14 acceptance was for the
 pre-fix bytes; node counts changed by +1 ocean each). **The `ResetNearestExtrap`
 int-truncation bug is a LATENT shared-thermodynamics defect** (affects ANY scalar-int
 P/T query beyond an EOS domain, not just PfreezeUpper) — the reviewer's smallest fix is
-`dtype=float` in the size-1 branch (lines 26/28). Referred to you; NOT self-adjudicated.
+`dtype=float` in the size-1 branch (lines 26/28). The gate-3 reviewer re-confirmed this
+is out of gate-3 scope and non-blocking for these caches (sandwich invariant + sampled
+monotonic D_ocean exclude any surviving discrete int-truncation artifact), but flagged
+that any future PP cache built from an int-typed `PfreezeUpper`/T-clamp template must
+carry the same coercion until the `dtype=float` fix lands. Referred to you; NOT
+self-adjudicated.
 
 **1M gens: DONE (2026-08-07).** Both datasets generated on the rebuilt caches and
 validated:
@@ -315,9 +344,11 @@ priority-b).
 Updated: 2026-08-07 (Machine B: §0.15 — Tb=252 K defect root-caused to
 ResetNearestExtrap int-truncation [reviewer-corrected from fn_phase]; BOTH
 caches REBUILT float-coerced + gate-3 BINDING PASS + installed; BOTH 1M gens
-DONE on repaired caches [NaCl 631,214 / MgSO4 691,075 kept, cache-sha verified].
-Flow TRAINING held on #4 pilot. Machine A: re-verify new cache bytes + review
-latent ResetNearestExtrap dtype bug. Prior Machine A entry:) §0.11 CLOSED — v5
+DONE on repaired caches [NaCl 631,214 / MgSO4 691,075 kept, cache-sha verified];
+GATE-3 RE-ADJUDICATED on rebuilt bytes by scientific-reviewer [agent
+a02a9038b2de1d382] — BOTH PASS, no blocking issue, NaCl-at-bar & MgSO4-zero-None
+both confirmed correct. Flow TRAINING held on #4 pilot. Machine A: re-verify new
+cache bytes + review latent ResetNearestExtrap dtype bug. Prior Machine A entry:) §0.11 CLOSED — v5
 RATIFIED scoped + v6
 RATIFIED, GUI ungated, deploy snapshot rebuilt; §0.14 added — MgSO4/NaCl
 caches ACCEPTED, per-comp gate-3 + 1M dataset gens GO, flow training still
