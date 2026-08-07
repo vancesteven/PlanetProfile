@@ -114,5 +114,12 @@
  "extrap_ceiling_rejects": null,
  "rho_nonmonotone_nodes": null,
  "mgso4_table_Pmax_MPa": null,
- "mgso4_extrap_ceiling_MPa": null
+ "mgso4_extrap_ceiling_MPa": null,
+ "none_node_reason_class_2026_08_07": {
+  "n_none": 67,
+  "dominant_class": "warm/high-w no-ice-lid corner (bottom-right of the has_ocean map: high Tb + high w). The ocean is warm enough that no ice-Ih lid forms; the retry_frozen_as_no_ocean NO_OCEAN_EXCEPT_INNER_ICES retry raises a distinct water1->water1 no-ice-lid ValueError (NOT NoIceLiquidTransitionError) and the node is stored None = correctly EXCLUDED support, exactly as grid_interp_2d treats all-None regions. Matches the config 'phase_stability_dropped_reason' + retry_corner_discriminator evidence (validation_reports/titan_saltcaches/nacl_corner_discriminator.json).",
+  "minor_class": "a few isolated diagonal-edge None cells adjacent to the tilted onset (e.g. Tb=235-236 at w=180.8; Tb=252 at w=4.13) where the coarse 1 K x log-w grid straddles the ocean/no-ice-lid edge; also correctly excluded (no phantom no-ocean tag).",
+  "verification": "retry-corner discriminator PASS both diagonal corners (validation_reports/titan_saltcaches/nacl_corner_discriminator.json): cold corner retries to a physical frozen no-ocean interior; warm/high-w corner -> None, never a phantom no-ocean tag.",
+  "recorded_by": "Machine B, \u00a70.14 item 2 (Machine A 2026-08-07)"
+ }
 }

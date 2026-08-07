@@ -1,0 +1,101 @@
+{
+ "cold_corner": [
+  {
+   "Tb": 233.0,
+   "w": 1.0,
+   "has_ocean": false,
+   "D_ocean_km": 0.0,
+   "D_iceIh_km": 156.56904199536282,
+   "region_phases": [
+    "Sil",
+    "VI",
+    "V",
+    "III",
+    "II",
+    "Ih",
+    "Ih_conv",
+    "Ih"
+   ]
+  },
+  {
+   "Tb": 233.0,
+   "w": 10.0,
+   "has_ocean": false,
+   "D_ocean_km": 0.0,
+   "D_iceIh_km": 156.56904199536282,
+   "region_phases": [
+    "Sil",
+    "VI",
+    "V",
+    "III",
+    "II",
+    "Ih",
+    "Ih_conv",
+    "Ih"
+   ]
+  },
+  {
+   "Tb": 235.0,
+   "w": 1.0,
+   "has_ocean": false,
+   "D_ocean_km": 0.0,
+   "D_iceIh_km": 157.84757092081662,
+   "region_phases": [
+    "Sil",
+    "VI",
+    "V",
+    "III",
+    "II",
+    "Ih",
+    "Ih_conv",
+    "Ih"
+   ]
+  },
+  {
+   "Tb": 235.0,
+   "w": 10.0,
+   "has_ocean": false,
+   "D_ocean_km": 0.0,
+   "D_iceIh_km": 157.84757092081662,
+   "region_phases": [
+    "Sil",
+    "VI",
+    "V",
+    "III",
+    "II",
+    "Ih",
+    "Ih_conv",
+    "Ih"
+   ]
+  }
+ ],
+ "warm_highw_corner": [
+  {
+   "Tb": 247.0,
+   "w": 250.0,
+   "has_ocean": true,
+   "D_ocean_km": 714.238877293257,
+   "D_iceIh_km": 16.3939351464957,
+   "region_phases": [
+    "Sil",
+    "0",
+    "Ih"
+   ]
+  },
+  {
+   "Tb": 247.0,
+   "w": 290.0,
+   "node": "None"
+  },
+  {
+   "Tb": 250.0,
+   "w": 250.0,
+   "node": "None"
+  },
+  {
+   "Tb": 250.0,
+   "w": 290.0,
+   "node": "None"
+  }
+ ]
+}

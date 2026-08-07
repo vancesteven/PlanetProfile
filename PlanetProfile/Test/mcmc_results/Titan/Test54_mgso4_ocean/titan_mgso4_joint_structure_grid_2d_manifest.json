@@ -338,5 +338,23 @@
   0.14,
   0.17
  ],
- "mgso4_ceiling_provenance": "1400 MPa = production PPTitan deepest w=194 node (~1371) + margin; linear extrap verified monotone/stiffening to 1500 MPa, projection error ~1.5% at ceiling (water-benchmarked); reviewer a3c9ed8ae24664527 2026-08-06 raised from 1200 (probe-sized) to preserve the w=194 cap."
+ "mgso4_ceiling_provenance": "1400 MPa = production PPTitan deepest w=194 node (~1371) + margin; linear extrap verified monotone/stiffening to 1500 MPa, projection error ~1.5% at ceiling (water-benchmarked); reviewer a3c9ed8ae24664527 2026-08-06 raised from 1200 (probe-sized) to preserve the w=194 cap.",
+ "isolated_frozen_node_2026_08_07": {
+  "node": {
+   "Tb_K": 252.0,
+   "wOcean_ppt": 4.8567,
+   "grid_index": [
+    8,
+    3
+   ],
+   "has_ocean": false
+  },
+  "neighbors": {
+   "cold_Tb251.5": "ocean",
+   "warm_Tb252.5": "ocean"
+  },
+  "class": "borderline-liquidus numerics \u2014 a single-node Tb non-monotonicity (frozen cell with both Tb-neighbors ocean) at mid-dilute salinity, FAR from the excluded w>=180 Margules island and outside the w>=150 corner sub-test.",
+  "gate3_impact": "the gate-3 half-cell Tb-shift DOES sweep across this cell (both neighbors ocean); its standalone contribution to the 0.0500 placement-band span is EXACTLY 0.00000 (verified: forcing this node to ocean leaves span unchanged). The span is dominated by the flat-onset geometry (span = dTb/Tb_box_width), not this cell.",
+  "recorded_by": "Machine B, \u00a70.14 item 1 (Machine A 2026-08-07)"
+ }
 }
