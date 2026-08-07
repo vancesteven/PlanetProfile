@@ -1,0 +1,49 @@
+{
+  "kind": "titanG_gate3_freeze_line_half_cell_shift",
+  "comp": "NaCl",
+  "cache": "PlanetProfile/Test/mcmc_results/Titan/Test54_nacl_ocean/titan_nacl_joint_structure_grid_2d.pkl",
+  "config": "PlanetProfile/Inference/configs/test54_titan_nacl_freegrav.json",
+  "grid": {
+    "n_Tb": 40,
+    "n_w": 15,
+    "Tb_range_K": [
+      233.0,
+      272.0
+    ],
+    "w_range_ppt": [
+      1.0,
+      290.0
+    ],
+    "dTb_median_K": 1.0,
+    "half_cell_K": 0.5,
+    "n_ocean_nodes": 314,
+    "n_frozen_nodes": 219,
+    "n_none_nodes": 67
+  },
+  "prior_box": {
+    "Tb_K": [
+      233.0,
+      272.0
+    ],
+    "log10_wOcean_ppt": [
+      0.0,
+      2.4624
+    ]
+  },
+  "eval_grid": {
+    "n_tb": 4000,
+    "n_w": 800,
+    "n_buildable_support_points": 2899504
+  },
+  "ocean_fraction": {
+    "nominal": 0.5927082701041282,
+    "boundary_cold_shift_-half": 0.5818394266633086,
+    "boundary_warm_shift_+half": 0.6036321222209301,
+    "placement_band_span": 0.021792695557621533,
+    "placement_half_span": 0.010896347778810767,
+    "max_deviation_from_nominal": 0.010923852116801913
+  },
+  "threshold_provisional": 0.03,
+  "advisory_verdict": "PASS",
+  "verdict_note": "ADVISORY only. span = |ocean_frac(freeze line -half cell) - ocean_frac(+half cell)|; the scientific-reviewer sets the binding bar and adjudicates. NOT a tuned gate."
+}

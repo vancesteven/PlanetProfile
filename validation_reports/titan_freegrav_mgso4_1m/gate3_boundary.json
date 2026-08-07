@@ -1,0 +1,63 @@
+{
+  "kind": "titanG_gate3_freeze_line_half_cell_shift",
+  "comp": "MgSO4",
+  "cache": "PlanetProfile/Test/mcmc_results/Titan/Test54_mgso4_ocean/titan_mgso4_joint_structure_grid_2d.pkl",
+  "config": "PlanetProfile/Inference/configs/test54_titan_mgso4_freegrav.json",
+  "grid": {
+    "n_Tb": 17,
+    "n_w": 16,
+    "Tb_range_K": [
+      248.0,
+      258.0
+    ],
+    "w_range_ppt": [
+      1.0,
+      194.0
+    ],
+    "dTb_median_K": 0.5,
+    "half_cell_K": 0.25,
+    "n_ocean_nodes": 191,
+    "n_frozen_nodes": 81,
+    "n_none_nodes": 0
+  },
+  "prior_box": {
+    "Tb_K": [
+      248.0,
+      258.0
+    ],
+    "log10_wOcean_ppt": [
+      0.0,
+      2.2878
+    ]
+  },
+  "eval_grid": {
+    "n_tb": 4000,
+    "n_w": 800,
+    "n_buildable_support_points": 3200000
+  },
+  "ocean_fraction": {
+    "nominal": 0.7385,
+    "boundary_cold_shift_-half": 0.7135,
+    "boundary_warm_shift_+half": 0.7635,
+    "placement_band_span": 0.04999999999999993,
+    "placement_half_span": 0.024999999999999967,
+    "max_deviation_from_nominal": 0.025000000000000022
+  },
+  "threshold_provisional": 0.03,
+  "advisory_verdict": "FAIL",
+  "verdict_note": "ADVISORY only. span = |ocean_frac(freeze line -half cell) - ocean_frac(+half cell)|; the scientific-reviewer sets the binding bar and adjudicates. NOT a tuned gate.",
+  "corner": {
+    "w_min_ppt": 150.0,
+    "log10_w_min": 2.1760912590556813,
+    "n_buildable_support_points": 160000,
+    "ocean_fraction": {
+      "nominal": 0.875,
+      "boundary_cold_shift_-half": 0.85,
+      "boundary_warm_shift_+half": 0.9,
+      "placement_band_span": 0.050000000000000044,
+      "max_deviation_from_nominal": 0.025000000000000022
+    },
+    "advisory_verdict": "FAIL",
+    "note": "MgSO4 w>=150 corner: catches a phantom-ocean leak near the onset (reviewer launch-condition 2)."
+  }
+}
