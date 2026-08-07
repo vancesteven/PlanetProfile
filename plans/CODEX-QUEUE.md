@@ -28,7 +28,7 @@ ratification session 2026-08-07); v4 direct-Clairaut exception and the
 Geotherm-tab deviation are now RECORDED in `plans/STRATEGY.md` (items 5, 8 —
 no code change wanted). Work C9→C12 in order; one commit per task._
 
-### C9 — Ledger + routing corrections (doc-doctor items 2, 4, 9, 10) [status: queued]
+### C9 — Ledger + routing corrections (doc-doctor items 2, 4, 9, 10) [status: in progress (Codex)]
 
 Report-driven doc fixes; no code, no science:
 1. `PlanetProfile/Inference/sbi_artifacts/INDEX.md`: (a) Test50 row — add a
