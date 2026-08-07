@@ -217,16 +217,36 @@ def main() -> None:
     print(f"  out={args.out}", flush=True)
 
     from PlanetProfile.Inference import cache_builder as _cb
+    # MANDATORY float coercion of PfreezeUpper_MPa (Machine B 2026-08-07 root-cause;
+    # scientific-reviewer ab2d3748d0b00c78c PROCEED). PPTitan ships
+    # Planet.PfreezeUpper_MPa = 230 as a Python INT. The melt-EOS grid
+    # np.arange(PfreezeLower, PfreezeUpper, PfreezeRes) has Pmax=229.96 < 230, so
+    # GetPfreeze's upper search endpoint P=230 always exceeds Pmax and is clamped
+    # by ResetNearestExtrap (DataManip.py:15-35). Its size-1 branch (line 26,
+    # outVar1=np.array(var1)) preserves the int64 dtype, so assigning the float
+    # bound 229.96 into that int array TRUNCATES to 229 -> phase evaluates liquid
+    # instead of ice III -> GetPfreeze routes to a failing GetZero bracket ->
+    # NoIceLiquidTransitionError -> the onset node one step into the ocean region
+    # is mislabeled frozen (MgSO4) / None (NaCl). Passing PfreezeUpper as a float
+    # forces the clamp to 229.96 (ice III) -> the brute-force scan finds the real
+    # Ih->liquid transition ~200 MPa -> a genuine ocean. VERIFIED to repair EXACTLY
+    # the two Tb=252 K defect nodes (MgSO4 w=4.857 -> OCEAN D=15.60; NaCl w=4.127 ->
+    # OCEAN D=31.06) with every other node byte-identical and the genuine frozen
+    # onset preserved. This is a SYMPTOMATIC cache-build fix; the underlying
+    # ResetNearestExtrap int-truncation bug (which affects ANY scalar-int P/T query
+    # beyond the EOS domain) is referred to Machine A as a shared-thermodynamics
+    # correction (dtype=float in the size-1 branch). See
+    # validation_reports/titan_saltcaches/tb252_rootcause_2026_08_07.json.
+    planet_overrides = {"PfreezeUpper_MPa": 230.0}
     # Optionally override the ice-Ih/liquid boundary search resolution.
     # Production uses the fine default (reviewer launch-condition 3); the probe's
     # 2 MPa is scan-only. build_tbw_grid_cache pulls PfreezeRes_MPa from the
     # template, so an override is only needed for a deliberate coarse test.
     if args.pfreeze_res is not None:
         print(f"  PfreezeRes_MPa override -> {args.pfreeze_res}", flush=True)
-        # Threaded via planet_overrides so it reaches the deep-copied Planet.
-        planet_overrides = {"PfreezeRes_MPa": float(args.pfreeze_res)}
-    else:
-        planet_overrides = None
+        planet_overrides["PfreezeRes_MPa"] = float(args.pfreeze_res)
+    print(f"  planet_overrides -> {planet_overrides}  (PfreezeUpper float-coerced)",
+          flush=True)
 
     t0 = time.time()
     cache = _cb.build_tbw_grid_cache(
@@ -264,6 +284,34 @@ def main() -> None:
     print("  has_ocean map (rows=Tb asc, cols=w asc; O=ocean F=frozen-no-ocean N=None):", flush=True)
     for it, r in enumerate(rows):
         print(f"    Tb={Tb[it]:6.1f}  {r}", flush=True)
+
+    # --- Sandwich invariant (reviewer ab2d3748d0b00c78c, 2026-08-07) ---
+    # No None or frozen (has_ocean=False) node may lie between two ocean nodes in
+    # a single w-column (Tb ascending). This catches the Tb=252 K int/float
+    # ResetNearestExtrap truncation artifact and any future endpoint-clamp
+    # regression: a genuine freeze onset is a single monotone F/N -> O transition
+    # per column, so an ocean ABOVE and BELOW a non-ocean node is unphysical.
+    sandwich_violations = []
+    for iw in range(n_w):
+        col_cls = []  # (iT, 'O'/'F'/'N')
+        for it in range(len(Tb)):
+            s = structs[it * n_w + iw]
+            c = "N" if s is None else ("O" if s.get("has_ocean") is True else "F")
+            col_cls.append(c)
+        ocean_iTs = [i for i, c in enumerate(col_cls) if c == "O"]
+        if len(ocean_iTs) >= 2:
+            lo, hi = min(ocean_iTs), max(ocean_iTs)
+            for it in range(lo + 1, hi):
+                if col_cls[it] != "O":
+                    sandwich_violations.append(
+                        (float(Tb[it]), float(w[iw]), col_cls[it]))
+    if sandwich_violations:
+        print(f"  *** SANDWICH INVARIANT VIOLATED at {sandwich_violations} "
+              f"(non-ocean node between two ocean nodes in a w-column — "
+              f"int/float clamp artifact or onset regression) ***", flush=True)
+    else:
+        print("  sandwich invariant OK (no non-ocean node between two ocean "
+              "nodes in any w-column).", flush=True)
 
     # MgSO4 island invariant: no cached node with w>=180 AND Tb<248 may be ocean.
     invariant_violations = []
@@ -366,6 +414,16 @@ def main() -> None:
         "n_nodes": len(structs), "n_ocean": n_ocean, "n_no_ocean": n_no_ocean,
         "n_none": n_none, "extrap_ocean": extrap_ocean,
         "has_ocean_map_Tb_rows": rows, "build_wall_min": round(wall_min, 1),
+        "pfreeze_upper_float_coerced": True,
+        "pfreeze_upper_MPa": 230.0,
+        "sandwich_invariant_violations": sandwich_violations,
+        "tb252_int_float_fix_provenance": (
+            "PfreezeUpper_MPa float-coerced (was int 230 in PPTitan template) to "
+            "avoid ResetNearestExtrap size-1 int-dtype truncation (229.96->229) that "
+            "mislabeled the Tb=252 K onset node frozen/None. Machine B root-cause + "
+            "scientific-reviewer ab2d3748d0b00c78c PROCEED, 2026-08-07. See "
+            "validation_reports/titan_saltcaches/tb252_rootcause_2026_08_07.json."
+        ),
         "island_invariant_violations": invariant_violations if comp == "MgSO4" else None,
         "eos_extrapolated_mild_nodes": eos_extrap_nodes if comp == "MgSO4" else None,
         "eos_extrapolated_deep_nodes": eos_extrap_deep_nodes if comp == "MgSO4" else None,
