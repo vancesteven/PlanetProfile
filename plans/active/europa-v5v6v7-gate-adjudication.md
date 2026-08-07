@@ -16,6 +16,8 @@ decomposition and validated it against committed reports). Vocabulary per the
 
 GUI consequence: the `cb597490` not-ratified gating stays in force for ALL
 v5/v6 slots (v7 was never wired). Nothing is ratified today.
+**SUPERSEDED for v5/v6 by the Final ratification addendum (2026-08-06) at the
+bottom of this file: v5 RATIFIED (scoped) + v6 RATIFIED; gating lifted.**
 
 ## Key evidence
 
@@ -123,3 +125,40 @@ the open reference question and correct one claim above:
 - All §0.7 crosscheck re-evaluations target the pooled fresh references;
   the preregistered v5 shape-excess floor is 0.36 km (2× the empirical
   0.18 km between-seed floor, per reviewer).
+
+## Final ratification — 2026-08-06 (manager, after B1/B2/B6 vs fresh pooled reference)
+
+Inputs: §0.11 of MACHINE-B-HANDOFF; `validation_reports/v5_gate_summary.json`
+(carries `reviewer_adjudication_2026_08_06`), `v6_gate_summary.json`, per-arm
+dirs. Machine A spot-verified the headline numbers against
+`europa_clipper_v5_baseline_1m/sbc/sbc_report.json` (dC22_nh raw p=0.0016779,
+BH-adj 0.0184566, c2st 0.5547; 621 kept pairs) — matches B's report.
+
+**v5: RATIFIED (scoped).** SBC at n=1500: 10/11 PASS;
+`dC22_nh = FAIL-ADJUDICATED-ACCEPTABLE` — a real, mild, v5-flow-specific
+undertraining of the most sharply compressed nuisance (prior/σ ~100:1;
+monotone rank-CDF deviation; v6's identical nuisance passes p=0.61, so not a
+free-gravity-family defect; the B2 n→1500 fix exposed it, old n=108 masked it).
+The deployed deliverable (D_iceIh / ocean state / salinity) is doubly
+validated: SBC-clean marginals (D_iceIh p=0.996, log10_w p=0.279) AND
+crosscheck PASS vs the fresh pooled n_eff≈2000 reference with D_iceIh
+d_excess 0.0171 ≤ 0.0281 even WITHOUT the preregistered 0.36 km floor.
+Mandatory scope note in the GUI: dC22_nh marginal and any
+non-hydrostaticity readout are NOT v5 deliverables — deferred to v6, which
+owns them cleanly. A 2nd-seed SBC persistence check is queued NON-BLOCKING
+(confirmation, not a ship gate; no retrain warranted for the deployed
+deliverable).
+
+**v6: RATIFIED.** All gates PASS at HEAD: SBC 11/11 at n=1500 (dC22_nh
+BH-adj p=0.85), crosscheck PASS (stock, no floor), limits PASS.
+
+**B6 (limits anchor): N/A-by-domain for v5+v6** — the reachable Europa Im_k2
+window sits entirely below the 0.15 MCMC-falsified boundary, so the anchor
+set is empty; the single free anchor (Im_k2=0.004) already passes W1 on the
+pooled reference. Recorded as domain-limited N/A, not a skipped gate. Tb_K is
+derived (PCHIP inversion of D_iceIh), not sampled — no SBC row; summaries
+carry the explicit `derived_params_sbc_na.Tb_K` statement.
+
+**GUI consequence:** `cb597490` not-ratified gating LIFTED for the six v5/v6
+slots. v5 slots carry the scope note above; v6 slots ship clean. v7 remains
+BLOCKED pending B4/B5 (unchanged).
