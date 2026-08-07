@@ -60,10 +60,23 @@ int-truncation bug is a LATENT shared-thermodynamics defect** (affects ANY scala
 P/T query beyond an EOS domain, not just PfreezeUpper) — the reviewer's smallest fix is
 `dtype=float` in the size-1 branch (lines 26/28). Referred to you; NOT self-adjudicated.
 
-**1M gens: now UNBLOCKED by gate-3** (both binding-PASS), but still gated by §0.10/§0.12
-on the per-composition quarantine + the #4 pilot verdict for flow TRAINING. Dataset gen
-(architecture-independent) is clear on the rebuilt caches: NaCl seeds 74/7474/74, MgSO4
-73/7373/73.
+**1M gens: DONE (2026-08-07).** Both datasets generated on the rebuilt caches and
+validated:
+- NaCl: 631,214 kept/1M (36.9% reject), seeds 74/7474, 101.5 min, cache sha
+  0fdbd44f… MATCHES installed Test/ bytes.
+- MgSO4: 691,075 kept/1M (30.9% reject = NH3 precedent 31%), seeds 73/7373, 112.3 min,
+  cache sha 124c8539… MATCHES installed Test/ bytes.
+Datasets (~83/91 MB) stay in `/tmp/titanG_build/datasets/titanG_{nacl,mgso4}_1m.npz`
+(ephemeral — regenerable from committed seed+cache); gen manifests committed at
+`validation_reports/titan_freegrav_{nacl,mgso4}_1m/gen_manifest.json` (commit 099b8429).
+Driver `plans/scripts/titanG_ocean_gen_dataset.py --comp {NaCl,MgSO4}` (commit 90edf5c2).
+
+**Flow TRAINING remains HELD** on the #4 architecture-pilot verdict + per-composition
+quarantine re-verification (§0.10/§0.12). Next once training unblocks: train each flow
+(separate process from PP gen — libomp), fresh reference MCMC per composition on
+{C20,C22,Re_k2,Im_k2}, then SBC/crosscheck/limits + pushforward gates. NOTE: a reboot
+wipes the /tmp datasets — regenerate with the committed driver+seeds before training if
+this machine restarts.
 
 ## 0.10 PRODUCTION AUTHORIZATION (user + manager, 2026-08-06) — MgSO4/NaCl proceed in parallel with the architecture pilot
 
@@ -301,10 +314,11 @@ priority-b).
 
 Updated: 2026-08-07 (Machine B: §0.15 — Tb=252 K defect root-caused to
 ResetNearestExtrap int-truncation [reviewer-corrected from fn_phase]; BOTH
-caches REBUILT with float-coerced PfreezeUpper + sandwich invariant, gate-3
-BINDING PASS [MgSO4 0.25K, NaCl 0.5K], installed to Test/. Machine A: re-verify
-new bytes + review the latent ResetNearestExtrap dtype bug. Prior Machine A
-entry:) §0.11 CLOSED — v5 RATIFIED scoped + v6
+caches REBUILT float-coerced + gate-3 BINDING PASS + installed; BOTH 1M gens
+DONE on repaired caches [NaCl 631,214 / MgSO4 691,075 kept, cache-sha verified].
+Flow TRAINING held on #4 pilot. Machine A: re-verify new cache bytes + review
+latent ResetNearestExtrap dtype bug. Prior Machine A entry:) §0.11 CLOSED — v5
+RATIFIED scoped + v6
 RATIFIED, GUI ungated, deploy snapshot rebuilt; §0.14 added — MgSO4/NaCl
 caches ACCEPTED, per-comp gate-3 + 1M dataset gens GO, flow training still
 HELD on per-composition quarantine re-verification; two non-blocking record
