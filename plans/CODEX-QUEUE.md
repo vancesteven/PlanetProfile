@@ -71,7 +71,7 @@ check: 6/6 changed references resolve”; “Deploy cache documentation check:
 entry points tracked”; `git diff --cached --check: PASS`. Claim commit
 `9cee9c90`; implementation commit `8f969076`.
 
-### C10 — GUI assumption-text contradictions (doc-doctor items 6, 7) [status: in progress (Codex)]
+### C10 — GUI assumption-text contradictions (doc-doctor items 6, 7) [status: verified]
 
 Three factual corrections + one caption, text-only (no behavior change):
 1. `Inference.py:2517-2523` shared build-up expander: "nearest Tb grid
@@ -89,6 +89,19 @@ Three factual corrections + one caption, text-only (no behavior change):
    sits) — one short clause each, mirroring the existing disclosure style.
 Verification: AppTest render of the expander + one results page asserting
 the new strings; app suite still green. Report `verified`.
+
+**Report (Codex, 2026-08-07):** `verified`. The shared build-up expander now
+describes transition-aware between-node structure blending (linear in Tb for
+1D list caches and bilinear in Tb/log-salinity for 2D caches). Per-run text
+now names pocoMC and reports the loaded config's gravity forward model;
+`clairaut_hydrostatic` is described as direct Clairaut integration rather
+than Radau–Darwin. Added the required short bilinear-blending clause to the
+radial-profile, wedge, heating, and mineralogy captions. AppTest asserts the
+new expander text, all four result-caption disclosures, pocoMC, and
+config-conditional Clairaut wording: `tests/app_globe_panel_test.py` — 8
+passed (10 pre-existing warnings) with a task-specific writable Numba cache.
+`py_compile` and `git diff --check` passed. Claim commit `4776a320`;
+implementation commit `7f5f3836`.
 
 ### C11 — Scope-note numerical priors + config-exact centrals (doc-doctor item 3) [status: queued]
 
