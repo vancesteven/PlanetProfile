@@ -103,7 +103,7 @@ passed (10 pre-existing warnings) with a task-specific writable Numba cache.
 `py_compile` and `git diff --check` passed. Claim commit `4776a320`;
 implementation commit `7f5f3836`.
 
-### C11 — Scope-note numerical priors + config-exact centrals (doc-doctor item 3) [status: in progress (Codex)]
+### C11 — Scope-note numerical priors + config-exact centrals (doc-doctor item 3) [status: verified]
 
 1. Add numerical headline-prior ranges to the scope notes missing them:
    Test50 (`Inference.py:1088`), Galileo v1.1 (`:1274`), v4 (`:1320`),
@@ -121,6 +121,20 @@ escalate (protocol 4) — no silent corrections.
 Verification: AppTest asserting a prior range renders in each touched scope
 note; diff shows only scope-note strings + the three centrals. Report
 `verified`.
+
+**Report (Codex, 2026-08-07):** `verified`. Added config-exact headline
+prior ranges to all nine requested Test50, Galileo v1.1, v4, v5, and v6
+scope notes. Test50 now states its two-channel conditioning and the campaign's
+documented CMR2 exclusion (core-blind 2.5e-5 span = 0.025 observational
+sigma; production MCMC used the same two channels). Replaced C20/C22 in all
+three v5 registry entries with the exact config literals
+`-4.57888786233524e-4` / `1.3775234242885802e-4`. A direct AppTest rendered
+9/9 touched scope notes with their expected ranges; an AST/config comparison
+reported “3/3 slots exact for C20 and C22”; `py_compile` and `git diff
+--check` passed. The selectively staged C11 patch contained only scope-note
+strings and the three central pairs; the shared manager process incorporated
+it into its concurrent commit `607c6d34` alongside unrelated WebGL work.
+Claim commit after the manager's concurrent history rewrite: `6b173c24`.
 
 ### C12 — Exported-figure provenance (doc-doctor item 12) [status: queued]
 
