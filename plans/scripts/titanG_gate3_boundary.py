@@ -97,6 +97,38 @@ def _load_grid(cache_path):
     return Tb, w, cls, cache.get("ocean_comp")
 
 
+def _onset_local_dTb(Tb_nodes, cls):
+    """Local Tb spacing straddling the FROZEN/NONE -> OCEAN onset, per w-column.
+
+    Reviewer ab2d3748d0b00c78c (2026-08-07): the BINDING gate-3 quantity is the
+    absolute onset-temperature placement uncertainty = half the LOCAL Tb cell
+    spanning the freeze transition, NOT the global median(dTb) (which understates
+    the half-cell if the onset happens to sit in a coarse band) and NOT the
+    ocean-fraction span (which penalizes a narrow prior box and inverts the true
+    ranking). Returns (max_local_dTb, per_column_list). For each column with at
+    least one OCEAN node and one non-OCEAN node below it, the onset cell is the
+    (Tb[i], Tb[i+1]) pair where cls flips non-ocean -> ocean with increasing Tb;
+    local dTb = Tb[i+1]-Tb[i]. half_cell_K = max over columns / 2 (worst-case
+    placement uncertainty across the salinity axis).
+    """
+    n_T, n_w = cls.shape
+    per_col = []
+    for j in range(n_w):
+        col = cls[:, j]
+        ocean_iTs = np.where(col == OCEAN)[0]
+        if ocean_iTs.size == 0:
+            continue
+        first_ocean = int(ocean_iTs.min())
+        if first_ocean == 0:
+            continue  # onset at/below grid floor; no straddling cell in-box
+        # onset cell straddles the first ocean node and the node just below it
+        local = float(Tb_nodes[first_ocean] - Tb_nodes[first_ocean - 1])
+        per_col.append({"iw": j, "onset_Tb_K": float(Tb_nodes[first_ocean]),
+                        "local_dTb_K": local})
+    max_local = max((c["local_dTb_K"] for c in per_col), default=float("nan"))
+    return max_local, per_col
+
+
 def _ocean_frac(Tb_nodes, logw_nodes, cls, tb_eval, logw_eval, shift_tb,
                 corner_logw_min=None):
     """Nearest-node ocean fraction over the fine (tb_eval x logw_eval) grid,
@@ -149,7 +181,10 @@ def main():
     ap.add_argument("--n-tb", type=int, default=4000)
     ap.add_argument("--n-w", type=int, default=800)
     ap.add_argument("--threshold", type=float, default=0.03,
-                    help="PROVISIONAL half-cell placement-band bar (reviewer adjudicates)")
+                    help="secondary/diagnostic ocean-fraction span bar (reviewer adjudicates)")
+    ap.add_argument("--half-cell-bar-K", type=float, default=0.5,
+                    help="BINDING absolute onset-placement bar: max local half-cell in K "
+                         "(reviewer ab2d3748d0b00c78c 2026-08-07: <= 0.5 K)")
     args = ap.parse_args()
 
     Tb, w, cls, comp = _load_grid(args.cache)
@@ -160,6 +195,11 @@ def main():
 
     logw_nodes = np.log10(w)
     dTb_med = float(np.median(np.diff(Tb)))
+    # BINDING metric: local onset half-cell in absolute Kelvin (reviewer).
+    max_local_dTb, onset_cols = _onset_local_dTb(Tb, cls)
+    half_cell_K = 0.5 * max_local_dTb
+    # SECONDARY diagnostic: the ocean-fraction span uses the global median dTb
+    # (unchanged, so the two reports stay comparable to the pre-fix numbers).
     half = 0.5 * dTb_med
 
     tb_eval = np.linspace(tb_lo, tb_hi, args.n_tb)
@@ -175,8 +215,23 @@ def main():
     span = abs(fcold - fwarm)
     max_dev = max(abs(fcold - f0), abs(fwarm - f0))
 
+    # sandwich check on the classification grid (no non-ocean node between two
+    # ocean nodes in a w-column) — mirrors the build-driver invariant.
+    sandwich_violations = []
+    for j in range(len(w)):
+        col = cls[:, j]
+        ocean_iTs = np.where(col == OCEAN)[0]
+        if ocean_iTs.size >= 2:
+            for it in range(int(ocean_iTs.min()) + 1, int(ocean_iTs.max())):
+                if col[it] != OCEAN:
+                    sandwich_violations.append(
+                        [float(Tb[it]), float(w[j]), int(col[it])])
+
+    binding_pass = (half_cell_K <= args.half_cell_bar_K
+                    and len(sandwich_violations) == 0)
+
     result = {
-        "kind": "titanG_gate3_freeze_line_half_cell_shift",
+        "kind": "titanG_gate3_freeze_line_placement",
         "comp": comp,
         "cache": args.cache,
         "config": args.config,
@@ -184,7 +239,7 @@ def main():
             "n_Tb": int(len(Tb)), "n_w": int(len(w)),
             "Tb_range_K": [float(Tb.min()), float(Tb.max())],
             "w_range_ppt": [float(w.min()), float(w.max())],
-            "dTb_median_K": dTb_med, "half_cell_K": half,
+            "dTb_median_K": dTb_med,
             "n_ocean_nodes": int((cls == OCEAN).sum()),
             "n_frozen_nodes": int((cls == FROZEN).sum()),
             "n_none_nodes": int((cls == NONE).sum()),
@@ -192,19 +247,41 @@ def main():
         "prior_box": {"Tb_K": [tb_lo, tb_hi], "log10_wOcean_ppt": [lw_lo, lw_hi]},
         "eval_grid": {"n_tb": args.n_tb, "n_w": args.n_w,
                       "n_buildable_support_points": n_build},
-        "ocean_fraction": {
+        "PRIMARY_binding_onset_placement": {
+            "half_cell_K": half_cell_K,
+            "max_local_dTb_K": max_local_dTb,
+            "bar_K": args.half_cell_bar_K,
+            "pass": bool(half_cell_K <= args.half_cell_bar_K),
+            "per_column_onset": onset_cols,
+            "note": ("BINDING metric (reviewer ab2d3748d0b00c78c 2026-08-07): "
+                     "absolute onset-temperature placement uncertainty = half the "
+                     "LOCAL Tb cell spanning the freeze onset, worst-case over w. "
+                     "Replaces the box-fraction span as the launch gate."),
+        },
+        "sandwich_invariant": {
+            "violations": sandwich_violations,
+            "pass": bool(len(sandwich_violations) == 0),
+            "note": ("no None/frozen node between two ocean nodes in a w-column; "
+                     "catches the Tb=252 K int/float clamp artifact + regressions."),
+        },
+        "ocean_fraction_DIAGNOSTIC": {
+            "half_cell_K_global_median": half,
             "nominal": f0,
             "boundary_cold_shift_-half": fcold,
             "boundary_warm_shift_+half": fwarm,
             "placement_band_span": span,
             "placement_half_span": span / 2.0,
             "max_deviation_from_nominal": max_dev,
+            "note": ("SECONDARY/diagnostic only (reviewer): the fraction span "
+                     "penalizes a narrow prior box and inverts the true placement "
+                     "ranking. Reported for continuity with pre-fix numbers; NOT "
+                     "the binding gate."),
         },
-        "threshold_provisional": args.threshold,
-        "advisory_verdict": "PASS" if span <= args.threshold else "FAIL",
-        "verdict_note": ("ADVISORY only. span = |ocean_frac(freeze line -half cell) "
-                         "- ocean_frac(+half cell)|; the scientific-reviewer sets the "
-                         "binding bar and adjudicates. NOT a tuned gate."),
+        "threshold_provisional_span": args.threshold,
+        "binding_verdict": "PASS" if binding_pass else "FAIL",
+        "verdict_note": ("Binding PASS requires half_cell_K <= bar_K AND zero "
+                         "sandwich violations. Ocean-fraction span is diagnostic "
+                         "only. Scientific-reviewer adjudicates the final call."),
     }
 
     if args.corner_w_min is not None:
@@ -224,9 +301,10 @@ def main():
                 "placement_band_span": cspan,
                 "max_deviation_from_nominal": max(abs(ccold - cf0), abs(cwarm - cf0)),
             },
-            "advisory_verdict": "PASS" if cspan <= args.threshold else "FAIL",
+            "advisory_verdict_diagnostic": "PASS" if cspan <= args.threshold else "FAIL",
             "note": ("MgSO4 w>=150 corner: catches a phantom-ocean leak near the "
-                     "onset (reviewer launch-condition 2)."),
+                     "onset (reviewer launch-condition 2). Diagnostic span only; the "
+                     "binding gate is the absolute half_cell_K above."),
         }
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
