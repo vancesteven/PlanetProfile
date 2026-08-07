@@ -1085,7 +1085,14 @@ _SBI_ARTIFACT_SLOTS = {
         # bias (onset ~0.18, W1 gate failure at 0.25). Runs outside these
         # limits are refused, not warned.
         'x_obs_limits': {'Im_k2': (0.0, 0.20)},
-        'scope_note': ('Validated domain: |Im k2| <= 0.20 (SBC + crosscheck '
+        'scope_note': ('Conditioned only on Re k2 and |Im k2|. CMR² was '
+                       'dropped because core-blind Test50 varies by only '
+                       '2.5e-5 across its Tb grid (0.025 observational σ), '
+                       'and its production MCMC used the same two channels. '
+                       'Uniform priors: Tb∈[249.0,250.965] K; '
+                       'α∈[0.15,0.45]; log10 ζ∈[-3.0,2.0]; log10 η for '
+                       'Ih/III/V/VI∈[10.0,16.0] and silicate∈[18.0,22.0]. '
+                       'Validated domain: |Im k2| <= 0.20 (SBC + crosscheck '
                        '+ 8/9 W1 anchors green). Known limitation: '
                        'directional low-viscosity bias in the bimodal '
                        'regime above Im k2 ~ 0.18; see sbi_artifacts/INDEX.md.'),
@@ -1277,7 +1284,10 @@ _SBI_ARTIFACT_SLOTS = {
                        'measurements; the k2/h2 inputs are HYPOTHETICAL '
                        'exploration channels at theory widths (no Galileo '
                        'k2/h2 measurement exists). Independent ice/silicate '
-                       'Andrade ζ. Gates: SBC 8/8, crosscheck 8/8 (no soft '
+                       'Andrade ζ. Uniform headline priors: '
+                       'Tb∈[259.5,271.0] K; R_core∈[0.0,780.5] km; '
+                       'ρ_core∈[5000.0,8000.0] kg/m³. Gates: SBC 8/8, '
+                       'crosscheck 8/8 (no soft '
                        'fails); details sbi_artifacts/INDEX.md.'),
         # Trained torch 2.8.0 / sbi 0.26.1 — same runtime; no pair needed.
     },
@@ -1319,7 +1329,10 @@ _SBI_ARTIFACT_SLOTS = {
         # 2D (Tb, w) support — no 1D Tb truncation pre-applied.
         'scope_note': ('Clipper v4: 11 sampled parameters = v3 interior + '
                        'salinity PLUS two non-hydrostatic degree-2 gravity '
-                       'offsets. REPORTABLE (calibrated): the identifiable '
+                       'offsets. Uniform headline priors: '
+                       'Tb∈[259.5,271.0] K; log10(wOcean/ppt)∈[-1.0,2.0] '
+                       '(0.1–100 ppt); dC20_nh,dC22_nh∈[-2e-5,2e-5]. '
+                       'REPORTABLE (calibrated): the identifiable '
                        'combination u = dC22_nh + dC20_nh/3.324 as an '
                        'upper limit, and the Tb–salinity joint. NOT '
                        'calibrated (do not cite): per-component '
@@ -1357,7 +1370,7 @@ _SBI_ARTIFACT_SLOTS = {
         # computed per sample regardless.
         'default_obs': {
             'CMR2': 0.3547,
-            'C20': -4.578888e-4, 'C22': 1.377523e-4,
+            'C20': -4.57888786233524e-4, 'C22': 1.3775234242885802e-4,
             'Re_k2': 0.23, 'Im_k2': 0.004,
             'Re_h2': 1.2, 'Im_h2': 0.0,
             'Bind_synodic_x_real': 91.07058126361886,
@@ -1384,7 +1397,11 @@ _SBI_ARTIFACT_SLOTS = {
         }],
         'scope_note': ('Clipper v5: v4 geodesy + D_iceIh ice-thickness '
                        'reparameterization (open uniform[5,80] km prior, '
-                       'pivoted 2026-07-21). Dual C/MR² deliverable: ACTUAL '
+                       'pivoted 2026-07-21). Uniform headline priors: '
+                       'D_iceIh∈[5.0,80.0] km; '
+                       'log10(wOcean/ppt)∈[-1.0,2.0] (0.1–100 ppt); '
+                       'dC20_nh,dC22_nh∈[-2e-5,2e-5]. Dual C/MR² '
+                       'deliverable: ACTUAL '
                        '(structure moment integral) vs HYDROSTATIC REFERENCE '
                        '(Radau–Darwin from C22); the gap is the inferred '
                        'non-hydrostaticity, read against the ~0.0035 RD floor. '
@@ -1413,15 +1430,18 @@ _SBI_ARTIFACT_SLOTS = {
                        'europa_seawater_structure_grid_v5_2d.pkl'),
         'default_obs': {
             'CMR2': 0.3547,
-            'C20': -4.578888e-4, 'C22': 1.377523e-4,
+            'C20': -4.57888786233524e-4, 'C22': 1.3775234242885802e-4,
             'Re_k2': 0.23, 'Im_k2': 0.004,
             'Re_h2': 1.2, 'Im_h2': 0.0,
         },
         'x_obs_limits': {'Im_k2': (0.0, 0.15)},
         'scope_note': ('Clipper v5 channel ablation: gravity + tidal k₂/h₂, '
                        'NO magnetic-induction channel (Galileo synodic support '
-                       'still enters as a training-time cut). Same priors and '
-                       '(Tb,w) cache as v5 geodesy. RATIFIED (scoped) '
+                       'still enters as a training-time cut). Uniform priors: '
+                       'D_iceIh∈[5.0,80.0] km; '
+                       'log10(wOcean/ppt)∈[-1.0,2.0] (0.1–100 ppt); '
+                       'dC20_nh,dC22_nh∈[-2e-5,2e-5]. Same (Tb,w) cache '
+                       'as v5 geodesy. RATIFIED (scoped) '
                        '2026-08-06 with the v5 scope note (no dC22_nh / '
                        'non-hydrostaticity citation from the v5 family).'),
     },
@@ -1439,7 +1459,7 @@ _SBI_ARTIFACT_SLOTS = {
                        'europa_seawater_structure_grid_v5_2d.pkl'),
         'default_obs': {
             'CMR2': 0.3547,
-            'C20': -4.578888e-4, 'C22': 1.377523e-4,
+            'C20': -4.57888786233524e-4, 'C22': 1.3775234242885802e-4,
             'Bind_synodic_x_real': 91.07058126361886,
             'Bind_synodic_x_imag': -157.85676859240647,
             'Bind_synodic_y_real': -59.40533696629077,
@@ -1462,8 +1482,11 @@ _SBI_ARTIFACT_SLOTS = {
             'warn_support_below': 0.7,
         }],
         'scope_note': ('Clipper v5 channel ablation: gravity + magnetic '
-                       'induction, NO tidal k₂/h₂ channel. Same priors and '
-                       '(Tb,w) cache as v5 geodesy. RATIFIED (scoped) '
+                       'induction, NO tidal k₂/h₂ channel. Uniform priors: '
+                       'D_iceIh∈[5.0,80.0] km; '
+                       'log10(wOcean/ppt)∈[-1.0,2.0] (0.1–100 ppt); '
+                       'dC20_nh,dC22_nh∈[-2e-5,2e-5]. Same (Tb,w) cache '
+                       'as v5 geodesy. RATIFIED (scoped) '
                        '2026-08-06 with the v5 scope note (no dC22_nh / '
                        'non-hydrostaticity citation from the v5 family).'),
     },
@@ -1528,7 +1551,11 @@ _SBI_ARTIFACT_SLOTS = {
                        'SOL-A unconstrained with widened agnostic '
                        'non-hydrostatic offsets, so gravity carries ~zero '
                        'interior C/MR² information — the interior is '
-                       'constrained by k₂/h₂ + induction. RATIFIED '
+                       'constrained by k₂/h₂ + induction. Uniform headline '
+                       'priors: D_iceIh∈[5.0,80.0] km; '
+                       'log10(wOcean/ppt)∈[-1.0,2.0] (0.1–100 ppt); '
+                       'dC20_nh∈[-3.9e-4,3.9e-4], '
+                       'dC22_nh∈[-5e-5,5e-5]. RATIFIED '
                        '2026-08-06: ALL gates PASS at n_sbc=1500 vs current '
                        'HEAD gate code (supersedes the 2026-07-23 '
                        'PASS-WITH-CONCERNS reading). The dual C/MR² '
@@ -1563,7 +1590,11 @@ _SBI_ARTIFACT_SLOTS = {
                        'k₂/h₂, NO magnetic-induction channel. Least-'
                        'constrained arm; calibrated by SBC only (no reference '
                        'MCMC crosscheck for this ablation), per reviewer '
-                       '2026-07-23. Same priors and (Tb,w) cache as v6 '
+                       '2026-07-23. Uniform priors: '
+                       'D_iceIh∈[5.0,80.0] km; '
+                       'log10(wOcean/ppt)∈[-1.0,2.0] (0.1–100 ppt); '
+                       'dC20_nh∈[-3.9e-4,3.9e-4], '
+                       'dC22_nh∈[-5e-5,5e-5]. Same (Tb,w) cache as v6 '
                        'freegrav_11D. Published C/MR² is a display reference '
                        'only (no interior-C/MR² claim until Task D, #36).'),
     },
@@ -1602,8 +1633,12 @@ _SBI_ARTIFACT_SLOTS = {
             'warn_support_below': 0.7,
         }],
         'scope_note': ('Clipper v6 channel ablation: free-gravity + magnetic '
-                       'induction, NO tidal k₂/h₂ channel. Same priors and '
-                       '(Tb,w) cache as v6 freegrav_11D. Calibrated by SBC '
+                       'induction, NO tidal k₂/h₂ channel. Uniform priors: '
+                       'D_iceIh∈[5.0,80.0] km; '
+                       'log10(wOcean/ppt)∈[-1.0,2.0] (0.1–100 ppt); '
+                       'dC20_nh∈[-3.9e-4,3.9e-4], '
+                       'dC22_nh∈[-5e-5,5e-5]. Same (Tb,w) cache as v6 '
+                       'freegrav_11D. Calibrated by SBC '
                        'only (no reference MCMC crosscheck for this '
                        'ablation). Published C/MR² is a display reference '
                        'only (no interior-C/MR² claim until Task D, #36).'),
@@ -2827,7 +2862,7 @@ _mpl.rcParams['text.usetex'] = False
 # Bump when the globe-panel figure/table code changes shape: cached
 # export bytes in live sessions carry the version, so a code update
 # invalidates them instead of replaying stale figures.
-_GLOBE_FIG_VER = 8
+_GLOBE_FIG_VER = 9
 
 
 def _result_token():
@@ -3727,7 +3762,13 @@ def render_results():
                                       colorscale='Viridis',
                                       colorbar=dict(title=sal_col,
                                                     thickness=12))
-                    figsel = go_.Figure(go_.Scattergl(
+                    # SVG Scatter, NOT Scattergl (<=1500 pts): the globe
+                    # already needs one WebGL context; a second gl2d
+                    # context here doubles the pressure on the browser's
+                    # hard context cap (~8-16) and long slider sessions
+                    # were hitting "WebGL is not supported" (user
+                    # 2026-08-07).
+                    figsel = go_.Figure(go_.Scatter(
                         x=xv[idx_show],
                         y=yv[idx_show], mode='markers',
                         marker=marker, customdata=idx_show,
@@ -3858,10 +3899,33 @@ def render_results():
                         "Shape exaggeration (1 = true figure)", 1.0, 500.0,
                         float(round(default_ex)), 1.0, key='globe_exagg')
 
-                    fig3d = build_globe_figure(
-                        body, R_km, glayers, c20=c20, c22=c22, kf=kf,
-                        exaggeration=exagg)
-                    st.plotly_chart(fig3d, width='stretch', key='globe_chart')
+                    static_globe = st.toggle(
+                        "Static render (no WebGL)", key='globe_static',
+                        help="Server-rendered image of the same globe. Use "
+                             "this if the interactive globe shows 'WebGL is "
+                             "not supported' — browsers cap the number of "
+                             "WebGL contexts and some disable WebGL "
+                             "entirely (hardware acceleration off).")
+                    if static_globe:
+                        from Utilities.globe_view import \
+                            build_globe_figure_static
+                        fig3d_static = build_globe_figure_static(
+                            body, R_km, glayers, c20=c20, c22=c22, kf=kf,
+                            exaggeration=exagg)
+                        st.pyplot(fig3d_static)
+                        import matplotlib.pyplot as _plt
+                        _plt.close(fig3d_static)
+                    else:
+                        fig3d = build_globe_figure(
+                            body, R_km, glayers, c20=c20, c22=c22, kf=kf,
+                            exaggeration=exagg)
+                        st.plotly_chart(fig3d, width='stretch',
+                                        key='globe_chart')
+                        st.caption(
+                            "Globe blank or 'WebGL is not supported'? Your "
+                            "browser blocked 3D rendering — flip the static "
+                            "render toggle above, or refresh the tab and "
+                            "check that hardware acceleration is enabled.")
                     from Utilities.globe_view import triaxial_semiaxes
                     _kf_amp = (1.0 + (kf or 1.0)) / (kf or 1.0)
                     _a, _b, _c = triaxial_semiaxes(

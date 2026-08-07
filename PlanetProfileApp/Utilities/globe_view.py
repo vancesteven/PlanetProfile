@@ -365,6 +365,132 @@ def build_globe_figure(
     return fig
 
 
+def build_globe_figure_static(
+    bodyname: str,
+    R_body_km: float,
+    layers: List[Dict],
+    c20: Optional[float] = None,
+    c22: Optional[float] = None,
+    kf: Optional[float] = None,
+    exaggeration: float = 1.0,
+    show_axes: bool = True,
+    elev: float = 18.0,
+    azim: float = 23.0,
+):
+    """Server-rendered matplotlib twin of build_globe_figure — no WebGL.
+
+    Fallback for browsers where plotly's gl3d context cannot be created
+    ("WebGL is not supported"): same cutaway wedge, texture shading,
+    degree-2 deformation, filled cross-section faces, and principal-axis
+    lines, drawn as a static image. View direction is fixed (elev/azim)
+    instead of grab-and-rotate.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Patch
+
+    def _mpl_color(c):
+        # LAYER_COLORS holds plotly 'rgb(r, g, b)' / 'rgba(...)' strings.
+        if isinstance(c, str) and c.startswith(('rgb(', 'rgba(')):
+            vals = [float(v) for v in c[c.index('(') + 1:-1].split(',')]
+            rgb = tuple(v / 255.0 for v in vals[:3])
+            return rgb + (vals[3],) if len(vals) == 4 else rgb
+        return c
+
+    _kf = kf if (kf is not None and np.isfinite(kf) and kf > 0.05) else 1.0
+    h_amp = (1.0 + _kf) / _kf
+    _dk = dict(c20=(c20 or 0.0), c22=(c22 or 0.0), h_amp=h_amp,
+               exaggeration=exaggeration)
+
+    # Same cutaway as the interactive globe: longitude [pi/2, 2pi] intact,
+    # the [0, pi/2] wedge removed to expose the cross-section.
+    n_lat, n_lon = 90, 180
+    theta_s = np.linspace(1e-3, np.pi - 1e-3, n_lat)
+    phi_s = np.linspace(0.5 * np.pi, 2.0 * np.pi, n_lon)
+    T, P = np.meshgrid(theta_s, phi_s, indexing='ij')
+    r = _degree2_radius(float(R_body_km), T, P, **_dk)
+    x = r * np.sin(T) * np.cos(P)
+    y = r * np.sin(T) * np.sin(P)
+    z = r * np.cos(T)
+
+    fig = plt.figure(figsize=(7.0, 6.2), facecolor='#030612')
+    ax = fig.add_subplot(projection='3d', facecolor='#030612')
+    # Manual paint order: matplotlib's per-artist depth sort hides the
+    # cross-section faces behind the sphere. With the camera looking into
+    # the removed wedge, painting sphere -> faces -> axis lines is correct.
+    ax.computed_zorder = False
+
+    tp = texture_path(bodyname)
+    if tp is not None:
+        from PIL import Image
+        img = Image.fromarray(_load_texture(tp)).convert('L')
+        full = np.asarray(img.resize((2 * n_lon, n_lat), Image.LANCZOS),
+                          dtype=float)
+        lon_frac = (P / (2.0 * np.pi)) % 1.0
+        col = np.clip((lon_frac * (full.shape[1] - 1)).astype(int),
+                      0, full.shape[1] - 1)
+        rows = np.arange(n_lat)[:, None] * np.ones((1, n_lon), int)
+        shade = full[rows, col] / 255.0
+    else:
+        shade = 0.5 + 0.25 * np.cos(T)
+    ax.plot_surface(x, y, z, facecolors=plt.cm.gray(shade),
+                    rstride=1, cstride=1, linewidth=0,
+                    antialiased=False, shade=False)
+
+    valid_layers = [l for l in layers
+                    if l.get('r_km') and np.isfinite(l['r_km'])
+                    and l['r_km'] > 0]
+    ordered = sorted(valid_layers, key=lambda l: -l['r_km'])
+    radii = [float(l['r_km']) for l in ordered] + [0.0]
+    th_f = np.linspace(0.0, np.pi, 60)
+    legend_handles = []
+    for k, layer in enumerate(ordered):
+        r_out, r_in = radii[k], radii[k + 1]
+        if r_out - r_in < 1e-3:
+            continue
+        color = _mpl_color(LAYER_COLORS.get(layer.get('kind', 'silicate'),
+                                            LAYER_COLORS['silicate']))
+        name = layer.get('name', layer.get('kind', 'layer'))
+        legend_handles.append(Patch(facecolor=color, label=name))
+        for phi in (0.0, 0.5 * np.pi):
+            rr = np.linspace(r_in, r_out, 6)
+            TH, RR = np.meshgrid(th_f, rr, indexing='ij')
+            PF = np.full_like(TH, phi)
+            Rdef = _degree2_radius(RR, TH, PF, **_dk)
+            xf = Rdef * np.sin(TH) * np.cos(PF)
+            yf = Rdef * np.sin(TH) * np.sin(PF)
+            zf = Rdef * np.cos(TH)
+            ax.plot_surface(xf, yf, zf, color=color, linewidth=0,
+                            antialiased=False, shade=False)
+
+    a, b, c = triaxial_semiaxes(float(R_body_km), (c20 or 0.0),
+                                (c22 or 0.0), h_amp, exaggeration)
+    if show_axes:
+        ext = 1.22
+        for lbl, tip, color in (('A', (a * ext, 0, 0), '#ff785a'),
+                                ('B', (0, b * ext, 0), '#78e678'),
+                                ('C', (0, 0, c * ext), '#78beff')):
+            ax.plot([-tip[0], tip[0]], [-tip[1], tip[1]],
+                    [-tip[2], tip[2]], color=color, lw=1.6)
+            ax.text(tip[0] * 1.06, tip[1] * 1.06, tip[2] * 1.06, lbl,
+                    color=color, fontsize=11)
+
+    lim = 1.32 * max(R_body_km, a, b, c)
+    ax.set_xlim(-lim, lim)
+    ax.set_ylim(-lim, lim)
+    ax.set_zlim(-lim, lim)
+    ax.set_box_aspect((1, 1, 1))
+    ax.set_axis_off()
+    ax.view_init(elev=elev, azim=azim)
+    if legend_handles:
+        leg = ax.legend(handles=legend_handles, loc='upper left',
+                        fontsize=8, framealpha=0.4,
+                        facecolor='#030612', edgecolor='none')
+        for t in leg.get_texts():
+            t.set_color('#dce1eb')
+    fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
+    return fig
+
+
 def posterior_median_layers(result) -> Tuple[float, List[Dict]]:
     """Extract (R_body_km, inner->outer layer list) from an
     InferenceResult using posterior medians. Works for both MCMC and

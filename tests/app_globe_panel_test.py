@@ -411,3 +411,35 @@ def test_apptest_titan_slot_readiness_fallback():
     # The NH3 model must be identifiable in the version dropdown (the
     # grouping split eats the label head, so the tail must carry the tag).
     assert 'NH' in str(nh3_opt)
+
+@pytest.mark.skipif(not EUROPA_V4_PKL.exists(),
+                    reason='Europa v4 reference result not present')
+def test_apptest_static_globe_fallback():
+    # WebGL-free path (user 2026-08-07: browsers with WebGL disabled show
+    # "WebGL is not supported" for the plotly globe): the static toggle must
+    # swap the plotly chart for a server-rendered matplotlib image, and the
+    # interactive path must carry the troubleshooting caption.
+    from streamlit.testing.v1 import AppTest
+    with open(EUROPA_V4_PKL, 'rb') as f:
+        res = pickle.load(f)
+    at = AppTest.from_file(
+        str(REPO / 'PlanetProfileApp/pages/Inference.py'),
+        default_timeout=900)
+    at.session_state['inference_results'] = res
+    at.session_state['Planet'] = 'Europa'
+    at.run()
+    assert not at.exception, str([e.value for e in at.exception][:2])
+    caps_all = ' '.join(str(c.value) for c in at.main
+                        if type(c).__name__ == 'Caption')
+    assert "'WebGL is not supported'" in caps_all
+    tog = next(t for t in at.toggle
+               if str(getattr(t, 'key', '')) == 'globe_static')
+    tog.set_value(True)
+    at.run()
+    assert not at.exception, str([e.value for e in at.exception][:2])
+    # matplotlib image present, plotly globe gone
+    kinds = [type(el).__name__ for el in at.main]
+    assert 'ImageList' in kinds or 'Image' in kinds, kinds
+    assert not [el for el in at.main
+                if type(el).__name__ == 'PlotlyChart'
+                and 'globe_chart' in str(getattr(el, 'key', ''))]
