@@ -1,0 +1,27 @@
+{
+  "finding": "shared Tb=252.0 K / w-col-3 build failure (MgSO4 spurious-frozen + NaCl None) is an int-vs-float numeric-type artifact in GetPfreeze, NOT a genuine frozen interior",
+  "date": "2026-08-07",
+  "machine": "B",
+  "reviewer_flagged": "gate-3 adjudication agent a070eb8cc673d6e76 (CRITICAL MgSO4 monotonicity flip + MAJOR shared 252.0 K failure)",
+  "affected_nodes": [
+    {"comp": "MgSO4", "Tb_K": 252.0, "wOcean_ppt": 4.8567, "grid_index": [8, 3], "stored": "has_ocean=False (phantom frozen)"},
+    {"comp": "NaCl", "Tb_K": 252.0, "wOcean_ppt": 4.1267, "grid_index": [19, 3], "stored": "None (build failure)"}
+  ],
+  "mechanism": {
+    "root": "PPTitan template ships Planet.PfreezeUpper_MPa = 230 as a Python int; the whole cache was built with that int passed through to GetPfreeze (HydroEOS.py:1239) as PUpper_MPa.",
+    "smoking_gun": "oceanEOS.fn_phase(230, Tb=252) returns phase 0 (liquid) with int 230, but phase 3 (ice III) with float 230.0. Same nominal pressure, different phase by numeric type.",
+    "consequence": "GetPfreeze line 1262 sign-test phaseChange(PLower)*phaseChange(PUpper): int path (PUpper->liquid) routes to GetZero bracketing on a discontinuous step function -> fails -> NoIceLiquidTransitionError -> node mislabeled frozen/None. float path (PUpper->ice III) routes to the brute-force arange scan -> correctly finds the ice-Ih->liquid transition -> ocean.",
+    "physical_correctness": "float path is correct: at 230 MPa / 252 K, dilute-salinity Titan is in the HP-ice (ice III) regime BELOW a real ocean whose Ih->liquid top sits ~193-208 MPa (matches both cache neighbors). int fn_phase=0 (liquid) is the wrong evaluation. This is near the ice Ih-III-liquid triple point (~209 MPa), just under the 230 MPa search ceiling -- why the artifact localizes to a single Tb node one step into the ocean region."
+  },
+  "fix_verified": {
+    "approach": "pass PfreezeUpper_MPa as float (planet_overrides={'PfreezeUpper_MPa': 230.0}); NO change to the 230 MPa value, only its numeric type",
+    "MgSO4_col_w4.8567": {"int": {"251.0": "FROZEN", "251.5": "OCEAN 15.572", "252.0": "FROZEN(artifact)", "252.5": "OCEAN 36.236", "253.0": "OCEAN 51.614"},
+                          "float": {"251.0": "FROZEN", "251.5": "OCEAN 15.572", "252.0": "OCEAN 15.603(repaired)", "252.5": "OCEAN 36.236", "253.0": "OCEAN 51.614"}},
+    "NaCl_col_w4.1267": {"int": {"250.0": "FROZEN", "251.0": "OCEAN 20.691", "252.0": "None(artifact)", "253.0": "OCEAN 106.614", "254.0": "OCEAN 121.795"},
+                         "float": {"250.0": "FROZEN", "251.0": "OCEAN 20.691", "252.0": "OCEAN 31.056(repaired)", "253.0": "OCEAN 106.614", "254.0": "OCEAN 121.795"}},
+    "localization": "float fix repairs EXACTLY the two defect nodes; every other node in both onset columns is byte-identical (251.0 MgSO4 / 250.0 NaCl remain genuinely FROZEN -> correct onset boundary preserved). 252.0 D_ocean lands monotonically between its neighbors (MgSO4 15.57<15.60<36.2; NaCl 20.7<31.1<106.6).",
+    "determinism": "reproduced in fresh per-node processes (rules out in-process EOS-cache state); PfreezeRes 0.05->0.01 does NOT fix it (not a search-resolution issue); PfreezeUpper 230->260->300->400 all build ocean once float (not a ceiling-value issue) -- the type is the whole story."
+  },
+  "latent_bug_flag_for_machine_A": "fn_phase int-vs-float phase disagreement at a grid pressure is a latent bug in the shared phase interpolant that could silently perturb ANY PP cache built from an int PfreezeUpper_MPa template (or any int P passed to fn_phase near a phase boundary). Narrow cache-build fix applied here (float coercion); the deeper fn_phase fix is shared-thermodynamics scope and is NOT self-adjudicated -- referred to Machine A + scientific-reviewer.",
+  "scripts": ["/tmp/rc_one.py", "/tmp/rc_iso.py", "/tmp/rc_patch.py", "/tmp/rc_col.py"]
+}
