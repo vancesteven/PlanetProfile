@@ -1,6 +1,7 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-06 at genai `94ded63f`. Curated by the Claude model manager
+Updated: 2026-08-07 (C9–C12 queued from the C8 doc-doctor triage; work in
+order, one commit per task). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -20,7 +21,92 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-_No queued tasks._
+_Triage of the C8 doc-doctor report (2 PASS / 10 FINDING,
+`validation_reports/doc_doctor/2026-08-06_first_pass.md`). Already resolved
+elsewhere: v5/v6 scope-note superseded language + INDEX rows (manager
+ratification session 2026-08-07); v4 direct-Clairaut exception and the
+Geotherm-tab deviation are now RECORDED in `plans/STRATEGY.md` (items 5, 8 —
+no code change wanted). Work C9→C12 in order; one commit per task._
+
+### C9 — Ledger + routing corrections (doc-doctor items 2, 4, 9, 10) [status: queued]
+
+Report-driven doc fixes; no code, no science:
+1. `PlanetProfile/Inference/sbi_artifacts/INDEX.md`: (a) Test50 row — add a
+   direct gate pointer into `validation_reports/` (find the Test50 gate
+   report path); (b) Titan freegrav no-ocean row — replace "not wired for
+   deployment" with the actual wired/deployed state (slot at
+   `Inference.py:1097`); (c) NH3 row — replace the unqualified
+   "RATIFIED (verified)" and the benign-eta-medians crosscheck reduction
+   with the split-ratification wording from
+   `validation_reports/titan_freegrav_nh3_1m/RATIFICATION.md` (structure
+   sector ratified; tidal k2/zeta/eta sector QUARANTINED, MCMC
+   authoritative; crosscheck FAIL not to be read as benign-nuisances-only).
+   Copy the authoritative wording — do NOT re-adjudicate.
+2. `git add` the untracked routing trees so entry points resolve in a clean
+   checkout: `plans/README.md`, `plans/archive/`,
+   `plans/scripts/{active,archive,reproducibility}/` (doc-doctor item 9).
+   Then extend `plans/README.md` routing with `plans/CODEX-QUEUE.md`,
+   `plans/STRATEGY.md`, `plans/DOC-DOCTOR.md`.
+3. `DEPLOYING.md`: update ~205 MB → ~300 MB; replace the "two manually
+   listed caches / copy list" text with the registry-derived cache set
+   (six paths, exact-equality enforcement,
+   `plans/scripts/build_deploy_branch.sh:55-96`); document `--no-push` and
+   `--build-only`.
+Verification: markdown-link check on the touched files + `git status`
+clean-checkout resolution of every routed path. Report `verified` with the
+check output.
+
+### C10 — GUI assumption-text contradictions (doc-doctor items 6, 7) [status: queued]
+
+Three factual corrections + one caption, text-only (no behavior change):
+1. `Inference.py:2517-2523` shared build-up expander: "nearest Tb grid
+   structure" → between-node bilinear blending (match
+   `run_assumptions.py:77-86`).
+2. `run_assumptions.py:115-119`: gravity-pair configs claim Radau–Darwin
+   C20/C22; v4+ uses direct Clairaut (`gravity_obs.py`, v4 config `:198`).
+   Make the text config-conditional (say what the loaded config declares),
+   not a blanket claim.
+3. `run_assumptions.py:48-51`: "emcee ensemble sampler" → pocoMC
+   (preconditioned Monte Carlo), matching `Inference.py:2566-2570`.
+4. Add the bilinear-blending deviation to the captions of the affected
+   results panels (radial profiles `Inference.py:3906-3910`, plus
+   wedge/heating/mineralogy captions where the rho_sil disclosure already
+   sits) — one short clause each, mirroring the existing disclosure style.
+Verification: AppTest render of the expander + one results page asserting
+the new strings; app suite still green. Report `verified`.
+
+### C11 — Scope-note numerical priors + config-exact centrals (doc-doctor item 3) [status: queued]
+
+1. Add numerical headline-prior ranges to the scope notes missing them:
+   Test50 (`Inference.py:1088`), Galileo v1.1 (`:1274`), v4 (`:1320`),
+   v5/v6 baseline + ablation notes (at least salinity and the
+   non-hydrostatic offset boxes). Copy ranges from each slot's config —
+   configs are the source of truth; do not invent or round beyond config
+   precision. Test50: also enumerate dropped channels with reasons (from
+   its config/campaign doc).
+2. Replace the three v5 registry C20/C22 centrals with config-exact values
+   from `europa_clipper_v5_geodesy_11D.json:101-108`
+   (-4.57888786233524e-4 / 1.3775234242885802e-4) at
+   `Inference.py:1356-1374,1410-1415,1435-1451`.
+CAUTION: do not alter any other number; if a config value seems wrong,
+escalate (protocol 4) — no silent corrections.
+Verification: AppTest asserting a prior range renders in each touched scope
+note; diff shows only scope-note strings + the three centrals. Report
+`verified`.
+
+### C12 — Exported-figure provenance (doc-doctor item 12) [status: queued]
+
+`PlanetProfileApp/Utilities/crisp_figs.py`: embed provenance in exports —
+(a) `savefig` metadata (PDF/SVG/PNG support differs; set title/subject or
+XMP-ish keys where the backend allows) carrying model version (slot label +
+artifact filename), conditioning summary, and app git SHA if cheaply
+available; (b) filenames `<figure>_<slot-short>_<date>.<ext>` instead of
+bare `k2.pdf`/`corner.png`. Keep figure TITLES unchanged (visual layout is
+frozen; provenance goes in metadata/filename only). Thread the slot/
+conditioning info from the results context with minimal plumbing.
+Verification: download one PDF + one PNG via AppTest or direct call,
+inspect embedded metadata (pikepdf/PIL), cite the inspection output.
+Report `verified`.
 
 ## Completed
 

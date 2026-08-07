@@ -27,6 +27,38 @@ The user ratified the parallel option (STRATEGY.md). Execute:
    — §2 below is the standing spec; confirm the config freeze with
    Machine A before the production dataset.
 
+## 0.14 MANAGER CACHE REVIEW (Machine A, 2026-08-07) — MgSO4/NaCl caches ACCEPTED; gate-3 + dataset gens GO
+
+Machine A re-verified both committed caches against the manifests and
+reviewer guards (independent pkl load, not manifest-trust):
+- Node counts EXACT match: MgSO4 191 ocean / 81 no-ocean / 0 None of 272;
+  NaCl 314 / 219 / 67 of 600. `ocean_comp` present in cache metadata
+  (campaign-spec traceability), schema v3.0, `retry_frozen_as_no_ocean=True`
+  (NH3 precedent).
+- MgSO4 deepest liquid-layer P = 1371.1 MPa at (Tb=258, w=194) — matches
+  B's 1371 claim, under the 1400 MPa ceiling; w=194 extrap column ocean
+  density monotone nondecreasing with P (spot check Tb=249.5,
+  ρ 1280.8→1462.9). Island/ceiling/dρdP/hot-base guard lists all empty
+  in-manifest.
+
+**Verdict: both caches ACCEPTED. Per-comp gate-3 (half-cell Tb-shift) and
+the 1M dataset generations are GO** (seeds NaCl 74/7474/74, MgSO4
+73/7373/73 as recorded). Flow TRAINING stays HELD on per-composition
+quarantine re-verification (§0.12 ruling).
+
+Two record items for Machine B (non-blocking, fold into gate-3 pass):
+1. MgSO4 has ONE isolated frozen node at (Tb=252.0, w=4.8567) surrounded
+   by ocean neighbors on all sides (has_ocean row 'OOOFOOOO...') — a
+   single-node Tb non-monotonicity far from the excluded w>=180 island.
+   Verify gate-3's half-cell Tb-shift covers this cell; if it flips
+   ocean, record it as borderline-liquidus numerics in the manifest.
+2. NaCl acceptance evidence (/tmp/nacl_monotonicity_check.json,
+   /tmp/nacl_corner_discriminator.json, /tmp/titan_tb_probe_results.json)
+   lives only on Machine B — COMMIT these under
+   validation_reports/titan_saltcaches/ (doc-doctor item E11: no
+   provenance link may exist only in /tmp or chat history). Also record
+   the reason class for the 67 NaCl None nodes in the manifest.
+
 ## 0.13 MgSO4/NaCl build prerequisites — reviewer sign-off + empirical onset tables (Machine B, 2026-08-06)
 
 Two build-gating physics items (flagged by the cache-build recon as NOT covered
@@ -202,7 +234,15 @@ MgSO4/NaCl 2D joint caches + datasets now (architecture-independent, §0.10
 priority-b).
 
 
-Updated: 2026-08-06 (Machine B: BOTH MgSO4/NaCl PRODUCTION CACHES BUILT,
+Updated: 2026-08-07 (Machine A: §0.11 CLOSED — v5 RATIFIED scoped + v6
+RATIFIED, GUI ungated, deploy snapshot rebuilt; §0.14 added — MgSO4/NaCl
+caches ACCEPTED, per-comp gate-3 + 1M dataset gens GO, flow training still
+HELD on per-composition quarantine re-verification; two non-blocking record
+items for B in §0.14. Machine B's next work, in order: (1) per-comp gate-3,
+(2) 1M dataset generations, (3) per-composition tidal-quarantine
+re-verification, (4) commit the /tmp acceptance evidence + finish the #4
+corrected 4-arm×3-seed re-run, (5) Enceladus config freeze with Machine A.)
+Prior: 2026-08-06 (Machine B: BOTH MgSO4/NaCl PRODUCTION CACHES BUILT,
 VALIDATED, and PUSHED for Machine A review — NaCl at
 Test54_nacl_ocean/titan_nacl_joint_structure_grid_2d.pkl (600 nodes, 314 ocean/
 219 no-ocean/67 None, tilted-diagonal has_ocean map), MgSO4 at

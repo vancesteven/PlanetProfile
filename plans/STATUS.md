@@ -3,7 +3,24 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-06 (Machine B: §0.10 priority-(a) v5/v6 B1/B2/B6 gates EXECUTED
+Updated: 2026-08-07 (Machine A manager session: **v5 RATIFIED (scoped) + v6
+RATIFIED** — final adjudication appended to
+plans/active/europa-v5v6v7-gate-adjudication.md; dC22_nh recorded
+FAIL-ADJUDICATED-ACCEPTABLE (v5-local nuisance undertraining; v6 owns that
+deliverable, clean); 2nd-seed SBC queued non-blocking. GUI: not-ratified
+gating LIFTED for the six v5/v6 slots, ratified scope notes + always-visible
+gate-status captions; AppTest verified, app suite 8/8. Deploy snapshot
+rebuilt at 536ddfe2 (299M, registry cache set exact) — USER ships HF
+(carries v5/v6 + Ae=0.9 synodic defaults + e-notation fix). MgSO4/NaCl
+production caches ACCEPTED after independent pkl verification (§0.14:
+node counts exact, deepest MgSO4 liquid 1371.1<1400 MPa, extrap column
+monotone) — per-comp gate-3 + 1M dataset gens GO; flow training still HELD
+on per-composition quarantine re-verification. C8 doc-doctor triaged:
+C9–C12 queued for Codex (ledger/routing, assumption-text contradictions,
+scope-note priors, figure provenance); v4 direct-Clairaut recorded as
+STRATEGY core-parity exception (b); Geotherm-tab deviation recorded as
+accepted. INDEX.md v5/v6 rows updated to ratified.)
+Prior: 2026-08-06 (Machine B: §0.10 priority-(a) v5/v6 B1/B2/B6 gates EXECUTED
 vs the FRESH pooled n_eff~2000 v5 reference, reviewer-adjudicated.
 **v5 = PASS WITH CONCERNS** — ships for its DEPLOYED D_iceIh/ocean/salinity
 deliverable with a mandatory scope-note (Machine A finalizes + countersigns):

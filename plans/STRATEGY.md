@@ -82,9 +82,14 @@ standing constraints on all development:
    (GUI or CLI), and core PlanetProfile evolves WITH the inference work —
    no inference-only physics (NH3 set the precedent: it landed as a
    standard `Ocean.comp` first). The GUI should make switching physical
-   features on/off easy. Known documented exception: the freegrav
+   features on/off easy. Known documented exceptions: (a) the freegrav
    rho_sil mass-conservation rescale (roadmap: self-consistent Perple_X
-   refit).
+   refit); (b) the v4+ direct-Clairaut C20/C22 forward calculation
+   (`PlanetProfile/Inference/gravity_obs.py`) is invoked only by the
+   inference runner — no standard PlanetProfile-run path computes it
+   (doc-doctor 2026-08-06 item 5; roadmap: expose degree-2 gravity
+   coefficients as a standard output of a PlanetProfile run so GUI
+   single-model runs reproduce the inference observable).
 3. **Explorability.** Model assumptions must be easy to understand in the
    GUI (assumptions expanders, scope notes, sector warnings) and results
    easy to explore (the 3D globe panel direction).
@@ -92,7 +97,12 @@ standing constraints on all development:
    structure per slot wherever possible. Known accepted deviation: the
    experimental k2 complex-plane / induction plot (not scheduled for
    repair; new slots should follow the standard organization, and any
-   intentional deviation gets recorded here).
+   intentional deviation gets recorded here). Second accepted deviation
+   (recorded 2026-08-07, doc-doctor item 8): the standard tab set uses a
+   **Geotherm** tab where the checklist named Geodesy — geodesy figures
+   (dual C/MR², u-panel) render in the results flow outside the tab
+   strip. Accepted as the shipped organization; a future Geodesy tab
+   consolidation is roadmap, not a defect.
 
 ## Documentation program
 
