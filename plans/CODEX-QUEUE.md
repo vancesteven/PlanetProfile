@@ -28,7 +28,7 @@ ratification session 2026-08-07); v4 direct-Clairaut exception and the
 Geotherm-tab deviation are now RECORDED in `plans/STRATEGY.md` (items 5, 8 —
 no code change wanted). Work C9→C12 in order; one commit per task._
 
-### C9 — Ledger + routing corrections (doc-doctor items 2, 4, 9, 10) [status: in progress (Codex)]
+### C9 — Ledger + routing corrections (doc-doctor items 2, 4, 9, 10) [status: verified]
 
 Report-driven doc fixes; no code, no science:
 1. `PlanetProfile/Inference/sbi_artifacts/INDEX.md`: (a) Test50 row — add a
@@ -55,6 +55,21 @@ Report-driven doc fixes; no code, no science:
 Verification: markdown-link check on the touched files + `git status`
 clean-checkout resolution of every routed path. Report `verified` with the
 check output.
+
+**Report (Codex, 2026-08-07):** `verified`. Corrected the Test50 ledger with
+the committed Machine A cross-version gate path; recorded the Titan
+free-gravity no-ocean slot's actual 2026-07-24 deployment; and replaced the
+NH3 row's superseded benign-nuisance framing with the authoritative split
+ratification (gravity/structure verified, tidal/dissipation not verified,
+MCMC authoritative). Added the five previously untracked routing index files
+and linked `CODEX-QUEUE.md`, `STRATEGY.md`, and `DOC-DOCTOR.md` from
+`plans/README.md`. Updated `DEPLOYING.md` to ~300 MB, documented
+`--build-only`/`--no-push`, and listed the six registry-derived caches plus
+the exact-equality invariant. Verification output: “Markdown local-reference
+check: 6/6 changed references resolve”; “Deploy cache documentation check:
+6/6 paths exactly match registry”; “Clean-checkout routing check: 9/9 routed
+entry points tracked”; `git diff --cached --check: PASS`. Claim commit
+`9cee9c90`; implementation commit `8f969076`.
 
 ### C10 — GUI assumption-text contradictions (doc-doctor items 6, 7) [status: queued]
 
