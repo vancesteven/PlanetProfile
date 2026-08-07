@@ -1,0 +1,46 @@
+{
+  "kind": "titanG_nacl_joint_dataset",
+  "comp": "NaCl",
+  "config": "PlanetProfile/Inference/configs/test54_titan_nacl_freegrav.json",
+  "config_hash": "5b3d2502546548c3",
+  "n_requested": 1000000,
+  "n_kept": 631214,
+  "data_seed": 74,
+  "noise_seed": 7474,
+  "gen_seconds": 6087.826985120773,
+  "stats": {
+    "n_requested": 1000000,
+    "n_rejected_support": 272072,
+    "n_rejected_nonfinite": 96714,
+    "rejection_rate": 0.368786,
+    "imag_convention": "abs",
+    "seed": 74,
+    "obs_noise": {
+      "type": "gaussian_diagonal",
+      "sigma": {
+        "C20": 4.71e-07,
+        "C22": 6.2e-08,
+        "Re_k2": 0.048,
+        "Im_k2": 0.035
+      },
+      "correlations": null,
+      "noise_seed": 7474,
+      "refold_im": false
+    },
+    "apply_support_guard": true,
+    "n_kept": 631214
+  },
+  "obs_names": [
+    "C20",
+    "C22",
+    "Re_k2",
+    "Im_k2"
+  ],
+  "n_obs": 4,
+  "npz": "/tmp/titanG_build/datasets/titanG_nacl_1m.npz",
+  "npz_sha256": "6eb1b5fccd273a53b67bae44638f9d836ca6653ddadb263c03e50e73dce9d4d4",
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Titan/Test54_nacl_ocean/titan_nacl_joint_structure_grid_2d.pkl",
+  "structure_cache_sha256": "0fdbd44f0cb7939a1d33aa80f83aab4d13291b894032d664ffe8330724b68c26",
+  "cache_provenance": "REBUILT cache with float-coerced PfreezeUpper_MPa (Tb=252 K int/float ResetNearestExtrap defect repaired); gate-3 binding PASS 2026-08-07; commit 4ca9a9ed. The sha256 above must match the installed Test/ cache.",
+  "method": "JOINT no-ocean + ocean posterior. Observable vector {C20,C22,Re_k2,Im_k2}; 2D (Tb x w) cache with retry_frozen_as_no_ocean=True; log10_wOcean_ppt salinity axis. No phase_stability.enforce -> both regimes admitted."
+}

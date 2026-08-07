@@ -1,0 +1,46 @@
+{
+  "kind": "titanG_mgso4_joint_dataset",
+  "comp": "MgSO4",
+  "config": "PlanetProfile/Inference/configs/test54_titan_mgso4_freegrav.json",
+  "config_hash": "d1bfdf1ee55bc737",
+  "n_requested": 1000000,
+  "n_kept": 691075,
+  "data_seed": 73,
+  "noise_seed": 7373,
+  "gen_seconds": 6735.697721242905,
+  "stats": {
+    "n_requested": 1000000,
+    "n_rejected_support": 196761,
+    "n_rejected_nonfinite": 112164,
+    "rejection_rate": 0.308925,
+    "imag_convention": "abs",
+    "seed": 73,
+    "obs_noise": {
+      "type": "gaussian_diagonal",
+      "sigma": {
+        "C20": 4.71e-07,
+        "C22": 6.2e-08,
+        "Re_k2": 0.048,
+        "Im_k2": 0.035
+      },
+      "correlations": null,
+      "noise_seed": 7373,
+      "refold_im": false
+    },
+    "apply_support_guard": true,
+    "n_kept": 691075
+  },
+  "obs_names": [
+    "C20",
+    "C22",
+    "Re_k2",
+    "Im_k2"
+  ],
+  "n_obs": 4,
+  "npz": "/tmp/titanG_build/datasets/titanG_mgso4_1m.npz",
+  "npz_sha256": "6d6fbcceac314a83bcd9f7d9335ddd4458d70fde5d2a9570b0ace9344469b275",
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Titan/Test54_mgso4_ocean/titan_mgso4_joint_structure_grid_2d.pkl",
+  "structure_cache_sha256": "124c8539f6ee638355cd279223eeaac72f697dc01fbcc8d4d0c122fdce6570ed",
+  "cache_provenance": "REBUILT cache with float-coerced PfreezeUpper_MPa (Tb=252 K int/float ResetNearestExtrap defect repaired); gate-3 binding PASS 2026-08-07; commit 4ca9a9ed. The sha256 above must match the installed Test/ cache.",
+  "method": "JOINT no-ocean + ocean posterior. Observable vector {C20,C22,Re_k2,Im_k2}; 2D (Tb x w) cache with retry_frozen_as_no_ocean=True; log10_wOcean_ppt salinity axis. No phase_stability.enforce -> both regimes admitted."
+}
