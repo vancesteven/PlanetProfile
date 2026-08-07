@@ -2524,6 +2524,9 @@ def render_amortized_config():
 
     return {
         'artifact_path': str(artifact_path),
+        'artifact_filename': artifact_fname,
+        'model_slot_label': slot['label'],
+        'slot_short': str(slot.get('slot_id', Path(artifact_fname).stem)),
         'runner': runner,
         'bodyname': slot['bodyname'],
         'param_bounds': bounds,
@@ -2710,6 +2713,15 @@ def render_amortized_run_button(spec, InferenceConfig):
                 validated_version_pairs=spec.get('validated_version_pairs', ()),
             )
 
+        # Display/export provenance belongs to the run result so it survives
+        # reruns and pickle export without coupling the inference core to the
+        # app's model-slot registry.
+        result.metadata.update({
+            'model_slot_label': spec['model_slot_label'],
+            'artifact_filename': spec['artifact_filename'],
+            'slot_short': spec['slot_short'],
+        })
+
         st.session_state.inference_results = result
         st.session_state.amort_last_run_fp = _amortized_spec_fingerprint(spec)
         # Self-calibrate the runtime estimator from this run's actual wall time.
@@ -2845,7 +2857,7 @@ def _render_corner_figure(samples, labels, *, seed=0):
 
 from Utilities.crisp_figs import (
     rasterize_heavy_artists as _rasterize_heavy_artists,
-    display_vector_fig as _crisp_display)
+    display_vector_fig as _crisp_display_base)
 
 # App figures use plain-text/mathtext labels (unicode ±/σ, raw
 # underscores). PlanetProfile's config import sets the GLOBAL
@@ -2870,6 +2882,48 @@ def _result_token():
     sits in session state; changes on any new run / loaded pickle."""
     res = st.session_state.get('inference_results')
     return None if res is None else (id(res), len(getattr(res, 'samples', ())))
+
+
+def _figure_export_provenance():
+    """Return the active result's model slot and conditioning summary."""
+    result = st.session_state.get('inference_results')
+    if result is None:
+        return None
+    metadata = getattr(result, 'metadata', {}) or {}
+    artifact = (metadata.get('artifact_filename') or
+                Path(str(metadata.get('artifact_path') or '')).name or
+                'not-applicable')
+    label = metadata.get('model_slot_label')
+    slot_short = metadata.get('slot_short')
+
+    # Results saved before C12 lack app-facing slot fields. Recover them from
+    # the artifact filename so old pickles still export useful provenance.
+    if not label and artifact != 'not-applicable':
+        for slot_ref, slot in _SBI_ARTIFACT_SLOTS.items():
+            if slot.get('artifact_filename', slot_ref) == artifact:
+                label = slot['label']
+                slot_short = slot.get('slot_id', Path(artifact).stem)
+                break
+
+    used = metadata.get('x_obs')
+    if not used:
+        observables = getattr(getattr(result, 'config', None),
+                              'observables', {}) or {}
+        used = {name: values[0] for name, values in observables.items()}
+    conditioning = ', '.join(
+        f'{name}={float(value):.6g}' for name, value in (used or {}).items())
+    return {
+        'model_label': label or 'Custom MCMC run',
+        'artifact_filename': artifact,
+        'slot_short': slot_short or 'mcmc',
+        'conditioning': conditioning or 'not recorded',
+    }
+
+
+def _crisp_display(*args, **kwargs):
+    """Attach current result provenance to every crisp figure export."""
+    kwargs.setdefault('provenance', _figure_export_provenance())
+    return _crisp_display_base(*args, **kwargs)
 
 
 def _display_vector_fig(fig, *, key, download_label='plot'):
@@ -4093,7 +4147,8 @@ def render_results():
                         from Utilities.crisp_figs import _render as \
                             _crisp_render
                         _crisp_render(_wentry, key='globe_wedge',
-                                      download_label='wedge diagram')
+                                      download_label='wedge diagram',
+                                      provenance=_figure_export_provenance())
                         _wextra = '; '.join(_wentry.get('notes') or [])
                         st.caption(
                             f"PlanetProfile PlotWedge for {_sttl}. Shell "
