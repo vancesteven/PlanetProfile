@@ -1,7 +1,7 @@
 {
-  "kind": "titanG_gate3_freeze_line_half_cell_shift",
+  "kind": "titanG_gate3_freeze_line_placement",
   "comp": "MgSO4",
-  "cache": "PlanetProfile/Test/mcmc_results/Titan/Test54_mgso4_ocean/titan_mgso4_joint_structure_grid_2d.pkl",
+  "cache": "/tmp/titan_mgso4_joint_structure_grid_2d_v2.pkl",
   "config": "PlanetProfile/Inference/configs/test54_titan_mgso4_freegrav.json",
   "grid": {
     "n_Tb": 17,
@@ -15,9 +15,8 @@
       194.0
     ],
     "dTb_median_K": 0.5,
-    "half_cell_K": 0.25,
-    "n_ocean_nodes": 191,
-    "n_frozen_nodes": 81,
+    "n_ocean_nodes": 192,
+    "n_frozen_nodes": 80,
     "n_none_nodes": 0
   },
   "prior_box": {
@@ -35,17 +34,113 @@
     "n_w": 800,
     "n_buildable_support_points": 3200000
   },
-  "ocean_fraction": {
-    "nominal": 0.7385,
-    "boundary_cold_shift_-half": 0.7135,
-    "boundary_warm_shift_+half": 0.7635,
+  "PRIMARY_binding_onset_placement": {
+    "half_cell_K": 0.25,
+    "max_local_dTb_K": 0.5,
+    "bar_K": 0.5,
+    "pass": true,
+    "per_column_onset": [
+      {
+        "iw": 0,
+        "onset_Tb_K": 251.5,
+        "local_dTb_K": 0.5
+      },
+      {
+        "iw": 1,
+        "onset_Tb_K": 251.5,
+        "local_dTb_K": 0.5
+      },
+      {
+        "iw": 2,
+        "onset_Tb_K": 251.5,
+        "local_dTb_K": 0.5
+      },
+      {
+        "iw": 3,
+        "onset_Tb_K": 251.5,
+        "local_dTb_K": 0.5
+      },
+      {
+        "iw": 4,
+        "onset_Tb_K": 251.0,
+        "local_dTb_K": 0.5
+      },
+      {
+        "iw": 5,
+        "onset_Tb_K": 251.0,
+        "local_dTb_K": 0.5
+      },
+      {
+        "iw": 6,
+        "onset_Tb_K": 251.0,
+        "local_dTb_K": 0.5
+      },
+      {
+        "iw": 7,
+        "onset_Tb_K": 250.5,
+        "local_dTb_K": 0.5
+      },
+      {
+        "iw": 8,
+        "onset_Tb_K": 250.5,
+        "local_dTb_K": 0.5
+      },
+      {
+        "iw": 9,
+        "onset_Tb_K": 250.5,
+        "local_dTb_K": 0.5
+      },
+      {
+        "iw": 10,
+        "onset_Tb_K": 250.0,
+        "local_dTb_K": 0.5
+      },
+      {
+        "iw": 11,
+        "onset_Tb_K": 249.5,
+        "local_dTb_K": 0.5
+      },
+      {
+        "iw": 12,
+        "onset_Tb_K": 249.5,
+        "local_dTb_K": 0.5
+      },
+      {
+        "iw": 13,
+        "onset_Tb_K": 249.5,
+        "local_dTb_K": 0.5
+      },
+      {
+        "iw": 14,
+        "onset_Tb_K": 249.5,
+        "local_dTb_K": 0.5
+      },
+      {
+        "iw": 15,
+        "onset_Tb_K": 249.5,
+        "local_dTb_K": 0.5
+      }
+    ],
+    "note": "BINDING metric (reviewer ab2d3748d0b00c78c 2026-08-07): absolute onset-temperature placement uncertainty = half the LOCAL Tb cell spanning the freeze onset, worst-case over w. Replaces the box-fraction span as the launch gate."
+  },
+  "sandwich_invariant": {
+    "violations": [],
+    "pass": true,
+    "note": "no None/frozen node between two ocean nodes in a w-column; catches the Tb=252 K int/float clamp artifact + regressions."
+  },
+  "ocean_fraction_DIAGNOSTIC": {
+    "half_cell_K_global_median": 0.25,
+    "nominal": 0.7435,
+    "boundary_cold_shift_-half": 0.7185,
+    "boundary_warm_shift_+half": 0.7685,
     "placement_band_span": 0.04999999999999993,
     "placement_half_span": 0.024999999999999967,
-    "max_deviation_from_nominal": 0.025000000000000022
+    "max_deviation_from_nominal": 0.025000000000000022,
+    "note": "SECONDARY/diagnostic only (reviewer): the fraction span penalizes a narrow prior box and inverts the true placement ranking. Reported for continuity with pre-fix numbers; NOT the binding gate."
   },
-  "threshold_provisional": 0.03,
-  "advisory_verdict": "FAIL",
-  "verdict_note": "ADVISORY only. span = |ocean_frac(freeze line -half cell) - ocean_frac(+half cell)|; the scientific-reviewer sets the binding bar and adjudicates. NOT a tuned gate.",
+  "threshold_provisional_span": 0.03,
+  "binding_verdict": "PASS",
+  "verdict_note": "Binding PASS requires half_cell_K <= bar_K AND zero sandwich violations. Ocean-fraction span is diagnostic only. Scientific-reviewer adjudicates the final call.",
   "corner": {
     "w_min_ppt": 150.0,
     "log10_w_min": 2.1760912590556813,
@@ -57,7 +152,7 @@
       "placement_band_span": 0.050000000000000044,
       "max_deviation_from_nominal": 0.025000000000000022
     },
-    "advisory_verdict": "FAIL",
-    "note": "MgSO4 w>=150 corner: catches a phantom-ocean leak near the onset (reviewer launch-condition 2)."
+    "advisory_verdict_diagnostic": "FAIL",
+    "note": "MgSO4 w>=150 corner: catches a phantom-ocean leak near the onset (reviewer launch-condition 2). Diagnostic span only; the binding gate is the absolute half_cell_K above."
   }
 }

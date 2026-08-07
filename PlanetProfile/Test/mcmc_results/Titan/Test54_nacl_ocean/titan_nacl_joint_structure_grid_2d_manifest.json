@@ -1,7 +1,7 @@
 {
  "comp": "NaCl",
  "validate": false,
- "out": "/tmp/titan_nacl_joint_structure_grid_2d.pkl",
+ "out": "/tmp/titan_nacl_joint_structure_grid_2d_v2.pkl",
  "Tb_grid": [
   233.0,
   234.0,
@@ -62,9 +62,9 @@
   290.0
  ],
  "n_nodes": 600,
- "n_ocean": 314,
+ "n_ocean": 315,
  "n_no_ocean": 219,
- "n_none": 67,
+ "n_none": 66,
  "extrap_ocean": true,
  "has_ocean_map_Tb_rows": [
   "FFFFFFFFFFFFFFO",
@@ -86,7 +86,7 @@
   "FFFFFFFFOOOOOON",
   "FFFFFFFOOOOOOON",
   "FFFOOOOOOOOOOON",
-  "OOONOOOOOOOOOON",
+  "OOOOOOOOOOOOOON",
   "OOOOOOOOOOOOOON",
   "OOOOOOOOOOOOOON",
   "OOOOOOOOOOOOOON",
@@ -108,18 +108,19 @@
   "OOOOOOOONNNNNNN",
   "OOOOOOONNNNNNNN"
  ],
- "build_wall_min": 29.9,
+ "build_wall_min": 27.2,
+ "pfreeze_upper_float_coerced": true,
+ "pfreeze_upper_MPa": 230.0,
+ "sandwich_invariant_violations": [],
+ "tb252_int_float_fix_provenance": "PfreezeUpper_MPa float-coerced (was int 230 in PPTitan template) to avoid ResetNearestExtrap size-1 int-dtype truncation (229.96->229) that mislabeled the Tb=252 K onset node frozen/None. Machine B root-cause + scientific-reviewer ab2d3748d0b00c78c PROCEED, 2026-08-07. See validation_reports/titan_saltcaches/tb252_rootcause_2026_08_07.json.",
  "island_invariant_violations": null,
- "eos_extrapolated_nodes": null,
+ "eos_extrapolated_mild_nodes": null,
+ "eos_extrapolated_deep_nodes": null,
  "extrap_ceiling_rejects": null,
- "rho_nonmonotone_nodes": null,
+ "drhodp_band_violations": null,
+ "hot_ocean_base_nodes": null,
  "mgso4_table_Pmax_MPa": null,
  "mgso4_extrap_ceiling_MPa": null,
- "none_node_reason_class_2026_08_07": {
-  "n_none": 67,
-  "dominant_class": "warm/high-w no-ice-lid corner (bottom-right of the has_ocean map: high Tb + high w). The ocean is warm enough that no ice-Ih lid forms; the retry_frozen_as_no_ocean NO_OCEAN_EXCEPT_INNER_ICES retry raises a distinct water1->water1 no-ice-lid ValueError (NOT NoIceLiquidTransitionError) and the node is stored None = correctly EXCLUDED support, exactly as grid_interp_2d treats all-None regions. Matches the config 'phase_stability_dropped_reason' + retry_corner_discriminator evidence (validation_reports/titan_saltcaches/nacl_corner_discriminator.json).",
-  "minor_class": "a few isolated diagonal-edge None cells adjacent to the tilted onset (e.g. Tb=235-236 at w=180.8; Tb=252 at w=4.13) where the coarse 1 K x log-w grid straddles the ocean/no-ice-lid edge; also correctly excluded (no phantom no-ocean tag).",
-  "verification": "retry-corner discriminator PASS both diagonal corners (validation_reports/titan_saltcaches/nacl_corner_discriminator.json): cold corner retries to a physical frozen no-ocean interior; warm/high-w corner -> None, never a phantom no-ocean tag.",
-  "recorded_by": "Machine B, \u00a70.14 item 2 (Machine A 2026-08-07)"
- }
+ "mgso4_drhodp_band": null,
+ "mgso4_ceiling_provenance": null
 }

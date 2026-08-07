@@ -1,7 +1,7 @@
 {
  "comp": "MgSO4",
  "validate": false,
- "out": "/tmp/titan_mgso4_joint_structure_grid_2d.pkl",
+ "out": "/tmp/titan_mgso4_joint_structure_grid_2d_v2.pkl",
  "Tb_grid": [
   248.0,
   248.5,
@@ -40,8 +40,8 @@
   194.0
  ],
  "n_nodes": 272,
- "n_ocean": 191,
- "n_no_ocean": 81,
+ "n_ocean": 192,
+ "n_no_ocean": 80,
  "n_none": 0,
  "extrap_ocean": true,
  "has_ocean_map_Tb_rows": [
@@ -53,7 +53,7 @@
   "FFFFFFFOOOOOOOOO",
   "FFFFOOOOOOOOOOOO",
   "OOOOOOOOOOOOOOOO",
-  "OOOFOOOOOOOOOOOO",
+  "OOOOOOOOOOOOOOOO",
   "OOOOOOOOOOOOOOOO",
   "OOOOOOOOOOOOOOOO",
   "OOOOOOOOOOOOOOOO",
@@ -63,7 +63,11 @@
   "OOOOOOOOOOOOOOOO",
   "OOOOOOOOOOOOOOOO"
  ],
- "build_wall_min": 14.1,
+ "build_wall_min": 12.7,
+ "pfreeze_upper_float_coerced": true,
+ "pfreeze_upper_MPa": 230.0,
+ "sandwich_invariant_violations": [],
+ "tb252_int_float_fix_provenance": "PfreezeUpper_MPa float-coerced (was int 230 in PPTitan template) to avoid ResetNearestExtrap size-1 int-dtype truncation (229.96->229) that mislabeled the Tb=252 K onset node frozen/None. Machine B root-cause + scientific-reviewer ab2d3748d0b00c78c PROCEED, 2026-08-07. See validation_reports/titan_saltcaches/tb252_rootcause_2026_08_07.json.",
  "island_invariant_violations": [],
  "eos_extrapolated_mild_nodes": [
   [
@@ -338,23 +342,5 @@
   0.14,
   0.17
  ],
- "mgso4_ceiling_provenance": "1400 MPa = production PPTitan deepest w=194 node (~1371) + margin; linear extrap verified monotone/stiffening to 1500 MPa, projection error ~1.5% at ceiling (water-benchmarked); reviewer a3c9ed8ae24664527 2026-08-06 raised from 1200 (probe-sized) to preserve the w=194 cap.",
- "isolated_frozen_node_2026_08_07": {
-  "node": {
-   "Tb_K": 252.0,
-   "wOcean_ppt": 4.8567,
-   "grid_index": [
-    8,
-    3
-   ],
-   "has_ocean": false
-  },
-  "neighbors": {
-   "cold_Tb251.5": "ocean",
-   "warm_Tb252.5": "ocean"
-  },
-  "class": "borderline-liquidus numerics \u2014 a single-node Tb non-monotonicity (frozen cell with both Tb-neighbors ocean) at mid-dilute salinity, FAR from the excluded w>=180 Margules island and outside the w>=150 corner sub-test.",
-  "gate3_impact": "the gate-3 half-cell Tb-shift DOES sweep across this cell (both neighbors ocean); its standalone contribution to the 0.0500 placement-band span is EXACTLY 0.00000 (verified: forcing this node to ocean leaves span unchanged). The span is dominated by the flat-onset geometry (span = dTb/Tb_box_width), not this cell.",
-  "recorded_by": "Machine B, \u00a70.14 item 1 (Machine A 2026-08-07)"
- }
+ "mgso4_ceiling_provenance": "1400 MPa = production PPTitan deepest w=194 node (~1371) + margin; linear extrap verified monotone/stiffening to 1500 MPa, projection error ~1.5% at ceiling (water-benchmarked); reviewer a3c9ed8ae24664527 2026-08-06 raised from 1200 (probe-sized) to preserve the w=194 cap."
 }

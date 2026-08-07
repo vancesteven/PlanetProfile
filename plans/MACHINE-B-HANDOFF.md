@@ -28,16 +28,42 @@ onset, monotonic D_ocean between neighbors, neighbor likelihood scalars uncontam
 (reproduced in fresh per-node processes). Evidence:
 `validation_reports/titan_saltcaches/tb252_rootcause_2026_08_07.json` (commit b09e534f).
 
-**Status.** BOTH 1M gens HELD — NaCl's cache also carries the defect (its 252.0 None),
-so both need a float-coerced rebuild before dataset gen. The fix (cache-build float
-coercion) + the deeper shared `fn_phase` int/float bug are with the scientific-reviewer
-(agent ab2d3748d0b00c78c) for adjudication; NOT self-adjudicated. Machine A: the
-`fn_phase` int/float disagreement at a grid pressure is a LATENT shared-thermodynamics
-bug that could perturb any PP cache built from an int `PfreezeUpper_MPa` template —
-referred for your review alongside the reviewer verdict. On PROCEED-to-rebuild I will:
-rebuild both caches with float coercion, assert box-wide monotonicity (0 flips) + 0
-interior None + a new "no None/frozen sandwiched between two ocean nodes in a column"
-guard, re-run gate-3 reporting absolute `half_cell_K` primary, then release the 1M gens.
+**Reviewer PROCEED-to-rebuild (agent ab2d3748d0b00c78c) + mechanism CORRECTION.**
+The reviewer confirmed the physical conclusion and endorsed the float-coercion rebuild
+but corrected the mechanism: the int/float divergence is NOT in `fn_phase`
+(`Nearest2DInterpolator`/`searchsorted` are type-invariant) — it is int-dtype
+truncation in **`ResetNearestExtrap` (DataManip.py:15-35)**. Its size-1 branch (line 26
+`outVar1=np.array(var1)`) preserves the int64 dtype; assigning the float melt-EOS bound
+229.96 into that int array truncates to 229. Since the melt grid Pmax=229.96 <
+PfreezeUpper=230, the search endpoint always clamps: int→229 (liquid) → failing GetZero
+bracket → NoIceLiquidTransitionError; float→229.96 (ice III) → brute-force scan finds
+the real Ih→liquid transition. Verified directly (`ResetNearestExtrap(230,…)`→229.0 vs
+`(230.0,…)`→229.96; generalizes to T). Evidence JSON updated (commit 9c378eaf).
+
+**REBUILT + INSTALLED + gate-3 BINDING PASS (2026-08-07).** Both caches rebuilt with
+mandatory float-coerced `PfreezeUpper_MPa=230.0` + the sandwich invariant:
+- **MgSO4**: 192 ocean / 80 no-ocean / 0 None (+1 ocean = repaired 252.0 node);
+  Tb=252.0 row all-ocean; D_ocean 15.603 monotonic (15.572<15.603<36.236); CMR2
+  smoothed 0.31894→0.31920; genuine frozen onset (250.0/250.5/251.0) preserved.
+- **NaCl**: 315 / 219 / 66 (+1 ocean −1 None = repaired 252.0 node); D_ocean 31.056
+  monotonic (20.691<31.056<106.614); genuine frozen onset (250.0) preserved.
+- Gate-3 (absolute `half_cell_K` primary): **MgSO4 0.250 K PASS, NaCl 0.500 K PASS**;
+  0 sandwich violations each; fraction-span diagnostic 0.0500 / 0.0218 (confirms the
+  reviewer's ranking inversion — MgSO4 is the physically finer cache). Reports:
+  `validation_reports/titan_freegrav_{mgso4,nacl}_1m/gate3_boundary.json`.
+- Installed to Test/ (old bytes preserved in git history). Manifests carry
+  `pfreeze_upper_float_coerced=True` + `sandwich_invariant_violations=[]`.
+
+**MACHINE A — please re-verify the NEW cache bytes** (your §0.14 acceptance was for the
+pre-fix bytes; node counts changed by +1 ocean each). **The `ResetNearestExtrap`
+int-truncation bug is a LATENT shared-thermodynamics defect** (affects ANY scalar-int
+P/T query beyond an EOS domain, not just PfreezeUpper) — the reviewer's smallest fix is
+`dtype=float` in the size-1 branch (lines 26/28). Referred to you; NOT self-adjudicated.
+
+**1M gens: now UNBLOCKED by gate-3** (both binding-PASS), but still gated by §0.10/§0.12
+on the per-composition quarantine + the #4 pilot verdict for flow TRAINING. Dataset gen
+(architecture-independent) is clear on the rebuilt caches: NaCl seeds 74/7474/74, MgSO4
+73/7373/73.
 
 ## 0.10 PRODUCTION AUTHORIZATION (user + manager, 2026-08-06) — MgSO4/NaCl proceed in parallel with the architecture pilot
 
@@ -273,10 +299,12 @@ MgSO4/NaCl 2D joint caches + datasets now (architecture-independent, §0.10
 priority-b).
 
 
-Updated: 2026-08-07 (Machine B: §0.15 added — gate-3 reviewer verdict [NaCl
-PROCEED, MgSO4 BLOCK] + shared Tb=252 K defect root-caused to an int/float
-fn_phase artifact; both 1M gens HELD pending float-coerced rebuild verdict.
-Prior Machine A entry:) §0.11 CLOSED — v5 RATIFIED scoped + v6
+Updated: 2026-08-07 (Machine B: §0.15 — Tb=252 K defect root-caused to
+ResetNearestExtrap int-truncation [reviewer-corrected from fn_phase]; BOTH
+caches REBUILT with float-coerced PfreezeUpper + sandwich invariant, gate-3
+BINDING PASS [MgSO4 0.25K, NaCl 0.5K], installed to Test/. Machine A: re-verify
+new bytes + review the latent ResetNearestExtrap dtype bug. Prior Machine A
+entry:) §0.11 CLOSED — v5 RATIFIED scoped + v6
 RATIFIED, GUI ungated, deploy snapshot rebuilt; §0.14 added — MgSO4/NaCl
 caches ACCEPTED, per-comp gate-3 + 1M dataset gens GO, flow training still
 HELD on per-composition quarantine re-verification; two non-blocking record
