@@ -103,7 +103,7 @@ passed (10 pre-existing warnings) with a task-specific writable Numba cache.
 `py_compile` and `git diff --check` passed. Claim commit `4776a320`;
 implementation commit `7f5f3836`.
 
-### C11 — Scope-note numerical priors + config-exact centrals (doc-doctor item 3) [status: queued]
+### C11 — Scope-note numerical priors + config-exact centrals (doc-doctor item 3) [status: in progress (Codex)]
 
 1. Add numerical headline-prior ranges to the scope notes missing them:
    Test50 (`Inference.py:1088`), Galileo v1.1 (`:1274`), v4 (`:1320`),
