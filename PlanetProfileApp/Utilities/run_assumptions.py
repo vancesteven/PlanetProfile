@@ -47,7 +47,7 @@ def describe_assumptions(result) -> str:
     body = getattr(cfg, 'bodyname', '') or 'body'
     mode = ('amortized neural posterior (SBI/NPE)'
             if (result.metadata or {}).get('sampler') == 'sbi'
-            else 'MCMC (emcee ensemble sampler)')
+            else 'MCMC (pocoMC preconditioned Monte Carlo)')
     lines.append(f"**Inference:** {body}, {mode}. The posterior is over "
                  "the parameters below; everything else is held at the "
                  "values baked into the structure cache.")
@@ -112,11 +112,21 @@ def describe_assumptions(result) -> str:
                  "this run — η is uniform within each phase layer.")
     lines.append(visc)
 
-    lines.append(
+    moi = (
         "**Moment of inertia:** C/MR² is the structure integral of the "
         "draw's density profile (core-aware when core parameters are "
-        "sampled); gravity-pair configs derive the hydrostatic C₂₀/C₂₂ "
-        "reference from it via Radau–Darwin.")
+        "sampled).")
+    gravity_model = getattr(cfg, 'gravity_forward_model', None)
+    if gravity_model == 'clairaut_hydrostatic':
+        moi += (
+            " This config declares `clairaut_hydrostatic`: its hydrostatic "
+            "C₂₀/C₂₂ reference comes from direct Clairaut integration of "
+            "the same per-draw composite density profile.")
+    elif gravity_model:
+        moi += f" This config declares `{gravity_model}` for C₂₀/C₂₂."
+    else:
+        moi += " This config declares no direct C₂₀/C₂₂ forward model."
+    lines.append(moi)
 
     lines.append(
         "**Not modeled:** porosity is OFF everywhere — structure caches "

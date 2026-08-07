@@ -2526,8 +2526,10 @@ visualization, are future work.
    grid over the ice-shell basal temperature `T_b`: radial density, bulk and
    shear moduli, and phase assignments from the equation-of-state stack
    (SeaFreeze et al.), built once per body configuration and cached
-   (the *structure cache*). Each posterior sample selects the nearest-`T_b`
-   grid structure.
+   (the *structure cache*). Each posterior sample uses transition-aware
+   between-node blending: linear in `T_b` for 1D list caches and bilinear in
+   (`T_b`, log₁₀ salinity) for 2D caches; a layer-set transition falls back to
+   the nearest valid node.
 2. **Rheology** — sampled parameters modify the viscoelastic properties per
    ice/rock phase: Andrade (`α`, `ζ`, per-phase viscosities `η`) or Maxwell
    (viscosities only). Viscosities are sampled as log₁₀ quantities.
@@ -3913,8 +3915,10 @@ def render_results():
                         st.caption(
                             "Standard PlanetProfile property profiles for "
                             "the selected draw, rebuilt through the same "
-                            "(T_b, w) structure-cache interpolation the "
-                            "likelihood used. Phase bands share the globe "
+                            "structure-cache interpolation the likelihood "
+                            "used. For 2D caches, between-node structure is "
+                            "bilinearly blended in (T_b, log10 w). Phase "
+                            "bands share the globe "
                             "colors. Viscosity η and shear modulus μ are "
                             "the rheology inputs to the tidal-heating "
                             "solve: η starts from the cache's base "
@@ -4035,7 +4039,8 @@ def render_results():
                             "body's PP defaults unless the run asserts "
                             "or samples them (e.g. the model's ocean "
                             "composition, salinity), and are not "
-                            "inferred."
+                            "inferred. For 2D caches, between-node structure "
+                            "is bilinearly blended in (T_b, log10 w)."
                             + (f" Note: {_wextra}." if _wextra else ""))
                     else:
                         _crisp_display(
@@ -4154,7 +4159,8 @@ def render_results():
                             "rock; ices and ocean carry none and the "
                             "iron core is taken radionuclide-free — so "
                             "the radiogenic curve ends at the rock–ice "
-                            "boundary.")
+                            "boundary. For 2D caches, between-node structure "
+                            "is bilinearly blended in (T_b, log10 w).")
                         for _n in _heat.get('notes') or []:
                             st.warning(_n)
 
@@ -4341,7 +4347,9 @@ def render_results():
                             "show edge artifacts there). Judge "
                             "compositions across the posterior — a "
                             "single draw's verdict inherits that "
-                            "draw's ρ_sil uncertainty.")
+                            "draw's ρ_sil uncertainty. For 2D caches, "
+                            "between-node structure is bilinearly blended "
+                            "in (T_b, log10 w).")
 
                 with _tab_data:
                     from Utilities.radial_profiles import (

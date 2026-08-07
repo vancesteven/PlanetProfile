@@ -132,7 +132,15 @@ def test_assumptions_markdown():
                                       {'prior_type': 'uniform',
                                        'bounds': [12, 17]}}),
         metadata={}))
-    assert 'No Arrhenius' in md2 and 'Maxwell' in md2 and 'MCMC' in md2
+    assert 'No Arrhenius' in md2 and 'Maxwell' in md2
+    assert 'MCMC (pocoMC preconditioned Monte Carlo)' in md2
+    assert 'no direct C₂₀/C₂₂ forward model' in md2
+
+    md3 = describe_assumptions(types.SimpleNamespace(
+        config=_fake_cfg(gravity_forward_model='clairaut_hydrostatic'),
+        metadata={}))
+    assert 'direct Clairaut integration' in md3
+    assert 'Radau–Darwin' not in md3
 
 
 @pytest.mark.skipif(not EUROPA_V4_PKL.exists(),
@@ -165,6 +173,7 @@ def test_apptest_europa_v4_globe_panel():
     md_all = ' '.join(str(getattr(m, 'value', '')) for m in at.main
                       if type(m).__name__ in ('Markdown', 'Caption'))
     assert 'porosity is OFF' in md_all
+    assert 'between-node blending' in md_all
 
     btn_keys = [str(getattr(b, 'key', ''))
                 for b in at.get('download_button')]
@@ -180,6 +189,8 @@ def test_apptest_europa_v4_globe_panel():
                         if type(c).__name__ == 'Caption')
     assert 'TidalPy radial' in caps_all and 'Q_rad' in caps_all
     assert 'Perple_X at cache-build time only' in caps_all
+    assert caps_all.count(
+        'between-node structure is bilinearly blended') >= 4
     # wide-range table cells ship as pre-formatted e-notation strings
     dfs = [el for el in at.main if type(el).__name__ == 'Dataframe']
     tbl = next(d.value for d in dfs if 'eta (Pa s)' in d.value.columns)
