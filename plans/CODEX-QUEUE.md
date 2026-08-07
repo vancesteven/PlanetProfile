@@ -71,7 +71,7 @@ check: 6/6 changed references resolve”; “Deploy cache documentation check:
 entry points tracked”; `git diff --cached --check: PASS`. Claim commit
 `9cee9c90`; implementation commit `8f969076`.
 
-### C10 — GUI assumption-text contradictions (doc-doctor items 6, 7) [status: queued]
+### C10 — GUI assumption-text contradictions (doc-doctor items 6, 7) [status: in progress (Codex)]
 
 Three factual corrections + one caption, text-only (no behavior change):
 1. `Inference.py:2517-2523` shared build-up expander: "nearest Tb grid
