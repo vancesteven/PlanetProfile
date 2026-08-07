@@ -170,6 +170,16 @@ unchanged visual title. Automatic SHA resolution matched current HEAD
 `git diff --check`, and staged diff checks passed. Claim commit `93a93c4e`;
 implementation commit `da59b261`.
 
+**Manager review (2026-08-07): C9–C12 ACCEPTED and pushed.** C12
+independently re-verified on this machine: SVG dc:description, PDF
+/Subject, and PNG Description all carry slot label + artifact filename +
+conditioning + live git SHA (auto-resolved 7b4c9f9c); filename stem
+`k2_<slot>_<date>` confirmed; app suite 9/9 with C12 in tree. Queue empty.
+Process note: C11's staged Inference.py edits were swept into the
+manager's concurrent globe commit `607c6d34` (shared worktree) — content
+verified, but future concurrent lanes must claim files or stash before
+manager commits touch the same file.
+
 ## Completed
 
 ### C8 — First doc-doctor pass [status: verified]
