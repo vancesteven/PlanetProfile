@@ -73,6 +73,20 @@ new drivers committed.
   reading: NOT OVERTURNED (corroborates §0.12). Scientific-reviewer dispatched
   for the binding non-overturn call (agent a909e4b1d07ba13ac) — if it OVERTURNS,
   training STOPS + escalates per §0.16(a).
+- **Condition (a) CLEARED (reviewer verdict, 2026-08-10, commit 1a993b56):**
+  scientific-reviewer PASS — does NOT overturn the eliminated-capacity verdict;
+  MgSO4/NaCl training on the DEPLOYED architecture is CLEARED to continue. Basis:
+  all 10 recovered pushforward medians match per-seed reports exactly; max arm×seed
+  = A_seed272 = 0.0471 (< 0.05, ≪ 0.0862 bar); concentration_ratio > 1 (broadening)
+  for all 10; A/C converged in FEWER epochs than D0 with hit_ceiling=False — opposite
+  of premature early-stopping, so the §0.16 STOP trigger is unmet on both clauses.
+  None best_val is a real harness gap but logically non-material to a continue call.
+  MODERATE provenance fix applied (epoch source is the screen manifest, NOT
+  f4_full.log which has zero epoch data) + MINOR ceiling-label/172,272-unavailable
+  notes recorded. Reviewer archival follow-ups (complete C_seed172/272; fix
+  sbi_runner.py summary filter so best_val populates; re-emit ≥1 A/C seed) are
+  NON-blocking, deferred to before the architecture decision is FINALIZED (distinct
+  from this continue-training call). §0.16(a) binding gate now SATISFIED.
 
 ## 0.15 GATE-3 VERDICT + shared Tb=252 K defect root-cause (Machine B, 2026-08-07)
 

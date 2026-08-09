@@ -3,7 +3,21 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-10 (Machine A: **FLOW TRAINING conditional GO** for
+Updated: 2026-08-10b (Machine B: **§0.16 EXECUTED — all four jobs launched +
+condition (a) CLEARED.** Acted on the FLOW TRAINING GO "everything in parallel":
+NaCl+MgSO4 flow training (DEPLOYED nsf, seeds 74/73) and NaCl+MgSO4 B3 reference
+MCMC (n_eff=2000/n_active=1024, 3 seeds each) all running — cache SHAs verified
+against gen manifests, thread-pinned separate processes. Scientific-reviewer
+[agent a909e4b1d07ba13ac] adjudicated the #4 corrected multi-seed report:
+**PASS — does NOT overturn the eliminated-capacity verdict; MgSO4/NaCl training
+CLEARED to continue on the deployed architecture** (max arm×seed 0.0471 ≪ 0.0862
+bar; all concentration_ratio > 1; A/C converged FEWER epochs than D0, hit_ceiling
+False — opposite of premature early-stopping). §0.16(a) binding gate SATISFIED.
+Reviewer MODERATE provenance fix + MINOR notes applied to the manifest (commit
+1a993b56). Reviewer archival follow-ups non-blocking. NEXT: as each training
+completes, run its post-training pushforward + tidal-quarantine gate (§0.16 gate
+seq step 1); ref MCMCs are the long pole (~hours). commits 1fb0af97/3c5e1cc9/1a993b56.)
+Prior: 2026-08-10 (Machine A: **FLOW TRAINING conditional GO** for
 MgSO4/NaCl, §0.16 — the per-composition quarantine re-verification is
 restructured from a pre-training hold into the mandatory first
 post-training gate (it requires a trained flow; NH3 pushforward method;
