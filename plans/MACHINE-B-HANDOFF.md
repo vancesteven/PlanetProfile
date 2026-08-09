@@ -1,5 +1,57 @@
 # Machine B handoff
 
+## 0.16 FLOW TRAINING AUTHORIZATION (manager, 2026-08-10) — conditional GO for MgSO4/NaCl
+
+Answering "ready for flow training?" against the two §0.15 holds:
+
+**Hold 1 — #4 architecture-pilot verdict: SATISFIED IN SUBSTANCE, one
+report outstanding.** The pilot verdict is in and reviewer-adjudicated
+(§0.12: capacity/embedding ELIMINATED; MgSO4/NaCl proceed on the DEPLOYED
+architecture). The corrected 4-arm×3-seed re-run was the last insurance
+item (closes the premature-early-stop alternative); its partials
+corroborated (A@72/172 ~0.043, no pass) but the final report never landed.
+Condition (a) below covers it.
+
+**Hold 2 — per-composition quarantine re-verification: RESTRUCTURED, not a
+pre-training hold.** Re-verifying the tidal-sector quarantine for a
+composition requires a TRAINED flow (pushforward vs reference MCMC — the
+NH3 method). It cannot precede training; treating it as a pre-training
+hold deadlocks. It becomes the MANDATORY FIRST post-training gate: each
+composition trains under split-status by default (tidal k2 sector
+quarantined, exactly the NH3 posture) and the quarantine is
+confirmed-or-lifted per composition from its own pushforward evidence.
+Do NOT port the NH3 verdict by assumption in either direction.
+
+**Therefore: TRAINING GO for both compositions, conditions:**
+(a) Commit the #4 corrected 4-arm×3-seed final report (with recovered
+    best_val/train_val_gap) no later than with the first training
+    deliverable. If it OVERTURNS the pilot (large arms genuinely
+    premature-early-stopped and a bigger arm passes), STOP training and
+    escalate — do not proceed on the deployed architecture.
+(b) Datasets: /tmp copies are void after any reboot — regenerate with the
+    committed driver + seeds and verify cache SHAs against the committed
+    gen manifests (NaCl 0fdbd44f…, MgSO4 124c8539…) before training.
+(c) Architecture + recipe: the DEPLOYED architecture and training recipe
+    exactly (nsf via sbi 0.26.1, deployed early stopping, z-scoring with
+    the fixed convention); seeds and package versions recorded in the
+    artifact manifest. No architecture experimentation in production
+    training — that path goes through the upstream-identifiability
+    diagnostic (§0.12 ruling 3), not these campaigns.
+
+**Start NOW in parallel (independent of training): fresh reference MCMC
+per composition** on {C20, C22, Re_k2, Im_k2}, B3 protocol (n_eff~2000
+class, >=3 seeds, pinned env, pooled + renormalized) — these are the
+crosscheck targets and the quarantine-re-verification baseline.
+
+**Post-training gate sequence per composition (preregistered, no tuning
+after seeing failures):** (1) pushforward four-way table + tidal-sector
+quarantine verdict (0.5 sigma_obs flag, NH3 method); (2) SBC at
+n_sbc=1500; (3) crosscheck vs the pooled fresh reference (standard
+tolerances; shape clause; SHA-recorded gate code); (4) limits per the
+ratified in-support/materiality rules. Ship gate summaries +
+per-arm reports; manager adjudicates ratification and GUI wiring
+(placeholders already live).
+
 ## 0.15 GATE-3 VERDICT + shared Tb=252 K defect root-cause (Machine B, 2026-08-07)
 
 The scientific-reviewer adjudicated gate-3 (agent a070eb8cc673d6e76). Verdict:
@@ -360,7 +412,14 @@ MgSO4/NaCl 2D joint caches + datasets now (architecture-independent, §0.10
 priority-b).
 
 
-Updated: 2026-08-07 (Machine B: §0.15 — Tb=252 K defect root-caused to
+Updated: 2026-08-10 (Machine A: §0.16 — FLOW TRAINING conditional GO for
+MgSO4/NaCl. Quarantine re-verification restructured as the mandatory FIRST
+post-training gate (needs a trained flow; split-status default). Conditions:
+commit the #4 re-run final report (stop+escalate if it overturns), SHA-verify
+regenerated datasets, deployed architecture/recipe exactly. Start fresh
+per-comp reference MCMC (B3 protocol) NOW in parallel. Gate sequence
+preregistered in §0.16.)
+Prior: 2026-08-07 (Machine B: §0.15 — Tb=252 K defect root-caused to
 ResetNearestExtrap int-truncation [reviewer-corrected from fn_phase]; BOTH
 caches REBUILT float-coerced + gate-3 BINDING PASS + installed; BOTH 1M gens
 DONE on repaired caches [NaCl 631,214 / MgSO4 691,075 kept, cache-sha verified];

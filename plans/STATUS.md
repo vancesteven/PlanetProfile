@@ -3,7 +3,16 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-07b (Machine A: §0.15 closeout `verified` — rebuilt
+Updated: 2026-08-10 (Machine A: **FLOW TRAINING conditional GO** for
+MgSO4/NaCl, §0.16 — the per-composition quarantine re-verification is
+restructured from a pre-training hold into the mandatory first
+post-training gate (it requires a trained flow; NH3 pushforward method;
+split-status default), and the #4 corrected-re-run report becomes a
+commit-with-first-deliverable condition (stop+escalate if it overturns
+the eliminated-capacity verdict). B also starts fresh per-comp reference
+MCMC (B3 protocol) immediately in parallel. Codex C9–C12 all accepted +
+pushed earlier; B has not pushed since 08-07 — likely awaiting this GO.)
+Prior: 2026-08-07b (Machine A: §0.15 closeout `verified` — rebuilt
 MgSO4/NaCl cache bytes RE-ACCEPTED (independent reload: counts exact, SHAs
 match gen manifests, 0 sandwiched frozen nodes, 252 K repairs confirmed);
 `ResetNearestExtrap` int-truncation fix adjudicated + landed with
