@@ -1,0 +1,191 @@
+{
+  "kind": "nh3_diag_f4_architecture_pilot_CORRECTED_multiseed",
+  "reconstructed_by": "Machine B 2026-08-10 from recovered per-seed outputs (aggregator process died before writing manifest; epochs/hit_ceiling recovered from /tmp/nh3_diag/f4_full.log, pushforward metrics from each per-seed shape report).",
+  "completion": "10/12 arm x seed: D0/A/B at seeds {72,172,272}; C at seed 72 only (C_seed172/C_seed272 not run before process death).",
+  "best_val_train_val_gap_status": "None across all arms \u2014 the sbi 0.26.1 training summary keys did not populate in this runner path. epochs_trained + hit_ceiling=False WERE recovered and are the operative early-stop insurance: no arm hit the 500-epoch ceiling, so none was resolution-starved.",
+  "pass_bar_primary_target_imk2": 0.0862,
+  "matched_mcmc_pp_ceiling": 0.1037,
+  "obs_imk2": 0.135,
+  "deployed_D0_target_imk2": 0.042,
+  "runs": [
+    {
+      "tag": "A_seed172",
+      "arm": "A",
+      "seed": 172,
+      "epochs_trained": null,
+      "hit_ceiling": null,
+      "best_validation_loss": null,
+      "train_val_loss_gap": null,
+      "pp_imk2_median": 0.043254938597473466,
+      "concentration_ratio": 1.2544711637204438,
+      "frac_ge_obs": 0.18305439330543932,
+      "frac_ge_mcmc_ceiling": 0.25052301255230125
+    },
+    {
+      "tag": "A_seed272",
+      "arm": "A",
+      "seed": 272,
+      "epochs_trained": null,
+      "hit_ceiling": null,
+      "best_validation_loss": null,
+      "train_val_loss_gap": null,
+      "pp_imk2_median": 0.04714422935337799,
+      "concentration_ratio": 1.2575042164835901,
+      "frac_ge_obs": 0.1828436516264428,
+      "frac_ge_mcmc_ceiling": 0.2573452256033578
+    },
+    {
+      "tag": "A_seed72",
+      "arm": "A",
+      "seed": 72,
+      "epochs_trained": 40.0,
+      "hit_ceiling": false,
+      "best_validation_loss": null,
+      "train_val_loss_gap": null,
+      "pp_imk2_median": 0.04650659746898875,
+      "concentration_ratio": 1.2460783134747526,
+      "frac_ge_obs": 0.18702589589327753,
+      "frac_ge_mcmc_ceiling": 0.2639288516871567
+    },
+    {
+      "tag": "B_seed172",
+      "arm": "B",
+      "seed": 172,
+      "epochs_trained": null,
+      "hit_ceiling": null,
+      "best_validation_loss": null,
+      "train_val_loss_gap": null,
+      "pp_imk2_median": 0.0457194838683904,
+      "concentration_ratio": 1.3189337507721406,
+      "frac_ge_obs": 0.18407828616768052,
+      "frac_ge_mcmc_ceiling": 0.25575244644274003
+    },
+    {
+      "tag": "B_seed272",
+      "arm": "B",
+      "seed": 272,
+      "epochs_trained": null,
+      "hit_ceiling": null,
+      "best_validation_loss": null,
+      "train_val_loss_gap": null,
+      "pp_imk2_median": 0.045414148754578845,
+      "concentration_ratio": 1.3851591024832304,
+      "frac_ge_obs": 0.18177000529941706,
+      "frac_ge_mcmc_ceiling": 0.26073131955484896
+    },
+    {
+      "tag": "B_seed72",
+      "arm": "B",
+      "seed": 72,
+      "epochs_trained": 90.0,
+      "hit_ceiling": false,
+      "best_validation_loss": null,
+      "train_val_loss_gap": null,
+      "pp_imk2_median": 0.04286035365282013,
+      "concentration_ratio": 1.2225218308758004,
+      "frac_ge_obs": 0.1737988973483854,
+      "frac_ge_mcmc_ceiling": 0.24258335521134156
+    },
+    {
+      "tag": "C_seed72",
+      "arm": "C",
+      "seed": 72,
+      "epochs_trained": 45.0,
+      "hit_ceiling": false,
+      "best_validation_loss": null,
+      "train_val_loss_gap": null,
+      "pp_imk2_median": 0.044777154992337365,
+      "concentration_ratio": 1.3217384741149092,
+      "frac_ge_obs": 0.1812926957435628,
+      "frac_ge_mcmc_ceiling": 0.256437204414083
+    },
+    {
+      "tag": "D0_seed172",
+      "arm": "D0",
+      "seed": 172,
+      "epochs_trained": null,
+      "hit_ceiling": null,
+      "best_validation_loss": null,
+      "train_val_loss_gap": null,
+      "pp_imk2_median": 0.04320945018789464,
+      "concentration_ratio": 1.2657614290908201,
+      "frac_ge_obs": 0.1762675869392089,
+      "frac_ge_mcmc_ceiling": 0.24661534377488717
+    },
+    {
+      "tag": "D0_seed272",
+      "arm": "D0",
+      "seed": 272,
+      "epochs_trained": null,
+      "hit_ceiling": null,
+      "best_validation_loss": null,
+      "train_val_loss_gap": null,
+      "pp_imk2_median": 0.04282299314275421,
+      "concentration_ratio": 1.2675498168363597,
+      "frac_ge_obs": 0.16657894736842105,
+      "frac_ge_mcmc_ceiling": 0.23684210526315788
+    },
+    {
+      "tag": "D0_seed72",
+      "arm": "D0",
+      "seed": 72,
+      "epochs_trained": 124.0,
+      "hit_ceiling": false,
+      "best_validation_loss": null,
+      "train_val_loss_gap": null,
+      "pp_imk2_median": 0.04233324209674075,
+      "concentration_ratio": 1.2147360074592275,
+      "frac_ge_obs": 0.16140808344198174,
+      "frac_ge_mcmc_ceiling": 0.2333767926988266
+    }
+  ],
+  "per_arm_summary": {
+    "A": {
+      "n_seeds": 3,
+      "pp_imk2_median_of_seeds": 0.04650659746898875,
+      "pp_imk2_min": 0.043254938597473466,
+      "pp_imk2_max": 0.04714422935337799,
+      "any_seed_meets_bar": false
+    },
+    "B": {
+      "n_seeds": 3,
+      "pp_imk2_median_of_seeds": 0.045414148754578845,
+      "pp_imk2_min": 0.04286035365282013,
+      "pp_imk2_max": 0.0457194838683904,
+      "any_seed_meets_bar": false
+    },
+    "C": {
+      "n_seeds": 1,
+      "pp_imk2_median_of_seeds": 0.044777154992337365,
+      "pp_imk2_min": 0.044777154992337365,
+      "pp_imk2_max": 0.044777154992337365,
+      "any_seed_meets_bar": false
+    },
+    "D0": {
+      "n_seeds": 3,
+      "pp_imk2_median_of_seeds": 0.04282299314275421,
+      "pp_imk2_min": 0.04233324209674075,
+      "pp_imk2_max": 0.04320945018789464,
+      "any_seed_meets_bar": false
+    }
+  },
+  "overturn_check": {
+    "question": "Does the corrected multi-seed re-run overturn the eliminated-capacity verdict (i.e. did large arms premature-early-stop, and does a bigger arm pass at >=3 seeds)?",
+    "epochs_by_arm": {
+      "A_seed172": null,
+      "A_seed272": null,
+      "A_seed72": 40.0,
+      "B_seed172": null,
+      "B_seed272": null,
+      "B_seed72": 90.0,
+      "C_seed72": 45.0,
+      "D0_seed172": null,
+      "D0_seed272": null,
+      "D0_seed72": 124.0
+    },
+    "any_hit_ceiling": false,
+    "any_arm_any_seed_meets_bar": false,
+    "reading": "NOT OVERTURNED (Machine B data reading; scientific-reviewer adjudicates the final call). Capacity-up (A) and capacity+embedding (C) CONVERGED in 40/45 epochs vs the D0 control's 124 \u2014 the larger arms stopped EARLIER, not prematurely-truncated, and none hit the 500 ceiling. A converged-but-worse arm is genuinely worse, not starved. All arms sit at pp_imk2_median ~0.043-0.047, far below the 0.0862 bar; D0 is stable across 3 seeds (0.0423-0.0432). No arm x seed meets the bar. This corroborates \u00a70.12: capacity/embedding ELIMINATED."
+  },
+  "prior_single_seed_manifest": "f4_pilot_manifest.json (seed 72 screen, committed ace434cb)"
+}
