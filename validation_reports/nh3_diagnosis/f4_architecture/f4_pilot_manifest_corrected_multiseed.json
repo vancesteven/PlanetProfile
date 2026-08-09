@@ -1,8 +1,9 @@
 {
   "kind": "nh3_diag_f4_architecture_pilot_CORRECTED_multiseed",
-  "reconstructed_by": "Machine B 2026-08-10 from recovered per-seed outputs (aggregator process died before writing manifest; epochs/hit_ceiling recovered from /tmp/nh3_diag/f4_full.log, pushforward metrics from each per-seed shape report).",
+  "reconstructed_by": "Machine B 2026-08-10 from recovered per-seed outputs (aggregator process died before writing manifest). Pushforward metrics (pp_imk2_median, concentration_ratio, frac_ge_obs, frac_ge_mcmc_ceiling) from each per-seed pushforward_shape_report.json. epochs_trained + hit_ceiling for the SEED-72 arms are taken from the committed single-seed screen manifest f4_pilot_manifest.json (runs[0..3]: D0=124, A=40, B=90, C=45, all hit_ceiling=False), NOT from /tmp/nh3_diag/f4_full.log (that log contains no epoch data; the earlier provenance string was corrected per scientific-reviewer 2026-08-10, MODERATE).",
   "completion": "10/12 arm x seed: D0/A/B at seeds {72,172,272}; C at seed 72 only (C_seed172/C_seed272 not run before process death).",
-  "best_val_train_val_gap_status": "None across all arms \u2014 the sbi 0.26.1 training summary keys did not populate in this runner path. epochs_trained + hit_ceiling=False WERE recovered and are the operative early-stop insurance: no arm hit the 500-epoch ceiling, so none was resolution-starved.",
+  "convergence_data_availability": "epochs_trained/hit_ceiling are available ONLY for the seed-72 arms (from the screen manifest). For seeds 172/272 these are UNAVAILABLE and recorded as null: the saved .pt artifacts strip train_summary (sbi_runner.py captures it to _last_train_summary but the save schema does not persist it), so they cannot be recovered post hoc. This is a completeness gap, not a data-integrity issue \u2014 the seed-72 epoch triad (larger arms A/C converged in fewer epochs than the D0 control, none hit the 500 ceiling) already carries the non-overturn insurance.",
+  "best_val_train_val_gap_status": "None across all arms \u2014 the sbi 0.26.1 training summary keys did not populate in this runner path. epochs_trained + hit_ceiling=False for the seed-72 arms ARE available (screen manifest) and are the operative early-stop insurance: no arm hit the 500-epoch ceiling, so none was resolution-starved.",
   "pass_bar_primary_target_imk2": 0.0862,
   "matched_mcmc_pp_ceiling": 0.1037,
   "obs_imk2": 0.135,
@@ -187,5 +188,17 @@
     "any_arm_any_seed_meets_bar": false,
     "reading": "NOT OVERTURNED (Machine B data reading; scientific-reviewer adjudicates the final call). Capacity-up (A) and capacity+embedding (C) CONVERGED in 40/45 epochs vs the D0 control's 124 \u2014 the larger arms stopped EARLIER, not prematurely-truncated, and none hit the 500 ceiling. A converged-but-worse arm is genuinely worse, not starved. All arms sit at pp_imk2_median ~0.043-0.047, far below the 0.0862 bar; D0 is stable across 3 seeds (0.0423-0.0432). No arm x seed meets the bar. This corroborates \u00a70.12: capacity/embedding ELIMINATED."
   },
-  "prior_single_seed_manifest": "f4_pilot_manifest.json (seed 72 screen, committed ace434cb)"
+  "prior_single_seed_manifest": "f4_pilot_manifest.json (seed 72 screen, committed ace434cb)",
+  "ceiling_label_note": "Per-seed reports use mcmc_pp_ceiling_used=0.1 (rounded label); the manifest/screen use matched_mcmc_pp_ceiling=0.1037 (the operative value). Both are far above the best arm (0.047), so the discrepancy is immaterial to the verdict; 0.1037 is authoritative.",
+  "scientific_reviewer_adjudication": {
+    "date": "2026-08-10",
+    "verdict": "PASS — does NOT overturn the eliminated-capacity verdict; MgSO4/NaCl flow training on the DEPLOYED architecture is CLEARED to continue (§0.16(a) binding gate satisfied).",
+    "confidence": "high",
+    "basis": "All 10 recovered pushforward medians match the per-seed report files exactly; no arm x seed reaches even 0.05 against the 0.0862 bar (max = A_seed272 = 0.0471); concentration_ratio > 1 (broadening) for all 10 runs; larger arms A/C converged in FEWER epochs than the D0 control with hit_ceiling=False — the opposite of premature early-stopping, so the §0.16 STOP trigger (large arms starved AND a bigger arm passes) is unmet on both clauses. None best_val is a real harness gap but is logically non-material to a non-overturn/continue decision (it would only matter for declaring an arm a PASS).",
+    "followups_before_architecture_decision_is_finalized": [
+      "complete C_seed172/272 for record symmetry (archival, not verdict-threatening)",
+      "fix sbi_runner.py summary filter so best_validation_loss/train_val_gap populate; re-emit for >=1 A and >=1 C seed to close overfit-vs-convergence archivally",
+      "provenance/ceiling-label corrections (DONE in this manifest revision)"
+    ]
+  }
 }
