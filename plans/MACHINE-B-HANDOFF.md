@@ -52,6 +52,28 @@ ratified in-support/materiality rules. Ship gate summaries +
 per-arm reports; manager adjudicates ratification and GUI wiring
 (placeholders already live).
 
+**MACHINE B EXECUTION (2026-08-10, commit 1fb0af97).** Acted on the §0.16 GO
+with "everything in parallel" (user-confirmed sequencing). Preconditions
+verified: /tmp datasets SURVIVED (no reboot); cache SHAs MATCH committed gen
+manifests (NaCl 0fdbd44f, MgSO4 124c8539) + npz SHAs match; the
+`ResetNearestExtrap` dtype fix (9d76375e) is orthogonal (future builds only —
+installed bytes/datasets unchanged). LAUNCHED four background jobs (thread-pinned,
+separate processes — libomp): NaCl+MgSO4 flow training (`titanG_ocean_train_all.py
+--comp`, DEPLOYED nsf arch only, seeds 74/73, cache-sha assertions passed) and
+NaCl+MgSO4 B3 reference MCMC (`titanG_ocean_reference_mcmc.py --comp`,
+n_eff=2000/n_active=1024, 3 seeds each 74/174/274 & 73/173/273, pooled). Both
+new drivers committed.
+- **Condition (a) — #4 corrected report:** reconstructed
+  `f4_pilot_manifest_corrected_multiseed.json` from recovered per-seed outputs
+  (aggregator died before writing it; 10/12 arm×seed: D0/A/B×{72,172,272}, C×72).
+  best_val/train_val_gap None (sbi 0.26.1 keys didn't populate — recorded as a
+  harness limitation, NOT fabricated); epochs+hit_ceiling recovered: NO arm hit
+  the 500-epoch ceiling, A/C converged in 40/45 epochs vs D0's 124. All arms
+  pp_imk2_median ~0.043–0.047 << 0.0862 bar; D0 stable across 3 seeds. Machine B
+  reading: NOT OVERTURNED (corroborates §0.12). Scientific-reviewer dispatched
+  for the binding non-overturn call (agent a909e4b1d07ba13ac) — if it OVERTURNS,
+  training STOPS + escalates per §0.16(a).
+
 ## 0.15 GATE-3 VERDICT + shared Tb=252 K defect root-cause (Machine B, 2026-08-07)
 
 The scientific-reviewer adjudicated gate-3 (agent a070eb8cc673d6e76). Verdict:
