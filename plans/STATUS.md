@@ -3,7 +3,29 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-10c (Machine B: **§0.16 gate seq COMPLETE — SBC/limits/crosscheck
+Updated: 2026-08-10d (Machine B: **reviewer req-val #1 + #2 DISCHARGED.** Gate
+interpretation verdict [agent a719438103ced11d0]: **PASS WITH CONCERNS, no STOP**
+— gravity C20/C22 deploy TRUSTED, tidal k2 quarantine STANDS, NaCl eta_V FAIL
+non-blocking (poorly-identified HP-ice-V nuisance, threshold-adjacent to MgSO4's
+passing 0.209 dex), repool repair statistically sound (Kish ESS + n reproduce
+crosscheck reports to the digit). Two required validations before Re_k2 deploys:
+(#1) **MCMC→Re_k2 pushforward RUN** (titanG_mcmc_rek2_pushforward.py; pooled
+repaired MCMC posterior systematically resampled unweighted → identical θ→x
+forward loop, obs_noise=False, byte-identical to the SBI ppc). RESULT: both comps
+**UNDER-PREDICT** Re_k2 — MgSO4 pp_med 0.570 (−0.79σ), NaCl 0.575 (−0.68σ) vs
+obs 0.608; NEITHER centers on 0.608, so the flow-offset/quarantine trigger is NOT
+met. Gravity pushforward centers exactly on obs (C20/C22 ≤0.05σ); Im_k2 also
+under-predicts (−1.60/−1.34σ, consistent with the quarantined NH3 mechanism).
+Arithmetic: MgSO4 REPRODUCES_TENSION (MCMC-vs-SBI gap 0.240σ ≤0.5σ); NaCl
+INTERMEDIATE — but only because SBI is MORE pessimistic (1.52σ) than MCMC (0.68σ
+signed), pushing the median gap to 0.528σ just past the mechanical line; the
+physics (MCMC under-predicts, does not center on obs) is the SAME as MgSO4 →
+routed to reviewer for the binding tension-vs-offset call. (#2) **limits monotone
+doc corrected** — recorded as gated FAIL + adjudicator override, not N/A (below).
+NEXT: reviewer adjudicates the NaCl Re_k2 arithmetic → if tension confirmed both,
+Re_k2 deploys informative-with-caveat and Phase C GUI wiring (Machine A) is
+unblocked. commit pending.)
+Prior: 2026-08-10c (Machine B: **§0.16 gate seq COMPLETE — SBC/limits/crosscheck
 run for both MgSO4+NaCl; reviewer routing for interpretation.** Pushforward-
 acceptance verdict [agent ab702bb410edb3da6]: **PASS WITH CONCERNS, PROCEED no
 STOP** — tidal k2 quarantine correctly STANDS both comps; Im_k2 under-update
@@ -12,7 +34,19 @@ defect; Margules region carries no anomalous Im_k2); gravity+Re_k2 deployable
 (Re_k2 = informative-with-caveat, NaCl 1.52σ). Gate outcomes (interpreted, never
 tuned): **SBC (n_sbc=1500) PASS both** (BH-FDR corrected; gravity/mass-cons ranks
 uniform ⇒ reviewer req-val #2 satisfied). **limits FAIL both but NON-BLOCKING** —
-containment_pass=True (binding read); monotone clause N/A for Titan joint mixtures.
+containment_pass=True (binding read, max shift ≤0.007σ ≪ 0.25σ). Correction
+(reviewer 2026-08-10): the FAIL is the monotone clause, and it is a *gated FAIL*
+(monotone_pass=False, monotone_gated=True, monotone_verdict=FAIL,
+monotone_na_reason=None), NOT the code returning N/A — the sweep window extends
+to 0.2/0.3 (above the LIMITS_MONOTONE_FALSIFIED_BELOW=0.15 auto-N/A trigger), so
+the gate DID evaluate monotonicity and it failed (medians INCREASE with Im_k2:
+MgSO4 12.61→12.86, NaCl 12.81→13.18 — opposite the decreasing premise). It is
+rendered NON-BINDING by adjudicator OVERRIDE on the established falsified-premise
+basis (Titan-joint monotone-decreasing Im_k2→η_Ih premise invalid; 2026-07-09
+MCMC ground truth) + the fact that the deployment x_obs Im_k2=0.135 sits BELOW
+the 0.15 falsified boundary (real obs is in the auto-N/A region; the sweep only
+probes above 0.15 for limiting behavior). Recorded as adjudicated override, not
+as monotone_pass=None.
 **crosscheck: MgSO4 PASS (all 13 params); NaCl FAIL on log10_eta_V only** (shape+
 median, median_diff 0.352 vs 0.30 dex tol) — poorly-constrained HP-ice-V nuisance;
 all observable-relevant params (Tb,w,dC20,dC22) + primary eta_Ih PASS. Fixed a

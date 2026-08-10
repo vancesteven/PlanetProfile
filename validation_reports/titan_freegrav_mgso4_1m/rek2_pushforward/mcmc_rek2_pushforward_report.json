@@ -1,0 +1,90 @@
+{
+  "kind": "mcmc_rek2_pushforward",
+  "note": "Closes reviewer required-validation #1: pushes the pooled repaired reference-MCMC posterior through the identical theta->x forward loop (obs_noise=False) used by the SBI ppc and training set. Importance-weighted pooled samples resampled to unweighted (systematic, seeded) before pushforward. DIAGNOSTIC; interpreted by scientific-reviewer, never tuned.",
+  "comp": "MgSO4",
+  "config": "PlanetProfile/Inference/configs/test54_titan_mgso4_freegrav.json",
+  "pooled_pkl": "validation_reports/titan_freegrav_mgso4_1m/reference/titan_freegrav_mgso4_reference_pooled.pkl",
+  "obs_names": [
+    "C20",
+    "C22",
+    "Re_k2",
+    "Im_k2"
+  ],
+  "x_obs": {
+    "C20": -3.3511e-05,
+    "C22": 1.0107e-05,
+    "Re_k2": 0.608,
+    "Im_k2": 0.135
+  },
+  "sigma": {
+    "C20": 4.71e-07,
+    "C22": 6.2e-08,
+    "Re_k2": 0.048,
+    "Im_k2": 0.035
+  },
+  "seed": 73,
+  "n_pooled": 19325,
+  "n_push_requested": 8000,
+  "n_push_forward_finite": 8000,
+  "per_channel": {
+    "C20": {
+      "obs": -3.3511e-05,
+      "sigma": 4.71e-07,
+      "pp_median": -3.353404076308156e-05,
+      "pp_5_95": [
+        -3.429327310869263e-05,
+        -3.276443426400634e-05
+      ],
+      "signed_median_dev_sigma": -0.048918817582928466,
+      "median_abs_dev_sigma": 0.6522788182566002,
+      "n_finite": 8000
+    },
+    "C22": {
+      "obs": 1.0107e-05,
+      "sigma": 6.2e-08,
+      "pp_median": 1.010501593352505e-05,
+      "pp_5_95": [
+        1.0003947613491564e-05,
+        1.0208025204322819e-05
+      ],
+      "signed_median_dev_sigma": -0.03200107217660878,
+      "median_abs_dev_sigma": 0.6993185116169274,
+      "n_finite": 8000
+    },
+    "Re_k2": {
+      "obs": 0.608,
+      "sigma": 0.048,
+      "pp_median": 0.5700647424699518,
+      "pp_5_95": [
+        0.5034574298196325,
+        0.6673304977133354
+      ],
+      "signed_median_dev_sigma": -0.7903178652093381,
+      "median_abs_dev_sigma": 0.9971857516852811,
+      "n_finite": 8000
+    },
+    "Im_k2": {
+      "obs": 0.135,
+      "sigma": 0.035,
+      "pp_median": 0.0791257885841361,
+      "pp_5_95": [
+        0.026177506667981264,
+        0.14858007566847556
+      ],
+      "signed_median_dev_sigma": -1.5964060404532543,
+      "median_abs_dev_sigma": 1.6057808556866613,
+      "n_finite": 8000
+    }
+  },
+  "rek2_decision": {
+    "mcmc_pp_median_Re_k2": 0.5700647424699518,
+    "mcmc_signed_dev_sigma": -0.7903178652093381,
+    "mcmc_median_abs_dev_sigma": 0.9971857516852811,
+    "sbi_pp_median_Re_k2": 0.5585340274352062,
+    "sbi_median_dev_sigma": 1.2568407686689151,
+    "mcmc_vs_sbi_median_gap_sigma": 0.24022322989053257,
+    "mcmc_within_0p5sigma_of_sbi": true,
+    "mcmc_under_predicts": true,
+    "verdict_arithmetic": "REPRODUCES_TENSION (Re_k2 ACCEPT candidate)"
+  }
+}
