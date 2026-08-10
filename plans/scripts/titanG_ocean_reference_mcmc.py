@@ -133,17 +133,33 @@ def main():
         res.save(str(tmp_pkl))
         shutil.copy2(tmp_pkl, dst_dir / tmp_pkl.name)
         shutil.copy2(jsonl, dst_dir / jsonl.name)
+        seed_w = getattr(res, "weights", None)
+        seed_w = None if seed_w is None else np.asarray(seed_w, dtype=float)
         runs.append({"seed": int(sd), "n_samples": int(samples.shape[0]),
                      "log_Z": md.get("log_Z"), "log_Z_err": md.get("log_Z_err"),
-                     "elapsed_s": dt, "samples": samples, "pkl": tmp_pkl.name})
+                     "elapsed_s": dt, "samples": samples, "weights": seed_w,
+                     "pkl": tmp_pkl.name})
 
-    # POOL: concatenate equal-resolution equal-weight seed samples (renormalized =
-    # each seed contributes its equal-weight draws; the pool is the multi-seed
-    # reference used as the crosscheck target).
+    # POOL: concatenate the pocoMC importance-weighted seed samples. The per-seed
+    # weights are NOT uniform (pocoMC importance weights), so both samples AND
+    # weights must be concatenated. Each seed's weights are renormalized to sum
+    # to 1/n_seeds so every seed contributes EQUAL total posterior mass to the
+    # pool (equal per-seed contribution, renormalized). The pool is the multi-seed
+    # reference / crosscheck target.
+    n_seeds = len(runs)
     pooled = np.concatenate([r["samples"] for r in runs], axis=0)
+    if all(r["weights"] is not None for r in runs):
+        pooled_w = np.concatenate(
+            [r["weights"] / r["weights"].sum() / n_seeds for r in runs], axis=0)
+    else:
+        # no per-seed weights => equal-weight draws; assign uniform pooled weights
+        pooled_w = np.full(pooled.shape[0], 1.0 / pooled.shape[0], dtype=float)
+    assert pooled_w.shape[0] == pooled.shape[0], \
+        f"pooled weights {pooled_w.shape[0]} != pooled samples {pooled.shape[0]}"
     pooled_pkl = tmp_dir / f"titan_freegrav_{tag}_reference_pooled.pkl"
     # save pooled via the last result object's container for schema compatibility
     res.samples = pooled
+    res.weights = pooled_w
     res.save(str(pooled_pkl))
     shutil.copy2(pooled_pkl, dst_dir / pooled_pkl.name)
 

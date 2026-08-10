@@ -1,0 +1,13 @@
+{
+  "kind": "titanG_nacl_gate_runner",
+  "comp": "NaCl",
+  "artifact": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/sbi_artifacts/titan_freegrav_nacl_posterior_1m.pt",
+  "config": "PlanetProfile/Inference/configs/test54_titan_nacl_freegrav.json",
+  "reference_mcmc": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/titan_freegrav_nacl_1m/reference/titan_freegrav_nacl_reference_pooled.pkl",
+  "n_sbc": "1500",
+  "seed": "74",
+  "gate_exit_codes": {
+    "crosscheck": 2
+  },
+  "tidal_split_status": "tidal k2 sector QUARANTINED (pushforward step-1 verdict); limits on the |Im k2| sweep are advisory, gravity+Re_k2 containment is the binding read."
+}

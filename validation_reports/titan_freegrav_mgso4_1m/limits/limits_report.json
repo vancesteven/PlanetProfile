@@ -1,0 +1,356 @@
+{
+  "check": "limits",
+  "gate": "log10_eta_Ih posterior median monotone decreasing vs Im_k2 (<= 1 tie, in-support+1-buffer window); in-support containment: max per-param posterior shift (reject/raw) < 0.25*sigma (materiality bar, ratified 2026-07-25); Z=2.0 in-support filter, OOD containment informational",
+  "verdict": "FAIL",
+  "results": {
+    "sweep_obs": "Im_k2",
+    "sweep_values": [
+      0.04495284942072088,
+      0.08208300873494256,
+      0.11921316804916426,
+      0.15634332736338596,
+      0.19347348667760766,
+      0.2,
+      0.25,
+      0.3
+    ],
+    "fixed_obs": {
+      "C20": -3.3511e-05,
+      "C22": 1.0107e-05,
+      "Re_k2": 0.608
+    },
+    "monotone_param": "log10_eta_Ih",
+    "grid": [
+      {
+        "sweep_value": 0.04495284942072088,
+        "log10_eta_Ih_median": 12.610068321228027,
+        "n_samples": 2000,
+        "n_inside_box": 1955,
+        "z": 0.0,
+        "in_support": true,
+        "interior_pass": true,
+        "median_to_bound_sigma": 1.5380313608217029
+      },
+      {
+        "sweep_value": 0.08208300873494256,
+        "log10_eta_Ih_median": 12.745835304260254,
+        "n_samples": 2000,
+        "n_inside_box": 1957,
+        "z": 0.4999999999999999,
+        "in_support": true,
+        "interior_pass": true,
+        "median_to_bound_sigma": 1.5681296842074672
+      },
+      {
+        "sweep_value": 0.11921316804916426,
+        "log10_eta_Ih_median": 12.810026168823242,
+        "n_samples": 2000,
+        "n_inside_box": 1964,
+        "z": 1.0,
+        "in_support": true,
+        "interior_pass": true,
+        "median_to_bound_sigma": 1.5709312185954682
+      },
+      {
+        "sweep_value": 0.15634332736338596,
+        "log10_eta_Ih_median": 12.72867727279663,
+        "n_samples": 2000,
+        "n_inside_box": 1954,
+        "z": 1.5,
+        "in_support": true,
+        "interior_pass": true,
+        "median_to_bound_sigma": 1.4779312663503823
+      },
+      {
+        "sweep_value": 0.19347348667760766,
+        "log10_eta_Ih_median": 12.79967737197876,
+        "n_samples": 2000,
+        "n_inside_box": 1954,
+        "z": 2.0000000000000004,
+        "in_support": true,
+        "interior_pass": true,
+        "median_to_bound_sigma": 1.4622293772861432
+      },
+      {
+        "sweep_value": 0.2,
+        "log10_eta_Ih_median": 12.863451957702637,
+        "n_samples": 2000,
+        "n_inside_box": 1951,
+        "z": 2.087886955549536,
+        "in_support": false,
+        "interior_pass": null,
+        "median_to_bound_sigma": null
+      },
+      {
+        "sweep_value": 0.25,
+        "log10_eta_Ih_median": 12.837542057037354,
+        "n_samples": 2000,
+        "n_inside_box": 1957,
+        "z": 2.7611940585014056,
+        "in_support": false,
+        "interior_pass": null,
+        "median_to_bound_sigma": null
+      },
+      {
+        "sweep_value": 0.3,
+        "log10_eta_Ih_median": 12.704261779785156,
+        "n_samples": 2000,
+        "n_inside_box": 1946,
+        "z": 3.4345011614532757,
+        "in_support": false,
+        "interior_pass": null,
+        "median_to_bound_sigma": null
+      }
+    ],
+    "medians": [
+      12.610068321228027,
+      12.745835304260254,
+      12.810026168823242,
+      12.72867727279663,
+      12.79967737197876,
+      12.863451957702637,
+      12.837542057037354,
+      12.704261779785156
+    ],
+    "monotonicity": {
+      "direction": "decreasing",
+      "tol": 0.006,
+      "diffs": [
+        0.13576698303222656,
+        0.06419086456298828,
+        -0.08134889602661133,
+        0.0710000991821289,
+        0.06377458572387695
+      ],
+      "n_strict_violations": 4,
+      "n_ties": 0,
+      "max_ties_allowed": 1,
+      "monotone_pass": false,
+      "monotone_window_values": [
+        0.04495284942072088,
+        0.08208300873494256,
+        0.11921316804916426,
+        0.15634332736338596,
+        0.19347348667760766,
+        0.2
+      ],
+      "monotone_window_n": 6,
+      "monotone_verdict": "FAIL",
+      "monotone_na_reason": null,
+      "monotone_gated": true
+    },
+    "containment_fraction": 0.9784,
+    "ood_containment_fraction": 0.9756666666666667,
+    "containment_required": 1.0,
+    "containment_shift_criterion": 0.25,
+    "containment_max_shift_sigma": 0.004058916743890314,
+    "per_param_shift": [
+      {
+        "param": "alpha",
+        "sigma": 0.08607408443873217,
+        "mean_shift_sigma": 0.0007600044946170627,
+        "median_shift_sigma": 0.0006684170240625477
+      },
+      {
+        "param": "log10_zeta",
+        "sigma": 1.412425692488617,
+        "mean_shift_sigma": 0.0019291618453663331,
+        "median_shift_sigma": 0.0001563095357314354
+      },
+      {
+        "param": "log10_eta_Ih",
+        "sigma": 1.8019691712792185,
+        "mean_shift_sigma": 0.001307082011663991,
+        "median_shift_sigma": 0.0015604643890370516
+      },
+      {
+        "param": "log10_eta_III",
+        "sigma": 1.7625669955991583,
+        "mean_shift_sigma": 0.0023164589290076668,
+        "median_shift_sigma": 0.0014622450360882732
+      },
+      {
+        "param": "log10_eta_V",
+        "sigma": 1.769677477089068,
+        "mean_shift_sigma": 0.00029911894862918304,
+        "median_shift_sigma": 0.00012583250663683037
+      },
+      {
+        "param": "log10_eta_VI",
+        "sigma": 1.7444608021018686,
+        "mean_shift_sigma": 0.0011584317490416934,
+        "median_shift_sigma": 0.0035436261517009016
+      },
+      {
+        "param": "log10_eta_sil",
+        "sigma": 1.145267775447703,
+        "mean_shift_sigma": 0.0004618992331694257,
+        "median_shift_sigma": 0.0011141640956873584
+      },
+      {
+        "param": "Tb_K",
+        "sigma": 3.0882858668417397,
+        "mean_shift_sigma": 0.0014927540018599026,
+        "median_shift_sigma": 0.004058916743890314
+      },
+      {
+        "param": "log10_wOcean_ppt",
+        "sigma": 0.6774101895698288,
+        "mean_shift_sigma": 0.0032058081206898176,
+        "median_shift_sigma": 0.0018040384550546537
+      },
+      {
+        "param": "R_core_km",
+        "sigma": 522.105609201726,
+        "mean_shift_sigma": 0.0029894058123475756,
+        "median_shift_sigma": 0.0026646627177394837
+      },
+      {
+        "param": "rho_core_kgm3",
+        "sigma": 233.97289841051526,
+        "mean_shift_sigma": 0.0029004541682778554,
+        "median_shift_sigma": 0.0017128344293720521
+      },
+      {
+        "param": "dC20_nh",
+        "sigma": 9.359143619308783e-07,
+        "mean_shift_sigma": 0.0005637825117318258,
+        "median_shift_sigma": 0.0016551694405018097
+      },
+      {
+        "param": "dC22_nh",
+        "sigma": 2.457754901416073e-07,
+        "mean_shift_sigma": 0.0007720964597699975,
+        "median_shift_sigma": 9.748531489460542e-05
+      }
+    ],
+    "containment_pass": true,
+    "interior_pass": true,
+    "insupport_mode": "constructed",
+    "n_insupport_sweep_pts": 5,
+    "all_pass": false
+  },
+  "artifact": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/sbi_artifacts/titan_freegrav_mgso4_posterior_1m.pt",
+  "artifact_meta": {
+    "schema_version": 1,
+    "config_hash": "d1bfdf1ee55bc737",
+    "bodyname": "Titan",
+    "git_sha": "b5c4bec8",
+    "seed": 73,
+    "n_train_effective": 691075,
+    "sbi_version": "0.26.1",
+    "torch_version": "2.8.0",
+    "created_utc": "2026-08-09T19:02:58Z",
+    "density_estimator": "nsf",
+    "imag_convention": "abs",
+    "param_names": [
+      "alpha",
+      "log10_zeta",
+      "log10_eta_Ih",
+      "log10_eta_III",
+      "log10_eta_V",
+      "log10_eta_VI",
+      "log10_eta_sil",
+      "Tb_K",
+      "log10_wOcean_ppt",
+      "R_core_km",
+      "rho_core_kgm3",
+      "dC20_nh",
+      "dC22_nh"
+    ],
+    "param_bounds": [
+      [
+        0.15,
+        0.45
+      ],
+      [
+        -3.0,
+        2.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        18.0,
+        22.0
+      ],
+      [
+        248.0,
+        258.0
+      ],
+      [
+        0.0,
+        2.2878
+      ],
+      [
+        0.0,
+        2000.0
+      ],
+      [
+        2591.0,
+        3600.0
+      ],
+      [
+        -2e-05,
+        2e-05
+      ],
+      [
+        -5e-06,
+        5e-06
+      ]
+    ],
+    "obs_names": [
+      "C20",
+      "C22",
+      "Re_k2",
+      "Im_k2"
+    ],
+    "rejection_stats": {
+      "n_requested": 1000000,
+      "n_rejected_support": 196761,
+      "n_rejected_nonfinite": 112164,
+      "rejection_rate": 0.308925,
+      "imag_convention": "abs",
+      "seed": 73,
+      "obs_noise": {
+        "type": "gaussian_diagonal",
+        "sigma": {
+          "C20": 4.71e-07,
+          "C22": 6.2e-08,
+          "Re_k2": 0.048,
+          "Im_k2": 0.035
+        },
+        "correlations": null,
+        "noise_seed": 7373,
+        "refold_im": false
+      },
+      "apply_support_guard": true,
+      "n_kept": 691075
+    }
+  },
+  "limits_plot": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/titan_freegrav_mgso4_1m/limits/limits_median_trend.png",
+  "provenance": {
+    "seed": 73,
+    "timestamp_utc": "2026-08-10T06:50:11Z",
+    "git_sha": "ec779ac1",
+    "versions": {
+      "torch": "2.8.0",
+      "sbi": "0.26.1",
+      "scipy": "1.17.1",
+      "numpy": "2.4.6"
+    }
+  }
+}

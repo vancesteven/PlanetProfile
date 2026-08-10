@@ -1,0 +1,270 @@
+{
+  "check": "sbc",
+  "gate": "per-parameter rank-uniformity KS, BH-FDR-corrected across params at alpha=0.05 (raw per-param p reported)",
+  "verdict": "PASS",
+  "results": {
+    "n_sbc_pairs": 1024,
+    "num_posterior_samples": 1000,
+    "ks_alpha": 0.05,
+    "per_parameter": [
+      {
+        "param": "$\\alpha$",
+        "ks_pval": 0.02399168349802494,
+        "ks_pass": false,
+        "ks_pval_bh_adj": 0.1559459427371621,
+        "ks_pass_bh": true,
+        "c2st_rank_accuracy": 0.5541964338958794
+      },
+      {
+        "param": "$\\log_{10}\\zeta$",
+        "ks_pval": 0.7415692210197449,
+        "ks_pass": true,
+        "ks_pval_bh_adj": 0.8889917631944021,
+        "ks_pass_bh": true,
+        "c2st_rank_accuracy": 0.5615349752519531
+      },
+      {
+        "param": "$\\log_{10}\\eta_\\mathrm{Ih}$",
+        "ks_pval": 0.05774928256869316,
+        "ks_pass": true,
+        "ks_pval_bh_adj": 0.2502468911310037,
+        "ks_pass_bh": true,
+        "c2st_rank_accuracy": 0.5932410996481603
+      },
+      {
+        "param": "$\\log_{10}\\eta_\\mathrm{III}$",
+        "ks_pval": 0.6720411777496338,
+        "ks_pass": true,
+        "ks_pval_bh_adj": 0.8889917631944021,
+        "ks_pass_bh": true,
+        "c2st_rank_accuracy": 0.5893672848708926
+      },
+      {
+        "param": "$\\log_{10}\\eta_\\mathrm{V}$",
+        "ks_pval": 0.14327910542488098,
+        "ks_pass": true,
+        "ks_pval_bh_adj": 0.37252567410469056,
+        "ks_pass_bh": true,
+        "c2st_rank_accuracy": 0.5839859264118313
+      },
+      {
+        "param": "$\\log_{10}\\eta_\\mathrm{VI}$",
+        "ks_pval": 0.818016767501831,
+        "ks_pass": true,
+        "ks_pval_bh_adj": 0.8889917631944021,
+        "ks_pass_bh": true,
+        "c2st_rank_accuracy": 0.5800596338481723
+      },
+      {
+        "param": "$\\log_{10}\\eta_\\mathrm{sil}$",
+        "ks_pval": 0.7076904773712158,
+        "ks_pass": true,
+        "ks_pval_bh_adj": 0.8889917631944021,
+        "ks_pass_bh": true,
+        "c2st_rank_accuracy": 0.5878621265430258
+      },
+      {
+        "param": "$T_b$ (K)",
+        "ks_pval": 0.4286474883556366,
+        "ks_pass": true,
+        "ks_pval_bh_adj": 0.7960596212318966,
+        "ks_pass_bh": true,
+        "c2st_rank_accuracy": 0.5747164410519411
+      },
+      {
+        "param": "log10_wOcean_ppt",
+        "ks_pval": 0.8206077814102173,
+        "ks_pass": true,
+        "ks_pval_bh_adj": 0.8889917631944021,
+        "ks_pass_bh": true,
+        "c2st_rank_accuracy": 0.5663951338779891
+      },
+      {
+        "param": "R_core_km",
+        "ks_pval": 0.4192561209201813,
+        "ks_pass": true,
+        "ks_pval_bh_adj": 0.7960596212318966,
+        "ks_pass_bh": true,
+        "c2st_rank_accuracy": 0.571786033752758
+      },
+      {
+        "param": "rho_core_kgm3",
+        "ks_pval": 0.012244604527950287,
+        "ks_pass": false,
+        "ks_pval_bh_adj": 0.1559459427371621,
+        "ks_pass_bh": true,
+        "c2st_rank_accuracy": 0.5962013238714293
+      },
+      {
+        "param": "dC20_nh",
+        "ks_pval": 0.11929153650999069,
+        "ks_pass": true,
+        "ks_pval_bh_adj": 0.37252567410469056,
+        "ks_pass_bh": true,
+        "c2st_rank_accuracy": 0.5849615361679289
+      },
+      {
+        "param": "dC22_nh",
+        "ks_pval": 0.9085152745246887,
+        "ks_pass": true,
+        "ks_pval_bh_adj": 0.9085152745246887,
+        "ks_pass_bh": true,
+        "c2st_rank_accuracy": 0.5654290655375992
+      }
+    ],
+    "all_pass_raw_uncorrected": false,
+    "all_pass": true,
+    "multiplicity_correction": "benjamini_hochberg_fdr",
+    "min_ks_pval": 0.012244604527950287,
+    "min_ks_pval_bh_adj": 0.1559459427371621
+  },
+  "source": {
+    "mode": "generated",
+    "config": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/configs/test54_titan_mgso4_freegrav.json",
+    "gen_stats": {
+      "n_requested": 1500,
+      "n_rejected_support": 293,
+      "n_rejected_nonfinite": 183,
+      "rejection_rate": 0.31733333333333336,
+      "imag_convention": "abs",
+      "seed": 73,
+      "obs_noise": {
+        "type": "gaussian_diagonal",
+        "sigma": {
+          "C20": 4.71e-07,
+          "C22": 6.2e-08,
+          "Re_k2": 0.048,
+          "Im_k2": 0.035
+        },
+        "correlations": null,
+        "noise_seed": 174,
+        "refold_im": false
+      },
+      "apply_support_guard": true,
+      "n_kept": 1024
+    }
+  },
+  "artifact": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/sbi_artifacts/titan_freegrav_mgso4_posterior_1m.pt",
+  "artifact_meta": {
+    "schema_version": 1,
+    "config_hash": "d1bfdf1ee55bc737",
+    "bodyname": "Titan",
+    "git_sha": "b5c4bec8",
+    "seed": 73,
+    "n_train_effective": 691075,
+    "sbi_version": "0.26.1",
+    "torch_version": "2.8.0",
+    "created_utc": "2026-08-09T19:02:58Z",
+    "density_estimator": "nsf",
+    "imag_convention": "abs",
+    "param_names": [
+      "alpha",
+      "log10_zeta",
+      "log10_eta_Ih",
+      "log10_eta_III",
+      "log10_eta_V",
+      "log10_eta_VI",
+      "log10_eta_sil",
+      "Tb_K",
+      "log10_wOcean_ppt",
+      "R_core_km",
+      "rho_core_kgm3",
+      "dC20_nh",
+      "dC22_nh"
+    ],
+    "param_bounds": [
+      [
+        0.15,
+        0.45
+      ],
+      [
+        -3.0,
+        2.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        18.0,
+        22.0
+      ],
+      [
+        248.0,
+        258.0
+      ],
+      [
+        0.0,
+        2.2878
+      ],
+      [
+        0.0,
+        2000.0
+      ],
+      [
+        2591.0,
+        3600.0
+      ],
+      [
+        -2e-05,
+        2e-05
+      ],
+      [
+        -5e-06,
+        5e-06
+      ]
+    ],
+    "obs_names": [
+      "C20",
+      "C22",
+      "Re_k2",
+      "Im_k2"
+    ],
+    "rejection_stats": {
+      "n_requested": 1000000,
+      "n_rejected_support": 196761,
+      "n_rejected_nonfinite": 112164,
+      "rejection_rate": 0.308925,
+      "imag_convention": "abs",
+      "seed": 73,
+      "obs_noise": {
+        "type": "gaussian_diagonal",
+        "sigma": {
+          "C20": 4.71e-07,
+          "C22": 6.2e-08,
+          "Re_k2": 0.048,
+          "Im_k2": 0.035
+        },
+        "correlations": null,
+        "noise_seed": 7373,
+        "refold_im": false
+      },
+      "apply_support_guard": true,
+      "n_kept": 691075
+    }
+  },
+  "rank_plot": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/titan_freegrav_mgso4_1m/sbc/sbc_rank_cdf.png",
+  "provenance": {
+    "seed": 73,
+    "timestamp_utc": "2026-08-10T06:50:07Z",
+    "git_sha": "ec779ac1",
+    "versions": {
+      "torch": "2.8.0",
+      "sbi": "0.26.1",
+      "scipy": "1.17.1",
+      "numpy": "2.4.6"
+    }
+  }
+}

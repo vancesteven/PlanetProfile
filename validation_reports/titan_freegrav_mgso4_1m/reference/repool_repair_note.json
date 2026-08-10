@@ -1,0 +1,7 @@
+{
+  "repool_repair_2026_08_10": {
+    "root_cause": "titanG_ocean_reference_mcmc.py pooled by setting res.samples=concat(all seeds) but never res.weights; pooled pkl carried only last-seed weights (len!=samples). validate_sbi crosscheck raised weights-length mismatch.",
+    "fix": "per-seed pkls intact (weights match samples, each sums to 1; pocoMC importance weights, NOT uniform). Repooled BOTH samples and weights, renormalizing each seed to 1/n_seeds (equal per-seed posterior mass). Source script fixed + plans/scripts/titanG_repool_reference.py rebuilt pooled pkls from committed per-seed pkls. NO MCMC recompute.",
+    "verified": "pooled weights len==samples len; wsum=1.0; crosscheck re-ran to a verdict."
+  }
+}

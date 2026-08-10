@@ -1,0 +1,13 @@
+{
+  "kind": "titanG_mgso4_gate_runner",
+  "comp": "MgSO4",
+  "artifact": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/sbi_artifacts/titan_freegrav_mgso4_posterior_1m.pt",
+  "config": "PlanetProfile/Inference/configs/test54_titan_mgso4_freegrav.json",
+  "reference_mcmc": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/validation_reports/titan_freegrav_mgso4_1m/reference/titan_freegrav_mgso4_reference_pooled.pkl",
+  "n_sbc": "1500",
+  "seed": "73",
+  "gate_exit_codes": {
+    "crosscheck": 0
+  },
+  "tidal_split_status": "tidal k2 sector QUARANTINED (pushforward step-1 verdict); limits on the |Im k2| sweep are advisory, gravity+Re_k2 containment is the binding read."
+}
