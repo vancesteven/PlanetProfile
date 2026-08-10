@@ -1,0 +1,40 @@
+{
+  "kind": "titanG_mgso4_tidal_quarantine_verdict",
+  "gate": "\u00a70.16 post-training gate step 1 \u2014 pushforward four-way table + tidal-sector quarantine (0.5\u00b7sigma_obs flag, NH3 method)",
+  "preregistered_flag_threshold_sigma": 0.5,
+  "sectors": {
+    "C20": {
+      "median_dev_sigma": 0.677,
+      "flagged_gt_0p5sig": true,
+      "pp_median": -3.3573212586968955e-05,
+      "obs": -3.3511e-05
+    },
+    "C22": {
+      "median_dev_sigma": 0.719,
+      "flagged_gt_0p5sig": true,
+      "pp_median": 1.010880506494714e-05,
+      "obs": 1.0107e-05
+    },
+    "Re_k2": {
+      "median_dev_sigma": 1.257,
+      "flagged_gt_0p5sig": true,
+      "pp_median": 0.5585340274352062,
+      "obs": 0.608
+    },
+    "Im_k2": {
+      "median_dev_sigma": 2.464,
+      "flagged_gt_0p5sig": true,
+      "pp_median": 0.053375512410327425,
+      "obs": 0.135
+    }
+  },
+  "gravity_sector_clean": false,
+  "tidal_sector_reverifies": false,
+  "mechanical_verdict": "TIDAL k2 SECTOR QUARANTINE STANDS. Im_k2 pushforward median deviates 2.464sigma from obs (>> 0.5sigma flag); the sector does NOT re-verify. Gravity sector (C20/C22) dev < 0.75sigma = clean. Re_k2 dev 1.257sigma (moderate). Consistent with the NH3 Im_k2 gap (flow-defect + data-limit, capacity ELIMINATED per \u00a70.12/#4). This is the MECHANICAL preregistered flag; scientific-reviewer interprets acceptance.",
+  "joint": {
+    "n_finite": 3916,
+    "frac_all_within_1sig": 0.007150153217568948,
+    "frac_all_within_2sig": 0.2454034729315628,
+    "frac_all_within_3sig": 0.5916751787538305
+  }
+}

@@ -1,0 +1,139 @@
+{
+  "kind": "posterior_predictive_coverage_and_interior_check",
+  "note": "DIAGNOSTIC, not a gate \u2014 interpreted by scientific-reviewer, never tuned to pass. Posterior-predictive is NOISELESS (obs_noise=False); coverage vs config sigma.",
+  "artifact": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/sbi_artifacts/titan_freegrav_mgso4_posterior_1m.pt",
+  "config": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/configs/test54_titan_mgso4_freegrav.json",
+  "dataset": "/tmp/titanG_build/datasets/titanG_mgso4_1m.npz",
+  "obs_names": [
+    "C20",
+    "C22",
+    "Re_k2",
+    "Im_k2"
+  ],
+  "x_obs": {
+    "C20": -3.3511e-05,
+    "C22": 1.0107e-05,
+    "Re_k2": 0.608,
+    "Im_k2": 0.135
+  },
+  "sigma": {
+    "C20": 4.71e-07,
+    "C22": 6.2e-08,
+    "Re_k2": 0.048,
+    "Im_k2": 0.035
+  },
+  "n_post_requested": 4000,
+  "n_post_forward_finite": 3916,
+  "seed": 73,
+  "prior_predictive_interior": {
+    "C20": {
+      "obs": -3.3511e-05,
+      "pctile_in_prior_predictive": 42.3716673298846,
+      "interior_5_95": true,
+      "train_median": -3.0469379495994663e-05,
+      "train_5_95": [
+        -4.843582988331463e-05,
+        -1.2436429880553686e-05
+      ],
+      "n_finite": 691075
+    },
+    "C22": {
+      "obs": 1.0107e-05,
+      "pctile_in_prior_predictive": 59.8419853127374,
+      "interior_5_95": true,
+      "train_median": 9.122211505343565e-06,
+      "train_5_95": [
+        4.629554500253446e-06,
+        1.3635675257499497e-05
+      ],
+      "n_finite": 691075
+    },
+    "Re_k2": {
+      "obs": 0.608,
+      "pctile_in_prior_predictive": 77.28061353688095,
+      "interior_5_95": true,
+      "train_median": 0.5371686656879231,
+      "train_5_95": [
+        0.1581705832229755,
+        0.7357094677352766
+      ],
+      "n_finite": 691075
+    },
+    "Im_k2": {
+      "obs": 0.135,
+      "pctile_in_prior_predictive": 90.7289368013602,
+      "interior_5_95": true,
+      "train_median": 0.03125999647766677,
+      "train_5_95": [
+        -0.03820374240760889,
+        0.1798808456303863
+      ],
+      "n_finite": 691075
+    }
+  },
+  "prior_predictive_all_interior_5_95": true,
+  "posterior_predictive": {
+    "C20": {
+      "obs": -3.3511e-05,
+      "sigma": 4.71e-07,
+      "pp_median": -3.3573212586968955e-05,
+      "pp_5_95": [
+        -3.4368885830935474e-05,
+        -3.2823300674232325e-05
+      ],
+      "median_dev_sigma": 0.6766052158505561,
+      "frac_within_1sig": 0.6823289070480082,
+      "frac_within_2sig": 0.952247191011236,
+      "frac_within_3sig": 0.9971910112359551,
+      "n_finite": 3916
+    },
+    "C22": {
+      "obs": 1.0107e-05,
+      "sigma": 6.2e-08,
+      "pp_median": 1.010880506494714e-05,
+      "pp_5_95": [
+        9.996231157886707e-06,
+        1.0216265950379701e-05
+      ],
+      "median_dev_sigma": 0.7186536421623773,
+      "frac_within_1sig": 0.6562819203268642,
+      "frac_within_2sig": 0.9343718079673136,
+      "frac_within_3sig": 0.9951481103166496,
+      "n_finite": 3916
+    },
+    "Re_k2": {
+      "obs": 0.608,
+      "sigma": 0.048,
+      "pp_median": 0.5585340274352062,
+      "pp_5_95": [
+        0.4586477353306868,
+        0.7111141006250398
+      ],
+      "median_dev_sigma": 1.2568407686689151,
+      "frac_within_1sig": 0.37895812053115424,
+      "frac_within_2sig": 0.7829417773237998,
+      "frac_within_3sig": 0.9141981613891726,
+      "n_finite": 3916
+    },
+    "Im_k2": {
+      "obs": 0.135,
+      "sigma": 0.035,
+      "pp_median": 0.053375512410327425,
+      "pp_5_95": [
+        0.004583994108944735,
+        0.17041561579035508
+      ],
+      "median_dev_sigma": 2.4637278689962594,
+      "frac_within_1sig": 0.13993871297242083,
+      "frac_within_2sig": 0.3827885597548519,
+      "frac_within_3sig": 0.6537282941777324,
+      "n_finite": 3916
+    }
+  },
+  "posterior_predictive_joint": {
+    "n_finite": 3916,
+    "frac_all_within_1sig": 0.007150153217568948,
+    "frac_all_within_2sig": 0.2454034729315628,
+    "frac_all_within_3sig": 0.5916751787538305
+  }
+}

@@ -1,0 +1,277 @@
+{
+  "kind": "titanG_mgso4_joint_reference_mcmc_multiseed_B3",
+  "comp": "MgSO4",
+  "config": "PlanetProfile/Inference/configs/test54_titan_mgso4_freegrav.json",
+  "config_hash": "d0807949c01e1a81",
+  "seeds": [
+    73,
+    173,
+    273
+  ],
+  "n_effective": 2000,
+  "n_active": 1024,
+  "protocol": "B3 (\u00a70.16): n_eff=2000 / n_active=1024 regime-preserving (ratio ~2), >=3 fresh seeds, pooled equal-weight samples.",
+  "obs_names": [
+    "C20",
+    "C22",
+    "Re_k2",
+    "Im_k2"
+  ],
+  "param_names": [
+    "alpha",
+    "log10_zeta",
+    "log10_eta_Ih",
+    "log10_eta_III",
+    "log10_eta_V",
+    "log10_eta_VI",
+    "log10_eta_sil",
+    "Tb_K",
+    "log10_wOcean_ppt",
+    "R_core_km",
+    "rho_core_kgm3",
+    "dC20_nh",
+    "dC22_nh"
+  ],
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Titan/Test54_mgso4_ocean/titan_mgso4_joint_structure_grid_2d.pkl",
+  "structure_cache_sha256": "124c8539f6ee638355cd279223eeaac72f697dc01fbcc8d4d0c122fdce6570ed",
+  "git_sha": "b5c4bec81e4d7c9291cd587743fd46ddbb805328",
+  "runs": [
+    {
+      "seed": 73,
+      "n_samples": 6422,
+      "log_Z": -12.426997045462635,
+      "log_Z_err": 0.14442131278596457,
+      "elapsed_s": 1560.7244789600372,
+      "pkl": "titan_freegrav_mgso4_reference_seed73.pkl"
+    },
+    {
+      "seed": 173,
+      "n_samples": 6538,
+      "log_Z": -12.28604177911009,
+      "log_Z_err": 0.12613407115067193,
+      "elapsed_s": 1549.0094721317291,
+      "pkl": "titan_freegrav_mgso4_reference_seed173.pkl"
+    },
+    {
+      "seed": 273,
+      "n_samples": 6365,
+      "log_Z": -12.347407496144127,
+      "log_Z_err": 0.11098802427815535,
+      "elapsed_s": 1257.8120939731598,
+      "pkl": "titan_freegrav_mgso4_reference_seed273.pkl"
+    }
+  ],
+  "n_pooled_samples": 19325,
+  "pooled_pkl": "titan_freegrav_mgso4_reference_pooled.pkl",
+  "per_param_scatter": {
+    "alpha": {
+      "per_seed_mean": {
+        "73": 0.3029655012635163,
+        "173": 0.304472599146163,
+        "273": 0.2989606277581903
+      },
+      "per_seed_std": {
+        "73": 0.08217592136244102,
+        "173": 0.08171946160063102,
+        "273": 0.08170879476412721
+      },
+      "between_seed_mean_range": 0.005511971387972658,
+      "between_seed_mean_std": 0.0028487478068843185,
+      "pooled_mean": 0.30215631037582386,
+      "pooled_std": 0.08190087709117706
+    },
+    "log10_zeta": {
+      "per_seed_mean": {
+        "73": -1.0518322312503323,
+        "173": -1.1640457681974694,
+        "273": -1.1112170139113984
+      },
+      "per_seed_std": {
+        "73": 1.3410865195843906,
+        "173": 1.3161744810970397,
+        "273": 1.3249181935514156
+      },
+      "between_seed_mean_range": 0.1122135369471371,
+      "between_seed_mean_std": 0.05613867883094896,
+      "pooled_mean": -1.1093554522696374,
+      "pooled_std": 1.3281688636798956
+    },
+    "log10_eta_Ih": {
+      "per_seed_mean": {
+        "73": 12.805409176381257,
+        "173": 12.876998061077398,
+        "273": 12.967124247977477
+      },
+      "per_seed_std": {
+        "73": 1.6611201944273823,
+        "173": 1.693057683407044,
+        "273": 1.6767234357282064
+      },
+      "between_seed_mean_range": 0.16171507159621967,
+      "between_seed_mean_std": 0.08103441898205535,
+      "pooled_mean": 12.8828924653258,
+      "pooled_std": 1.678409902355876
+    },
+    "log10_eta_III": {
+      "per_seed_mean": {
+        "73": 12.939071666056059,
+        "173": 12.985472386412262,
+        "273": 12.820520543910407
+      },
+      "per_seed_std": {
+        "73": 1.6397609099541708,
+        "173": 1.6410279832432755,
+        "273": 1.6163161236223078
+      },
+      "between_seed_mean_range": 0.16495184250185524,
+      "between_seed_mean_std": 0.08506517673361283,
+      "pooled_mean": 12.915723154657963,
+      "pooled_std": 1.6339802198474336
+    },
+    "log10_eta_V": {
+      "per_seed_mean": {
+        "73": 12.56768223405658,
+        "173": 12.577609459646132,
+        "273": 12.61018351766011
+      },
+      "per_seed_std": {
+        "73": 1.7004206763492575,
+        "173": 1.6869213325176569,
+        "273": 1.633841213797989
+      },
+      "between_seed_mean_range": 0.04250128360352967,
+      "between_seed_mean_std": 0.0222335263785404,
+      "pooled_mean": 12.58503927783619,
+      "pooled_std": 1.6742670550659822
+    },
+    "log10_eta_VI": {
+      "per_seed_mean": {
+        "73": 12.455234538332814,
+        "173": 12.562305762720527,
+        "273": 12.332188566456365
+      },
+      "per_seed_std": {
+        "73": 1.6756056226357892,
+        "173": 1.6636861234746845,
+        "273": 1.63582561674305
+      },
+      "between_seed_mean_range": 0.23011719626416216,
+      "between_seed_mean_std": 0.11515097503088632,
+      "pooled_mean": 12.450931513962997,
+      "pooled_std": 1.6612188280256377
+    },
+    "log10_eta_sil": {
+      "per_seed_mean": {
+        "73": 19.8550864501966,
+        "173": 19.853651806754154,
+        "273": 19.87924553905047
+      },
+      "per_seed_std": {
+        "73": 1.1051716169953045,
+        "173": 1.1185307465795142,
+        "273": 1.1085312758213182
+      },
+      "between_seed_mean_range": 0.025593732296314897,
+      "between_seed_mean_std": 0.014380304290426844,
+      "pooled_mean": 19.862558269173476,
+      "pooled_std": 1.1108741277230643
+    },
+    "Tb_K": {
+      "per_seed_mean": {
+        "73": 252.14618083459624,
+        "173": 252.3273551176324,
+        "273": 252.4310939932897
+      },
+      "per_seed_std": {
+        "73": 2.9922414072754453,
+        "173": 2.995928020257943,
+        "273": 3.0270956445789774
+      },
+      "between_seed_mean_range": 0.2849131586934561,
+      "between_seed_mean_std": 0.1441997359873859,
+      "pooled_mean": 252.30131613692868,
+      "pooled_std": 3.007299899264747
+    },
+    "log10_wOcean_ppt": {
+      "per_seed_mean": {
+        "73": 1.103947647070936,
+        "173": 1.1016332310909907,
+        "273": 1.0902861748348631
+      },
+      "per_seed_std": {
+        "73": 0.6451430682055211,
+        "173": 0.6315283402725921,
+        "273": 0.6212195058967713
+      },
+      "between_seed_mean_range": 0.013661472236072836,
+      "between_seed_mean_std": 0.007311498144075741,
+      "pooled_mean": 1.0986650120148178,
+      "pooled_std": 0.6327606356806589
+    },
+    "R_core_km": {
+      "per_seed_mean": {
+        "73": 859.3949040807593,
+        "173": 855.3903858807655,
+        "273": 881.8478903542783
+      },
+      "per_seed_std": {
+        "73": 478.3612509205885,
+        "173": 488.1128864631774,
+        "273": 483.49985452031314
+      },
+      "between_seed_mean_range": 26.457504473512813,
+      "between_seed_mean_std": 14.260506662217319,
+      "pooled_mean": 865.4353551875842,
+      "pooled_std": 483.50899863492236
+    },
+    "rho_core_kgm3": {
+      "per_seed_mean": {
+        "73": 3190.099779771562,
+        "173": 3183.681018127683,
+        "273": 3175.173217941374
+      },
+      "per_seed_std": {
+        "73": 220.4395809444071,
+        "173": 222.4883166293518,
+        "273": 221.55581820556472
+      },
+      "between_seed_mean_range": 14.926561830188348,
+      "between_seed_mean_std": 7.487605459708416,
+      "pooled_mean": 3183.011892078065,
+      "pooled_std": 221.58564316478916
+    },
+    "dC20_nh": {
+      "per_seed_mean": {
+        "73": -3.0345858299384374e-06,
+        "173": -3.065523212710351e-06,
+        "273": -3.0807344731822065e-06
+      },
+      "per_seed_std": {
+        "73": 8.809581529760206e-07,
+        "173": 9.192086643631065e-07,
+        "273": 8.914100721000803e-07
+      },
+      "between_seed_mean_range": 4.614864324376912e-08,
+      "between_seed_mean_std": 2.3516665619510528e-08,
+      "pooled_mean": -3.0602523097733333e-06,
+      "pooled_std": 8.976919480458029e-07
+    },
+    "dC22_nh": {
+      "per_seed_mean": {
+        "73": 9.661452729193883e-07,
+        "173": 9.647146278780022e-07,
+        "273": 9.719125663067187e-07
+      },
+      "per_seed_std": {
+        "73": 2.1424165208041572e-07,
+        "173": 2.1958752210091808e-07,
+        "273": 2.2110431547874447e-07
+      },
+      "between_seed_mean_range": 7.197938428716458e-09,
+      "between_seed_mean_std": 3.810484130955474e-09,
+      "pooled_mean": 9.675608105716405e-07,
+      "pooled_std": 2.1835242204584946e-07
+    }
+  },
+  "note": "Titan free-gravity MgSO4 JOINT no-ocean+ocean multi-seed reference. Crosscheck target + tidal-quarantine re-verification baseline (\u00a70.16). Trained on the repaired float-coerced cache bytes."
+}
