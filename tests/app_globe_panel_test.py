@@ -180,6 +180,11 @@ def test_apptest_europa_v4_globe_panel():
     assert any('globe_pp_txt' in k for k in btn_keys)
     assert any('globe_pp_csv' in k for k in btn_keys)
 
+    # k2 scatter defaults to the measurement-ellipse zoom (user 2026-08-10)
+    zoom = next(t for t in at.toggle
+                if str(getattr(t, 'key', '')) == 'k2_zoom')
+    assert zoom.value is True
+
     # Heating + geotherm tabs (2026-07-25): totals rendered, provenance
     # captions state the Qrad assumption and Perple_X cache-build-only use.
     mets = [str(getattr(m, 'label', '')) for m in at.main
@@ -495,3 +500,45 @@ def test_apptest_titan_salt_slots_wired():
         assert 'QUARANTINED' in w, fn
     assert 'ice V' in slots['titan_freegrav_nacl_posterior_1m.pt'][
         'sector_warning']
+
+def test_sample_layers_per_phase_hp_ice():
+    # Globe sample picker must draw each HP-ice phase (III/V/VI) as its own
+    # shell when per-phase arrays are packaged (user 2026-08-10), falling
+    # back to one lumped shell for older results.
+    from Utilities.globe_view import sample_layers_from_result
+    R = 2575.0
+    base = dict(
+        param_names=['R_core_km'],
+        samples=np.array([[1800.0]]),
+        D_hsphere_results=np.array([600.0]),
+        D_iceIh_results=np.array([60.0]),
+        D_ocean_results=np.array([200.0]),
+        D_iceHP_results=np.array([340.0]),
+    )
+    res = types.SimpleNamespace(
+        **base,
+        D_icePhase_results={'III': np.array([80.0]),
+                            'V': np.array([110.0]),
+                            'VI': np.array([150.0])})
+    lays = sample_layers_from_result(res, 0, R)
+    kinds = [l['kind'] for l in lays]
+    assert kinds == ['core', 'silicate', 'ocean',
+                     'ice_III', 'ice_V', 'ice_VI']
+    ice = {l['kind']: l['r_km'] for l in lays}
+    top = R - 60.0 - 200.0
+    assert ice['ice_III'] == pytest.approx(top)
+    assert ice['ice_V'] == pytest.approx(top - 80.0)
+    assert ice['ice_VI'] == pytest.approx(top - 80.0 - 110.0)
+
+    res_old = types.SimpleNamespace(**base)  # no per-phase packaging
+    lays_old = sample_layers_from_result(res_old, 0, R)
+    assert [l['kind'] for l in lays_old] == ['core', 'silicate', 'ocean',
+                                             'hp_ice']
+    # thin phases (< 0.5 km) are dropped, not drawn as slivers
+    res_thin = types.SimpleNamespace(
+        **base,
+        D_icePhase_results={'III': np.array([0.2]),
+                            'V': np.array([339.8]),
+                            'VI': np.array([0.0])})
+    assert [l['kind'] for l in sample_layers_from_result(res_thin, 0, R)] \
+        == ['core', 'silicate', 'ocean', 'ice_V']

@@ -2953,7 +2953,7 @@ _mpl.rcParams['text.usetex'] = False
 # Bump when the globe-panel figure/table code changes shape: cached
 # export bytes in live sessions carry the version, so a code update
 # invalidates them instead of replaying stale figures.
-_GLOBE_FIG_VER = 9
+_GLOBE_FIG_VER = 10
 
 
 def _result_token():
@@ -3360,6 +3360,12 @@ def render_results():
                 _sub = np.arange(len(Re_arr))
             _pt_size = (pt_size[_sub] if np.ndim(pt_size) else pt_size)
 
+            st.toggle("Zoom to measurement ellipse (±4σ)", value=True,
+                      key='k2_zoom',
+                      help="On: axes frame the observed k₂ and its 1σ/2σ "
+                           "ellipses; posterior samples outside the window "
+                           "are cropped (fraction noted below). Off: "
+                           "autoscale to the full model cloud.")
             plt.rcParams['text.usetex'] = False
             fig, ax = plt.subplots(figsize=(8, 6))
             if f_sil is not None and len(f_sil) == len(Re_arr):
@@ -3384,6 +3390,21 @@ def render_results():
             ax.set_title(r'$k_2$ Posterior')
             if have_ellipse:
                 ax.legend()
+            # Default view zooms to the MEASUREMENT ellipse (user
+            # 2026-08-10): the model cloud can scatter far wider than the
+            # measurement, and the autoscaled view shrank the ellipse to a
+            # dot. ±4σ window shows both ellipses with context; samples
+            # outside are cropped, with the cropped fraction captioned.
+            _k2_frac_out = None
+            if have_ellipse and st.session_state.get('k2_zoom', True):
+                _xlo, _xhi = Re_obs - 4 * Re_err, Re_obs + 4 * Re_err
+                _ylo = max(0.0, abs(Im_obs) - 4 * Im_err)
+                _yhi = abs(Im_obs) + 4 * Im_err
+                ax.set_xlim(_xlo, _xhi)
+                ax.set_ylim(_ylo, _yhi)
+                _out = ((Re_arr < _xlo) | (Re_arr > _xhi)
+                        | (Im_arr < _ylo) | (Im_arr > _yhi))
+                _k2_frac_out = float(np.mean(_out))
             # No rasterization: keep the ≤4000-point cloud as vector markers
             # (sharp at any display width; SVG stays small at this count).
             _display_vector_fig(fig, key='k2_scatter',
@@ -3408,6 +3429,11 @@ def render_results():
                     "**Color** is the fraction of tidal heating dissipated "
                     "in the silicate interior (viridis: dark = ice-dominated, "
                     "yellow = rock-dominated dissipation).")
+            if _k2_frac_out is not None and _k2_frac_out > 0:
+                caption_bits.append(
+                    f"**Zoomed view**: {100 * _k2_frac_out:.0f}% of "
+                    "posterior samples lie outside the ±4σ measurement "
+                    "window (toggle off to see the full cloud).")
             st.caption(" ".join(caption_bits))
 
             # Component panes: marginal posteriors of both k₂ components,
@@ -3941,34 +3967,10 @@ def render_results():
                         st.caption('Note: ' + '; '.join(_subset_notes) + '.')
 
                 def _sample_layers(i):
-                    lays = []
-                    if 'R_core_km' in names and samples[i, names.index(
-                            'R_core_km')] > 1.0:
-                        lays.append({'name': 'core',
-                                     'r_km': float(samples[i, names.index(
-                                         'R_core_km')]),
-                                     'kind': 'core'})
-                    if d_hs.size > i and np.isfinite(d_hs[i]):
-                        lays.append({'name': 'silicate (ocean floor)',
-                                     'r_km': R_km - float(d_hs[i]),
-                                     'kind': 'silicate'})
-                    if (d_ih.size > i and np.isfinite(d_ih[i])
-                            and d_oc.size > i and d_oc[i] > 0.5):
-                        lays.append({'name': 'ocean (top)',
-                                     'r_km': R_km - float(d_ih[i]),
-                                     'kind': 'ocean'})
-                    # HP-ice shell (III+V+VI) between ocean and silicate;
-                    # absent for HP-free bodies (Europa -> d_hp ~ 0). No-ocean
-                    # bodies have no d_oc[i] -> treat as 0 (HP under Ih).
-                    if (d_hp.size > i and np.isfinite(d_hp[i])
-                            and d_hp[i] > 0.5 and d_ih.size > i
-                            and np.isfinite(d_ih[i])):
-                        _doc = (float(d_oc[i]) if d_oc.size > i
-                                and np.isfinite(d_oc[i]) else 0.0)
-                        lays.append({'name': 'high-pressure ice (top)',
-                                     'r_km': R_km - float(d_ih[i]) - _doc,
-                                     'kind': 'hp_ice'})
-                    return lays
+                    # Per-phase HP-ice split lives in globe_view (shared
+                    # with the median path, unit-tested).
+                    from Utilities.globe_view import sample_layers_from_result
+                    return sample_layers_from_result(result, i, R_km)
 
                 from PlanetProfile.Inference.gravity_obs import \
                     radau_darwin_kf

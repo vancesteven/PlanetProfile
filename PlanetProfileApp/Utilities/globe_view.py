@@ -491,6 +491,62 @@ def build_globe_figure_static(
     return fig
 
 
+def sample_layers_from_result(result, i: int, R_km: float) -> List[Dict]:
+    """Layer list for ONE posterior draw i (the globe sample picker).
+
+    Mirrors posterior_median_layers' per-phase treatment: the HP-ice stack
+    between ocean and silicate is split into labeled Ice III/V/VI shells
+    when the per-phase arrays (`D_icePhase_results`) are packaged
+    (user 2026-08-10: 'surprised the globe plots "HP ice", not each
+    individual phase'); results predating that packaging fall back to a
+    single lumped high-pressure-ice shell.
+    """
+    names = list(getattr(result, 'param_names', []))
+    samples = np.asarray(result.samples, float)
+
+    def _arr(attr):
+        return np.asarray(getattr(result, attr, []), float)
+
+    d_hs, d_ih, d_oc, d_hp = (_arr('D_hsphere_results'),
+                              _arr('D_iceIh_results'),
+                              _arr('D_ocean_results'),
+                              _arr('D_iceHP_results'))
+    lays: List[Dict] = []
+    if 'R_core_km' in names and samples[i, names.index('R_core_km')] > 1.0:
+        lays.append({'name': 'core',
+                     'r_km': float(samples[i, names.index('R_core_km')]),
+                     'kind': 'core'})
+    if d_hs.size > i and np.isfinite(d_hs[i]):
+        lays.append({'name': 'silicate (ocean floor)',
+                     'r_km': R_km - float(d_hs[i]), 'kind': 'silicate'})
+    if (d_ih.size > i and np.isfinite(d_ih[i])
+            and d_oc.size > i and d_oc[i] > 0.5):
+        lays.append({'name': 'ocean (top)',
+                     'r_km': R_km - float(d_ih[i]), 'kind': 'ocean'})
+    if (d_hp.size > i and np.isfinite(d_hp[i]) and d_hp[i] > 0.5
+            and d_ih.size > i and np.isfinite(d_ih[i])):
+        doc = (float(d_oc[i]) if d_oc.size > i and np.isfinite(d_oc[i])
+               else 0.0)
+        r_hp = R_km - float(d_ih[i]) - doc
+        phases = getattr(result, 'D_icePhase_results', None) or {}
+        per = []
+        for ph in ('III', 'V', 'VI'):
+            a = np.asarray(phases.get(ph, []), float)
+            t = float(a[i]) if a.size > i and np.isfinite(a[i]) else 0.0
+            if t > 0.5:
+                per.append((ph, t))
+        if per:
+            r = r_hp
+            for ph, t in per:
+                lays.append({'name': f'ice {ph} (top)', 'r_km': r,
+                             'kind': f'ice_{ph}'})
+                r -= t
+        else:
+            lays.append({'name': 'high-pressure ice (top)', 'r_km': r_hp,
+                         'kind': 'hp_ice'})
+    return lays
+
+
 def posterior_median_layers(result) -> Tuple[float, List[Dict]]:
     """Extract (R_body_km, inner->outer layer list) from an
     InferenceResult using posterior medians. Works for both MCMC and
