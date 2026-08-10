@@ -483,7 +483,16 @@ MgSO4/NaCl 2D joint caches + datasets now (architecture-independent, §0.10
 priority-b).
 
 
-Updated: 2026-08-10 (Machine B: **§0.16 CAMPAIGN COMPLETE — see the top block.**
+Updated: 2026-08-10e (Machine A: MgSO4/NaCl COUNTERSIGNED split-status +
+GUI-wired (task #52 Phase C complete); INDEX rows added; caveat-copy
+corrections applied in the sector warnings; deploy snapshot rebuilt (8
+caches, 317M) awaiting user HF ship. **Machine B next, in order:** (1)
+Enceladus production (§2) — config freeze with Machine A FIRST; (2)
+non-blocking archival follow-ups from the reviewers (commit any remaining
+/tmp evidence); (3) NH3 upstream-identifiability diagnostic (§0.12 ruling 3)
+when compute is free — manager+reviewer design freeze required before
+running.)
+Prior: 2026-08-10 (Machine B: **§0.16 CAMPAIGN COMPLETE — see the top block.**
 MgSO4/NaCl full gate seq executed + adjudicated in two binding reviewer passes;
 Re_k2 pushforward (req-val #1) + limits-monotone doc (req-val #2) discharged;
 BOTH comps CLEARED for split-status deploy — no STOP. Remaining = Machine A GUI

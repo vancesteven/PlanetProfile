@@ -391,7 +391,12 @@ def test_apptest_titan_slot_readiness_fallback():
     nh3_cache = (REPO / 'PlanetProfile/Test/mcmc_results/Titan/'
                  'Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl')
     nh3_opt = next(o for o in ver.options if 'NH' in str(o))
-    if nh3_cache.exists():
+    nacl_cache = (REPO / 'PlanetProfile/Test/mcmc_results/Titan/'
+                  'Test54_nacl_ocean/titan_nacl_joint_structure_grid_2d.pkl')
+    if nacl_cache.exists():
+        # NaCl (2026-08-10) is now the newest ready Titan slot.
+        assert 'NaCl' in str(ver.value)
+    elif nh3_cache.exists():
         # Cache present: newest ready slot (NH3) is the legitimate default.
         assert str(ver.value) == str(nh3_opt)
     else:
@@ -443,3 +448,50 @@ def test_apptest_static_globe_fallback():
     assert not [el for el in at.main
                 if type(el).__name__ == 'PlotlyChart'
                 and 'globe_chart' in str(getattr(el, 'key', ''))]
+
+def test_apptest_titan_salt_slots_wired():
+    # MgSO4/NaCl joint slots (split-ratified 2026-08-10): selectable, carry
+    # the per-composition sector warning with the reviewer-mandated caveat
+    # copy (median-to-median gap; conservative Re k2), and reach the
+    # conditioning form (no awaiting/gating branch).
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_file(
+        str(REPO / 'PlanetProfileApp/pages/Inference.py'),
+        default_timeout=900)
+    at.session_state['inference_exec_mode'] = 'amortized'
+    at.run()
+    assert not at.exception, str([e.value for e in at.exception][:2])
+
+    def _fresh(pfx):
+        return next(s for s in at.selectbox
+                    if str(getattr(s, 'key', '')).startswith(pfx))
+    _fresh('amort_analysis').select(
+        next(o for o in _fresh('amort_analysis').options if 'Titan' in o))
+    at.run()
+
+    for tag in ('MgSO₄', 'NaCl'):
+        ver = _fresh('amort_version_')
+        opt = next(o for o in ver.options
+                   if tag in str(o) and 'awaiting' not in str(o))
+        ver.select(opt)
+        at.run()
+        assert not at.exception, str([e.value for e in at.exception][:2])
+        caps = ' '.join(str(c.value) for c in at.main
+                        if type(c).__name__ == 'Caption')
+        assert 'RATIFIED (split-status) 2026-08-10' in caps, tag
+        assert 'awaiting' not in caps.lower(), tag
+
+    # Sector-warning copy (rendered atop results post-run) carries the
+    # reviewer-mandated caveats: median-to-median gap, conservative Re k2,
+    # Im k2 quarantine, NaCl eta(ice V) disclosure.
+    import importlib
+    inf = importlib.import_module('pages.Inference')
+    slots = inf._SBI_ARTIFACT_SLOTS
+    for fn, gap in (('titan_freegrav_mgso4_posterior_1m.pt', '0.24σ'),
+                    ('titan_freegrav_nacl_posterior_1m.pt', '0.53σ')):
+        w = slots[fn]['sector_warning']
+        assert gap in w, (fn, 'median-to-median gap missing')
+        assert 'CONSERVATIVE relative to the reference MCMC' in w, fn
+        assert 'QUARANTINED' in w, fn
+    assert 'ice V' in slots['titan_freegrav_nacl_posterior_1m.pt'][
+        'sector_warning']

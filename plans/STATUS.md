@@ -3,7 +3,22 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-10d (Machine B: **reviewer req-val #1 + #2 DISCHARGED.** Gate
+Updated: 2026-08-10e (Machine A: **MgSO4 + NaCl COUNTERSIGNED (split-status)
+and GUI-WIRED — Titan production line now three compositions deep.** Manager
+independently verified the committed gate numbers (SBC 13/13 both; MgSO4
+crosscheck 13/13; NaCl eta_V FAIL reproduced from the report, 0.352 vs 0.30
+dex, recorded FAIL-ADJUDICATED-ACCEPTABLE; pushforward medians + 0.24σ/0.53σ
+median-to-median gaps confirmed to the digit). Both placeholder slots
+replaced with full slots: split-status sector warnings carry the two
+reviewer-mandated caveat-copy corrections (median-to-median gap quoted;
+deployed SBI Re_k2 marginal stated CONSERVATIVE vs reference MCMC), MgSO4
+high-w extrapolation caveat + NaCl eta(ice V) do-not-cite included;
+ocean_comp threaded for wedge labeling. INDEX rows added, countersigned.
+AppTest 10/10 (new salt-slot test + NaCl-is-newest-default fix). Deploy
+snapshot rebuilt: 8 registry caches exact, 317M — USER ships HF to take
+v5/v6 + both Titan salts + globe fallback + provenance exports live in one
+deploy. Task #52 Phase C complete.)
+Prior: 2026-08-10d (Machine B: **reviewer req-val #1 + #2 DISCHARGED.** Gate
 interpretation verdict [agent a719438103ced11d0]: **PASS WITH CONCERNS, no STOP**
 — gravity C20/C22 deploy TRUSTED, tidal k2 quarantine STANDS, NaCl eta_V FAIL
 non-blocking (poorly-identified HP-ice-V nuisance, threshold-adjacent to MgSO4's

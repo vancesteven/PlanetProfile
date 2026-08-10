@@ -1152,10 +1152,9 @@ _SBI_ARTIFACT_SLOTS = {
                        'titan_freegrav_noocean_1m/. NO interior-C/MR² claim '
                        'until the Task D reweighter lands (#36).'),
     },
-    # Titan ocean-chemistry slots. NH₃ is the delivered joint no-ocean+ocean
-    # artifact (Task #68, ratified 2026-08-03); MgSO₄/NaCl remain reserved
-    # placeholders until their artifacts and gates arrive. Placeholder registry
-    # keys are stable slot ids, not guessed future artifact filenames.
+    # Titan ocean-chemistry slots: NH₃ (Task #68, split-ratified 2026-08-03),
+    # MgSO₄ and NaCl (§0.16 campaign, split-ratified per-composition
+    # 2026-08-10). All three share the joint no-ocean+ocean design.
     'titan_freegrav_nh3_posterior_1m.pt': {
         'slot_id': 'titan_nh3_joint',
         # The run asserts the ocean composition (comp='NH3' via
@@ -1225,39 +1224,119 @@ _SBI_ARTIFACT_SLOTS = {
                        'caveats: validation_reports/'
                        'titan_freegrav_nh3_1m/RATIFICATION.md.'),
     },
-    'titan_mgso4_awaiting_artifact': {
+    # MgSO4/NaCl joint slots (delivered 2026-08-10, countersigned same day):
+    # full split-status — gravity/structure TRUSTED, Re_k2 informative-with-
+    # caveat, tidal Im k2 sector QUARANTINED (same NH3 posture, re-verified
+    # per-composition from each flow's own pushforward evidence, §0.16).
+    'titan_freegrav_mgso4_posterior_1m.pt': {
         'slot_id': 'titan_mgso4',
-        'artifact_filename': None,  # TODO(Machine B): artifact handoff
-        'artifact_status': 'awaiting_artifact',
-        'label': ('1D · Cassini–Titan (ocean chemistry) — MgSO₄ ocean · '
-                  'awaiting artifact'),
+        'ocean_comp': 'MgSO4',
+        'sector_warning': (
+            'Split ratification (per-composition, 2026-08-10): gravity/'
+            'structure sector (layer thicknesses, salinity, Tb, core, '
+            'ΔC₂₀/ΔC₂₂) is verified; Re k₂ is informative WITH CAVEAT — '
+            'both this flow and the reference MCMC under-predict Re k₂ '
+            '(model–data tension, pushforward median 0.570 vs observed '
+            '0.608; flow-vs-MCMC median-to-median gap 0.24σ, within the '
+            '0.5σ rule), and the deployed SBI Re k₂ marginal is '
+            'CONSERVATIVE relative to the reference MCMC (tension-leaning, '
+            'not a tightened bound). The Im k₂ (dissipation) sector is '
+            'QUARANTINED: do not quote Im k₂, ζ, or η posteriors — the '
+            'reference MCMC is authoritative there.'),
+        'label': ('1D · Cassini–Titan (MgSO₄, joint no-ocean+ocean) — '
+                  'MgSO₄ joint no-ocean+ocean free-gravity, 13D · free '
+                  'C₂₀/C₂₂ (agnostic) + measured k₂ + sampled salinity, '
+                  'CMR₂ dropped'),
         'bodyname': 'Titan',
-        'config_path': None,  # TODO(Machine B): final training config
-        'cache_path': None,  # TODO(Machine B): validated cache
-        'default_obs': None,  # TODO(Machine B): confirmed config centrals
-        'x_obs_limits': {},  # TODO(Machine B): gate-validated Im k₂ bound
-        'gate_status': 'TODO — awaiting Machine B validation handoff',
-        'scope_note': ('Planned Titan MgSO₄ ocean-chemistry posterior. '
-                       'Artifact, config/cache paths, observable centrals, '
-                       'validated Im k₂ domain, and gate status await '
-                       'Machine B handoff.'),
+        'config_path': ('PlanetProfile/Inference/configs/'
+                        'test54_titan_mgso4_freegrav.json'),
+        'cache_path': ('PlanetProfile/Test/mcmc_results/Titan/'
+                       'Test54_mgso4_ocean/'
+                       'titan_mgso4_joint_structure_grid_2d.pkl'),
+        'default_obs': {
+            'C20': -3.3511e-05, 'C22': 1.0107e-05,
+            'Re_k2': 0.608, 'Im_k2': 0.135,
+        },
+        'x_obs_limits': {'Im_k2': (0.0, 0.30)},
+        'gate_status': ('RATIFIED (split-status) 2026-08-10 — SBC n=1500 '
+                        'PASS 13/13 (BH-FDR); crosscheck PASS 13/13 vs '
+                        'pooled n_eff~2000 reference; limits containment '
+                        'PASS (max shift 0.007σ), monotone clause gated '
+                        'FAIL overridden (falsified-premise, Im k₂ '
+                        'obs 0.135 < 0.15 boundary); pushforward: gravity '
+                        'centers on obs (≤0.05σ), Im k₂ quarantine stands. '
+                        'sbi_artifacts/INDEX.md'),
+        'scope_note': ('Titan free-gravity JOINT no-ocean+ocean (MgSO₄): '
+                       'posterior spans frozen no-ocean AND MgSO₄-ocean '
+                       'interiors over Tb∈[248,258] K × w∈[1,194] ppt '
+                       '(log₁₀w U[0,2.2878]); frozen nodes build as REAL '
+                       'no-ocean structures and are retained. 13 sampled '
+                       'params (rheology ×7, Tb, log₁₀w, R_core, ρ_core, '
+                       'ΔC₂₀ⁿʰ/ΔC₂₂ⁿʰ). CMR₂ dropped; C₂₀/C₂₂ = Petricca '
+                       'et al. 2025; induction + h₂ dropped (no clean '
+                       'Cassini signal). High-salinity tail (w≳160 ppt) '
+                       'uses linearly extrapolated MgSO₄ EOS above 800 MPa '
+                       '(verified monotone to 1400 MPa; eos_extrapolated '
+                       'flagged in-cache) — carry that caveat in any '
+                       'high-w claim. Sector status: see warning above. '
+                       'Gates: validation_reports/titan_freegrav_mgso4_1m/.'),
     },
-    'titan_nacl_awaiting_artifact': {
+    'titan_freegrav_nacl_posterior_1m.pt': {
         'slot_id': 'titan_nacl',
-        'artifact_filename': None,  # TODO(Machine B): artifact handoff
-        'artifact_status': 'awaiting_artifact',
-        'label': ('1D · Cassini–Titan (ocean chemistry) — NaCl ocean · '
-                  'awaiting artifact'),
+        'ocean_comp': 'NaCl',
+        'sector_warning': (
+            'Split ratification (per-composition, 2026-08-10): gravity/'
+            'structure sector (layer thicknesses, salinity, Tb, core, '
+            'ΔC₂₀/ΔC₂₂) is verified; Re k₂ is informative WITH CAVEAT — '
+            'both this flow and the reference MCMC under-predict Re k₂ '
+            '(model–data tension, pushforward median 0.575 vs observed '
+            '0.608; flow-vs-MCMC median-to-median gap 0.53σ, adjudicated a '
+            'mechanical threshold artifact — same tension direction as the '
+            'MCMC), and the deployed SBI Re k₂ marginal is CONSERVATIVE '
+            'relative to the reference MCMC (tension-leaning, not a '
+            'tightened bound). The Im k₂ (dissipation) sector is '
+            'QUARANTINED: do not quote Im k₂, ζ, or η posteriors — the '
+            'reference MCMC is authoritative there. The log₁₀η(ice V) '
+            'nuisance marginal also carries a crosscheck FAIL '
+            '(median 0.35 vs 0.30 dex tol) — do not cite it.'),
+        'label': ('1D · Cassini–Titan (NaCl, joint no-ocean+ocean) — '
+                  'NaCl joint no-ocean+ocean free-gravity, 13D · free '
+                  'C₂₀/C₂₂ (agnostic) + measured k₂ + sampled salinity, '
+                  'CMR₂ dropped'),
         'bodyname': 'Titan',
-        'config_path': None,  # TODO(Machine B): final training config
-        'cache_path': None,  # TODO(Machine B): validated cache
-        'default_obs': None,  # TODO(Machine B): confirmed config centrals
-        'x_obs_limits': {},  # TODO(Machine B): gate-validated Im k₂ bound
-        'gate_status': 'TODO — awaiting Machine B validation handoff',
-        'scope_note': ('Planned Titan NaCl ocean-chemistry posterior. '
-                       'Artifact, config/cache paths, observable centrals, '
-                       'validated Im k₂ domain, and gate status await '
-                       'Machine B handoff.'),
+        'config_path': ('PlanetProfile/Inference/configs/'
+                        'test54_titan_nacl_freegrav.json'),
+        'cache_path': ('PlanetProfile/Test/mcmc_results/Titan/'
+                       'Test54_nacl_ocean/'
+                       'titan_nacl_joint_structure_grid_2d.pkl'),
+        'default_obs': {
+            'C20': -3.3511e-05, 'C22': 1.0107e-05,
+            'Re_k2': 0.608, 'Im_k2': 0.135,
+        },
+        'x_obs_limits': {'Im_k2': (0.0, 0.30)},
+        'gate_status': ('RATIFIED (split-status) 2026-08-10 — SBC n=1500 '
+                        'PASS 13/13 (BH-FDR); crosscheck 12/13 vs pooled '
+                        'n_eff~2000 reference with log10_eta_V '
+                        'FAIL-ADJUDICATED-ACCEPTABLE (median 0.35 vs 0.30 '
+                        'dex; poorly-identified HP-ice-V nuisance, all '
+                        'observable-relevant params PASS); limits '
+                        'containment PASS (max shift 0.007σ), monotone '
+                        'clause gated FAIL overridden (falsified-premise); '
+                        'pushforward: gravity centers on obs (≤0.05σ), '
+                        'Im k₂ quarantine stands. sbi_artifacts/INDEX.md'),
+        'scope_note': ('Titan free-gravity JOINT no-ocean+ocean (NaCl): '
+                       'posterior spans frozen no-ocean AND NaCl-ocean '
+                       'interiors over Tb∈[233,272] K × w∈[1,290] ppt '
+                       '(log₁₀w U[0,2.4624]); frozen nodes build as REAL '
+                       'no-ocean structures and are retained. 13 sampled '
+                       'params (rheology ×7, Tb, log₁₀w, R_core, ρ_core, '
+                       'ΔC₂₀ⁿʰ/ΔC₂₂ⁿʰ). CMR₂ dropped; C₂₀/C₂₂ = Petricca '
+                       'et al. 2025; induction + h₂ dropped (no clean '
+                       'Cassini signal). NaCl EOS clamps above ~1000 MPa '
+                       '(flat extrapolation ≡ clamp; benign for the thin '
+                       'deep-liquid sliver). Sector status: see warning '
+                       'above (incl. the η(ice V) nuisance FAIL). Gates: '
+                       'validation_reports/titan_freegrav_nacl_1m/.'),
     },
     'europa_galileo_v1p1_8D_posterior_1m.pt': {
         'label': '1D · Galileo–Europa (Andrade, seawater) — v1.1 measured-data observables, 8D',
