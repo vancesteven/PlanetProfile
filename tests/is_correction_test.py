@@ -137,3 +137,35 @@ def test_shape_mismatch_raises():
     res = _mk_result(np.zeros(10), np.zeros(9))
     with pytest.raises(ValueError, match='misalignment'):
         compute_is_correction(res)
+
+
+def test_reverse_coverage_gate():
+    from PlanetProfile.Inference.is_correction import reverse_coverage
+    rng = np.random.default_rng(6)
+    logq_self = rng.normal(-10, 1, 20000)
+    # covered reference: same distribution -> ~0.1% below threshold
+    ref_ok = rng.normal(-10, 1, 5000)
+    r1 = reverse_coverage(logq_self, ref_ok)
+    assert r1['pass'], r1
+    # uncovered reference: 10% of mass sits far below the flow's support
+    ref_bad = np.concatenate([rng.normal(-10, 1, 4500),
+                              np.full(500, -50.0)])
+    r2 = reverse_coverage(logq_self, ref_bad)
+    assert not r2['pass'] and r2['ref_mass_below'] >= 0.09, r2
+
+
+def test_ess_over_n_reported_not_gating():
+    # low ESS/N with healthy absolute ESS must NOT fail (reviewer ruling
+    # 2026-08-11: fractional floor struck)
+    rng = np.random.default_rng(7)
+    N = 40000
+    # displaced proposal: ESS/N ~ exp(-2.7) ~ 0.067 -> ESS ~ 2680
+    ll = rng.normal(0, 1, N) * 1.6
+    flp = np.zeros(N)
+    res = types.SimpleNamespace(
+        log_likelihoods=ll, metadata={'flow_log_prob': flp},
+        D_ocean_results=np.array([]), k2_results=np.array([]))
+    c = compute_is_correction(res)
+    assert c.ess >= 1000, c.ess
+    assert c.ess_over_n < 0.1
+    assert not any('ESS/N' in r for r in c.fail_reasons), c.fail_reasons

@@ -43,9 +43,10 @@ SENTINEL_LOGL = -1e29
 PARETO_K_CLEAN = 0.5
 PARETO_K_MAX = 0.7
 W_MAX_FRAC_CAP = 0.01
-# C7 floors.
+# C7 floor: absolute ESS at the N actually run. (The 0.1 ESS/N fractional
+# floor was struck by reviewer ruling 2026-08-11 — reported-only now.)
 ESS_ABS_FLOOR = 1000.0
-ESS_FRAC_FLOOR = 0.1
+ESS_FRAC_FLOOR = 0.1  # retained for reporting + N-sizing, never gating
 # C4: hard fail above this rejected fraction.
 REJECT_FRAC_HARD_FAIL = 0.5
 # C16: branch diagnostics.
@@ -236,9 +237,11 @@ def compute_is_correction(
             f'w_max_frac {w_max_frac:.4f} > {W_MAX_FRAC_CAP} (C5)')
     if ess < ESS_ABS_FLOOR:
         fail_reasons.append(f'ESS {ess:.0f} < {ESS_ABS_FLOOR:.0f} (C7)')
-    if ess / N < ESS_FRAC_FLOOR:
-        fail_reasons.append(
-            f'ESS/N {ess / N:.3f} < {ESS_FRAC_FLOOR} (C7)')
+    # ESS/N is REPORTED-ONLY (reviewer ruling 2026-08-11: cost statistic,
+    # not a reliability gate; the original 0.1 floor is recorded
+    # FAIL-ADJUDICATED, superseded by absolute ESS + Pareto-k + w_max +
+    # the C5.3 reverse-coverage test). It sizes N:
+    # N_required = ESS_ABS_FLOOR / (ESS/N).
 
     # C16: branch split + per-branch ESS.
     branch = None
@@ -359,6 +362,44 @@ def reference_likelihood_consistency(runner, ref_samples: np.ndarray,
     if not ok:
         raise AssertionError(f"C3 likelihood consistency FAILED: {out}")
     return out
+
+
+REVERSE_COVERAGE_TAIL_Q = 0.001   # 0.1st percentile of self-log q
+REVERSE_COVERAGE_MASS_CAP = 0.01  # <1% of reference mass may sit below it
+
+
+def reverse_coverage(logq_self: np.ndarray,
+                     logq_ref: np.ndarray,
+                     ref_weights: Optional[np.ndarray] = None
+                     ) -> Dict[str, Any]:
+    """C5.3 (BLOCKING, reviewer ruling 2026-08-11): parameter-space
+    coverage test. Pareto-k is blind to regions where p >> q but q is so
+    low that no draw landed there; this test is not. Evaluate the flow's
+    log-density at the REFERENCE-MCMC draws and require that less than
+    REVERSE_COVERAGE_MASS_CAP of reference mass falls below the
+    REVERSE_COVERAGE_TAIL_Q quantile of the flow's own draws' log q.
+
+    Args:
+        logq_self: flow log-density at the flow's own draws (finite only).
+        logq_ref: flow log-density at reference-MCMC draws (same x_obs,
+            same norm_posterior=False convention).
+        ref_weights: reference importance weights (None = equal).
+    """
+    logq_self = np.asarray(logq_self, float)
+    logq_self = logq_self[np.isfinite(logq_self)]
+    logq_ref = np.asarray(logq_ref, float)
+    if ref_weights is None:
+        ref_weights = np.ones(logq_ref.size)
+    ref_weights = np.asarray(ref_weights, float)
+    ref_weights = ref_weights / ref_weights.sum()
+    threshold = float(np.quantile(logq_self, REVERSE_COVERAGE_TAIL_Q))
+    below = (logq_ref < threshold) | ~np.isfinite(logq_ref)
+    mass_below = float(ref_weights[below].sum())
+    return {'threshold_logq': threshold,
+            'ref_mass_below': mass_below,
+            'cap': REVERSE_COVERAGE_MASS_CAP,
+            'tail_q': REVERSE_COVERAGE_TAIL_Q,
+            'pass': bool(mass_below < REVERSE_COVERAGE_MASS_CAP)}
 
 
 def weighted_quantile(v: np.ndarray, weights: np.ndarray,

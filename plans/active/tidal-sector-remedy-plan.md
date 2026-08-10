@@ -214,3 +214,44 @@ Decision rule: both indicators positive -> Track 3 becomes the default
 architecture for NEW campaigns (Enceladus onward), with the IS correction
 as the bridge for already-deployed artifacts. Either indicator negative ->
 joint flow + IS correction remains the standard.
+
+## Reviewer ruling on C7 (2026-08-11) + N=20k validation record
+
+Record (house vocabulary, per ruling):
+- `ESS/N: 0.062, FAIL-ADJUDICATED — gate mis-specified (cost statistic
+  used as reliability gate); superseded by absolute ESS + Pareto-k +
+  w_max + C5.3 coverage per reviewer ruling.` Not a PASS; not dropped.
+- Binding reliability set now: Pareto-k <= 0.7 (primary; PSIS smoothing
+  0.5-0.7), ABSOLUTE ESS >= 1000 at the N actually run, w_max/sum <=
+  0.01, and C5.3 reverse-direction parameter-space coverage (ELEVATED TO
+  BLOCKING; implemented in is_correction.reverse_coverage + driver).
+- ESS/N re-roles: reported diagnostic; N-sizing rule N_required =
+  1000/(ESS/N) (NH3 fiducial: ~16k) — governing input to the C8
+  deployment choice; deploy fallback triggers on absolute ESS and k,
+  never the fraction.
+- N=20k NH3 numbers of record: Pareto-k = 0.316 (numeric, per ruling —
+  not "clean"); ESS 1245; w_max 0.0087; sentinel 1.3%; k2-box mass
+  9.4e-52; corrected |Im k2| pp 0.1084 vs MCMC ceiling ~0.1037 (gap
+  0.13 sigma_obs vs 0.5 tolerance; flow alone 1.68 sigma_obs off).
+  GPD-fit validation note: lognormal recovery 0.234 is expected
+  finite-tail behavior (Gumbel domain, slow convergence from above),
+  not a defect.
+- Reviewer prior update: "the mechanism works at the fiducial datum for
+  NH3" — the 0.045->0.108 recovery PROVES the flow's support was correct
+  and only its weighting was wrong (the §0.12 diagnosis confirmed by
+  construction, not just elimination), and is strong evidence of
+  byte-consistent likelihood plumbing. Residual Track 1 risk now lives
+  in C12 (amortization across x — the load-bearing untested claim; must
+  ALSO report the ESS/N distribution, which prices amortized correction)
+  and C8 (affordability).
+- Physical finding for the record: the frozen no-ocean branch is NOT
+  annihilated at the fiducial datum (corrected no-ocean mass 0.067, its
+  own ESS 327 at fractional 0.24 — internally reweighted more
+  efficiently than the ocean branch). The frozen band is broader in
+  Re k2 than the single-node -10 sigma estimate suggested. One sanity
+  line owed on the four-decimal aggregate-probability coincidence
+  (0.9326 -> 0.9326) despite internal reweighting of both branches.
+- Outstanding before ratification countersign: C3 (<1e-9), C5.3
+  (blocking), C16 vs reference within 3-seed spread, C13 3-seed
+  stability, C10/C11 full-distribution + gravity no-regression — all on
+  Machine B with the pooled references (§0.17).

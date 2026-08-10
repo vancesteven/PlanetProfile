@@ -178,6 +178,22 @@ def main():
             runner, np.asarray(ref.samples, float),
             np.asarray(ref.log_likelihoods, float))
 
+        # C5.3 (BLOCKING): reverse-direction parameter-space coverage —
+        # flow log q at the reference draws vs the flow's own tail.
+        import torch
+        from PlanetProfile.Inference.is_correction import reverse_coverage
+        x_t = torch.as_tensor(runner._x_obs_vector(x_obs),
+                              dtype=torch.float32)
+        with torch.no_grad():
+            logq_ref = runner._posterior.log_prob(
+                torch.as_tensor(np.asarray(ref.samples, float),
+                                dtype=torch.float32),
+                x=x_t, norm_posterior=False,
+            ).detach().cpu().numpy().astype(np.float64)
+        report['gates']['c5_3_reverse_coverage'] = reverse_coverage(
+            np.asarray(res.metadata['flow_log_prob'], float),
+            logq_ref, ref_w)
+
         # reference pushforward (k2 recomputed columns must exist)
         ref_k2 = np.asarray(getattr(ref, 'k2_results', []), float)
         gates = report['gates']
