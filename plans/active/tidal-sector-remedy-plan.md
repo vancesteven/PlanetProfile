@@ -187,3 +187,30 @@ architecture (C8): recommend (i)+(iii) — precomputed correction for the
 fiducial x shipped with each slot, background x-keyed correction for
 user-modified x with in-panel ESS/Pareto-k display and automatic
 quarantine-warning fallback when floors are missed.
+
+## Relation to Petricca et al. 2025 (separate no-ocean / ocean runs) — user question 2026-08-11
+
+Petricca et al. argue for separate per-hypothesis MCMC runs. Our evidence
+splits the claim:
+- MCMC side: the JOINT run is working (all reference gates) and yields the
+  ocean probability directly. Separate runs would recombine through pocoMC
+  evidences — the least reliable output we have measured (B3: log_Z_err
+  ~0.3, v5/v7 dlogZ 2.2 sigma tension, reference wander). Keep joint MCMC.
+- Flow side: smooth density over a discontinuous branch map is a real
+  structural mismatch (blend degrades to nearest-corner at the freeze
+  line), even though S1 CLEARED the mixture as the cause of the tidal
+  under-update. Track 3 (factorized p(branch|x)*p(theta|branch,x)) IS the
+  Petricca recommendation expressed at the flow level.
+
+Preregistered discriminating evidence (no new compute):
+1. C16 branch-fraction comparison — if the smooth flow's ocean fraction
+   disagrees with the reference beyond the 3-seed spread and IS has to
+   repair it, that is quantified mixture-cost evidence FOR factorizing
+   future flows.
+2. Track 2c ({Re,Im k2}-only conditioner ablation) — separates
+   gradient-competition from no-information; a gradient-competition
+   verdict also favors the factorized architecture.
+Decision rule: both indicators positive -> Track 3 becomes the default
+architecture for NEW campaigns (Enceladus onward), with the IS correction
+as the bridge for already-deployed artifacts. Either indicator negative ->
+joint flow + IS correction remains the standard.
