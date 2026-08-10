@@ -3,7 +3,25 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-10b (Machine B: **§0.16 EXECUTED — all four jobs launched +
+Updated: 2026-08-10c (Machine B: **§0.16 gate seq COMPLETE — SBC/limits/crosscheck
+run for both MgSO4+NaCl; reviewer routing for interpretation.** Pushforward-
+acceptance verdict [agent ab702bb410edb3da6]: **PASS WITH CONCERNS, PROCEED no
+STOP** — tidal k2 quarantine correctly STANDS both comps; Im_k2 under-update
+reproduces the established NH3 flow-defect+data-limit mechanism (no island/EOS
+defect; Margules region carries no anomalous Im_k2); gravity+Re_k2 deployable
+(Re_k2 = informative-with-caveat, NaCl 1.52σ). Gate outcomes (interpreted, never
+tuned): **SBC (n_sbc=1500) PASS both** (BH-FDR corrected; gravity/mass-cons ranks
+uniform ⇒ reviewer req-val #2 satisfied). **limits FAIL both but NON-BLOCKING** —
+containment_pass=True (binding read); monotone clause N/A for Titan joint mixtures.
+**crosscheck: MgSO4 PASS (all 13 params); NaCl FAIL on log10_eta_V only** (shape+
+median, median_diff 0.352 vs 0.30 dex tol) — poorly-constrained HP-ice-V nuisance;
+all observable-relevant params (Tb,w,dC20,dC22) + primary eta_Ih PASS. Fixed a
+pooled-reference weights bug (pooling never updated res.weights → crosscheck
+length mismatch; repaired both samples+weights renormalized 1/n_seeds, no MCMC
+recompute; titanG_repool_reference.py). commit 0acff866. NEXT: reviewer interprets
+the full gate set (esp. req-val #1 Re_k2 model-data tension + NaCl eta_V FAIL) →
+split-status deploy decision (Machine A GUI wiring). Reviewer routing dispatched.)
+Prior: 2026-08-10b (Machine B: **§0.16 EXECUTED — all four jobs launched +
 condition (a) CLEARED.** Acted on the FLOW TRAINING GO "everything in parallel":
 NaCl+MgSO4 flow training (DEPLOYED nsf, seeds 74/73) and NaCl+MgSO4 B3 reference
 MCMC (n_eff=2000/n_active=1024, 3 seeds each) all running — cache SHAs verified
