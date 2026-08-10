@@ -3,7 +3,26 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-10e (Machine A: **MgSO4 + NaCl COUNTERSIGNED (split-status)
+Updated: 2026-08-11 (Machine A: **PATH TO LIFTING THE SPLIT RATIFICATION
+FOUND AND CONFIRMED.** User directive: amortized flows must be trustable as
+representative of the MCMC. Remedy plan authored
+(plans/active/tidal-sector-remedy-plan.md): Track 1 = importance-sampling
+correction (flow as proposal, exact MCMC likelihood for weights — both
+ingredients already computed by the deploy path). Reviewer adversarial
+adjudication: APPROVE WITH CONDITIONS C1–C16 (Pareto-k primary gate,
+byte-identity asserts, ocean-fraction gate, SBC of the corrected pipeline,
+cost-architecture choice; several factual corrections to the draft folded
+in). **C1 stop-gate EXECUTED and PASSED on NH3**: corrected Im k2
+pushforward median 0.1064 vs MCMC matched ceiling 0.1037 (flow alone
+0.044) — the flow defect CLOSES under correction; Pareto-k −0.18 (clean),
+w_max 0.009, ESS 680@10k (N≈15–20k for the 1000 floor; 2.3 min/10k on A).
+NEXT: Machine A implements Track 1 under C2–C16 (validation driver +
+deploy path), Machine B validates per composition + runs Track 2
+(information-gain comparison first, {Re,Im k2}-only conditioner ablation,
+transform pilot at 3 seeds). Quarantine lifts per composition only after
+the preregistered gates pass; the model-data k2 tension caveat SURVIVES
+any lift.)
+Prior: 2026-08-10e (Machine A: **MgSO4 + NaCl COUNTERSIGNED (split-status)
 and GUI-WIRED — Titan production line now three compositions deep.** Manager
 independently verified the committed gate numbers (SBC 13/13 both; MgSO4
 crosscheck 13/13; NaCl eta_V FAIL reproduced from the report, 0.352 vs 0.30
