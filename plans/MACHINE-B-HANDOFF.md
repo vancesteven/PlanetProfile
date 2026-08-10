@@ -35,6 +35,45 @@ Reports: `validation_reports/titan_freegrav_{mgso4,nacl}_1m/rek2_pushforward/`.
 
 ---
 
+## 0.17 TRACK 1 IS-CORRECTION VALIDATION (Machine A -> Machine B, 2026-08-11)
+
+Context: plans/active/tidal-sector-remedy-plan.md (reviewer-approved,
+C1-C16). The IS correction lifts the tidal quarantine by reweighting flow
+draws with the exact MCMC likelihood; Machine A's NH3 pilot at N=20k:
+corrected |Im k2| pushforward 0.1084 vs MCMC matched ceiling ~0.1037
+(flow alone 0.045), Pareto-k clean, ESS 1240, all module gates pass
+except the ESS/N fractional floor (under reviewer adjudication —
+proceed; it does not block the reference-side work below).
+
+Machine A shipped: PlanetProfile/Inference/is_correction.py (tests
+tests/is_correction_test.py 9/9) and the committed driver
+plans/scripts/is_correction_validate.py.
+
+**Machine B tasks (priority after current queue):**
+1. For each composition (NH3 first, then MgSO4, NaCl): run
+   `python plans/scripts/is_correction_validate.py --comp <c>` on the
+   machine holding the pooled reference pkls. The driver auto-runs the
+   reference-dependent gates: C3 likelihood-recompute consistency
+   (<1e-9), pushforward median-to-median + weighted-KS (C10), C20/C22
+   no-regression (C11), C16 ocean-fraction vs reference.
+2. BEFORE reading any corrected result: compute and commit each
+   reference's 3-seed ocean-fraction spread and the 3-seed crosscheck
+   median spread for the unidentified nuisances (C9/C16 preregistration).
+3. Crosscheck gate: feed samples[resampled_indices.npy] (L=int(ESS),
+   committed by the driver) to the ratified validate_sbi crosscheck as
+   the corrected-SBI set; report with ESS, never N.
+4. C13: repeat step 1 at --seed-offset 1000 and 2000; corrected
+   pushforward medians must agree within 0.1 sigma_obs.
+5. C12 amortized sweep (after 1-4 pass at the fiducial): >=200
+   prior-predictive x + 8 axis endpoints, Pareto-k <= 0.7 for >=95%.
+6. SBC of the corrected pipeline (C14/C15): rank definition = weighted
+   ranks r = sum_i w_i 1[theta_i < theta_0] vs Uniform(0,1); theta_0
+   from the EFFECTIVE prior (all training support cuts); n>=500 pairs at
+   the deploy-time N; BH-FDR across 13 params. Budget ~14 CPU-h/comp.
+Ship all reports; manager re-adjudicates and only then touches GUI
+warnings. Europa v5/v6 run as controls afterwards (v5 dC22_nh SBC FAIL
+should be REPAIRED by a valid correction — positive control).
+
 ## 0.16 FLOW TRAINING AUTHORIZATION (manager, 2026-08-10) — conditional GO for MgSO4/NaCl
 
 Answering "ready for flow training?" against the two §0.15 holds:
