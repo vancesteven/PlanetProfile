@@ -1,0 +1,80 @@
+{
+ "campaign": "nh3",
+ "config_hash": "e596574d1e81567c",
+ "artifact": "/Users/svance/ppgenai/PlanetProfile/Inference/sbi_artifacts/titan_freegrav_nh3_posterior_1m.pt",
+ "n_post": 20000,
+ "seed": 72,
+ "wall_condition_s": 532.9708890914917,
+ "byte_identity": {
+  "config_hash": "e596574d1e81567c",
+  "structure_cache_sha256": "3d837cf853ad6b5945a4ab43693399a3c4fceae8c46ba967a8bc4d51ec328648",
+  "param_names": [
+   "alpha",
+   "log10_zeta",
+   "log10_eta_Ih",
+   "log10_eta_III",
+   "log10_eta_V",
+   "log10_eta_VI",
+   "log10_eta_sil",
+   "Tb_K",
+   "log10_wOcean_ppt",
+   "R_core_km",
+   "rho_core_kgm3",
+   "dC20_nh",
+   "dC22_nh"
+  ],
+  "sigma": {
+   "C20": 4.71e-07,
+   "C22": 6.2e-08,
+   "Re_k2": 0.048,
+   "Im_k2": 0.035
+  },
+  "imag_convention": "abs"
+ },
+ "is_diagnostics": {
+  "n_samples": 20000,
+  "n_rejected": 235,
+  "frac_rejected": 0.01175,
+  "ess": 1245.0388569653996,
+  "ess_over_n": 0.06225194284826998,
+  "pareto_k": 0.31582433587532116,
+  "psis_smoothed": false,
+  "w_max_frac": 0.008696781940519167,
+  "verdict": "fail",
+  "fail_reasons": [
+   "ESS/N 0.062 < 0.1 (C7)"
+  ],
+  "k2_box_mass_outside": 9.441828999533859e-52,
+  "branch": {
+   "ocean": {
+    "prob_flow": 0.93255,
+    "prob_corrected": 0.9325614862272116,
+    "ess": 1101.8739352510281
+   },
+   "no_ocean": {
+    "prob_flow": 0.06745,
+    "prob_corrected": 0.06743851377278842,
+    "ess": 326.6638416976924
+   }
+  },
+  "thresholds": {
+   "pareto_k_clean": 0.5,
+   "pareto_k_max": 0.7,
+   "w_max_frac_cap": 0.01,
+   "ess_abs_floor": 1000.0,
+   "ess_frac_floor": 0.1,
+   "reject_frac_hard_fail": 0.5,
+   "branch_prob_min": 0.05,
+   "branch_ess_floor": 50.0,
+   "k2_box_mass_cap": 0.001
+  }
+ },
+ "gates": {},
+ "pushforward_medians": {
+  "im_flow": 0.04495057110579153,
+  "im_corrected": 0.10841077821571858,
+  "re_flow": 0.5419451206784617,
+  "re_corrected": 0.5929407600285826
+ },
+ "reference": "ABSENT at /Users/svance/ppgenai/validation_reports/titan_freegrav_nh3_1m/reference/titan_freegrav_nh3_reference_result.pkl \u2014 reference-dependent gates (C3, pushforward, C11, C16, crosscheck) must run on the machine holding the pooled reference."
+}
