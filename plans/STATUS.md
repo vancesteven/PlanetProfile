@@ -16,15 +16,24 @@ forward loop, obs_noise=False, byte-identical to the SBI ppc). RESULT: both comp
 obs 0.608; NEITHER centers on 0.608, so the flow-offset/quarantine trigger is NOT
 met. Gravity pushforward centers exactly on obs (C20/C22 ≤0.05σ); Im_k2 also
 under-predicts (−1.60/−1.34σ, consistent with the quarantined NH3 mechanism).
-Arithmetic: MgSO4 REPRODUCES_TENSION (MCMC-vs-SBI gap 0.240σ ≤0.5σ); NaCl
-INTERMEDIATE — but only because SBI is MORE pessimistic (1.52σ) than MCMC (0.68σ
-signed), pushing the median gap to 0.528σ just past the mechanical line; the
-physics (MCMC under-predicts, does not center on obs) is the SAME as MgSO4 →
-routed to reviewer for the binding tension-vs-offset call. (#2) **limits monotone
-doc corrected** — recorded as gated FAIL + adjudicator override, not N/A (below).
-NEXT: reviewer adjudicates the NaCl Re_k2 arithmetic → if tension confirmed both,
-Re_k2 deploys informative-with-caveat and Phase C GUI wiring (Machine A) is
-unblocked. commit pending.)
+Median-to-median gap (the apples-to-apples statistic the decision rule uses):
+MgSO4 0.24σ, NaCl 0.53σ. (#2) **limits monotone doc corrected** — recorded as
+gated FAIL + adjudicator override, not N/A (below). **Pushforward reviewer verdict
+[agent ad7ae4436e53cdc1e]: PASS — BOTH MgSO4 and NaCl may deploy under full
+split-status (C20/C22 TRUSTED, Re_k2 informative-with-caveat, tidal k2
+QUARANTINED). NO remaining STOP.** NaCl "INTERMEDIATE" confirmed a mechanical
+threshold artifact (SBI more pessimistic than MCMC, both under-predict in the
+same direction) — SAME model-data-tension verdict as MgSO4. Reviewer caught a
+reporting defect: the reports mix deviation-of-median (MCMC) with
+median-of-abs-deviation (SBI ppc, spread-inflated); apples-to-apples
+median-to-median gap is 0.24σ/0.53σ, and the DECISION-RULE gap statistic already
+used the correct median-to-median comparison so the verdict is unaffected. Two
+GUI-caveat-copy prerequisites for Machine A (NOT blockers to physics): (1) quote
+the median-to-median gap (0.24σ/0.53σ), not the mixed statistic; (2) state the
+deployed SBI Re_k2 marginal is CONSERVATIVE relative to the reference MCMC
+(tension-leaning, not a tightened bound — safe-side for informative-with-caveat).
+NEXT: **campaign compute COMPLETE.** Phase C GUI slot wiring (task #52) + the two
+caveat-copy corrections are a Machine A duty. commits 99ed8c42 (+ this).)
 Prior: 2026-08-10c (Machine B: **§0.16 gate seq COMPLETE — SBC/limits/crosscheck
 run for both MgSO4+NaCl; reviewer routing for interpretation.** Pushforward-
 acceptance verdict [agent ab702bb410edb3da6]: **PASS WITH CONCERNS, PROCEED no

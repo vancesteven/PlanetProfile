@@ -1,5 +1,40 @@
 # Machine B handoff
 
+## 0.16 CAMPAIGN COMPLETE — MgSO4/NaCl CLEARED for split-status deploy (Machine B, 2026-08-10)
+
+**The Titan free-gravity MgSO4/NaCl compute campaign is DONE. Deploy is CLEARED.
+Remaining work is Machine A GUI wiring (task #52) + two caveat-copy corrections.**
+
+Full §0.16 gate sequence executed and adjudicated by the scientific-reviewer in
+two binding passes:
+- Gate-set interpretation [agent a719438103ced11d0]: PASS WITH CONCERNS, no STOP.
+  SBC PASS both; limits containment PASS (monotone = gated-FAIL-by-override, NOT
+  N/A); crosscheck MgSO4 PASS all 13 params, NaCl FAIL on log10_eta_V only
+  (non-blocking poorly-identified nuisance).
+- Re_k2 pushforward [agent ad7ae4436e53cdc1e]: **PASS — BOTH comps deploy under
+  full split-status.** MCMC→Re_k2 pushforward (pooled repaired posterior →
+  identical θ→x loop) shows both comps UNDER-PREDICT Re_k2 (MgSO4 0.570, NaCl
+  0.575 vs obs 0.608), neither centers on obs ⇒ model-data TENSION reproduced by
+  the independent sampler, NOT a flow offset ⇒ Re_k2 ACCEPT. Gravity centers on
+  obs (≤0.05σ); Im_k2 under-predicts (consistent with the k2 quarantine).
+
+**Split-status to deploy: C20/C22 TRUSTED · Re_k2 informative-with-caveat ·
+tidal k2 QUARANTINED.** Artifacts: `titan_freegrav_{mgso4,nacl}_posterior_1m.pt`.
+
+**Machine A prerequisites for Phase C GUI slot wiring (reviewer-required copy
+corrections; physics already cleared):**
+1. Re_k2 caveat MUST quote the median-to-median MCMC-vs-SBI gap (MgSO4 0.24σ,
+   NaCl 0.53σ) — NOT the mixed deviation-of-median vs median-of-abs-dev statistic
+   (SBI ppc's `median_dev_sigma` is spread-inflated; not comparable to the MCMC
+   signed dev). The verdict is unaffected (the decision rule already used the
+   correct median-to-median gap), but the human-facing caveat must not misstate it.
+2. Caveat MUST state the deployed SBI Re_k2 marginal is CONSERVATIVE relative to
+   the reference MCMC (tension-leaning, not a tightened bound) — safe-side for an
+   informative-with-caveat channel; it errs toward tension, never false agreement.
+Reports: `validation_reports/titan_freegrav_{mgso4,nacl}_1m/rek2_pushforward/`.
+
+---
+
 ## 0.16 FLOW TRAINING AUTHORIZATION (manager, 2026-08-10) — conditional GO for MgSO4/NaCl
 
 Answering "ready for flow training?" against the two §0.15 holds:
@@ -448,7 +483,12 @@ MgSO4/NaCl 2D joint caches + datasets now (architecture-independent, §0.10
 priority-b).
 
 
-Updated: 2026-08-10 (Machine A: §0.16 — FLOW TRAINING conditional GO for
+Updated: 2026-08-10 (Machine B: **§0.16 CAMPAIGN COMPLETE — see the top block.**
+MgSO4/NaCl full gate seq executed + adjudicated in two binding reviewer passes;
+Re_k2 pushforward (req-val #1) + limits-monotone doc (req-val #2) discharged;
+BOTH comps CLEARED for split-status deploy — no STOP. Remaining = Machine A GUI
+wiring (#52) + 2 caveat-copy corrections. commits 99ed8c42 + this.)
+Prior: 2026-08-10 (Machine A: §0.16 — FLOW TRAINING conditional GO for
 MgSO4/NaCl. Quarantine re-verification restructured as the mandatory FIRST
 post-training gate (needs a trained flow; split-status default). Conditions:
 commit the #4 re-run final report (stop+escalate if it overturns), SHA-verify
