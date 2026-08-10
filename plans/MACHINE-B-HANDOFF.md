@@ -49,6 +49,18 @@ Machine A shipped: PlanetProfile/Inference/is_correction.py (tests
 tests/is_correction_test.py 9/9) and the committed driver
 plans/scripts/is_correction_validate.py.
 
+RULING UPDATE (2026-08-11, after the pilot): the ESS/N 0.1 fractional
+floor is STRUCK (FAIL-ADJUDICATED — cost statistic mis-specified as a
+reliability gate). Binding reliability set: Pareto-k <= 0.7, ABSOLUTE
+ESS >= 1000 at the N actually run, w_max <= 0.01, and the C5.3
+reverse-coverage test (now BLOCKING; the driver runs it automatically
+when the reference pkl is present). Additions to the tasks below:
+task 5 (C12 sweep) must ALSO report the ESS/N distribution across x
+(prices amortized correction; N_required = 1000/(ESS/N) per x); add one
+sanity line on why NH3's aggregate ocean probability is unchanged to
+four decimals (0.9326) while both branches internally reweighted
+(flow-vs-corrected branch histograms suffice).
+
 **Machine B tasks (priority after current queue):**
 1. For each composition (NH3 first, then MgSO4, NaCl): run
    `python plans/scripts/is_correction_validate.py --comp <c>` on the
