@@ -35,8 +35,8 @@ test (Librations.py has zero coverage); C19 is induction plumbing B8-B10.
 Frozen-branch-vs-Airy tension
 resolution + final consolidated config sketch pending the reviewer
 consolidation pass. Machine B §0.18 Phase 1 results still pending.)
-Prior: 2026-08-11c (Machine B: **⛔ MANAGER-GATE STOP — NH3 C16 REOPEN.
-ESCALATION TO MACHINE A.** §0.18 P1.3 NH3 fiducial IS validation ran clean
+Prior: 2026-08-11d (Machine B: **⛔ MANAGER-GATE STOP — NH3 C16 REOPEN.
+ESCALATION TO MACHINE A.** [v5 control + NH3 Track-2a CMI since folded in below.] §0.18 P1.3 NH3 fiducial IS validation ran clean
 on C3 (byte-exact, max_rel_diff 0.0), C5.3 (0.00094<0.01), C10 pushforward
 (all gaps ≪ threshold; Im_k2 median 0.0449→0.109 recovers MCMC ceiling
 ~0.103) and the C13 pushforward-median stability gate (0.057/0.073 σ_obs,
@@ -59,10 +59,21 @@ Track-1 corrected compute; Machine A to authorize resolution** (larger-N
 corrected run N~100k–200k + higher-n_eff reference recompute n_eff≥8000 +
 identify the biased estimator; re-ratify only on agreement within combined
 SE). Reviewer CLEARED as independent (may proceed, must NOT consume the NH3
-corrected ocean-fraction): Europa v5 positive control + NH3 Track-2a CMI.
-Track-2a salts already done (NaCl 0.63 nat, MgSO4 0.39 nat, both ≫0.1 → 2b/2c
-NOT cancellable for salts; NH3 CMI is the gate, regen pending). Commits
-5cc6650a (fiducial + C16 PASS, later overturned), c2178927 (C13 evidence).)
+corrected ocean-fraction): Europa v5 positive control + NH3 Track-2a CMI —
+**both now DONE.** (1) **Europa v5 IS positive control: clean near-no-op**
+(verdict clean, ESS 13487 / ESS/N 0.674, Pareto-k 0.256, w_max 0.0013;
+Im_k2 0.00264→0.00263 Δ2e-6; C3 byte-exact) — the IS machinery does NOT
+distort a well-calibrated flow, corroborating that the NH3 C16 tension
+(ESS/N 0.06) is reference-side, not a correction-machinery defect
+[e78e21f9]. (2) **§0.18 P1.4 Track-2a NH3 CMI (GATE) = 0.605 nat**
+(band [0.599,0.615], ~6× the 0.1-nat threshold; NH3 npz regenerated seed 72,
+n_kept 689845 == train manifest) → **Track 2b/2c NOT cancelled**; NH3 lands
+with the salts (NaCl 0.63, MgSO4 0.39) [bb791648]. Commits 5cc6650a
+(fiducial + C16 PASS, later overturned), c2178927 (C13 evidence),
+1c289854 (C16 REOPEN/STOP + escalation), e78e21f9 (v5 control),
+bb791648 (NH3 CMI). **§0.18 Phase 1 now BLOCKED solely on Machine A's C16
+resolution authorization** (all other P1 items — P1.1/P1.2/P1.3-cleared-parts/
+P1.4 — discharged).)
 Prior: 2026-08-11b (Machine A: **PROGRAM REVIEW + DOC AUDIT.** Opus
 reviewer adjudicated plans/next steps: Enceladus starts NOW in parallel
 (hold point moved to FLOW TRAINING with a preregistered release rule;
