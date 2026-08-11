@@ -59,8 +59,21 @@ Phase 4 hold point under the preregistered release rule).
 - Design pass COMPLETE (adjudication below, 2026-08-12; Saur 2024 PDF in
   papers/). Config JSON `not implemented` — blocked on B1–B7 closing and
   the user rulings.
-- USER RULINGS (2026-08-12): point 1 RATIFIED — k2 omitted. Points 2
-  (ocean-only) and 3 (zb axis) still pending. NEW DIRECTIVE: "omit
+- USER RULINGS (2026-08-12, complete): point 1 RATIFIED — k2 omitted.
+  Point 2 OVERRIDDEN by user: **KEEP the no-ocean cases** (joint
+  support retained against the reviewer's ocean-only recommendation —
+  the frozen branch stays in the posterior; design question dispatched:
+  how no-ocean nodes enter a zb-parameterized cache, likely zb extended
+  to the freeze-through boundary per w, giving a clean monotone
+  no-ocean edge instead of the Tb ribbon). Point 3 RATIFIED: **zb_km
+  axis** ("there should be a mapping from thickness to unique Tb" —
+  yes: zb↔Tb is monotone per (w, structure); Tb solved and recorded per
+  node). **Seawater RATIFIED.** **"Include libration as a parameter"**
+  — interpreted as: libration is a conditioned observable AND a
+  per-sample derived quantity surfaced in the GUI results (corner plot
+  column + summary row), not a free sampled parameter (it is fully
+  determined by structure; sampling it would break the forward model).
+  Flag to user if a different reading was intended. NEW DIRECTIVE: "omit
   hypothetical k2 but fit shape model as per Hemingway and Mittal 2019"
   — shape becomes a conditioned/fitted element of the campaign. Paper
   fetched to papers/hemingway2019enceladus.pdf (Icarus 332: joint
