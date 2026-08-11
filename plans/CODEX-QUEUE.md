@@ -104,6 +104,13 @@ config-hash provenance check: 4/4 hashes match manifests”; “Titan joint row
 promotion check: 3/3 appear exactly once”; `git diff --check: PASS`. Claim
 commit `a1246a18`; implementation commit `411167fb`.
 
+**Manager review (2026-08-12): C13 ACCEPTED.** Independently verified:
+INDEX stamp/gate-policy rewrite/salt-row promotion/labeled dual hashes;
+DEPLOYING.md 8-path list matches the registry extractor exactly (both
+salt caches present, ~320 MB in doc AND script header); plans/active/
+README refreshed incl. the two new Enceladus docs (good initiative);
+6/6 archive-index additions present. Queue continues at C14.
+
 ### C14 — Salt RATIFICATION.md consolidation + gate-manifest schema (audit 5.1-5.2) [status: queued]
 
 1. Write `validation_reports/titan_freegrav_{mgso4,nacl}_1m/
