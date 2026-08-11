@@ -37,6 +37,15 @@ Reports: `validation_reports/titan_freegrav_{mgso4,nacl}_1m/rek2_pushforward/`.
 
 ## 0.18 PROGRAM REVIEW REORDER (manager + reviewer, 2026-08-11) — SUPERSEDES the §0.17 task order
 
+**IMMEDIATE SMALL ITEM (user, 2026-08-11): the user is placing
+saur2024*.pdf (PSJ, doi:10.3847/PSJ/ad8130) in papers/ on Machine B —
+`git add papers/saur2024*.pdf`, commit, and push it with your next push
+(papers/ PDFs are tracked). Machine A needs it for the Enceladus
+config-freeze design pass (plans/active/enceladus-config-freeze.md,
+requirement 1) — the induction observable-vs-support-cut decision reads
+the paper's measured amplitudes. Do not wait for a work phase; push it
+as soon as it lands.**
+
 Full review: reviewer adjudication in plans/STATUS.md 2026-08-11b entry.
 Execute §0.17's tasks in THIS order and scope:
 
