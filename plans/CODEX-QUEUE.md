@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-12 (C18/C19 added — Enceladus freeze blockers B3/B8-B10; work C13→C19 in order, one commit per task). Curated by the Claude model manager
+Updated: 2026-08-12 (C13 verified; C14 next, then C15→C19 in order, one implementation commit per task). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -64,7 +64,7 @@ do not fix. Report `verified` with pytest output.
 Verification: pytest green + one InducedAeList smoke at both Enceladus
 periods returning finite Ae. Report `verified`.
 
-### C13 — INDEX.md + DEPLOYING.md + plans-index currency (audit items 1.1-1.3, 3.1-3.2, 2.4, archive) [status: in progress (Codex)]
+### C13 — INDEX.md + DEPLOYING.md + plans-index currency (audit items 1.1-1.3, 3.1-3.2, 2.4, archive) [status: verified]
 
 1. `PlanetProfile/Inference/sbi_artifacts/INDEX.md`: bump the audit
    stamp; REWRITE the "Deployment gate" section to describe the actual
@@ -87,6 +87,22 @@ periods returning finite Ae. Report `verified`.
    radiogenic-inventory-and-mineralogy-plan.md (index-based archiving,
    no file moves).
 Verification: link check + `git diff --check`; report `verified`.
+
+**Report (Codex, 2026-08-12):** `verified`. Rewrote the artifact deployment
+gate to preserve raw FAIL results plus recorded scientific adjudication and
+the `FAIL-ADJUDICATED-ACCEPTABLE` vocabulary; promoted the wired NH3, MgSO4,
+and NaCl joint Titan rows into the deployed table; and labeled both SBI and
+MCMC config hashes for the salts from their committed manifests. Updated the
+deploy snapshot documentation to the exact eight-cache registry set and
+~320 MB size, including the build-script header. Refreshed the active plan
+index for the finalized v5/v6 rulings, completed Titan composition campaign,
+live tidal-sector remedy and Enceladus plans, and added all six requested
+provenance entries to the archive index without moving files. Verification
+output: “Changed Markdown local-reference check: 22/22 references resolve”;
+“Deploy cache documentation check: 8/8 registry paths exact”; “Salt
+config-hash provenance check: 4/4 hashes match manifests”; “Titan joint row
+promotion check: 3/3 appear exactly once”; `git diff --check: PASS`. Claim
+commit `a1246a18`; implementation commit `411167fb`.
 
 ### C14 — Salt RATIFICATION.md consolidation + gate-manifest schema (audit 5.1-5.2) [status: queued]
 

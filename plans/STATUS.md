@@ -17,8 +17,10 @@ reproduce shell 19-24/ocean 35-39/core 192-195 km from H&M inputs;
 fallback = display-only + restored boxes). Implementation spec written
 (plans/active/enceladus-isostasy-module-spec.md); B16 verified
 (compute_eccentricities is full iterative Tricarico, per-interface).
-Codex C18 (libration regression test — Librations.py has zero coverage)
-+ C19 (induction plumbing B8-B10) queued. Frozen-branch-vs-Airy tension
+Codex C13 verified (artifact/deploy/plan-index currency; implementation
+`411167fb`); C14 next, then C15-C19 in order. C18 is the libration regression
+test (Librations.py has zero coverage); C19 is induction plumbing B8-B10.
+Frozen-branch-vs-Airy tension
 resolution + final consolidated config sketch pending the reviewer
 consolidation pass. Machine B §0.18 Phase 1 results still pending.)
 Prior: 2026-08-11b (Machine A: **PROGRAM REVIEW + DOC AUDIT.** Opus
