@@ -1,0 +1,198 @@
+{
+  "kind": "track2a_conditional_mutual_information",
+  "estimand": "I(theta; Im_k2 | C20,C22,Re_k2) [nats], effective-prior",
+  "ratified_by": "scientific-reviewer 2026-08-10 (a872477da30620eb0)",
+  "cancel_rule": "CANCEL 2b/2c iff combined band upper < 0.1 nat; gate composition is NH3 (salts are context)",
+  "results": {
+    "nacl": {
+      "comp": "nacl",
+      "status": "OK",
+      "n_kept": 631214,
+      "sigma_Im": 0.035,
+      "im_std": 0.10745348145317173,
+      "noise_entropy_zunits": 0.29722857144947384,
+      "ks": [
+        3,
+        5,
+        10,
+        20
+      ],
+      "cmi_point_per_k": {
+        "3": 0.63094668353694,
+        "5": 0.6292189673253887,
+        "10": 0.6270513925705015,
+        "20": 0.624914816666789
+      },
+      "cmi_point_raw_per_k": {
+        "3": 0.6350849359072062,
+        "5": 0.6351854907627204,
+        "10": 0.636014638012788,
+        "20": 0.6365374596881452
+      },
+      "per_k": {
+        "3": {
+          "point_full": 0.63094668353694,
+          "point_full_raw": 0.6350849359072062,
+          "H_x4": 5.183841057326109,
+          "H_x3": 4.255665802339696,
+          "sub_mean": 0.6279279168259431,
+          "sub_std": 0.0030315612210392536,
+          "sub_ci95": [
+            0.6218647943838645,
+            0.6339910392680216
+          ]
+        },
+        "5": {
+          "point_full": 0.6292189673253887,
+          "point_full_raw": 0.6351854907627204,
+          "H_x4": 5.181248224236349,
+          "H_x3": 4.254800685461486,
+          "sub_mean": 0.6258637241794106,
+          "sub_std": 0.002794975639039379,
+          "sub_ci95": [
+            0.6202737729013319,
+            0.6314536754574893
+          ]
+        },
+        "10": {
+          "point_full": 0.6270513925705015,
+          "point_full_raw": 0.636014638012788,
+          "H_x4": 5.178083121764983,
+          "H_x3": 4.253803157745008,
+          "sub_mean": 0.6236772574303113,
+          "sub_std": 0.002657375725020264,
+          "sub_ci95": [
+            0.6183625059802708,
+            0.6289920088803519
+          ]
+        },
+        "20": {
+          "point_full": 0.624914816666789,
+          "point_full_raw": 0.6365374596881452,
+          "H_x4": 5.173770945330443,
+          "H_x3": 4.25162755721418,
+          "sub_mean": 0.621018974590464,
+          "sub_std": 0.0022545124579169654,
+          "sub_ci95": [
+            0.61650994967463,
+            0.6255279995062979
+          ]
+        }
+      },
+      "k_sweep_range_nat": [
+        0.624914816666789,
+        0.63094668353694
+      ],
+      "gaussian_bracket_nat": 1.1200113886505674,
+      "var_im_given_rest": 0.011507092924653193,
+      "structural_cmi_nonneg": true,
+      "cmi_min_over_k_nat": 0.624914816666789,
+      "combined_band_nat": [
+        0.6158357607896351,
+        0.6400257394140939
+      ],
+      "cancel_threshold_nat": 0.1,
+      "cancel_2b2c": false,
+      "subsample": {
+        "m": 200000,
+        "n_draws": 20
+      },
+      "note": "CMI = I(theta; Im_k2 | C20,C22,Re_k2), effective-prior (support-guarded) marginal. Reads training (theta,x) only; no corrected/IS quantity. CANCEL 2b/2c iff combined band upper < 0.1 nat. Gaussian value is a BRACKET, not a bound. Estimand is an UPPER bound on tidal-parameter-specific recoverable info (>0.1 nat is necessary-not-sufficient for 2b/2c to help)."
+    },
+    "mgso4": {
+      "comp": "mgso4",
+      "status": "OK",
+      "n_kept": 691075,
+      "sigma_Im": 0.035,
+      "im_std": 0.07426031862844484,
+      "noise_entropy_zunits": 0.6667098552400451,
+      "ks": [
+        3,
+        5,
+        10,
+        20
+      ],
+      "cmi_point_per_k": {
+        "3": 0.3944342273664868,
+        "5": 0.3927483015393437,
+        "10": 0.3900006989167871,
+        "20": 0.38767397389084646
+      },
+      "cmi_point_raw_per_k": {
+        "3": 0.3986690024952305,
+        "5": 0.39758367657116434,
+        "10": 0.39700402078158514,
+        "20": 0.39803279509601885
+      },
+      "per_k": {
+        "3": {
+          "point_full": 0.3944342273664868,
+          "point_full_raw": 0.3986690024952305,
+          "H_x4": 5.314310538664561,
+          "H_x3": 4.253166456058029,
+          "sub_mean": 0.3893645267381088,
+          "sub_std": 0.002281876990340139,
+          "sub_ci95": [
+            0.3848007727574285,
+            0.39392828071878905
+          ]
+        },
+        "5": {
+          "point_full": 0.3927483015393437,
+          "point_full_raw": 0.39758367657116434,
+          "H_x4": 5.312202760565404,
+          "H_x3": 4.252744603786015,
+          "sub_mean": 0.38795500403381855,
+          "sub_std": 0.0022144037445366005,
+          "sub_ci95": [
+            0.38352619654474535,
+            0.39238381152289176
+          ]
+        },
+        "10": {
+          "point_full": 0.3900006989167871,
+          "point_full_raw": 0.39700402078158514,
+          "H_x4": 5.3094391392218165,
+          "H_x3": 4.252728585064984,
+          "sub_mean": 0.385968923469255,
+          "sub_std": 0.0021021545204527306,
+          "sub_ci95": [
+            0.3817646144283495,
+            0.39017323251016045
+          ]
+        },
+        "20": {
+          "point_full": 0.38767397389084646,
+          "point_full_raw": 0.39803279509601885,
+          "H_x4": 5.306173098240057,
+          "H_x3": 4.251789269109166,
+          "sub_mean": 0.3842490219382136,
+          "sub_std": 0.0018367101053132374,
+          "sub_ci95": [
+            0.3805756017275871,
+            0.3879224421488401
+          ]
+        }
+      },
+      "k_sweep_range_nat": [
+        0.38767397389084646,
+        0.3944342273664868
+      ],
+      "gaussian_bracket_nat": 0.7367888506035566,
+      "var_im_given_rest": 0.005346908509534095,
+      "structural_cmi_nonneg": true,
+      "cmi_min_over_k_nat": 0.38767397389084646,
+      "combined_band_nat": [
+        0.379730093172346,
+        0.40237810808498725
+      ],
+      "cancel_threshold_nat": 0.1,
+      "cancel_2b2c": false,
+      "subsample": {
+        "m": 200000,
+        "n_draws": 20
+      },
+      "note": "CMI = I(theta; Im_k2 | C20,C22,Re_k2), effective-prior (support-guarded) marginal. Reads training (theta,x) only; no corrected/IS quantity. CANCEL 2b/2c iff combined band upper < 0.1 nat. Gaussian value is a BRACKET, not a bound. Estimand is an UPPER bound on tidal-parameter-specific recoverable info (>0.1 nat is necessary-not-sufficient for 2b/2c to help)."
+    }
+  }
+}
