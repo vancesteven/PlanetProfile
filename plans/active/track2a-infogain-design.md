@@ -159,16 +159,37 @@ identity. This is the load-bearing claim the reviewer must check.
    (cheap, and it contextualizes whether Im_k2 is uniquely uninformative vs the
    whole vector being weak)?
 
-## RESULTS — salt context (NaCl, MgSO4), 2026-08-10
+## RESULTS — NH3 GATE + salt context, 2026-08-11
 
 Estimator: `plans/scripts/track2a_infogain.py`; report
-`validation_reports/track2a_infogain/track2a_cmi.json`. Run on the two
-datasets present (NH3 npz cleared → NH3 gate pending regen).
+`validation_reports/track2a_infogain/track2a_cmi.json`. NH3 npz regenerated
+2026-08-11 (seed 72, structure-cache sha 3d837cf8…, n_kept 689845 == train
+manifest n_train — faithful reproduction). **NH3 is the gate composition
+(reviewer ruling 4); NaCl/MgSO4 are context.**
 
 | comp | n_kept | CMI k-sweep [k3..k20] (nat) | combined band (nat) | Gaussian bracket | CMI≥0 | CANCEL 2b/2c |
 |---|---|---|---|---|---|---|
-| NaCl  | 631214 | [0.6249, 0.6309] | [0.616, 0.640] | 1.120 | yes | **No** |
-| MgSO4 | 691075 | [0.3877, 0.3944] | [0.380, 0.402] | 0.737 | yes | **No** |
+| **NH3** | **689845** | **[0.6053, 0.6089]** | **[0.599, 0.615]** | **1.211** | **yes** | **No (GATE)** |
+| NaCl  | 631214 | [0.6249, 0.6309] | [0.616, 0.640] | 1.120 | yes | No |
+| MgSO4 | 691075 | [0.3877, 0.3944] | [0.380, 0.402] | 0.737 | yes | No |
+
+**§0.18 P1.4 DECISION (NH3 gate): Track 2b (transform-retrain) and 2c
+(Re/Im-only ablation) are NOT cancelled.** NH3 CMI 0.605 nat is ~6× the
+0.1-nat cancel threshold — Im_k2 carries substantial incremental information
+about the interior beyond {C20,C22,Re_k2}, so no amount of the cheap
+free-context argument can retire 2b/2c. NH3 lands with the salts (NaCl 0.63,
+MgSO4 0.39), confirming the composition change does not collapse the tidal
+information channel.
+
+NH3 cross-checks (reviewer required validations, all satisfied): CMI≥0
+(min-over-k 0.6053); raw (z-only) vs rank-transformed agree < 0.01 nat for
+k=3,5,10 (k=20 0.0122, the transform taming Re_k2's heavy tail as intended —
+reported estimate uses the transformed value); k-sweep range 0.0036 nat;
+m-out-of-n subsample std ≈ 0.002 nat; Gaussian bracket 1.211 with the kNN CMI
+below it (consistent, not a violated bound); noise entropy σ_Im=0.035 exact in
+z-scored Im units.
+
+### Salt cross-checks (unchanged, 2026-08-10)
 
 Cross-checks (reviewer required validations, all satisfied):
 - **CMI ≥ 0** structural check passes for both (min-over-k 0.625 / 0.388).
