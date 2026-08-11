@@ -3,7 +3,25 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-11b (Machine A: **PROGRAM REVIEW + DOC AUDIT.** Opus
+Updated: 2026-08-12 (Machine A: **ENCELADUS FIT PATH CONFIRMED — freeze
+design complete pending consolidation.** User rulings: k2 omitted;
+no-ocean cases STAY (overrides reviewer); zb axis + Seawater ratified;
+"include libration as a parameter" interpreted as conditioned observable
++ per-sample derived display. Shape directive resolved: H&M 2019 fit
+shape as forward-model INPUT, not observable — Airy equal-pressures
+isostasy coupling adopted (dC20/dC22_nh free boxes → one sampled
+compensation fraction; C30 ADDED as observable; Tajeddine 2017 shape
+primary, Nimmo ablation; gravity becomes ~0.5σ/km shell channel).
+New blockers B11-B16 incl. the H&M REPRODUCTION GATE (module must
+reproduce shell 19-24/ocean 35-39/core 192-195 km from H&M inputs;
+fallback = display-only + restored boxes). Implementation spec written
+(plans/active/enceladus-isostasy-module-spec.md); B16 verified
+(compute_eccentricities is full iterative Tricarico, per-interface).
+Codex C18 (libration regression test — Librations.py has zero coverage)
++ C19 (induction plumbing B8-B10) queued. Frozen-branch-vs-Airy tension
+resolution + final consolidated config sketch pending the reviewer
+consolidation pass. Machine B §0.18 Phase 1 results still pending.)
+Prior: 2026-08-11b (Machine A: **PROGRAM REVIEW + DOC AUDIT.** Opus
 reviewer adjudicated plans/next steps: Enceladus starts NOW in parallel
 (hold point moved to FLOW TRAINING with a preregistered release rule;
 config freeze must evaluate 2D Tb×w — Enceladus has the program's
