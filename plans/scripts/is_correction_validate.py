@@ -54,6 +54,21 @@ CAMPAIGNS = {
         'reference': 'validation_reports/titan_freegrav_nacl_1m/'
                      'reference/titan_freegrav_nacl_reference_pooled.pkl',
     },
+    # §0.18 P1.3 Europa v5 POSITIVE CONTROL. v5 (geodesy 11D, 21 obs) is a
+    # well-calibrated deployed artifact, so the IS correction must be a
+    # near-no-op: corrected pushforward ~ flow pushforward, high ESS, near-
+    # uniform weights. This confirms the IS machinery does not distort a good
+    # posterior (contrast the NH3 tidal-sector under-update it is designed to
+    # repair). Single-seed reference is sufficient — this control tests
+    # no-op behavior, not a preregistered ocean-fraction band.
+    'v5': {
+        'config': 'PlanetProfile/Inference/configs/'
+                  'europa_clipper_v5_geodesy_11D.json',
+        'report_dir': 'validation_reports/europa_clipper_v5_baseline_1m',
+        'reference': 'PlanetProfile/Test/mcmc_results/Europa/'
+                     'Test52_seawater_v5/'
+                     'europa_clipper_v5_reference_result.pkl',
+    },
 }
 
 # Gate 2 (C10) preregistered tolerances (reviewer 2026-08-11):

@@ -1,0 +1,110 @@
+{
+ "campaign": "nh3",
+ "config_hash": "e596574d1e81567c",
+ "artifact": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/sbi_artifacts/titan_freegrav_nh3_posterior_1m.pt",
+ "n_post": 20000,
+ "seed": 72,
+ "wall_condition_s": 357.11968994140625,
+ "byte_identity": {
+  "config_hash": "e596574d1e81567c",
+  "structure_cache_sha256": "3d837cf853ad6b5945a4ab43693399a3c4fceae8c46ba967a8bc4d51ec328648",
+  "param_names": [
+   "alpha",
+   "log10_zeta",
+   "log10_eta_Ih",
+   "log10_eta_III",
+   "log10_eta_V",
+   "log10_eta_VI",
+   "log10_eta_sil",
+   "Tb_K",
+   "log10_wOcean_ppt",
+   "R_core_km",
+   "rho_core_kgm3",
+   "dC20_nh",
+   "dC22_nh"
+  ],
+  "sigma": {
+   "C20": 4.71e-07,
+   "C22": 6.2e-08,
+   "Re_k2": 0.048,
+   "Im_k2": 0.035
+  },
+  "imag_convention": "abs"
+ },
+ "is_diagnostics": {
+  "n_samples": 20000,
+  "n_rejected": 216,
+  "frac_rejected": 0.0108,
+  "ess": 1351.8857541720076,
+  "ess_over_n": 0.06759428770860038,
+  "pareto_k": 0.18638909760024763,
+  "psis_smoothed": false,
+  "w_max_frac": 0.004258178719042055,
+  "verdict": "clean",
+  "fail_reasons": [],
+  "k2_box_mass_outside": 1.2926540417188812e-51,
+  "branch": {
+   "ocean": {
+    "prob_flow": 0.9326,
+    "prob_corrected": 0.9363014238606263,
+    "ess": 1197.4719838639758
+   },
+   "no_ocean": {
+    "prob_flow": 0.0674,
+    "prob_corrected": 0.06369857613937385,
+    "ess": 532.8384262555363
+   }
+  },
+  "thresholds": {
+   "pareto_k_clean": 0.5,
+   "pareto_k_max": 0.7,
+   "w_max_frac_cap": 0.01,
+   "ess_abs_floor": 1000.0,
+   "ess_frac_floor": 0.1,
+   "reject_frac_hard_fail": 0.5,
+   "branch_prob_min": 0.05,
+   "branch_ess_floor": 50.0,
+   "k2_box_mass_cap": 0.001
+  }
+ },
+ "gates": {
+  "c5_3_reverse_coverage": {
+   "threshold_logq": -3.9058870391845706,
+   "ref_mass_below": 0.0011844222901843248,
+   "cap": 0.01,
+   "tail_q": 0.001,
+   "pass": true
+  },
+  "pushforward": {
+   "gap_im_sigma": 0.18758718369006885,
+   "gap_re_sigma": 0.10101706013239398,
+   "wks_im": 0.07358015053381206,
+   "wks_re": 0.04346517559036023,
+   "median_gap_max": 0.5,
+   "wks_max": 0.15,
+   "pass": true
+  },
+  "ocean_fraction": {
+   "reference": 0.9172547835733885,
+   "corrected": 0.9363014238606263,
+   "note": "compare against the reference 3-seed spread (preregistered on B before this result is read)"
+  }
+ },
+ "pushforward_medians": {
+  "im_flow": 0.045369270848042084,
+  "im_corrected": 0.11034413003017034,
+  "re_flow": 0.5417022143520208,
+  "re_corrected": 0.5952308866006308
+ },
+ "c3_consistency": {
+  "n_checked": 200,
+  "max_rel_diff": 0.0,
+  "sentinel_disagreements": 0,
+  "rtol": 1e-09,
+  "pass": true
+ },
+ "crosscheck_resample": {
+  "L": 1351,
+  "note": "feed samples[idx] to validate_sbi crosscheck as the corrected-SBI sample set; report ESS, never N"
+ }
+}
