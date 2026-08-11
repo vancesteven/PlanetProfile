@@ -64,3 +64,8 @@ exclude = ["tests*", "docs*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.txt", "*.tab", "*.mat", "*.tf", "*.tls", "*.tpc", "*.md"]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: long-running validation gates (isostasy B13 scan etc.)",
+]
