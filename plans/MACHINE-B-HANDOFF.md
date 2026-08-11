@@ -35,6 +35,41 @@ Reports: `validation_reports/titan_freegrav_{mgso4,nacl}_1m/rek2_pushforward/`.
 
 ---
 
+## 0.19 PUNCH LIST (manager, 2026-08-12 — user-requested; supersedes nothing, ORDERS §0.17/0.18)
+
+Work top to bottom; ship results as each lands, do not batch:
+
+1. **§0.17 task 2 preregistration spreads** (3-seed ocean-fraction +
+   nuisance-median spreads for NH3/MgSO4/NaCl references) — commit
+   BEFORE running or reading anything else. Blocks every branch gate.
+2. **0.9326 plumbing check** (§0.18 P1 item 2) — verify the corrected
+   ocean fraction is computed from the WEIGHTED set. Blocks C16.
+3. **NH3 fiducial IS validation**: `python plans/scripts/
+   is_correction_validate.py --comp nh3` (N=20k default) on the machine
+   with the pooled reference; then the crosscheck on
+   resampled_indices.npy; then --seed-offset 1000 and 2000 (C13).
+4. **Europa v5 positive control** (PROMOTED): same driver pattern vs the
+   v5 pooled fresh reference — a valid correction should REPAIR the
+   dC22_nh SBC FAIL; fold the outstanding 2nd-seed SBC in via
+   --seed-offset. (Driver's CAMPAIGNS table needs a v5 entry — add it,
+   config europa_clipper_v5_geodesy_11D.json, mode flip only, commit.)
+5. **Track 2a information-gain** (free, spare cores): achievable-vs-
+   achieved KL in nats, per-channel; if Im_k2 carries <0.1 nat beyond
+   {C20,C22,Re_k2}, 2b AND 2c are CANCELLED.
+6. SHIP 1-5 → manager gate (STOP rule: NH3 fail on C3/C5.3/C10/C16 =
+   no further Track 1 compute).
+7. Background after 6: MgSO4/NaCl fiducial validations; NH3 C12 sweep
+   (PARALLELIZE; report the ESS/N distribution); Track 2c if not
+   cancelled by 5.
+8. **Do NOT build the Enceladus cache yet** — the July §2 spec is
+   SUPERSEDED (zb-axis + isostasy design; see plans/active/
+   enceladus-config-freeze.md). The frozen config arrives from Machine A
+   after the isostasy module passes its H&M reproduction gate (B13).
+   Expected within days. Cache/dataset/reference then follow §0.18 P2-P3.
+9. Later (fit around 8): NH3-only corrected-pipeline SBC (~39 CPU-h,
+   parallel); B4 evidence check (v7 ablation figure); freegrav rho_sil
+   rescale numerical bound (paper-blocking, small).
+
 ## 0.18 PROGRAM REVIEW REORDER (manager + reviewer, 2026-08-11) — SUPERSEDES the §0.17 task order
 
 **IMMEDIATE SMALL ITEM (user, 2026-08-11): the user is placing
