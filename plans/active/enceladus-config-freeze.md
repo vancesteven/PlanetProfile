@@ -56,9 +56,9 @@ Phase 4 hold point under the preregistered release rule).
 
 ## Status
 
-- `not implemented` — requirements collected; reviewer design pass not
-  yet dispatched. Blockers: Saur 2024 PDF not in papers/; induction
-  observable-vs-support decision needs the paper's measured values.
+- Design pass COMPLETE (adjudication below, 2026-08-12; Saur 2024 PDF in
+  papers/). Config JSON `not implemented` — blocked on B1–B7 closing and
+  the user ruling on the three ratification points.
 
 ## Reviewer design adjudication (2026-08-12, after reading Saur 2024)
 
