@@ -2,7 +2,7 @@
 
 The public GUI is served as a **Hugging Face Docker Space** from an
 auto-generated snapshot — never from this repo's dev branches. Snapshot =
-app + PlanetProfile package + serve-time data only (~300 MB; the full repo
+app + PlanetProfile package + serve-time data only (~320 MB; the full repo
 is ~3 GB and does not fit hosted serving).
 
 Public mode (`PP_PUBLIC_MODE=1`, baked into the Dockerfile) exposes
@@ -102,7 +102,7 @@ deliberate redeploy.
 
 ## What's in / out of the snapshot
 
-In: `PlanetProfileApp/`, `PlanetProfile/` (minus `Test/**` except the six
+In: `PlanetProfileApp/`, `PlanetProfile/` (minus `Test/**` except the eight
 structure-grid caches derived from non-placeholder `cache_path` entries in
 `_SBI_ARTIFACT_SLOTS`), `SPICE/`, `requirements.txt`, `packages.txt`,
 `.streamlit/`, generated `README.md` + `Dockerfile`. The current registry set
@@ -114,6 +114,8 @@ is:
 - `PlanetProfile/Test/mcmc_results/Titan/Test50_andrade_noocean_yao2014/titan_allice_yao2014_structure_grid.pkl`
 - `PlanetProfile/Test/mcmc_results/Titan/Test52_andrade_noocean_diff/titan_diff_noocean_structure_grid.pkl`
 - `PlanetProfile/Test/mcmc_results/Titan/Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl`
+- `PlanetProfile/Test/mcmc_results/Titan/Test54_mgso4_ocean/titan_mgso4_joint_structure_grid_2d.pkl`
+- `PlanetProfile/Test/mcmc_results/Titan/Test54_nacl_ocean/titan_nacl_joint_structure_grid_2d.pkl`
 
 For every derived primary cache, the script also copies any adjacent
 `.ae_sidecar.pkl` and `_offsets.json` sidecars. It then compares the staged

@@ -10,6 +10,9 @@ addenda may describe important evidence, but current decisions live in
 - `plans/HANDOFF-2026-07-08-sbi-test52.md`
 - `plans/HANDOFF-2026-07-09-test50-sbi-validation.md`
 - `plans/HANDOFF-2026-07-12-codex-exploreogram.md`
+- `plans/HANDOFF-2026-07-26-nh3-liquidus-defect.md`
+- `plans/STATUS-2026-07-20.md`
+- `plans/STATUS-2026-08-01-machineB-joint-nh3.md`
 
 ## Completed, retired, vetoed, or superseded campaigns
 
@@ -18,7 +21,10 @@ addenda may describe important evidence, but current decisions live in
 - `plans/europa-clipper-v2-induction-plan.md`
 - `plans/europa-clipper-v3-salinity-plan.md`
 - `plans/europa-clipper-v3-phase1-validation.md`
+- `plans/europa-clipper-v4-geodesy-plan.md`
 - `plans/serve-gui-streamlit-cloud-plan.md`
+- `plans/active/titan-classic-moi-recon.md`
+- `plans/active/radiogenic-inventory-and-mineralogy-plan.md`
 
 ## Historical scripts/evidence
 

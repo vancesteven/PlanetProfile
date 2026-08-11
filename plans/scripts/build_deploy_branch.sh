@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build the slim orphan `app-deploy` branch for Streamlit Community Cloud.
 #
-# Assembles a serve-time-only snapshot (~300 MB vs the 3.0 GB full tree:
+# Assembles a serve-time-only snapshot (~320 MB vs the 3.0 GB full tree:
 # excludes root Thermodynamics/Perple_X 2.5 GB, papers/, plans/, docs/,
 # and PlanetProfile/Test bulk except the structure-grid pkls the GUI slot
 # registry names), commits it as a single orphan commit, and pushes it to
