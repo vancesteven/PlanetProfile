@@ -181,3 +181,71 @@ fix; Cuncertainty re-derivation under zb).
 Frozen-config sketch (params/priors/observables/metadata) is in the
 review record; commits after B1-B7 close and the user rules on the
 three ratification points.
+
+## Shape-channel addendum ruling (reviewer, 2026-08-12, after reading H&M 2019)
+
+**Central finding: H&M 2019 fit gravity (C20, C22, C30) + libration ONLY;
+shape enters as a forward-model INPUT** (observed surface relief sets the
+top of the shell; the Airy-compensated basal relief is computed; the
+resulting NON-hydrostatic gravity is predicted). Shape uncertainty enters
+as model-covariance inflation (their Eq. 22), not as a residual.
+
+**RULING: adopt the H&M isostasy coupling (option b).**
+- Conditioning on shape coefficients directly (a) REJECTED: hydrostatic
+  part double-counts the same Tricarico relation as gravity (the CMR2/C22
+  argument); non-hydrostatic part with free nuisances is pure absorption
+  (observed shape is 4.3-84 sigma super-hydrostatic; geoid only 8.5
+  sigma — the 4.09-vs-3.42 ratio gap IS the measurement, and only the
+  coupling reads it).
+- dC20_nh/dC22_nh free boxes REMOVED — replaced by ONE physical nuisance
+  `compensation_C2 ~ U[0,1]` (Airy fraction) + H&M Sigma_model added
+  variances. This converts gravity from nearly-uninformative to a real
+  shell-thickness channel: the Airy cancellation residual scales as
+  (R_b/R_t)^(l+2) — ~4.2%/km, ~0.5 sigma/km on C20 (vs libration's
+  ~1.1 sigma/km; complementary).
+- **ADD C30 = [1.7782e-4, 3.342e-5] (Park) as a conditioned observable**
+  — 100% non-hydrostatic, H&M's cleanest shell-thickness channel;
+  reverses the constraints-doc "out of 1D scope" tag (that assumed no
+  non-hydrostatic forward model). S22 stays out (needs lateral physics).
+- Shape source: **Tajeddine 2017 primary** (sigma_model on C20 5.3e-6 —
+  negligible vs gravity sigma 35.4e-6) — Nimmo 2011 would inflate
+  sigma(C20) 7x and kill the channel; run Nimmo as a preregistered
+  sensitivity ablation with H&M's own comparability caveat quoted.
+- rho_ice / rho_ocean promoted to sampled params (Airy amplification
+  rho_ice/delta_rho ~ 9.7: 2% density error = 20% root-amplitude error).
+- Finite-amplitude terrain correction (Wieczorek & Phillips 1998)
+  REQUIRED (~5% on J2 = 8 sigma if omitted).
+- Reference-radius trap: Park gravity at 256.6 km vs Tajeddine shape at
+  252.22 km — 3.6 sigma on C22 if mishandled; single unit-tested
+  conversion (B14).
+- Reference comparison: show BOTH H&M (shell 19-24 km) and Park (25-29
+  km) bands, with the stated dependence caveat (we hybridize Park
+  gravity+libration with Tajeddine shape).
+- Libration systematic budget B2' EXTENDED: H&M compute libration from
+  the observed NON-hydrostatic triaxial figure; Librations.py uses the
+  hydrostatic figure — plausibly multi-sigma at sigma=3.3%; quantify
+  (B-A)/C difference. Tajeddine-propagated libration model sigma
+  0.00025 deg is fine; Nimmo's 0.004 deg would exceed the measurement
+  sigma.
+
+**New blocking items:** B11 isostatic-gravity module (H&M Eqs. 8/9/12,
+degree 2+3, ~300-500 lines — NEW forward-model code on the 1.0 critical
+path; schedule risk surfaced to user); B12 finite-amplitude correction;
+**B13 H&M REPRODUCTION GATE** (with Iess+Thomas+Tajeddine inputs our
+module must reproduce H&M's Airy solution: shell 19-24 km, ocean 35-39,
+core 192-195, rho_core 2340-2410 — fallback on failure is display-only +
+restored nuisance boxes); B14 radius reconciliation; B15 Sigma_model;
+B16 per-interface hydrostatic-figure verification (1st-order theory
+underestimates H22_hyd ~4% -> ~30% error on H22_nh; must be the full
+Tricarico numeric).
+
+**OPEN TENSION (reviewer follow-up pass queued):** the Airy coupling
+presupposes an ice/ocean interface — undefined on the frozen branch —
+while the USER has ruled the no-ocean cases STAY. Candidate resolution
+for the reviewer to adjudicate: branch-dependent support model — ocean
+nodes use the sampled-C2 Airy coupling; frozen nodes use rigid
+(uncompensated) support, whose predicted non-hydrostatic gravity (~12
+sigma off observed) and near-zero libration decoupling make the frozen
+branch DOUBLY discriminated by real physics rather than assumption.
+Also pending in that pass: zb-axis no-ocean edge design and the
+"libration as a parameter" interpretation check.
