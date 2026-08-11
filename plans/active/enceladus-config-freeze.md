@@ -58,7 +58,18 @@ Phase 4 hold point under the preregistered release rule).
 
 - Design pass COMPLETE (adjudication below, 2026-08-12; Saur 2024 PDF in
   papers/). Config JSON `not implemented` — blocked on B1–B7 closing and
-  the user ruling on the three ratification points.
+  the user rulings.
+- USER RULINGS (2026-08-12): point 1 RATIFIED — k2 omitted. Points 2
+  (ocean-only) and 3 (zb axis) still pending. NEW DIRECTIVE: "omit
+  hypothetical k2 but fit shape model as per Hemingway and Mittal 2019"
+  — shape becomes a conditioned/fitted element of the campaign. Paper
+  fetched to papers/hemingway2019enceladus.pdf (Icarus 332: joint
+  shape+gravity+libration isostasy; shell mean 19-24 km, 4-12 km south
+  pole; ocean 30-39 km; core 191-198 km). Reviewer design pass on the
+  shape channel DISPATCHED (how to honor H&M within the 1D model:
+  conditioned degree-2 shape + nh offset nuisances, isostasy-coupled
+  offsets, display reference, or escalate as new physics; supersedes
+  the earlier "shape — out" ruling).
 
 ## Reviewer design adjudication (2026-08-12, after reading Saur 2024)
 
