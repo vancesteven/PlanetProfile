@@ -28,7 +28,31 @@ validates, adjudicates, integrates; Codex handles scoped implementation.
 | Enceladus Cassini | **STARTING — the only missing 1.0 mission pair** | Machine A config freeze NOW (parallel with §0.17); hold point at FLOW TRAINING, not config (reviewer 2026-08-11); freeze must evaluate 2D Tb×w salinity sampling (Enceladus has the program's strongest composition data — CDA/INMS) vs the July 1D fixed-10-ppt spec |
 | Callisto, Ganymede | 2.0 roadmap (Callisto ≈ 3× Enceladus — multi-composition) | after 1.0 |
 
-## Version 1.0 milestone (declared 2026-08-11; reviewer-framed, user to ratify)
+## Version 1.0 milestone (declared 2026-08-11; **USER-RATIFIED 2026-08-11** — incl. canonical naming and v7 retirement)
+
+Canonical models per mission–body pair (user-ratified):
+- **Europa–Galileo: v1.1** (sole model).
+- **Europa–Clipper: v6 CANONICAL** (all gates PASS; owns the
+  non-hydrostaticity deliverable). v4 = documented predecessor
+  (user-ratified deployment stands), v5 = scoped companion (D_iceIh
+  reparameterization; dC22_nh readout deferred to v6), ablation arms =
+  ablations of their baselines.
+- **Titan–Cassini: one campaign, three composition hypotheses**
+  (NH3 / MgSO4 / NaCl joint models + no-ocean references) — the
+  multiplicity is the science; no single canonical composition.
+- **v7: RETIRED as a deployment candidate (user-ratified)** — retained
+  as a published |Ae| support-cut sensitivity ablation; B4 evidence
+  check still runs; B5 cancelled.
+
+**Enceladus config directive (user, 2026-08-11): the model must account
+for the Cassini magnetic-induction results of Saur et al. 2024 (PSJ —
+"Analysis of Enceladus's Time-variable Space Environment to Magnetically
+Sound its Interior"): expected induction amplitudes up to a few nT at
+the orbital and synodic periods; ~1 nT accuracy constrains bulk ocean
+conductivity/salinity.** This independently strengthens the 2D Tb×w
+freeze question — induction constrains conductivity, so salinity must be
+a sampled axis for the channel to be assimilable. Freeze doc:
+plans/active/enceladus-config-freeze.md.
 
 **1.0 = every flown mission–body pair with adequate geodesy has a
 ratified GUI slot**: Europa–Galileo (v1.1 ✓), Europa–Clipper (v4/v5/v6 ✓),

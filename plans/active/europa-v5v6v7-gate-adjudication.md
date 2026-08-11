@@ -162,3 +162,17 @@ carry the explicit `derived_params_sbc_na.Tb_K` statement.
 **GUI consequence:** `cb597490` not-ratified gating LIFTED for the six v5/v6
 slots. v5 slots carry the scope note above; v6 slots ship clean. v7 remains
 BLOCKED pending B4/B5 (unchanged).
+
+## v7 disposition — USER-RATIFIED 2026-08-11: RETIRED as deployment candidate
+
+Per the 2026-08-11 program review (reviewer recommendation, user
+ratified): v7's crosscheck blocker was adjudicated a reference-side
+artifact and dissolved with the B3 fresh n_eff=2000 references; v6 owns
+the free-gravity deliverable with all gates passing; nothing consumes a
+v7 ratification. v7 is RETIRED as a deployment candidate and RETAINED as
+a published |Ae| support-cut sensitivity ablation (the fresh references +
+existing evidence numbers convert the blocked ratification into a paper
+figure at zero compute). B4 (dlogZ vs -ln(V7/V5) Monte Carlo) still runs
+— it validates the pocoMC evidence machinery. B5 is CANCELLED. This
+closes the v7 branch of this adjudication; the file is now fully
+resolved and archivable.

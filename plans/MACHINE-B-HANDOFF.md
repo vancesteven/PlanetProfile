@@ -63,7 +63,9 @@ MANAGER GATE: NH3 fail on C3/C5.3/C10/C16 => STOP all further Track 1
 compute, escalate.
 
 **Phase 2 (days 2-4):** Enceladus cache build (config freeze with
-Machine A first — the freeze will evaluate 2D Tb×log10w salinity
+Machine A first — freeze doc plans/active/enceladus-config-freeze.md;
+USER DIRECTIVE 2026-08-11: the model must account for the Saur et al.
+2024 Cassini induction results (orbital+synodic periods, few-nT class) — the freeze will evaluate 2D Tb×log10w salinity
 sampling vs the July 1D 10-ppt spec; Enceladus has the program's
 strongest composition constraints). Background: MgSO4/NaCl fiducial
 validations; NH3 C12 sweep (PARALLELIZE across cores — serial is 2
@@ -88,8 +90,8 @@ default — the §0.16 precedent, preregistered now to avoid relitigation)
 positive AND Enceladus training >5 days out; else post-1.0.
 
 **Dropped / retired (do not spend compute):** B5 v7 flow diagnostics
-(v7 recommended RETIRED as deployment candidate — becomes a published
-support-cut sensitivity ablation; user to ratify). **Run B4** (dlogZ vs
+(v7 RETIREMENT USER-RATIFIED 2026-08-11 — becomes a published
+support-cut sensitivity ablation). **Run B4** (dlogZ vs
 -ln(V7/V5) Monte Carlo) regardless — cheap, validates the pocoMC
 evidence machinery the Petricca joint-vs-separate argument leans on.
 NEW small item (paper-blocking, schedule anywhere): numerical bound on
