@@ -35,6 +35,67 @@ Reports: `validation_reports/titan_freegrav_{mgso4,nacl}_1m/rek2_pushforward/`.
 
 ---
 
+## 0.18 PROGRAM REVIEW REORDER (manager + reviewer, 2026-08-11) — SUPERSEDES the §0.17 task order
+
+Full review: reviewer adjudication in plans/STATUS.md 2026-08-11b entry.
+Execute §0.17's tasks in THIS order and scope:
+
+**Phase 1 (days 1-2; cheap, blocking, gates everything):**
+1. Commit the preregistration spreads FIRST (§0.17 task 2 — 3-seed
+   ocean-fraction + nuisance-median spreads, before reading any result).
+2. **0.9326 plumbing check — BLOCKING before any C16 result is read**:
+   NH3's aggregate ocean probability was unchanged to FOUR DECIMALS
+   (0.9326→0.9326) while both branches internally reweighted; prior
+   probability of that under real reweighting ~1e-4. Verify the branch
+   fraction is computed from the WEIGHTED set, not a cached/unweighted
+   field. If artifact: C16 and the first Petricca discriminator are
+   unreadable until fixed.
+3. NH3 fiducial validation (tasks 1/3/4: driver + crosscheck + C13
+   seeds) — AND the **Europa v5 control, PROMOTED to Phase 1** (the
+   program's only preregistered positive control: a valid correction
+   should REPAIR v5's dC22_nh SBC FAIL; its fresh pooled reference
+   exists; fold the outstanding non-blocking 2nd-seed SBC into this via
+   --seed-offset). A control that runs last controls nothing.
+4. Track 2a (information-gain in nats) on spare cores — FREE, and now
+   decision-theoretic: report achievable-KL per observable channel; if
+   Im k2 carries <~0.1 nat beyond {C20,C22,Re_k2}, CANCEL 2b and 2c.
+MANAGER GATE: NH3 fail on C3/C5.3/C10/C16 => STOP all further Track 1
+compute, escalate.
+
+**Phase 2 (days 2-4):** Enceladus cache build (config freeze with
+Machine A first — the freeze will evaluate 2D Tb×log10w salinity
+sampling vs the July 1D 10-ppt spec; Enceladus has the program's
+strongest composition constraints). Background: MgSO4/NaCl fiducial
+validations; NH3 C12 sweep (PARALLELIZE across cores — serial is 2
+days/comp, parallel ~1 h on 16 cores; report the ESS/N DISTRIBUTION,
+which prices amortized correction: N_required=1000/(ESS/N) per x).
+Track 2c when cores free ({Re,Im k2}-only conditioner ablation + run
+the IS correction against the k2-only flow and report ITS ESS/N —
+quantifies whether ESS/N is training-recoverable).
+
+**Phase 3 (days 4-7):** Enceladus 1M dataset + 3-seed B3 reference MCMC
+own the machine. NH3 corrected-pipeline SBC fitted around it — **NH3
+ONLY at first**: budget correction — at deploy-N=20k, n=500 pairs is
+~39 CPU-h/comp (NOT the 14 CPU-h in §0.17; that figure assumed reduced
+N and violates C14). Salts' SBC + C12 sweeps run ONLY IF NH3 passes
+(~80 CPU-h saved on a fail).
+
+**Phase 4 (week 2):** Enceladus flow training (hold point is HERE, not
+at config: if Track 2a+2c + the C16 branch verdicts have landed, apply
+them; else train on the DEPLOYED architecture under split-status by
+default — the §0.16 precedent, preregistered now to avoid relitigation)
+→ gate sequence. Track 2b (transform pilot, 3 seeds) ONLY if 2a AND 2c
+positive AND Enceladus training >5 days out; else post-1.0.
+
+**Dropped / retired (do not spend compute):** B5 v7 flow diagnostics
+(v7 recommended RETIRED as deployment candidate — becomes a published
+support-cut sensitivity ablation; user to ratify). **Run B4** (dlogZ vs
+-ln(V7/V5) Monte Carlo) regardless — cheap, validates the pocoMC
+evidence machinery the Petricca joint-vs-separate argument leans on.
+NEW small item (paper-blocking, schedule anywhere): numerical bound on
+the freegrav rho_sil rescale — rho_sil under mass-conservation rescale
+vs self-consistent Perple_X at a handful of posterior draws.
+
 ## 0.17 TRACK 1 IS-CORRECTION VALIDATION (Machine A -> Machine B, 2026-08-11)
 
 Context: plans/active/tidal-sector-remedy-plan.md (reviewer-approved,

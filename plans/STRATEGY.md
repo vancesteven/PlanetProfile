@@ -1,6 +1,6 @@
 # Program strategy map
 
-Updated: 2026-08-06. The big-picture companion to `plans/STATUS.md`
+Updated: 2026-08-11. The big-picture companion to `plans/STATUS.md`
 (tactical). STATUS answers "what changed"; this answers "where each
 production line stands, why current work exists, and what it buys."
 Refresh whenever a production line changes state.
@@ -20,13 +20,35 @@ validates, adjudicates, integrates; Codex handles scoped implementation.
 |---|---|---|
 | Europa Galileo v1.1 | **DEPLOYED, revalidated** (PPC clean 2026-08-04) | none |
 | Europa Clipper v4 | **DEPLOYED, revalidated** (PPC clean) | none |
-| Europa Clipper v5/v6 | trained, delivered, **ratification in progress** (user priority) | Machine B: B1/B2/B6 validation against the fresh references → manager re-adjudication → deploy |
-| Europa Clipper v7 open-\|Ae\| | trained, delivered, blocked behind v5/v6 machinery (shares B1–B6) | after v5/v6 |
+| Europa Clipper v5/v6 | **RATIFIED + DEPLOYED 2026-08-06/10** (v5 scoped: dC22_nh readout owned by v6; v6 all gates PASS) | IS-correction control runs (positive control: v5 dC22_nh repair) |
+| Europa Clipper v7 open-\|Ae\| | delivered, not ratified | **reviewer recommendation 2026-08-11 (user to ratify): RETIRE as a deployment candidate, retain as a published \|Ae\| support-cut sensitivity ablation; run B4 (evidence check) only, skip B5** |
 | Titan no-ocean (Test50 + freegrav Phase A) | DEPLOYED / delivered | none |
-| Titan NH3 joint | **DEPLOYED with split ratification**: ocean-structure science (ice thickness, ocean, salinity, core) verified and usable; tidal/dissipation sector quarantined (reference MCMC authoritative) | tidal-sector remedy decision (below) |
-| Titan MgSO4 / NaCl | **HELD — the next production campaigns**; the hold is the remedy decision | user decision this week (options below) |
-| Enceladus Cassini | **queued since July, untouched by any current issue** | can start as soon as Machine B has capacity |
-| Callisto, Ganymede | roadmap | after Enceladus |
+| Titan NH3 joint | **DEPLOYED, split ratification**; Track 1 IS correction closes the tidal flow defect at the fiducial (0.045→0.108 vs MCMC 0.104) — quarantine lift pending reference-side gates on B | §0.17 validation |
+| Titan MgSO4 / NaCl | **RATIFIED (split-status) + DEPLOYED 2026-08-10** — three-composition Titan line complete | IS-correction validation per composition |
+| Enceladus Cassini | **STARTING — the only missing 1.0 mission pair** | Machine A config freeze NOW (parallel with §0.17); hold point at FLOW TRAINING, not config (reviewer 2026-08-11); freeze must evaluate 2D Tb×w salinity sampling (Enceladus has the program's strongest composition data — CDA/INMS) vs the July 1D fixed-10-ppt spec |
+| Callisto, Ganymede | 2.0 roadmap (Callisto ≈ 3× Enceladus — multi-composition) | after 1.0 |
+
+## Version 1.0 milestone (declared 2026-08-11; reviewer-framed, user to ratify)
+
+**1.0 = every flown mission–body pair with adequate geodesy has a
+ratified GUI slot**: Europa–Galileo (v1.1 ✓), Europa–Clipper (v4/v5/v6 ✓),
+Titan–Cassini (3 compositions + no-ocean ✓), Enceladus–Cassini (the one
+missing pair). Mission coverage, not artifact count. Callisto/Ganymede
+are 2.0. Remaining 1.0 work: (1) Enceladus campaign (~2 weeks B);
+(2) canonical-model declaration per pair — reviewer recommends **v6
+canonical for Clipper–Europa** (all gates pass; owns non-hydrostaticity),
+v4/v5 documented companions — USER decision; (3) tidal-sector disposition
+frozen at a stated date — quarantine lift is NOT a 1.0 prerequisite
+(lifted per composition on gate evidence, or reported as a characterized
+limitation with the mechanism partition — both are complete outcomes);
+(4) v7 disposition recorded; (5) core-parity closed/bounded: degree-2
+C20/C22 exposed as a standard run output (Codex) + a numerical bound on
+the freegrav rho_sil rescale (small, paper-blocking); (6) per-campaign
+methods snippets GENERATED (they are the paper's methods section);
+(7) slot-level end-to-end reproduction regression test. Items 2,4,5,6,7
+need zero Machine B compute. Paper framing (reviewer): "amortized SBI
+with a preregistered gate battery that catches sector-specific posterior
+failures — and an importance correction that provably repairs one."
 
 ## What the last 24 hours were (the k2 detour) and what they bought
 

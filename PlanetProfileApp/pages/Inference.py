@@ -1261,7 +1261,7 @@ _SBI_ARTIFACT_SLOTS = {
         'gate_status': ('RATIFIED (split-status) 2026-08-10 — SBC n=1500 '
                         'PASS 13/13 (BH-FDR); crosscheck PASS 13/13 vs '
                         'pooled n_eff~2000 reference; limits containment '
-                        'PASS (max shift 0.007σ), monotone clause gated '
+                        'PASS (max shift 0.004σ), monotone clause gated '
                         'FAIL overridden (falsified-premise, Im k₂ '
                         'obs 0.135 < 0.15 boundary); pushforward: gravity '
                         'centers on obs (≤0.05σ), Im k₂ quarantine stands. '

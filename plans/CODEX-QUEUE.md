@@ -1,7 +1,7 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-07 (C9–C12 queued from the C8 doc-doctor triage; work in
-order, one commit per task). Curated by the Claude model manager
+Updated: 2026-08-11 (C13–C17 queued from the second doc audit + program
+review; work in order, one commit per task). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -21,7 +21,96 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-_Triage of the C8 doc-doctor report (2 PASS / 10 FINDING,
+_Second doc audit (2026-08-11, full report in the audit agent record;
+findings cited per task) + program-review items. All are doc/test/code
+tasks with NO scientific adjudication — copy authoritative wording, never
+re-adjudicate; escalate per protocol 4 on anything ambiguous._
+
+### C13 — INDEX.md + DEPLOYING.md + plans-index currency (audit items 1.1-1.3, 3.1-3.2, 2.4, archive) [status: queued]
+
+1. `PlanetProfile/Inference/sbi_artifacts/INDEX.md`: bump the audit
+   stamp; REWRITE the "Deployment gate" section to describe the actual
+   adjudicated/split-ratification regime (gate FAIL + recorded
+   adjudication + scope note may deploy; cite the FAIL-ADJUDICATED
+   vocabulary rule) instead of "all three PASS"; move the three wired
+   Titan joint rows (NH3/MgSO4/NaCl) into the deployed-artifacts table
+   (or retitle tables wired/not-wired); add an SBI config-hash column
+   entry for the two salts alongside the existing "(mcmc cfg hash)"
+   values, labeled.
+2. `DEPLOYING.md`: "six" -> "eight" caches, add the two Titan salt cache
+   paths, size ~300 -> ~320 MB (also fix the same size figure in
+   `plans/scripts/build_deploy_branch.sh` header comment).
+3. `plans/active/README.md`: refresh (stamp; C-queue state; v5/v6
+   finalized; NH3 Phase B complete; ADD tidal-sector-remedy-plan.md as
+   the live plan). Add to `plans/archive/README.md` index:
+   europa-clipper-v4-geodesy-plan.md, HANDOFF-2026-07-26-nh3-liquidus-
+   defect.md, STATUS-2026-07-20.md, STATUS-2026-08-01-machineB-joint-
+   nh3.md, plans/active/titan-classic-moi-recon.md, plans/active/
+   radiogenic-inventory-and-mineralogy-plan.md (index-based archiving,
+   no file moves).
+Verification: link check + `git diff --check`; report `verified`.
+
+### C14 — Salt RATIFICATION.md consolidation + gate-manifest schema (audit 5.1-5.2) [status: queued]
+
+1. Write `validation_reports/titan_freegrav_{mgso4,nacl}_1m/
+   RATIFICATION.md` mirroring the NH3 template: verdict, sector split,
+   per-gate outcomes, adjudications (NaCl log10_eta_V
+   FAIL-ADJUDICATED-ACCEPTABLE; limits monotone gated-FAIL override),
+   reviewer agents + dates, countersign date 2026-08-10. STRICTLY
+   copy-only from committed sources (INDEX rows, STATUS 2026-08-10
+   entries, MACHINE-B-HANDOFF §0.15/0.16, gate reports). The manager
+   countersigns the files after your commit — flag any statement you
+   cannot source to a committed document instead of writing it.
+2. Extend the gate driver's manifest writing (plans/scripts/
+   titanG_run_gates.py or equivalent) to record: all three gate exit
+   codes, repo-relative paths, git SHA, torch/sbi versions, artifact
+   sha256. Future runs only; do not rewrite committed manifests.
+Verification: RATIFICATION files render; every claim carries a source
+pointer; manifest schema change unit-smoked. Report `verified`.
+
+### C15 — Methodology + GUI docs refresh (audit 2.1-2.2) [status: queued]
+
+1. `docs_ai/AMORTIZED_SBI_METHODOLOGY.md`: add the PPC/pushforward gate
+   as standard equipment (four-way table, 0.5 sigma_obs flag); add a
+   Track 1 IS-correction section (weights, binding reliability set:
+   Pareto-k/absolute-ESS/w_max/reverse-coverage; pointer to
+   PlanetProfile/Inference/is_correction.py and plans/active/
+   tidal-sector-remedy-plan.md); refresh the status stamp. Copy-only
+   from the remedy plan + module docstring.
+2. `PlanetProfileApp/README.md`: document the newer GUI capabilities
+   (interactive globe incl. static no-WebGL render + per-phase shells,
+   k2 measurement-ellipse zoom, figure-provenance exports, sector
+   warnings / split-ratification display, slot scope notes).
+Verification: link check; strings match module constants. Report
+`verified`.
+
+### C16t — Slot-level end-to-end reproduction regression test (program review item) [status: queued]
+
+New test `tests/slot_reproduction_test.py`: for every registry slot with
+an existing artifact+config+cache, assert (1) the slot config's hash
+matches an artifact (or the slot's documented hash), (2) cache file SHA
+matches its committed manifest where a manifest exists, (3) for ONE
+designated fast slot (Titan Test50), a fixed-seed 1k-draw conditioning
+reproduces committed summary statistics within tolerance (commit the
+reference stats file on first run). Marked slow-safe: full-suite runtime
+under ~5 min; heavier per-slot draws are out of scope. This turns the
+traceability principle into a testable claim. Report `verified` with
+pytest output.
+
+### C17 — Expose degree-2 C20/C22 as a standard PlanetProfile run output (core-parity, STRATEGY exception (b)) [status: queued]
+
+The direct-Clairaut calculation exists in
+`PlanetProfile/Inference/gravity_obs.py`; only its invocation path is
+inference-only. Wire it into the standard run output path (Planet
+attribute + printout parity with other derived quantities) behind a Do
+flag defaulting OFF (no behavior change unless enabled), so a single
+PlanetProfile run can reproduce the inference gravity observables.
+DO NOT alter the calculation itself (protocol 4: escalate if any
+physics change seems needed). Verification: targeted test comparing the
+new standard-run output against gravity_obs directly on one Europa +
+one Titan case; suite green. Report `verified`.
+
+_Prior triage (C9-C12, closed): triage of the C8 doc-doctor report (2 PASS / 10 FINDING,
 `validation_reports/doc_doctor/2026-08-06_first_pass.md`). Already resolved
 elsewhere: v5/v6 scope-note superseded language + INDEX rows (manager
 ratification session 2026-08-07); v4 direct-Clairaut exception and the
