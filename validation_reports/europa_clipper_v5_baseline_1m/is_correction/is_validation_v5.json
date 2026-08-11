@@ -1,0 +1,125 @@
+{
+ "campaign": "v5",
+ "config_hash": "0781749945edc44b",
+ "artifact": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/sbi_artifacts/europa_clipper_v5_geodesy_11D_posterior_1m.pt",
+ "n_post": 20000,
+ "seed": 43,
+ "wall_condition_s": 421.91747403144836,
+ "byte_identity": {
+  "config_hash": "0781749945edc44b",
+  "structure_cache_sha256": "0d3638602b2e313242fd23944ee55a8c6ba26700438707d73546631939d22648",
+  "param_names": [
+   "alpha",
+   "log10_zeta_Ih",
+   "log10_zeta_sil",
+   "log10_eta_Ih",
+   "log10_eta_sil",
+   "D_iceIh_km",
+   "log10_wOcean_ppt",
+   "R_core_km",
+   "rho_core_kgm3",
+   "dC20_nh",
+   "dC22_nh"
+  ],
+  "sigma": {
+   "CMR2": 0.0024,
+   "C20": 8.5e-07,
+   "C22": 2e-07,
+   "Re_k2": 0.015,
+   "Im_k2": 0.015,
+   "Re_h2": 0.1,
+   "Im_h2": 0.1,
+   "Bind_synodic_x_real": 1.5,
+   "Bind_synodic_x_imag": 1.5,
+   "Bind_synodic_y_real": 1.5,
+   "Bind_synodic_y_imag": 1.5,
+   "Bind_synodic_z_real": 1.5,
+   "Bind_synodic_z_imag": 1.5,
+   "Bind_synodic 2nd_x_real": 1.5,
+   "Bind_synodic 2nd_x_imag": 1.5,
+   "Bind_synodic 2nd_y_real": 1.5,
+   "Bind_synodic 2nd_y_imag": 1.5,
+   "Bind_orbital_x_real": 1.5,
+   "Bind_orbital_x_imag": 1.5,
+   "Bind_orbital_y_real": 1.5,
+   "Bind_orbital_y_imag": 1.5
+  },
+  "imag_convention": "abs"
+ },
+ "is_diagnostics": {
+  "n_samples": 20000,
+  "n_rejected": 652,
+  "frac_rejected": 0.0326,
+  "ess": 13486.903712436599,
+  "ess_over_n": 0.6743451856218299,
+  "pareto_k": 0.2556782561524942,
+  "psis_smoothed": false,
+  "w_max_frac": 0.001286777325456157,
+  "verdict": "clean",
+  "fail_reasons": [],
+  "k2_box_mass_outside": null,
+  "branch": {
+   "ocean": {
+    "prob_flow": 1.0,
+    "prob_corrected": 1.0000000000000002,
+    "ess": 13486.903712436604
+   },
+   "no_ocean": {
+    "prob_flow": 0.0,
+    "prob_corrected": 0.0,
+    "ess": 0.0
+   }
+  },
+  "thresholds": {
+   "pareto_k_clean": 0.5,
+   "pareto_k_max": 0.7,
+   "w_max_frac_cap": 0.01,
+   "ess_abs_floor": 1000.0,
+   "ess_frac_floor": 0.1,
+   "reject_frac_hard_fail": 0.5,
+   "branch_prob_min": 0.05,
+   "branch_ess_floor": 50.0,
+   "k2_box_mass_cap": 0.001
+  }
+ },
+ "gates": {
+  "c5_3_reverse_coverage": {
+   "threshold_logq": -0.10318494033813487,
+   "ref_mass_below": 0.00010141196139050644,
+   "cap": 0.01,
+   "tail_q": 0.001,
+   "pass": true
+  },
+  "pushforward": {
+   "gap_im_sigma": 0.008631616747566302,
+   "gap_re_sigma": 0.15821718197381873,
+   "wks_im": 0.03584607473117882,
+   "wks_re": 0.05725321568349673,
+   "median_gap_max": 0.5,
+   "wks_max": 0.15,
+   "pass": true
+  },
+  "ocean_fraction": {
+   "reference": 1.0,
+   "corrected": 1.0000000000000002,
+   "note": "compare against the reference 3-seed spread (preregistered on B before this result is read)"
+  }
+ },
+ "pushforward_medians": {
+  "im_flow": 0.002636868206411735,
+  "im_corrected": 0.002634880648777622,
+  "re_flow": 0.2525397148452337,
+  "re_corrected": 0.24965406375059546
+ },
+ "c3_consistency": {
+  "n_checked": 200,
+  "max_rel_diff": 0.0,
+  "sentinel_disagreements": 0,
+  "rtol": 1e-09,
+  "pass": true
+ },
+ "crosscheck_resample": {
+  "L": 13486,
+  "note": "feed samples[idx] to validate_sbi crosscheck as the corrected-SBI sample set; report ESS, never N"
+ }
+}
