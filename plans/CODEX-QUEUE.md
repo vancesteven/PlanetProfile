@@ -1,7 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-11 (C13–C17 queued from the second doc audit + program
-review; work in order, one commit per task). Curated by the Claude model manager
+Updated: 2026-08-12 (C18/C19 added — Enceladus freeze blockers B3/B8-B10; work C13→C19 in order, one commit per task). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -25,6 +24,45 @@ _Second doc audit (2026-08-11, full report in the audit agent record;
 findings cited per task) + program-review items. All are doc/test/code
 tasks with NO scientific adjudication — copy authoritative wording, never
 re-adjudicate; escalate per protocol 4 on anything ambiguous._
+
+### C18 — Enceladus libration regression test (freeze blocker B3) [status: queued]
+
+`PlanetProfile/Gravity/Librations.py` has ZERO test coverage and is about
+to carry the Enceladus campaign's dominant observable (0.092 ± 0.003 deg,
+3.3% relative). Write `tests/librations_test.py`: (1) reproduce a
+PUBLISHED Enceladus libration for a stated interior — target Van Hoolst
+et al. 2016 or Thomas et al. 2016 parameters (find the cleanest published
+(interior, amplitude) pair; document the source and tolerances); (2) the
+rigid-vs-elastic branch consistency check (rigid=True vs False within
+0.1%; recorded values 0.11091/0.11094 deg); (3) monotonicity: libration
+decreases with increasing shell thickness over 5-45 km for a fixed
+Enceladus-like interior. Escalate per protocol 4 if reproducing the
+published value requires ANY physics change — report the discrepancy,
+do not fix. Report `verified` with pytest output.
+
+### C19 — Enceladus induction plumbing (freeze blockers B8-B10) [status: queued]
+
+1. B8: add the synodic/PPO excitation — `Texc_hr['Enceladus']['synodic']
+   = 15.559` in `PlanetProfile/MagneticInduction/Moments.py:55` (cite
+   Saur et al. 2024 §2.2, 1-2 nT driver) + the corresponding Be table
+   row (derive from the existing Be1xyz_Enceladus.txt pattern; if the
+   synodic Be amplitude cannot be sourced from the committed table or
+   the paper, ESCALATE rather than invent).
+2. B9: fix Enceladus Be-file resolution — `GetBexc`
+   (MagneticInduction.py:676-687) looks for
+   `Be1xyz_Enceladus_Cassini_Cassini11noMP.txt`, which does not exist;
+   `inductionData/Be1xyz_Enceladus.txt` does (B0 z = -336.5 nT, sane vs
+   Saur ~330 nT). Fix by file rename/copy or loader-path correction —
+   whichever matches the conventions of the other bodies; NO value
+   changes.
+3. B10: formalize the Saur Fig. 20 conductivity acceptance test —
+   `tests/enceladus_conductivity_test.py`: Seawater sigma at P=3 MPa,
+   w in {5,10,20} ppt, T in {271.15, 272.15, 274.15} K must land in
+   0.45-1.79 S/m (band verified by the reviewer 2026-08-12) and stay
+   under 2 S/m at the plume band; plus sigma(w=70 ppt) in 4.5-6 S/m
+   bracketing Saur's ~5 S/m ceiling.
+Verification: pytest green + one InducedAeList smoke at both Enceladus
+periods returning finite Ae. Report `verified`.
 
 ### C13 — INDEX.md + DEPLOYING.md + plans-index currency (audit items 1.1-1.3, 3.1-3.2, 2.4, archive) [status: queued]
 
