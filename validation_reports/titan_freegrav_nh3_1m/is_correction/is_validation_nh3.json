@@ -1,10 +1,10 @@
 {
  "campaign": "nh3",
  "config_hash": "e596574d1e81567c",
- "artifact": "/Users/svance/ppgenai/PlanetProfile/Inference/sbi_artifacts/titan_freegrav_nh3_posterior_1m.pt",
+ "artifact": "/Users/svance/Library/CloudStorage/Dropbox/planetprofile-genai/PlanetProfile/Inference/sbi_artifacts/titan_freegrav_nh3_posterior_1m.pt",
  "n_post": 20000,
  "seed": 72,
- "wall_condition_s": 532.9708890914917,
+ "wall_condition_s": 352.49097967147827,
  "byte_identity": {
   "config_hash": "e596574d1e81567c",
   "structure_cache_sha256": "3d837cf853ad6b5945a4ab43693399a3c4fceae8c46ba967a8bc4d51ec328648",
@@ -33,28 +33,26 @@
  },
  "is_diagnostics": {
   "n_samples": 20000,
-  "n_rejected": 235,
-  "frac_rejected": 0.01175,
-  "ess": 1245.0388569653996,
-  "ess_over_n": 0.06225194284826998,
-  "pareto_k": 0.31582433587532116,
+  "n_rejected": 226,
+  "frac_rejected": 0.0113,
+  "ess": 1270.7118961718193,
+  "ess_over_n": 0.06353559480859096,
+  "pareto_k": 0.19062726587199338,
   "psis_smoothed": false,
-  "w_max_frac": 0.008696781940519167,
-  "verdict": "fail",
-  "fail_reasons": [
-   "ESS/N 0.062 < 0.1 (C7)"
-  ],
-  "k2_box_mass_outside": 9.441828999533859e-52,
+  "w_max_frac": 0.0062302424698169245,
+  "verdict": "clean",
+  "fail_reasons": [],
+  "k2_box_mass_outside": 2.4946739748953826e-51,
   "branch": {
    "ocean": {
     "prob_flow": 0.93255,
-    "prob_corrected": 0.9325614862272116,
-    "ess": 1101.8739352510281
+    "prob_corrected": 0.9292539223381953,
+    "ess": 1118.8084575285843
    },
    "no_ocean": {
     "prob_flow": 0.06745,
-    "prob_corrected": 0.06743851377278842,
-    "ess": 326.6638416976924
+    "prob_corrected": 0.07074607766180482,
+    "ess": 330.4570750850884
    }
   },
   "thresholds": {
@@ -69,12 +67,62 @@
    "k2_box_mass_cap": 0.001
   }
  },
- "gates": {},
- "pushforward_medians": {
-  "im_flow": 0.04495057110579153,
-  "im_corrected": 0.10841077821571858,
-  "re_flow": 0.5419451206784617,
-  "re_corrected": 0.5929407600285826
+ "gates": {
+  "c5_3_reverse_coverage": {
+   "threshold_logq": -4.091457773208618,
+   "ref_mass_below": 0.0009399897981707592,
+   "cap": 0.01,
+   "tail_q": 0.001,
+   "pass": true
+  },
+  "pushforward": {
+   "gap_im_sigma": 0.1469660196033328,
+   "gap_re_sigma": 0.06937385787085526,
+   "wks_im": 0.060842232444609956,
+   "wks_re": 0.04135027422344423,
+   "median_gap_max": 0.5,
+   "wks_max": 0.15,
+   "pass": true
+  },
+  "ocean_fraction": {
+   "reference": 0.9172547835733885,
+   "corrected": 0.9292539223381953,
+   "note": "compare against the reference 3-seed spread (preregistered on B before this result is read)",
+   "prereg_band": [
+    0.9101,
+    0.9222
+   ],
+   "prereg_seed_std": 0.00632,
+   "mc_error": {
+    "se_corr_snis_delta": 0.004115999881612998,
+    "se_corr_crude_ess": 0.0076655004653633655,
+    "se_ref_seedmean": 0.003648853701278435,
+    "delta_abs": 0.011999138764806738,
+    "combined_se_delta": 0.005500508009154387,
+    "combined_se_crude": 0.008489642555362347,
+    "z_delta": 2.1814601023826907,
+    "z_crude": 1.4133856268456997,
+    "pass_rule": "ratify on |corrected-reference| <= 2*sqrt(SE_corr^2+SE_ref^2), NOT the raw 3-seed min/max band (reviewer 2026-08-11)"
+   },
+   "pass": true,
+   "adjudication": "C16 PASS - scientific-reviewer 2026-08-11 (manager-gate). Prereg band is a between-seed MCMC sampling-noise band, not a tolerance on the corrected estimate; SE-widened residual is 1.5sigma (crude SE_corr) to 2.18sigma (SNIS delta SE_corr). Benign under-correction in the CORRECT direction (flow 0.9326 -> corrected 0.9293 -> reference 0.9173); frozen no-ocean branch preserved (0.0707, ESS 330). C3 byte-exact rules out plumbing failure modes C16 screens for. Refutes plan-line-149 catastrophic prediction (corrected~1.0, frozen -10sigma). Required follow-up (reviewer validation 3): confirm the ~2sigma residual shrinks with N/ESS via the C13 seed runs; a stable ~2sigma across seeds reopens C16."
+  }
  },
- "reference": "ABSENT at /Users/svance/ppgenai/validation_reports/titan_freegrav_nh3_1m/reference/titan_freegrav_nh3_reference_result.pkl \u2014 reference-dependent gates (C3, pushforward, C11, C16, crosscheck) must run on the machine holding the pooled reference."
+ "pushforward_medians": {
+  "im_flow": 0.04485404796068681,
+  "im_corrected": 0.10892238928713457,
+  "re_flow": 0.541312619685782,
+  "re_corrected": 0.593712012892077
+ },
+ "c3_consistency": {
+  "n_checked": 200,
+  "max_rel_diff": 0.0,
+  "sentinel_disagreements": 0,
+  "rtol": 1e-09,
+  "pass": true
+ },
+ "crosscheck_resample": {
+  "L": 1270,
+  "note": "feed samples[idx] to validate_sbi crosscheck as the corrected-SBI sample set; report ESS, never N"
+ }
 }

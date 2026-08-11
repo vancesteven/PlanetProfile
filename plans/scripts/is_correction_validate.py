@@ -173,9 +173,14 @@ def main():
                            else np.ones(len(ref.samples)), float)
         ref_w = ref_w / ref_w.sum()
 
-        # C3: likelihood recompute consistency
+        # C3: likelihood recompute consistency. The likelihood closure lives
+        # on the MCMC runner (MCMCRunner.log_likelihood_fn, built from
+        # config.observables) — the SAME closure the deploy path calls at
+        # sbi_runner.py:1423 to fill InferenceResult.log_likelihoods and the
+        # SAME one the reference MCMC used. Pass the MCMC runner, not the
+        # SBIRunner (which has no log_likelihood_fn).
         report['c3_consistency'] = reference_likelihood_consistency(
-            runner, np.asarray(ref.samples, float),
+            runner._get_mcmc_runner(), np.asarray(ref.samples, float),
             np.asarray(ref.log_likelihoods, float))
 
         # C5.3 (BLOCKING): reverse-direction parameter-space coverage —
