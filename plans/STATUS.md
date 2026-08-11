@@ -3,7 +3,19 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-12 (Machine A: **ENCELADUS FIT PATH CONFIRMED — freeze
+Updated: 2026-08-12b (Machine A: **ISOSTASY MODULE IMPLEMENTED — B13
+REPRODUCTION GATE PASSES ON FIRST RUN.** PlanetProfile/Gravity/isostasy.py
+(core-parity per user directive: available to CLI + App): H&M equal-
+pressures Airy + finite-amplitude + interface gravity, unit tests 12/12
+against reviewer-computed brackets; the B13 gate reproduces H&M's
+published inversion from their inputs — misfit minimum shell 20 km,
+ocean 39 km, core 193 km, rho_core 2373, ALL inside their box (19-24 /
+35-39 / 192-195 / 2340-2410), L=1.91. Shape-channel fit path VALIDATED.
+Remaining before config freeze: B1'/B2'/B5 scans on the assembled model,
+B6 rheology survival, B7 deltaT check, reviewer consolidation (frozen-
+branch support model + final sketch), zb cache builder (B4). §0.19
+punch list posted for Machine B. Prior entry below.)
+Prior: 2026-08-12 (Machine A: **ENCELADUS FIT PATH CONFIRMED — freeze
 design complete pending consolidation.** User rulings: k2 omitted;
 no-ocean cases STAY (overrides reviewer); zb axis + Seawater ratified;
 "include libration as a parameter" interpreted as conditioned observable
