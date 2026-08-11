@@ -64,7 +64,7 @@ do not fix. Report `verified` with pytest output.
 Verification: pytest green + one InducedAeList smoke at both Enceladus
 periods returning finite Ae. Report `verified`.
 
-### C13 — INDEX.md + DEPLOYING.md + plans-index currency (audit items 1.1-1.3, 3.1-3.2, 2.4, archive) [status: queued]
+### C13 — INDEX.md + DEPLOYING.md + plans-index currency (audit items 1.1-1.3, 3.1-3.2, 2.4, archive) [status: in progress (Codex)]
 
 1. `PlanetProfile/Inference/sbi_artifacts/INDEX.md`: bump the audit
    stamp; REWRITE the "Deployment gate" section to describe the actual
