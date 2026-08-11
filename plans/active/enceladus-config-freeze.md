@@ -59,3 +59,101 @@ Phase 4 hold point under the preregistered release rule).
 - `not implemented` — requirements collected; reviewer design pass not
   yet dispatched. Blockers: Saur 2024 PDF not in papers/; induction
   observable-vs-support decision needs the paper's measured values.
+
+## Reviewer design adjudication (2026-08-12, after reading Saur 2024)
+
+Full review in the session record; binding rulings:
+
+**Observables (frozen): C20/C22 + libration ONLY.**
+- Gravity: **Park et al. 2024 Table 8 Case 2 (erratum-checked)** — C20
+  -5477.45e-6 ± 36.99e-6, C22 +1517.90e-6 ± 14.70e-6, corr 0.47,
+  R_ref 256.6 km, j2_over_c22 = 3.25 (McKinnon 2015). SUPERSEDES
+  Iess 2014 + Thomas 2016. dC20_nh/dC22_nh nuisance boxes retained.
+  CMR2 dropped (hydrostatic double-count). Honesty note: gravity alone
+  is weak here (hydrostatic C22 signal ~ nuisance box) — the interior
+  information is in the libration.
+- Libration: **0.092 ± 0.003 deg (Park 2024 erratum; revises Thomas
+  0.120)**. Implemented (Librations.py, Van Hoolst 2008 ocean+rigid;
+  wired through mcmc_runner + SBI x-vector). σ = 3.3% relative;
+  ~1.1σ per km of shell — the campaign's dominant channel AND its
+  single point of failure: ZERO test coverage, an unexplained 6.3σ
+  fiducial offset (likely benign: fiducial shell ~21.5 km vs Park's
+  27 km — never demonstrated), no systematic budget.
+- **k2 OMITTED entirely** (rejects the constraints-doc hypothetical
+  channel): three real channels exist so the v1.1 justification does
+  not transfer; a [0.015 ± 0.02] box straddling zero carries ~no
+  information and re-creates fake-measurement optics; and it would
+  couple the last 1.0 campaign to the open Track 1 validation.
+  ** USER RATIFICATION SOUGHT (point 1).**
+
+**Composition: Seawater (TEOS-10/GSW), log10 w U[-1, 2].** NaCl REJECTED
+for 1.0 on implementation grounds: the repo's NaCl conductivity (Pan
+2021) is fitted for P in [212, 1713] MPa; Enceladus ocean is 0.5-7 MPa —
+a 30-400x extrapolation that would invalidate the conductivity display
+deliverable. GSW is IN-envelope at Enceladus P,T; the w>42 ppt
+extrapolation carries the measured <=18.5% systematic (Europa v3 Gate 2).
+Reviewer verified numerically: plume band (5-20 ppt) gives sigma
+0.45-1.79 S/m, reproducing Saur Fig. 20 "<2 S/m" exactly (committed as
+acceptance test B10); Saur's ~5 S/m ceiling lands at w ~ 70 ppt; keep
+100 ppt bound so the excluded region is DISPLAYED as excluded.
+Explicit NaCl / Na-Cl-CO3 (Reaktoro) campaigns are 2.0.
+
+**Induction: display reference ONLY — no conditioning AND no support
+cut** (new ruling: Saur's two scenarios jointly span the whole salinity
+axis, so a sigma_ocean cut would covertly assert "the core is not
+conductive" — inverting Saur's own preferred branch). Decisive fact:
+the inducing-field model scatter (2.4 nT in Bz) EXCEEDS the candidate
+signal (1-3 nT); no published amplitude+uncertainty exists. ORBITAL
+period is primary (5.0 nT x A~0.47 ~ 2.4 nT) over synodic (1-2 nT x
+A~0.55 ~ 0.8 nT) — my earlier ordering corrected. Deliverables:
+per-sample sigma_ocean, A and Phi at orbital+synodic, |B_ind| nT vs
+Saur's 1-3 nT band (v6 published-CMR2 display pattern). Core
+conductivity: PP's self-consistent porous-rock sigma as one curve + an
+IMPOSED 25 S/m Saur-scenario overlay as a second — NOT a sampled
+nuisance (degenerate vs amplitude), NOT a config parameter. Caption
+must state all six mandated items (incl. the amplitude-convention trap:
+Saur's A through a 5-10 km polar crust vs our mean-shell A ~25% lower,
+and the 256.6-vs-252.1 km radius conventions). Upgrade-to-conditioned
+criteria preregistered in config metadata (published amplitude+
+uncertainty at a named period; sigma(B_ind) < 0.5|B_ind|; plasma
+systematic marginalized). Wivell 2026 stratification: CLOSED
+non-blocking (Saur §4: single-period sounding sees bulk averages only).
+
+**Support: OCEAN-ONLY (retry_frozen_as_no_ocean=False).** The Titan
+joint pattern does not transfer: plume salt grains are independent
+observational evidence of liquid water (Postberg 2009/2011/2018) —
+conditioning on independent data, not circularity. Frozen-model
+exclusion reported as a one-evaluation chi^2 for the paper.
+**USER RATIFICATION SOUGHT (point 2).**
+
+**Cache geometry: (Tb x w) is NUMERICALLY INFEASIBLE at Enceladus —
+sample zb_km (shell thickness) instead.** g = 0.1134 m/s^2 puts the
+whole 5-40 km shell range inside 0.27 K of Tb (0.0077 K/km) while
+salinity swings Tb by 6.1 K — the ocean region of a (Tb,w) rectangle is
+a razor-thin tilted ribbon; libration precision (0.2 km class) would
+demand ~66,000 nodes, <1% useful. Sampling zb_km in [5,45] x log10 w
+gives ~3,200 nodes, ~100% useful, well-posed interpolation, and the
+reportable coordinate (direct comparison to Park's 25-29 km).
+PlanetProfile already supports zb via Bulk.zb_approximate_km; the cache
+BUILDER needs a zb_grid mode (blocking item B4). The July Tb window was
+~45% no-ocean. **USER RATIFICATION SOUGHT (point 3).**
+
+**Blocking items before the config JSON commits (owners assigned):**
+B1 libration reachability scan across the (zb,w) box (A + reviewer);
+B2 libration systematic budget in sigma_obs units (A + reviewer);
+B3 libration regression test vs published value — Librations.py has no
+test at all (Codex-suitable); B4 zb-axis cache-builder support (A);
+B5 d(libration)/d(zb) scan to set node spacing (A); B6 drop rheology
+params that map to no observable after k2 removal (A); B7 Ocean.deltaT
+<= ~0.002 K near the melting curve verified (A). Induction-deliverable
+blockers (parallel): B8 add synodic 15.559 hr excitation to Moments.py
++ Be row; B9 fix Enceladus Be-file resolution (GetBexc looks for
+Be1xyz_Enceladus_Cassini_Cassini11noMP.txt — absent); B10 formalize the
+Saur Fig. 20 conductivity acceptance test (already passing informally).
+Non-blocking N1-N5 recorded in the review. July §2 supersession table
+in the review (incl. mission-body-constraints.md:223-232 stale-line
+fix; Cuncertainty re-derivation under zb).
+
+Frozen-config sketch (params/priors/observables/metadata) is in the
+review record; commits after B1-B7 close and the user rules on the
+three ratification points.
