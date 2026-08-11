@@ -36,56 +36,41 @@
       "numpy": "2.4.6",
       "torch": "2.8.0"
     },
-    "git_sha": "655507d24c0dde88c5343726161648b36a160832"
+    "git_sha": "f47d5a8f753ba25c16f95eb31751e37f9b2ca53a"
   },
   "seeds": [
-    72,
-    172
+    272
   ],
   "runs": [
     {
-      "seed": 72,
+      "seed": 272,
       "n_effective": 2000,
       "n_active": 1024,
-      "elapsed_s": 2921.7621569633484,
-      "n_samples": 7187,
-      "n_k2_finite": 7187,
-      "log_Z": -12.197549485231995,
-      "log_Z_err": 0.16044130157061748,
-      "imk2_weighted_p5": 0.038113273291363145,
-      "imk2_weighted_median": 0.10433739643631564,
-      "imk2_weighted_p95": 0.17204344531418905
-    },
-    {
-      "seed": 172,
-      "n_effective": 2000,
-      "n_active": 1024,
-      "elapsed_s": 2255.5835959911346,
-      "n_samples": 7187,
-      "n_k2_finite": 7187,
-      "log_Z": -11.988672287092104,
-      "log_Z_err": 0.22856628621878655,
-      "imk2_weighted_p5": 0.038274861194171485,
-      "imk2_weighted_median": 0.10311480156916807,
-      "imk2_weighted_p95": 0.16997020032289506
+      "elapsed_s": 2190.9514977931976,
+      "n_samples": 6230,
+      "n_k2_finite": 6230,
+      "log_Z": -12.047440555639517,
+      "log_Z_err": 0.1678320505086007,
+      "imk2_weighted_p5": 0.03854192778327125,
+      "imk2_weighted_median": 0.10333425525465029,
+      "imk2_weighted_p95": 0.1717586402380616
     }
   ],
   "matched_resolution_ceiling": {
-    "pooled_weighted_imk2_median": 0.10372609900274185,
-    "between_seed_std": 0.0008645051212039126,
-    "between_seed_range": 0.0012225948671475695,
+    "pooled_weighted_imk2_median": 0.10333425525465029,
+    "between_seed_std": null,
+    "between_seed_range": 0.0,
     "per_seed_median": {
-      "72": 0.10433739643631564,
-      "172": 0.10311480156916807
+      "272": 0.10333425525465029
     }
   },
   "legacy_neff500_ceiling": 0.0999,
-  "ceiling_move_vs_legacy": 0.003826099002741848,
+  "ceiling_move_vs_legacy": 0.003434255254650284,
   "deployed_sbi_pp_imk2_median": 0.0423,
   "obs_imk2": 0.135,
   "sigma_imk2": 0.035,
-  "sbi_vs_matched_mcmc_gap": 0.06142609900274185,
-  "sbi_vs_matched_mcmc_gap_in_sigma_obs": 1.7550314000783385,
+  "sbi_vs_matched_mcmc_gap": 0.06103425525465029,
+  "sbi_vs_matched_mcmc_gap_in_sigma_obs": 1.7438358644185796,
   "flag_threshold_sigma": 0.5,
   "release_reading": "manager \u00a70.9: if |SBI-pp - matched MCMC-pp| < 0.5*sigma_obs the under-update is substantially a reference artifact -> MgSO4/NaCl PROCEED (standard gates + pushforward gate) and NH3 split ratification returns to the manager; if the gap survives -> run #1 (salinity-fixed retrain) with reviewer+user sign-off before any MgSO4/NaCl compute. This script reports the number; the scientific-reviewer + manager adjudicate."
 }
