@@ -35,6 +35,34 @@ test (Librations.py has zero coverage); C19 is induction plumbing B8-B10.
 Frozen-branch-vs-Airy tension
 resolution + final consolidated config sketch pending the reviewer
 consolidation pass. Machine B §0.18 Phase 1 results still pending.)
+Prior: 2026-08-11c (Machine B: **⛔ MANAGER-GATE STOP — NH3 C16 REOPEN.
+ESCALATION TO MACHINE A.** §0.18 P1.3 NH3 fiducial IS validation ran clean
+on C3 (byte-exact, max_rel_diff 0.0), C5.3 (0.00094<0.01), C10 pushforward
+(all gaps ≪ threshold; Im_k2 median 0.0449→0.109 recovers MCMC ceiling
+~0.103) and the C13 pushforward-median stability gate (0.057/0.073 σ_obs,
+tidal deliverable seed-stable — PASS). BUT C13 3-seed evidence
+(offsets 0/1000/2000, N=20k) shows the corrected ocean fraction
+0.9293/0.9310/0.9363 vs reference 0.9173 = residual +0.012/+0.014/+0.019:
+**stable, all-positive, NOT shrinking.** scientific-reviewer
+(agent a4ebcd7bd368dc8d6) OVERTURNED the earlier fiducial-only C16 PASS →
+**BLOCK / C16 REOPEN**: the residual +0.0149 is ~19× the 1/ESS finite-N
+bias ceiling (7.9e-4 at ESS~1270, Pareto-k 0.19 clean) so it is provably
+structural, not finite-N — the validation-3 "shrinks with N" premise is
+FALSIFIED. Between-seed std 0.00367 matches the SNIS delta SE and falsifies
+the crude ESS SE; under the validated SE the residual is 2.2–3.4σ/run,
+~2.3–3.5σ pooled = the preregistered reopen trigger. NOT the plan-149
+catastrophic mode (no-ocean branch preserved 0.064–0.071, C5.3 passes) —
+a ~1.5% branch-mass inconsistency between two same-target (C3 byte-identical)
+estimators; escalation points at the **reference** side (n_eff=2000 modest;
+pooled-ref weights repaired only in 0acff866). **MANAGER GATE: STOP all NH3
+Track-1 corrected compute; Machine A to authorize resolution** (larger-N
+corrected run N~100k–200k + higher-n_eff reference recompute n_eff≥8000 +
+identify the biased estimator; re-ratify only on agreement within combined
+SE). Reviewer CLEARED as independent (may proceed, must NOT consume the NH3
+corrected ocean-fraction): Europa v5 positive control + NH3 Track-2a CMI.
+Track-2a salts already done (NaCl 0.63 nat, MgSO4 0.39 nat, both ≫0.1 → 2b/2c
+NOT cancellable for salts; NH3 CMI is the gate, regen pending). Commits
+5cc6650a (fiducial + C16 PASS, later overturned), c2178927 (C13 evidence).)
 Prior: 2026-08-11b (Machine A: **PROGRAM REVIEW + DOC AUDIT.** Opus
 reviewer adjudicated plans/next steps: Enceladus starts NOW in parallel
 (hold point moved to FLOW TRAINING with a preregistered release rule;

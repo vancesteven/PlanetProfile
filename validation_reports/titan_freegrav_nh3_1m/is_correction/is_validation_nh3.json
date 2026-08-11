@@ -104,8 +104,13 @@
     "z_crude": 1.4133856268456997,
     "pass_rule": "ratify on |corrected-reference| <= 2*sqrt(SE_corr^2+SE_ref^2), NOT the raw 3-seed min/max band (reviewer 2026-08-11)"
    },
-   "pass": true,
-   "adjudication": "C16 PASS - scientific-reviewer 2026-08-11 (manager-gate). Prereg band is a between-seed MCMC sampling-noise band, not a tolerance on the corrected estimate; SE-widened residual is 1.5sigma (crude SE_corr) to 2.18sigma (SNIS delta SE_corr). Benign under-correction in the CORRECT direction (flow 0.9326 -> corrected 0.9293 -> reference 0.9173); frozen no-ocean branch preserved (0.0707, ESS 330). C3 byte-exact rules out plumbing failure modes C16 screens for. Refutes plan-line-149 catastrophic prediction (corrected~1.0, frozen -10sigma). Required follow-up (reviewer validation 3): confirm the ~2sigma residual shrinks with N/ESS via the C13 seed runs; a stable ~2sigma across seeds reopens C16."
+   "pass": false,
+   "adjudication": "C16 REOPEN -> MANAGER-GATE STOP. scientific-reviewer 2026-08-11 (follow-up on C13 3-seed evidence, agent a4ebcd7bd368dc8d6) OVERTURNS the fiducial-only PASS. The C13 seeds show corrected ocean fraction 0.9293/0.9310/0.9363 (residual +0.012/+0.014/+0.019 vs ref 0.9173): stable, all-positive, NOT shrinking. Provably not finite-N SNIS bias \u2014 residual +0.0149 is ~19x the 1/ESS bias ceiling (7.9e-4 at ESS~1270, Pareto-k 0.19 clean), so more N sharpens the tension rather than closing it. Between-seed std 0.00367 matches the SNIS delta SE (0.00412) and FALSIFIES the crude ESS SE (0.00767) as ~2x too large; under the validated SE the residual is 2.2-3.4sigma per run, ~2.3-3.5sigma pooled -> the preregistered reopen trigger. NOT the plan-149 catastrophic mode (no-ocean branch preserved, C5.3 passes). A ~1.5% branch-mass inconsistency between two same-target (C3 byte-identical) estimators; escalation points at the reference side (n_eff=2000 modest). MANAGER GATE: STOP all NH3 Track-1 corrected compute; escalate to Machine A. Independent items (Europa v5 control, NH3 Track-2a CMI) may proceed but must NOT consume the NH3 corrected ocean-fraction as a ratified input.",
+   "resolution_required": [
+    "Larger-N corrected conditioning N~100k-200k (ESS~6k-13k), same seed(s): test whether |corrected-reference| stays ~+0.015 (structural) or drops with ESS (finite-N). MANAGER MUST AUTHORIZE \u2014 this is Track-1 compute under STOP.",
+    "Higher-n_eff reference recomputation (n_eff>=~8000) + re-verify pooled-ref weighting; report reference ocean fraction and SE.",
+    "Re-ratify C16 only on agreement of the two same-target estimators within properly combined SE, with the +0.015 source identified."
+   ]
   }
  },
  "pushforward_medians": {
