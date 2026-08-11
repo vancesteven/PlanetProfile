@@ -3,7 +3,30 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-11 (Machine A: **PATH TO LIFTING THE SPLIT RATIFICATION
+Updated: 2026-08-11b (Machine A: **PROGRAM REVIEW + DOC AUDIT.** Opus
+reviewer adjudicated plans/next steps: Enceladus starts NOW in parallel
+(hold point moved to FLOW TRAINING with a preregistered release rule;
+config freeze must evaluate 2D Tb×w — Enceladus has the program's
+strongest composition data); Track 2 MORE urgent post-C1 (success metric
+is ESS/N — the correction is a fiducial bridge, NOT viable for arbitrary
+user-x at 1-3 CPU-h/click on HF); v5 IS control PROMOTED to Phase 1
+(only preregistered positive control); 0.9326 ocean-fraction plumbing
+check BLOCKING before C16 is read; corrected-SBC budget corrected to
+~39 CPU-h/comp at deploy-N → NH3-only first (~80 CPU-h saved on
+conditional extension); v7 recommended RETIRED-as-ablation (run B4,
+skip B5 — user to ratify); **1.0 MILESTONE declared** = mission coverage
+(Enceladus the only missing pair; canonical-model naming recommended v6
+for Clipper–Europa, user decision; quarantine lift NOT a 1.0
+prerequisite). Doc audit: two numeric slips fixed (MgSO4 containment
+0.004σ not 0.007σ in INDEX + slot); salt RATIFICATION.md consolidation
+identified as highest-value gap; C13–C17 queued for Codex (INDEX
+deployment-gate rewrite + table promotion, DEPLOYING 8-cache update,
+plans-index refresh/archiving, salt RATIFICATION compilation +
+manifest schema, methodology doc IS-correction section + GUI README,
+slot-reproduction regression test, C20/C22 standard-run output).
+§0.18 B reorder written; STRATEGY production table + 1.0 section
+updated.)
+Prior: 2026-08-11 (Machine A: **PATH TO LIFTING THE SPLIT RATIFICATION
 FOUND AND CONFIRMED.** User directive: amortized flows must be trustable as
 representative of the MCMC. Remedy plan authored
 (plans/active/tidal-sector-remedy-plan.md): Track 1 = importance-sampling
