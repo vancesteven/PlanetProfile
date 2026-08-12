@@ -6,8 +6,8 @@
     "config_hash": "1611b65fff3f06c9",
     "structure_cache_path": "PlanetProfile/Test/mcmc_results/Titan/Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl",
     "structure_cache_sha256": "3d837cf853ad6b5945a4ab43693399a3c4fceae8c46ba967a8bc4d51ec328648",
-    "n_effective": 2000,
-    "n_active": 1024,
+    "n_effective": 8000,
+    "n_active": 4000,
     "config_n_effective_original": 500,
     "obs_names": [
       "C20",
@@ -36,42 +36,71 @@
       "numpy": "2.4.6",
       "torch": "2.8.0"
     },
-    "git_sha": "f47d5a8f753ba25c16f95eb31751e37f9b2ca53a"
+    "git_sha": "0fe68b39379a02e65a8da36d26e1596f5f955c22"
   },
   "seeds": [
+    72,
+    172,
     272
   ],
-  "seeds_note": "PROVENANCE (added 2026-08-12 per R3 reviewer item #4): this report's `seeds`/`runs` reflect ONLY the seed-272 followup2 |Im_k2|-ceiling re-measurement. All THREE n_eff=2000 reference seed pkls (nh3_reference_seed{72,172,272}_neff2000.pkl) exist in this directory and were pooled (ratified treatment A) to produce the committed n_eff=2000 pooled ocean fraction REF_A=0.9172547835733885 used as the R3 baseline. The single-seed entry here is NOT the pooled reference; it is a diagnostic on the |Im_k2| ceiling only.",
   "runs": [
     {
+      "seed": 72,
+      "n_effective": 8000,
+      "n_active": 4000,
+      "elapsed_s": 5479.126420974731,
+      "n_samples": 21397,
+      "n_k2_finite": 21397,
+      "log_Z": -12.08481435629292,
+      "log_Z_err": 0.07919699958990978,
+      "imk2_weighted_p5": 0.04269043371496179,
+      "imk2_weighted_median": 0.1056538359814934,
+      "imk2_weighted_p95": 0.17344245820644125
+    },
+    {
+      "seed": 172,
+      "n_effective": 8000,
+      "n_active": 4000,
+      "elapsed_s": 5876.30114197731,
+      "n_samples": 21095,
+      "n_k2_finite": 21095,
+      "log_Z": -11.484317292724155,
+      "log_Z_err": 0.14458554092456719,
+      "imk2_weighted_p5": 0.042730320382857095,
+      "imk2_weighted_median": 0.1055557308275025,
+      "imk2_weighted_p95": 0.17212265540987917
+    },
+    {
       "seed": 272,
-      "n_effective": 2000,
-      "n_active": 1024,
-      "elapsed_s": 2190.9514977931976,
-      "n_samples": 6230,
-      "n_k2_finite": 6230,
-      "log_Z": -12.047440555639517,
-      "log_Z_err": 0.1678320505086007,
-      "imk2_weighted_p5": 0.03854192778327125,
-      "imk2_weighted_median": 0.10333425525465029,
-      "imk2_weighted_p95": 0.1717586402380616
+      "n_effective": 8000,
+      "n_active": 4000,
+      "elapsed_s": 5992.267442941666,
+      "n_samples": 21246,
+      "n_k2_finite": 21246,
+      "log_Z": -11.82408478221291,
+      "log_Z_err": 0.08017998580449598,
+      "imk2_weighted_p5": 0.04185343109527269,
+      "imk2_weighted_median": 0.10535333405506919,
+      "imk2_weighted_p95": 0.17315455668305596
     }
   ],
   "matched_resolution_ceiling": {
-    "pooled_weighted_imk2_median": 0.10333425525465029,
-    "between_seed_std": null,
-    "between_seed_range": 0.0,
+    "pooled_weighted_imk2_median": 0.10552096695468836,
+    "between_seed_std": 0.00015323755116140183,
+    "between_seed_range": 0.0003005019264242098,
     "per_seed_median": {
-      "272": 0.10333425525465029
+      "72": 0.1056538359814934,
+      "172": 0.1055557308275025,
+      "272": 0.10535333405506919
     }
   },
   "legacy_neff500_ceiling": 0.0999,
-  "ceiling_move_vs_legacy": 0.003434255254650284,
+  "ceiling_move_vs_legacy": 0.005620966954688361,
   "deployed_sbi_pp_imk2_median": 0.0423,
   "obs_imk2": 0.135,
   "sigma_imk2": 0.035,
-  "sbi_vs_matched_mcmc_gap": 0.06103425525465029,
-  "sbi_vs_matched_mcmc_gap_in_sigma_obs": 1.7438358644185796,
+  "sbi_vs_matched_mcmc_gap": 0.06322096695468837,
+  "sbi_vs_matched_mcmc_gap_in_sigma_obs": 1.8063133415625248,
   "flag_threshold_sigma": 0.5,
   "release_reading": "manager \u00a70.9: if |SBI-pp - matched MCMC-pp| < 0.5*sigma_obs the under-update is substantially a reference artifact -> MgSO4/NaCl PROCEED (standard gates + pushforward gate) and NH3 split ratification returns to the manager; if the gap survives -> run #1 (salinity-fixed retrain) with reviewer+user sign-off before any MgSO4/NaCl compute. This script reports the number; the scientific-reviewer + manager adjudicate."
 }

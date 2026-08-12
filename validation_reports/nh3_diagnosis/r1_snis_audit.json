@@ -1,0 +1,24 @@
+{
+  "purpose": "R1 SNIS-side ocean-fraction weight-treatment cross-check",
+  "seed": 72,
+  "wall_condition_s": 367.5898869037628,
+  "reproduces_saved_log_weights": true,
+  "max_abs_logw_diff": 0.0,
+  "n_rejected": 226,
+  "pareto_k": 0.19062726587199338,
+  "psis_gate_would_smooth": false,
+  "n_ablated": 20,
+  "ocean_fraction_by_treatment": {
+    "raw": 0.9292539223381953,
+    "psis_forced": 0.9293548745294711,
+    "ablate_top0.1pct": 0.9244929647300645
+  },
+  "residual_vs_referenceA": {
+    "raw": 0.011999138764806738,
+    "psis_forced": 0.012100090956082554,
+    "ablate_top0.1pct": 0.00723818115667596
+  },
+  "treatment_swing": 0.004861909799406594,
+  "committed_residual": 0.0149,
+  "reading": "psis_forced and ablate treatments probe whether a few heavy tail weights drive the ocean mass. If all three fractions stay within a small fraction of the +0.0149 residual, the corrected side is weight-treatment robust and the residual is NOT a heavy-tail / SNIS artifact -> reference side (R3) is the remaining suspect."
+}

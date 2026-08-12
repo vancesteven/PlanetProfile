@@ -3,7 +3,35 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-12c (Machine A: **C16 RESOLUTION AUTHORIZED (§0.20)**
+Updated: 2026-08-12d (Machine B: **§0.20 R1→R3 COMPLETE — C16 RE-RATIFIED
+BY REVIEWER (PASS-WITH-CONCERNS); STOP RELEASE IS MACHINE A's CALL.** The
+C16 tension is CONSTRUCTIVELY RESOLVED: the n_eff=2000 reference was biased
+LOW by sampling resolution, not the corrected side. R1 (PASS-w/-concerns):
+neither side weighting-fragile; reference-side seed scatter (span 0.0121 at
+n_eff=2000) named as suspect. R2 (PASS-w/-concerns, N=100k): corrected side is
+a precisely-resolved fixed point (~0.933) that moved AWAY from the reference at
+higher N — falsifies finite-N corrected bias. R3 (DECISIVE, n_eff=8000, 3 seeds
+72/172/272, all R-hat=1.000, ESS~12.9k): reference rose +0.0114
+(0.91725→0.92865), residual collapsed +0.0149(3.6σ FAIL)→+0.00352(1.20σ),
+inside the committed 2×combined-SE bound (0.00588). |Im_k2| between-seed std
+collapsed to 0.00015. **Scientific-reviewer (a8d0ea37) INDEPENDENTLY reproduced
+the gate to the last digit, confirmed the reference move is like-for-like
+(identical config_hash + cache sha256, regime-preserving n_active ratio 2),
+verified seed-272 inclusion is CONSERVATIVE (dropping it shrinks residual to
++0.00149), and ruled PASS-WITH-CONCERNS re-ratifying C16 + supporting STOP
+release.** All 4 reviewer required-validations (non-blocking) folded into
+R3_decisive_reference_recompute.md; provenance seeds_note added to
+matched_reference_report.json. Artifacts:
+validation_reports/nh3_diagnosis/{R1,R2,R3}*.md +
+matched_reference_neff8000/. **PENDING MACHINE A: release the MANAGER-GATE STOP
+on NH3 Track-1 corrected compute + clear the deployed corrected NH3 ocean
+fraction (~0.932) as ratified — flip `pass`/clear STOP in
+is_validation_nh3.json.** R4 RECORDED (biased estimator = n_eff=2000 reference,
+biased LOW; FAIL-ADJUDICATED) as `r4_resolution_record` in the C16 block WITHOUT
+flipping `pass` (that flip is Machine A's). §0.20 R1→R4 sequence complete; only
+the manager status-flip + STOP release remain. Not pushed — Machine A owns
+pushes. Prior entry below.)
+Prior: 2026-08-12c (Machine A: **C16 RESOLUTION AUTHORIZED (§0.20)**
 answering B's ⛔ escalation — Phase 1 record accepted (correctly-fired
 preregistered trigger; STOP was right). Order: R1 zero-compute
 reference-weighting + PSIS/ablation audits from saved artifacts; R2 one

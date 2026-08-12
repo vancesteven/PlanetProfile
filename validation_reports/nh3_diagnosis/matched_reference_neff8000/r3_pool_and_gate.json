@@ -1,0 +1,44 @@
+{
+  "purpose": "R3 pooled n_eff=8000 reference + C16 re-ratification gate",
+  "n_effective": 8000,
+  "seeds": [
+    72,
+    172,
+    272
+  ],
+  "reference_side": {
+    "per_seed_ocean_fraction": {
+      "72": 0.9308987646702274,
+      "172": 0.930461670638243,
+      "272": 0.9245905125874118
+    },
+    "per_seed_n": {
+      "72": 21397,
+      "172": 21095,
+      "272": 21246
+    },
+    "pooled_ocean_fraction_treatmentA": 0.9286503159652941,
+    "between_seed_std_ddof1": 0.0035226787248480987,
+    "between_seed_SE": 0.0020338195100596175,
+    "delta_vs_neff2000_pooled": 0.011395532391905605
+  },
+  "corrected_side": {
+    "c13_fractions": [
+      0.9292539223381953,
+      0.930961106398094,
+      0.9363014238606263
+    ],
+    "pooled_mean": 0.9321721508656385,
+    "between_seed_std_ddof1": 0.0036765188635371655,
+    "between_seed_SE": 0.0021226391555439197
+  },
+  "gate": {
+    "residual_corrected_minus_reference": 0.0035218349003444116,
+    "combined_SE": 0.002939731073439771,
+    "two_sigma_bound": 0.005879462146879542,
+    "residual_over_combined_SE": 1.198012611481336,
+    "re_ratifies_C16": true,
+    "committed_pooled_residual_context": 0.0149
+  },
+  "reading": "GATE: |corrected_pooled - reference_pooled| <= 2*combined_SE => C16 re-ratifies. Both SEs are BETWEEN-SEED pooled SEs (reviewer R2 required-validation). If the n_eff=8000 reference moves the reference materially UPWARD (delta_vs_neff2000 positive and large), the residual shrinks toward the gate; if it stays near the n_eff=2000 value, the residual persists and the tension is real. Scientific-reviewer adjudicates; never tuned to pass. Does NOT re-ratify C16 by itself \u2014 the reviewer + manager do."
+}

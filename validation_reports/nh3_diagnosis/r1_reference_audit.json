@@ -1,0 +1,41 @@
+{
+  "purpose": "R1 reference-side ocean-fraction weighting sensitivity (zero compute, saved seed pkls only)",
+  "seeds": {
+    "72": {
+      "n": 7187,
+      "kish_ess": 5217.740458009786,
+      "ess_over_n": 0.7259970026450239,
+      "ocean_frac_weighted": 0.922230478657819,
+      "ocean_frac_unweighted": 0.9165159315430639
+    },
+    "172": {
+      "n": 7187,
+      "kish_ess": 5213.899375601106,
+      "ess_over_n": 0.7254625540004321,
+      "ocean_frac_weighted": 0.9193906460233714,
+      "ocean_frac_unweighted": 0.9154028106303047
+    },
+    "272": {
+      "n": 6230,
+      "kish_ess": 4142.388137432722,
+      "ess_over_n": 0.6649098133920902,
+      "ocean_frac_weighted": 0.9101432260389748,
+      "ocean_frac_unweighted": 0.9043338683788119
+    }
+  },
+  "pooled_n": 20604,
+  "pooled_ocean_fraction": {
+    "A_correct_pooled_weighted": 0.9172547835733885,
+    "B_prerepair_last_seed_weights": 0.9116601576210018,
+    "C_unweighted_pooled": 0.9124441855950303
+  },
+  "committed_reference_value": 0.9172547835733885,
+  "corrected_fiducial": 0.9292539223381953,
+  "corrected_minus_referenceA": 0.011999138764806738,
+  "committed_residual": 0.0149,
+  "per_seed_weighted_fraction_spread": 0.012087252618844246,
+  "per_seed_weighted_fraction_std_ddof1": 0.006320352068664748,
+  "treatment_swing_maxmin": 0.005594625952386689,
+  "weighting_fragile": false,
+  "reading": "If treatment_swing is comparable to the +0.0149 residual, the reference comparator is weighting-fragile and the reference side is implicated. If the correct-pooled (A) and unweighted (C) fractions nearly coincide, the pocoMC importance weights are near-uniform on the ocean/no-ocean split and the residual is NOT a reference-weighting artifact."
+}

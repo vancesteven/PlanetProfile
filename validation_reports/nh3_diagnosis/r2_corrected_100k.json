@@ -1,0 +1,31 @@
+{
+  "purpose": "R2 N=100k corrected conditioning at fiducial (tighter SE)",
+  "seed": 72,
+  "n_posterior_requested": 100000,
+  "n_finite": 98837,
+  "n_rejected": 1163,
+  "wall_condition_s": 1773.7893149852753,
+  "pareto_k": 0.28876982983714244,
+  "psis_gate_would_smooth": false,
+  "kish_ess": 5976.396210482407,
+  "ess_over_n": 0.06046719558953031,
+  "corrected_ocean_fraction": 0.9329870456932089,
+  "bootstrap": {
+    "n_boot": 2000,
+    "se": 0.0019709283608716605,
+    "mean": 0.9330430566702675,
+    "ci95": [
+      0.9290242720169479,
+      0.9367437499937776
+    ]
+  },
+  "reference_A_fiducial": 0.9172547835733885,
+  "residual_vs_referenceA": 0.015732262119820373,
+  "residual_over_bootSE": 7.982158272288822,
+  "context": {
+    "r1_fiducial_N20k": 0.9292539223381953,
+    "committed_pooled_residual": 0.0149,
+    "note": "residual here is fiducial (corrected - refA). Pooled 3-seed residual +0.0149 is R3 remit. R2 tightens the CORRECTED-side SE at the fiducial only."
+  },
+  "preregistered_reading": "If residual_vs_referenceA is many bootSE above 0 and comparable to the R1 N=20k fiducial residual (+0.0120), the corrected side is not finite-N biased -> proceed to R3. If it shrinks toward 0 relative to R1, the 1/ESS-ceiling argument fails and the corrected side reopens. Reviewer adjudicates."
+}
