@@ -147,6 +147,15 @@ assertions PASS; committed-manifest unchanged check PASS; script `--help`,
 `py_compile`, and `git diff --check` PASS. Claim commit `cc53dc5d`;
 implementation commit `f282b669`.
 
+**Manager review (2026-08-12): C14 ACCEPTED + RATIFICATION files
+COUNTERSIGNED.** File-level verification done: every gate-table number
+re-checked against the per-gate JSONs (MgSO4 SBC 1024 kept / min BH-adj
+p 0.1559 recomputed; NaCl 0.352-vs-0.30 eta_V, 0.00722-sigma containment)
+and the 2026-08-10 adjudication records; source links 9/9; manifest
+schema-v2 test passes; committed manifests untouched. The two
+RATIFICATION.md files are now the canonical citation targets for the salt
+campaigns. Queue continues at C15.
+
 ### C15 — Methodology + GUI docs refresh (audit 2.1-2.2) [status: queued]
 
 1. `docs_ai/AMORTIZED_SBI_METHODOLOGY.md`: add the PPC/pushforward gate
