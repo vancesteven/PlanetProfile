@@ -191,6 +191,14 @@ control labels, 2/2 slot keys, 4/4 export-provenance keys, and 3/3 phase names;
 `git diff --check: PASS`. Claim commit `12c9ed53`; implementation commit
 `87f4ca31`.
 
+**Manager review (2026-08-12): C15 ACCEPTED.** Spot-verified: methodology
+doc now carries the PPC four-way table + 0.5-sigma flag and the Track 1
+IS-correction section with the binding reliability set matching
+is_correction.py constants; GUI README documents the globe (static
+no-WebGL fallback, per-phase shells), k2 ellipse zoom, provenance
+exports, and sector warnings with exact control labels; stale
+FIGURE_CHANGES.md link removed. Queue continues at C16t.
+
 ### C16t — Slot-level end-to-end reproduction regression test (program review item) [status: queued]
 
 New test `tests/slot_reproduction_test.py`: for every registry slot with
