@@ -111,7 +111,7 @@ salt caches present, ~320 MB in doc AND script header); plans/active/
 README refreshed incl. the two new Enceladus docs (good initiative);
 6/6 archive-index additions present. Queue continues at C14.
 
-### C14 — Salt RATIFICATION.md consolidation + gate-manifest schema (audit 5.1-5.2) [status: queued]
+### C14 — Salt RATIFICATION.md consolidation + gate-manifest schema (audit 5.1-5.2) [status: in progress (Codex)]
 
 1. Write `validation_reports/titan_freegrav_{mgso4,nacl}_1m/
    RATIFICATION.md` mirroring the NH3 template: verdict, sector split,
