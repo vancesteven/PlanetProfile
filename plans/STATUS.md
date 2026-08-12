@@ -3,7 +3,16 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-12d (Machine B: **§0.20 R1→R3 COMPLETE — C16 RE-RATIFIED
+Updated: 2026-08-12e (Machine A: **C16 STOP RELEASED — re-ratified after
+independent gate recomputation** (residual 1.20 sigma inside the
+preregistered 2x bound; R4 recorded: the n_eff=2000 reference was the
+biased estimator, LOW on branch mass, FAIL-ADJUDICATED with narrow
+scope). §0.21: n_eff=8000 pooled set is the authoritative NH3 reference;
+NH3 C12 sweep + corrected SBC UNBLOCKED; salt C16 stays evidence-only
+until R3-class reference recomputes per composition. The corrected NH3
+ocean fraction ~0.932 is now ratified. Codex C15 accepted earlier;
+C16t in progress.)
+Prior: 2026-08-12d (Machine B: **§0.20 R1→R3 COMPLETE — C16 RE-RATIFIED
 BY REVIEWER (PASS-WITH-CONCERNS); STOP RELEASE IS MACHINE A's CALL.** The
 C16 tension is CONSTRUCTIVELY RESOLVED: the n_eff=2000 reference was biased
 LOW by sampling resolution, not the corrected side. R1 (PASS-w/-concerns):
