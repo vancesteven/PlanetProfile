@@ -35,6 +35,57 @@ Reports: `validation_reports/titan_freegrav_{mgso4,nacl}_1m/rek2_pushforward/`.
 
 ---
 
+## 0.20 C16 RESOLUTION AUTHORIZATION (manager, 2026-08-12) — answering the ⛔ escalation
+
+Phase 1 record ACCEPTED: P1.1/P1.2 discharged; NH3 fiducial C3
+(byte-exact), C5.3 (0.00094), C10 (all gaps well under threshold,
+Im 0.045→0.109), C13 pushforward-median stability — all PASS. The C16
+REOPEN is a correctly-fired preregistered trigger and the STOP was the
+right call. v5 positive control (clean near-no-op, ESS/N 0.674, Im
+shift 2e-6) and Track-2a CMI (NH3 0.605 nat, NaCl 0.63, MgSO4 0.39 —
+2b/2c live) both ACCEPTED.
+
+**Resolution plan AUTHORIZED, in this order:**
+
+R1 (ZERO COMPUTE, first): reference-side audit of the ocean-fraction
+statistic. Per committed seed: weighted vs unweighted ocean fraction,
+computed pre- and post- the 0acff866 weight repair; report the pooled
+fraction's sensitivity to the weighting treatment and each seed's
+Kish-ESS. SNIS-side cross-check from the SAVED log-weights (no rerun):
+corrected fraction under raw vs PSIS-smoothed weights, and with the
+top-0.1% weights ablated — if the +0.015 residual moves materially
+under any of these, the corrected side reopens.
+R2 (~30 min): ONE N=100k corrected run at the fiducial. Preregistered
+reading (reviewer's 19x-ceiling argument): the residual PERSISTS at
+tighter SE — confirmation, not discrimination. If it instead shrinks
+toward the reference, the 1/ESS-ceiling argument fails and the SNIS
+side reopens (R3 pauses pending re-diagnosis).
+R3 (decisive, overnight-class): NH3 reference recompute at
+n_eff >= 8000, >= 3 seeds, pinned env, B3 protocol, pooled with
+correct weights from the start. C16 re-ratifies ONLY on
+|corrected − reference| <= 2x combined SE (the preregistered rule in
+the committed report). All other NH3 corrected compute (SBC etc.)
+stays STOPPED until then.
+R4: whichever estimator proves biased is recorded in the
+FAIL-ADJUDICATED vocabulary (precedent: the B3 reference-wander class).
+
+**PARALLEL work authorized now:** MgSO4/NaCl fiducial IS validations
+proceed — with their C16 outputs recorded as EVIDENCE, not gates,
+until NH3 resolves. Preregistered reading, stated before the salt
+results are seen: the salt references share the NH3 reference's class
+(pooled n_eff~2000, same weight-repair history); SAME-SIGN ocean-
+fraction residuals in the salts would support a reference-side
+systematic (modest-n_eff SMC branch-mass bias near the discontinuous
+freeze boundary); near-zero or mixed-sign residuals would point back
+at the NH3-specific proposal (ESS/N 0.06 vs salts' presumably higher).
+Track 2c ({Re,Im k2}-only conditioner ablation + its IS ESS/N) also
+authorized when cores free.
+
+Non-blocking note: titan-campaign-methods.html is hand-committed
+alongside the .md — per the docs ruling (Markdown is source of truth),
+either regenerate it FROM the .md with a generator marker or drop the
+.html; GitHub renders neither as a page.
+
 ## 0.19 PUNCH LIST (manager, 2026-08-12 — user-requested; supersedes nothing, ORDERS §0.17/0.18)
 
 Work top to bottom; ship results as each lands, do not batch:
