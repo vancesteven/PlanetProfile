@@ -3,7 +3,21 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-12b (Machine A: **ISOSTASY MODULE IMPLEMENTED — B13
+Updated: 2026-08-12c (Machine A: **C16 RESOLUTION AUTHORIZED (§0.20)**
+answering B's ⛔ escalation — Phase 1 record accepted (correctly-fired
+preregistered trigger; STOP was right). Order: R1 zero-compute
+reference-weighting + PSIS/ablation audits from saved artifacts; R2 one
+N=100k corrected run (persistence prediction preregistered); R3 decisive
+n_eff>=8000 3-seed NH3 reference recompute, re-ratify only on
+2x-combined-SE agreement; R4 biased estimator recorded
+FAIL-ADJUDICATED. Salt fiducial validations authorized in PARALLEL with
+C16 as evidence-not-gate + the same-sign-residual reading preregistered;
+Track 2c authorized when cores free. v5 near-no-op control + CMI 0.605
+nat accepted — the flow's Im_k2 under-update is confirmed RECOVERABLE
+information, not a data limit. Non-blocking: methods .html should be
+generated from the .md per the docs ruling. Codex C13 accepted
+separately.)
+Prior: 2026-08-12b (Machine A: **ISOSTASY MODULE IMPLEMENTED — B13
 REPRODUCTION GATE PASSES ON FIRST RUN.** PlanetProfile/Gravity/isostasy.py
 (core-parity per user directive: available to CLI + App): H&M equal-
 pressures Airy + finite-amplitude + interface gravity, unit tests 12/12
