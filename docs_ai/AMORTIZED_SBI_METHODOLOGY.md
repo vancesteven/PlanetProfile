@@ -1,6 +1,7 @@
 # Amortized SBI for ocean-world interiors — methodology & reproduction
 
-**Status:** active (Europa Clipper v5 campaign, 2026-07-21).
+**Status:** active cross-body methodology (updated 2026-08-12; Europa v5/v6
+and Titan free-gravity composition campaigns).
 **Scope:** moon-agnostic recipe for building an amortized posterior over interior
 parameters from geodesy + induction observables, then imposing literature
 constraints at inference time. The worked example is Europa; the same recipe
@@ -114,6 +115,19 @@ Automated gates, per artifact, via `PlanetProfile.Inference.validate_sbi`:
   which has no k2 channel to sweep.
 - **crosscheck** (baseline only) — SBI vs the reference MCMC on the same obs;
   ratification-blocking. Ablations have no reference MCMC.
+- **posterior-predictive / pushforward check** — standard equipment for any
+  artifact whose sampled parameters enter a nonlinear observable. Report the
+  noiseless observable medians in a four-way table:
+
+  | channel | observed | prior predictive | reference-MCMC posterior predictive | SBI posterior predictive |
+  |---|---:|---:|---:|---:|
+  | each conditioned observable | value ± `sigma_obs` | median | median | median |
+
+  Flag a channel when the SBI and reference-MCMC posterior-predictive medians
+  differ by more than `0.5 * sigma_obs`. This separates a flow deficiency
+  (SBI vs MCMC) from shared model-data tension (MCMC vs observation). For the
+  importance-corrected pipeline below, Re/Im k2 also receive weighted KS/W1
+  full-distribution checks; the median flag alone is not a width test.
 
 Reported diagnostics (NOT automated pass/fail gates — computed and recorded by
 `v5_run_gates.py`, interpreted by hand):
@@ -131,7 +145,49 @@ never loosen the gate. Diagnostics inform interpretation; they are not tuned.
 
 ---
 
-## 6. Reproduction — Europa v5 (exact commands)
+## 6. Track 1: exact-likelihood importance correction
+
+The deployed flow can be treated as an importance proposal for the exact
+posterior targeted by the reference MCMC. For draws
+`theta_i ~ q(theta | x_obs)`, the correction uses
+
+```
+log w_i = log p(x_obs | theta_i) - log q(theta_i | x_obs)
+```
+
+because the common uniform BoxUniform prior cancels. The two inputs already
+come from the conditioning path: full-N `InferenceResult.log_likelihoods` and
+`metadata['flow_log_prob']`. Support-guard rejections use the MCMC likelihood's
+`-1e30` sentinel and are masked before weight arithmetic. The implementation is
+[`PlanetProfile/Inference/is_correction.py`](../PlanetProfile/Inference/is_correction.py);
+the preregistered validation and deployment decisions live in
+[`plans/active/tidal-sector-remedy-plan.md`](../plans/active/tidal-sector-remedy-plan.md).
+
+The binding reliability set is:
+
+- Pareto-k is primary: `k <= 0.5` is clean, `0.5 < k <= 0.7` uses PSIS
+  smoothing, and `k > 0.7` fails to the uncorrected/quarantined fallback.
+- Absolute ESS must be at least `1000` at the N actually run. `ESS/N` remains a
+  reported cost and sample-sizing diagnostic, with
+  `N_required = 1000 / (ESS/N)`; it is not a reliability gate.
+- The maximum normalized weight must be at most `0.01`.
+- Reverse coverage is blocking: less than `0.01` of reference-MCMC mass may
+  fall below the `0.001` quantile of the flow's own log-density.
+
+Additional guards retain the full sample alignment and target definition:
+sentinel-rejected fraction must not exceed `0.5`; corrected mass outside the k2
+training-support box must stay below `1e-3`; and any ocean/no-ocean branch above
+`0.05` probability must have branch ESS at least `50`. Downstream summaries
+consume the corrected weights and report ESS rather than the resampled count.
+
+Passing these checks validates the corrected pipeline against the MCMC target;
+it does not remove model-data tension shared by both samplers. Per-composition
+quarantine remains until the full preregistered crosscheck, pushforward,
+coverage, branch-mass, stability, and corrected-SBC gates pass.
+
+---
+
+## 7. Reproduction — Europa v5 (exact commands)
 
 Env for every step: `mamba run -n PPcl env PYTHONPATH=. \
 NUMBA_CACHE_DIR=/tmp/pp_numba_cache KMP_DUPLICATE_LIB_OK=TRUE`.
@@ -180,7 +236,7 @@ the `.pt` alone.
 
 ---
 
-## 7. Reproducibility hygiene
+## 8. Reproducibility hygiene
 
 - Every artifact must be regenerable from the config + committed scripts alone.
   No ad-hoc runs without a committed command.
