@@ -228,7 +228,7 @@ warnings in 2.20s** (pre-existing TidalPy deprecation and nflows/torch API
 warnings); `py_compile`, JSON parse, and `git diff --check` PASS. Claim commit
 `cd1c007c`; implementation commit `798dc937`.
 
-### C17 — Expose degree-2 C20/C22 as a standard PlanetProfile run output (core-parity, STRATEGY exception (b)) [status: queued]
+### C17 — Expose degree-2 C20/C22 as a standard PlanetProfile run output (core-parity, STRATEGY exception (b)) [status: in progress (Codex)]
 
 The direct-Clairaut calculation exists in
 `PlanetProfile/Inference/gravity_obs.py`; only its invocation path is
