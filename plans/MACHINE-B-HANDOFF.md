@@ -35,6 +35,33 @@ Reports: `validation_reports/titan_freegrav_{mgso4,nacl}_1m/rek2_pushforward/`.
 
 ---
 
+## 0.21 STOP RELEASED — C16 RE-RATIFIED (manager, 2026-08-12)
+
+R1-R4 record ACCEPTED after independent recomputation of the R3 gate
+(residual 0.00352 vs combined SE 0.00294 = 1.20 sigma, inside the
+preregistered 2x bound). `pass` flipped with a manager_release record in
+is_validation_nh3.json; the REOPEN adjudication retained as history.
+
+Standing consequences:
+1. **The pooled n_eff=8000 3-seed set is the AUTHORITATIVE NH3 reference
+   from now on** (crosscheck + branch-mass target). The n_eff=2000 pooled
+   reference is FAIL-ADJUDICATED for the branch-mass statistic (biased
+   LOW ~0.011); its 13 marginal-level crosscheck verdicts are NOT
+   invalidated (bias demonstrated only in ocean fraction).
+2. **NH3 Track-1 corrected compute UNBLOCKED**: C12 amortized sweep
+   (parallelized, ESS/N distribution reported) and the NH3-only
+   corrected-pipeline SBC (C14/C15 rank rules, ~39 CPU-h) may run per
+   §0.18 P3 scheduling around Enceladus.
+3. **Salt C16 evidence reading updated**: the salt references share the
+   n_eff=2000 class, so their branch-mass comparisons are presumed
+   biased LOW the same way. Before any salt C16 becomes a GATE, an
+   R3-class recompute (n_eff=8000, 3 seeds) is required per composition
+   — schedule with the salt fiducial validations; until then salt
+   ocean-fraction comparisons stay evidence-only.
+4. NH3 quarantine-lift path: remaining gates are the C12 sweep +
+   corrected-pipeline SBC; on their PASS, manager re-adjudicates the
+   sector warning.
+
 ## 0.20 C16 RESOLUTION AUTHORIZATION (manager, 2026-08-12) — answering the ⛔ escalation
 
 Phase 1 record ACCEPTED: P1.1/P1.2 discharged; NH3 fiducial C3
