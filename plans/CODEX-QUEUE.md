@@ -199,7 +199,7 @@ no-WebGL fallback, per-phase shells), k2 ellipse zoom, provenance
 exports, and sector warnings with exact control labels; stale
 FIGURE_CHANGES.md link removed. Queue continues at C16t.
 
-### C16t — Slot-level end-to-end reproduction regression test (program review item) [status: queued]
+### C16t — Slot-level end-to-end reproduction regression test (program review item) [status: in progress (Codex)]
 
 New test `tests/slot_reproduction_test.py`: for every registry slot with
 an existing artifact+config+cache, assert (1) the slot config's hash
