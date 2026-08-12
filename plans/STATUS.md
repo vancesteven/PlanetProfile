@@ -16,7 +16,9 @@ Track 2c authorized when cores free. v5 near-no-op control + CMI 0.605
 nat accepted — the flow's Im_k2 under-update is confirmed RECOVERABLE
 information, not a data limit. Non-blocking: methods .html should be
 generated from the .md per the docs ruling. Codex C13 accepted
-separately.)
+separately. Codex C14 verified: salt RATIFICATION consolidations +
+future-run gate-manifest provenance schema, implementation `f282b669`; C15
+next.)
 Prior: 2026-08-12b (Machine A: **ISOSTASY MODULE IMPLEMENTED — B13
 REPRODUCTION GATE PASSES ON FIRST RUN.** PlanetProfile/Gravity/isostasy.py
 (core-parity per user directive: available to CLI + App): H&M equal-

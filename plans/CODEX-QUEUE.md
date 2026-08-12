@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-12 (C13 verified; C14 next, then C15→C19 in order, one implementation commit per task). Curated by the Claude model manager
+Updated: 2026-08-12 (C14 verified; C15 next, then C16t→C19 in order, one implementation commit per task). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -111,7 +111,7 @@ salt caches present, ~320 MB in doc AND script header); plans/active/
 README refreshed incl. the two new Enceladus docs (good initiative);
 6/6 archive-index additions present. Queue continues at C14.
 
-### C14 — Salt RATIFICATION.md consolidation + gate-manifest schema (audit 5.1-5.2) [status: in progress (Codex)]
+### C14 — Salt RATIFICATION.md consolidation + gate-manifest schema (audit 5.1-5.2) [status: verified]
 
 1. Write `validation_reports/titan_freegrav_{mgso4,nacl}_1m/
    RATIFICATION.md` mirroring the NH3 template: verdict, sector split,
@@ -128,6 +128,24 @@ README refreshed incl. the two new Enceladus docs (good initiative);
    sha256. Future runs only; do not rewrite committed manifests.
 Verification: RATIFICATION files render; every claim carries a source
 pointer; manifest schema change unit-smoked. Report `verified`.
+
+**Report (Codex, 2026-08-12):** `verified`. Added copy-only MgSO4 and NaCl
+`RATIFICATION.md` files with the 2026-08-10 split verdict, sector scope,
+raw per-gate outcomes, limits gated-FAIL override, NaCl
+`log10_eta_V = FAIL-ADJUDICATED-ACCEPTABLE`, reviewer agent/date records,
+and the underlying campaign countersign date. Every factual paragraph and
+gate-table row cites the committed INDEX, STATUS, MACHINE-B-HANDOFF §0.16,
+or a local JSON report; each file explicitly awaits the manager's post-commit
+file-level countersign. Extended only the future-run salt gate-manifest path:
+schema v2 records all three gate outcomes (merging partial reruns),
+repo-relative artifact/config/reference/report/log paths, full Git SHA,
+torch/sbi versions, UTC generation time, and artifact SHA-256. Existing
+committed manifests were not rewritten. Verification: focused pytest
+`tests/titanG_gate_manifest_test.py` — 1 passed; both Markdown documents
+rendered with gate tables and 9/9 source links resolved; claim-to-report
+assertions PASS; committed-manifest unchanged check PASS; script `--help`,
+`py_compile`, and `git diff --check` PASS. Claim commit `cc53dc5d`;
+implementation commit `f282b669`.
 
 ### C15 — Methodology + GUI docs refresh (audit 2.1-2.2) [status: queued]
 
