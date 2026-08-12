@@ -71,3 +71,15 @@ the shared model-data-tension reading survives. [S2] [S9]
 [S7]: crosscheck/crosscheck_report.json
 [S8]: limits/limits_report.json
 [S9]: rek2_pushforward/mcmc_rek2_pushforward_report.json
+
+## Manager countersign
+
+Countersigned 2026-08-12 (Machine A manager, Fable 5) after file-level
+verification: every gate-table number re-checked against the committed
+per-gate JSON reports (SBC kept-pair counts and minimum BH-adjusted p
+recomputed from sbc_report.json; crosscheck, limits-containment, and
+pushforward figures against their reports) and against the 2026-08-10
+INDEX/STATUS adjudication records. Verdict text matches the ratified
+split-status scope, including the FAIL-ADJUDICATED vocabulary. This file
+is the consolidated citation target for the campaign (methods
+extractability, doc-doctor item E11).
