@@ -226,7 +226,7 @@ artifact and cache SHA-256 pinned in the reference record. Verification:
 `python -m pytest -q tests/slot_reproduction_test.py` = **15 passed, 2
 warnings in 2.20s** (pre-existing TidalPy deprecation and nflows/torch API
 warnings); `py_compile`, JSON parse, and `git diff --check` PASS. Claim commit
-`7de1b0f4`; implementation commit `9754646e`.
+`cd1c007c`; implementation commit `798dc937`.
 
 ### C17 — Expose degree-2 C20/C22 as a standard PlanetProfile run output (core-parity, STRATEGY exception (b)) [status: queued]
 
