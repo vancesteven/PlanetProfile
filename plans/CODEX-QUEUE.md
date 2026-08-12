@@ -156,7 +156,7 @@ schema-v2 test passes; committed manifests untouched. The two
 RATIFICATION.md files are now the canonical citation targets for the salt
 campaigns. Queue continues at C15.
 
-### C15 — Methodology + GUI docs refresh (audit 2.1-2.2) [status: queued]
+### C15 — Methodology + GUI docs refresh (audit 2.1-2.2) [status: in progress (Codex)]
 
 1. `docs_ai/AMORTIZED_SBI_METHODOLOGY.md`: add the PPC/pushforward gate
    as standard equipment (four-way table, 0.5 sigma_obs flag); add a
