@@ -23,7 +23,12 @@ Run (after gen + train + reference MCMC + pushforward complete):
     MKL_NUM_THREADS=1 NUMBA_NUM_THREADS=1 \
     python plans/scripts/titanG_ocean_run_gates.py --comp NaCl
 """
-import argparse, json, subprocess
+import argparse
+import hashlib
+import json
+import subprocess
+from datetime import datetime, timezone
+from importlib.metadata import version
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -36,6 +41,7 @@ COMPS = {
 VALIDATE = ["python", "-m", "PlanetProfile.Inference.validate_sbi"]
 N_SBC = "1500"  # §0.16 preregistered
 _IM_K2_ALIASES = ("Im_k2", "im_k2", "abs_Im_k2")
+_GATE_NAMES = ("sbc", "limits", "crosscheck")
 
 
 def _fixed_obs_json(cfgpath):
@@ -51,6 +57,64 @@ def run(cmd, logpath):
         p = subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT, cwd=ROOT)
     print(f"[gate]   exit={p.returncode} log={logpath}", flush=True)
     return p.returncode
+
+
+def _repo_relative(path):
+    """Return a repository-relative POSIX path, failing outside the repo."""
+    return Path(path).resolve().relative_to(ROOT.resolve()).as_posix()
+
+
+def _sha256(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _build_manifest(*, comp, spec, art, cfg, reports, ref_mcmc, rc,
+                    previous=None):
+    """Build the future-run manifest without loading or mutating artifacts."""
+    exit_codes = {gate: "NOT_RUN" for gate in _GATE_NAMES}
+    if previous:
+        prior_codes = previous.get("gate_exit_codes", {})
+        exit_codes.update({gate: prior_codes[gate] for gate in _GATE_NAMES
+                           if gate in prior_codes})
+    exit_codes.update(rc)
+    tag = spec["tag"]
+    gate_reports = {
+        gate: _repo_relative(reports / gate / f"{gate}_report.json")
+        for gate in _GATE_NAMES
+    }
+    gate_logs = {
+        gate: _repo_relative(reports / f"{gate}.log")
+        for gate in _GATE_NAMES
+    }
+    return {
+        "schema_version": 2,
+        "kind": f"titanG_{tag}_gate_runner",
+        "comp": comp,
+        "generated_utc": datetime.now(timezone.utc).isoformat(),
+        "git_sha": subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+        ).strip(),
+        "versions": {"torch": version("torch"), "sbi": version("sbi")},
+        "artifact_sha256": _sha256(art),
+        "artifact": _repo_relative(art),
+        "config": _repo_relative(cfg),
+        "reference_mcmc": _repo_relative(ref_mcmc),
+        "reports": _repo_relative(reports),
+        "gate_report_paths": gate_reports,
+        "gate_log_paths": gate_logs,
+        "n_sbc": N_SBC,
+        "seed": spec["seed"],
+        "gate_exit_codes": exit_codes,
+        "tidal_split_status": (
+            "tidal k2 sector QUARANTINED (pushforward step-1 verdict); "
+            "limits on the |Im k2| sweep are advisory, gravity+Re_k2 "
+            "containment is the binding read."
+        ),
+    }
 
 
 def main():
@@ -92,16 +156,18 @@ def main():
             rc["crosscheck"] = f"MISSING reference MCMC: {REF_MCMC}"
 
     print(f"\n[gate] {args.comp} exit codes: {rc}")
-    manifest = {"kind": f"titanG_{tag}_gate_runner", "comp": args.comp,
-                "artifact": str(ART), "config": spec["cfg"],
-                "reference_mcmc": str(REF_MCMC), "n_sbc": N_SBC,
-                "seed": SEED, "gate_exit_codes": {k: v for k, v in rc.items()},
-                "tidal_split_status": ("tidal k2 sector QUARANTINED (pushforward "
-                    "step-1 verdict); limits on the |Im k2| sweep are advisory, "
-                    "gravity+Re_k2 containment is the binding read.")}
-    with open(REPORTS / "gate_run_manifest.json", "w") as f:
+    manifest_path = REPORTS / "gate_run_manifest.json"
+    previous = None
+    if manifest_path.exists():
+        with open(manifest_path) as f:
+            previous = json.load(f)
+    manifest = _build_manifest(
+        comp=args.comp, spec=spec, art=ART, cfg=CFG, reports=REPORTS,
+        ref_mcmc=REF_MCMC, rc=rc, previous=previous,
+    )
+    with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
-    print(f"[gate] manifest -> {REPORTS / 'gate_run_manifest.json'}")
+    print(f"[gate] manifest -> {manifest_path}")
 
 
 if __name__ == "__main__":
