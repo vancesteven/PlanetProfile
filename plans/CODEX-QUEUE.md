@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-12 (C15 verified; C16t next, then C17→C19 in order, one implementation commit per task). Curated by the Claude model manager
+Updated: 2026-08-12 (C16t verified; C17 next, then C18→C19 in order, one implementation commit per task). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -199,7 +199,7 @@ no-WebGL fallback, per-phase shells), k2 ellipse zoom, provenance
 exports, and sector warnings with exact control labels; stale
 FIGURE_CHANGES.md link removed. Queue continues at C16t.
 
-### C16t — Slot-level end-to-end reproduction regression test (program review item) [status: in progress (Codex)]
+### C16t — Slot-level end-to-end reproduction regression test (program review item) [status: verified]
 
 New test `tests/slot_reproduction_test.py`: for every registry slot with
 an existing artifact+config+cache, assert (1) the slot config's hash
@@ -211,6 +211,22 @@ reference stats file on first run). Marked slow-safe: full-suite runtime
 under ~5 min; heavier per-slot draws are out of scope. This turns the
 traceability principle into a testable claim. Report `verified` with
 pytest output.
+
+**Report (Codex, 2026-08-12):** `verified`. Added
+`tests/slot_reproduction_test.py` and the first-run Test50 reference record
+`tests/data/slot_reproduction_test50.json`. The regression discovers the
+literal GUI registry without executing the Streamlit page; all 13 locally
+complete slots match their artifact config hash after the documented
+MCMC-to-SBI mode switch, and each config cache path matches its slot. Seven
+committed manifest records covering five ready-slot caches reproduce their
+installed cache SHA-256. The designated Test50 slot reproduces mean, sample
+standard deviation, median, and 5th/95th percentiles for all eight parameters
+from 1,000 posterior draws at seed 1601 (`rtol=1e-4`, `atol=1e-5`), with the
+artifact and cache SHA-256 pinned in the reference record. Verification:
+`python -m pytest -q tests/slot_reproduction_test.py` = **15 passed, 2
+warnings in 2.20s** (pre-existing TidalPy deprecation and nflows/torch API
+warnings); `py_compile`, JSON parse, and `git diff --check` PASS. Claim commit
+`7de1b0f4`; implementation commit `9754646e`.
 
 ### C17 — Expose degree-2 C20/C22 as a standard PlanetProfile run output (core-parity, STRATEGY exception (b)) [status: queued]
 
