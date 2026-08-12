@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-12 (C14 verified; C15 next, then C16t→C19 in order, one implementation commit per task). Curated by the Claude model manager
+Updated: 2026-08-12 (C15 verified; C16t next, then C17→C19 in order, one implementation commit per task). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -156,7 +156,7 @@ schema-v2 test passes; committed manifests untouched. The two
 RATIFICATION.md files are now the canonical citation targets for the salt
 campaigns. Queue continues at C15.
 
-### C15 — Methodology + GUI docs refresh (audit 2.1-2.2) [status: in progress (Codex)]
+### C15 — Methodology + GUI docs refresh (audit 2.1-2.2) [status: verified]
 
 1. `docs_ai/AMORTIZED_SBI_METHODOLOGY.md`: add the PPC/pushforward gate
    as standard equipment (four-way table, 0.5 sigma_obs flag); add a
@@ -171,6 +171,25 @@ campaigns. Queue continues at C15.
    warnings / split-ratification display, slot scope notes).
 Verification: link check; strings match module constants. Report
 `verified`.
+
+**Report (Codex, 2026-08-12):** `verified`. Refreshed the amortized-SBI
+methodology status and made posterior-predictive/pushforward validation
+standard equipment with the observed/prior-PP/reference-MCMC-PP/SBI-PP
+four-way table, the 0.5-sigma_obs median flag, and the corrected pipeline's
+weighted KS/W1 requirement. Added the Track 1 exact-likelihood importance
+correction, weight equation, source pointers, binding Pareto-k/absolute-ESS/
+w_max/reverse-coverage set, supporting branch/support guards, and the rule
+that successful correction validates the MCMC target rather than erasing
+shared model-data tension. Updated the GUI README with the interactive globe,
+exact “Static render (no WebGL)” fallback, proportional Ice III/V/VI shells,
+exact k2 ellipse-zoom control, provenance-bearing figure exports, visible
+scope/gate text, and result-level split-sector warnings; removed its stale
+nonexistent `FIGURE_CHANGES.md` link. Verification output: both Markdown
+documents rendered; methodology local links 4/4 and README local links 0/0
+resolve; 10/10 IS constants match `is_correction.py`; GUI text matches 3/3
+control labels, 2/2 slot keys, 4/4 export-provenance keys, and 3/3 phase names;
+`git diff --check: PASS`. Claim commit `12c9ed53`; implementation commit
+`87f4ca31`.
 
 ### C16t — Slot-level end-to-end reproduction regression test (program review item) [status: queued]
 
