@@ -228,6 +228,14 @@ warnings in 2.20s** (pre-existing TidalPy deprecation and nflows/torch API
 warnings); `py_compile`, JSON parse, and `git diff --check` PASS. Claim commit
 `cd1c007c`; implementation commit `798dc937`.
 
+**Manager review (2026-08-12): C16t ACCEPTED.** Independently re-run:
+15/15 pass in 2.7s. The traceability principle is now a CI-checkable
+claim: 13 slots hash-verified against artifacts, 5 ready caches
+SHA-pinned to manifests, and the Test50 slot's full posterior summary
+reproduced from a fixed seed with artifact+cache SHAs pinned in the
+committed reference record. Exactly what the program review asked for.
+C17 in progress.
+
 ### C17 — Expose degree-2 C20/C22 as a standard PlanetProfile run output (core-parity, STRATEGY exception (b)) [status: in progress (Codex)]
 
 The direct-Clairaut calculation exists in
