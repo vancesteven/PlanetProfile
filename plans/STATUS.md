@@ -3,7 +3,16 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-12k (Machine A: **REBALANCING DIRECTIVE §0.22 — user
+Updated: 2026-08-12l (Machine A Codex: **C19 VERIFIED UNDER THE ADJUDICATED
+RESPONSE-BAND DESIGN.** Enceladus now carries the 15.5592 hr PPO period for
+response-only evaluation; no fixed PPO `Be1xyz` vector was invented. The
+existing true-anomaly row resolves unchanged from arbitrary working
+directories and cannot be silently reused as the synodic row. The inference
+display reports `|Ae| x [1,2] nT` with the drifting PPO/no-stable-phase
+caption. The Saur conductivity bracket, two-period finite-Ae smoke, loader
+guard, band unit test, and AppTest all pass; focused induction/inference
+regressions 52/52 pass. Implementation `eab1d788`; C20 next.)
+Prior: 2026-08-12k (Machine A: **REBALANCING DIRECTIVE §0.22 — user
 raised bog-down concern; manager agrees on the margin.** Salt C16
 FAIL-track OPENED (reviewer: flow-dominated, 4.4/5.6 sigma) and PARKED
 post-1.0 — reference ocean fractions are the citable numbers (MgSO4

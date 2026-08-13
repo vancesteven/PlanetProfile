@@ -183,7 +183,7 @@ pin vs xfail) and any physics fix goes through a separate reviewed
 task. Do NOT encode a passing-by-construction fixture — exactly as you
 judged. Proceed with C19/C20/C21 meanwhile.
 
-### C19 — Enceladus induction plumbing (freeze blockers B8-B10) [status: in progress (Codex)]
+### C19 — Enceladus induction plumbing (freeze blockers B8-B10) [status: verified]
 
 1. B8: add the synodic/PPO excitation — `Texc_hr['Enceladus']['synodic']
    = 15.559` in `PlanetProfile/MagneticInduction/Moments.py:55` (cite
@@ -223,6 +223,20 @@ a new scientific assumption. B9 and B10 were not implemented because the
 required two-period verification cannot be completed without B8. Primary
 source: Saur et al. (2024), *The Planetary Science Journal* 5:245,
 doi:10.3847/PSJ/ad8130. Claim commit `ee4b1293`; no implementation commit.
+
+**Report (Codex, 2026-08-12, resumed spec):** `verified`. Registered the
+15.5592 hr Enceladus synodic period for response-only evaluation, without a
+fixed `Be1xyz` row. `GetBexc` now resolves the existing era-independent
+Enceladus true-anomaly file from arbitrary working directories, preserves its
+committed values, and excludes the period-only PPO channel rather than mapping
+it to the nearest orbital row. The inference display computes the per-sample
+synodic induced-amplitude band `|Ae| x [1, 2] nT` and states that Saturn's PPO
+has time-varying amplitude, drifting phase, and no stable excitation vector.
+Added the Saur Fig. 20 conductivity bracket, two-period finite-Ae smoke,
+loader/value guard, response-band unit test, and Enceladus AppTest. Focused
+verification: 5 passed in 3.78 s; induction/inference regressions: 52 passed
+in 7.50 s; `py_compile` and `git diff --check` pass. Implementation
+`eab1d788`.
 
 ### C13 — INDEX.md + DEPLOYING.md + plans-index currency (audit items 1.1-1.3, 3.1-3.2, 2.4, archive) [status: verified]
 
