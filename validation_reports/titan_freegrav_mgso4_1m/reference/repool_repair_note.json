@@ -3,5 +3,10 @@
     "root_cause": "titanG_ocean_reference_mcmc.py pooled by setting res.samples=concat(all seeds) but never res.weights; pooled pkl carried only last-seed weights (len!=samples). validate_sbi crosscheck raised weights-length mismatch.",
     "fix": "per-seed pkls intact (weights match samples, each sums to 1; pocoMC importance weights, NOT uniform). Repooled BOTH samples and weights, renormalizing each seed to 1/n_seeds (equal per-seed posterior mass). Source script fixed + plans/scripts/titanG_repool_reference.py rebuilt pooled pkls from committed per-seed pkls. NO MCMC recompute.",
     "verified": "pooled weights len==samples len; wsum=1.0; crosscheck re-ran to a verdict."
+  },
+  "repool_completion_2026_08_12": {
+    "root_cause": "The 2026-08-10 repair concatenated ONLY samples and weights and left every DERIVED per-sample array (log_likelihoods, k2_results, D_ocean_results, c20/c22_results, h2_results, cmr2_results, D_iceIh/D_hsphere/D_iceHP/D_clath_results, cmr2_hydro_results) at the LAST seed's length (mgso4 6365 vs pooled 19325; nacl 6210 vs pooled 18514). The §0.16 crosscheck gate reads ONLY mcmc.samples/mcmc.weights (validate_sbi.py:891-892), so it passed to a verdict and the truncation stayed latent. The fiducial IS validation (is_correction_validate.py) is the first consumer to index derived arrays against the pooled weights -> IndexError at is_correction.py:352 (C3 likelihood recompute, index 12911 out of bounds for size 6365).",
+    "fix": "titanG_repool_reference.py extended to pool EVERY per-sample ndarray attribute (leading dim == that seed's n_samples on all seeds) in the SAME seed order as samples, so derived[i] stays aligned to sample[i]. Only weights gets the 1/n_seeds renorm; derived arrays are plain-concatenated (per-sample quantities, not posterior mass). NO MCMC recompute; reads/writes only validation_reports/.../reference/.",
+    "verified": "round-trip: all 13 per-sample arrays == pooled length (mgso4 19325, nacl 18514); wsum=1.0. NOTE: the §0.16 crosscheck verdicts are NOT retroactively affected because that path never touched the derived arrays."
   }
 }
