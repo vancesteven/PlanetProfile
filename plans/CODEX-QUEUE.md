@@ -25,7 +25,57 @@ findings cited per task) + program-review items. All are doc/test/code
 tasks with NO scientific adjudication — copy authoritative wording, never
 re-adjudicate; escalate per protocol 4 on anything ambiguous._
 
-### C18 — Enceladus libration regression test (freeze blocker B3) [status: queued]
+**Manager review (2026-08-12): C17 ACCEPTED.** Independently re-run
+(13 passed + 2 subtests); Reaktoro failures confirmed pre-existing and
+unrelated. Core-parity exception (b) is CLOSED: a standard PlanetProfile
+run now reproduces the inference gravity observables behind
+Do.CALC_C20_C22, delegating unchanged to gravity_obs. STRATEGY exception
+list update folded into C21 below.
+
+### C20 — Per-campaign methods-snippet generator (1.0 milestone item 6) [status: queued]
+
+The paper's methods section must be assemblable per campaign from
+committed material (doc-doctor E11; STRATEGY 1.0 item 6). Write
+`plans/scripts/generate_methods_snippet.py`: given a campaign key (reuse
+the is_correction_validate.py CAMPAIGNS table pattern; cover nh3, mgso4,
+nacl, v5, v6, v1p1, v4, test50), emit a Markdown methods paragraph
+assembled ONLY from committed sources — config (priors, observables,
+sigmas, sampled params), cache manifest (grid axes/counts, comp, builder
+flags, SHA), artifact metadata (n_train, seed, architecture, torch/sbi
+versions), gate outcomes (from gate summaries / RATIFICATION.md incl.
+FAIL-ADJUDICATED wording verbatim), and deployment state (INDEX row).
+Every sentence carries a source pointer comment. NO new prose judgments:
+where a verdict is needed, quote the committed adjudication text. Output
+to validation_reports/<campaign>/methods_snippet.md. Run it for all
+eight campaigns and commit the outputs. Verification: each generated
+snippet's numbers grep-match their sources (write the check into the
+script as --verify); snippets render. Report `verified`.
+
+### C21 — Enceladus doc/test odds and ends (freeze non-blockers N2/N5 + supersessions) [status: queued]
+
+1. `plans/mission-body-constraints.md`: fix the stale lines per the
+   2026-08-12 freeze adjudication — libration IS implemented (Librations
+   .py, wired via mcmc_runner; the doc's 223-232 region claims
+   otherwise); the proposed hypothetical Enceladus k2 channel is
+   REJECTED (user-ratified; note pointing at
+   plans/active/enceladus-config-freeze.md); gravity/libration source =
+   Park et al. 2024 erratum (supersedes Iess 2014 + Thomas 2016 —
+   update the values with exact numbers from the freeze doc).
+2. STRATEGY core-parity exception list: mark exception (b)
+   direct-Clairaut CLOSED by C17 (Do.CALC_C20_C22).
+3. N5: state the rigid-vs-elastic libration deferral (rigid=True in
+   inference; 0.03% check) in the freeze doc metadata section.
+4. N2 test: `tests/seawater_extrapolation_test.py` — GSW Seawater
+   rho/Cp/sigma at w in {42, 70, 100} ppt, P=3 MPa, T 271-274 K return
+   finite, monotone-in-w values (documents the PSS-78 extrapolation
+   behavior; cite the Europa v3 Gate 2 18.5% bound in the docstring).
+5. Regenerate `plans/active/titan-campaign-methods.html` FROM the .md
+   (pandoc or python-markdown, generator stamp in a comment) or delete
+   the .html and note the md as sole source — per the docs ruling.
+Verification: pytest green for the new test; link/format checks; report
+`verified`.
+
+### C18 — Enceladus libration regression test (freeze blocker B3) [status: in progress (Codex)]
 
 `PlanetProfile/Gravity/Librations.py` has ZERO test coverage and is about
 to carry the Enceladus campaign's dominant observable (0.092 ± 0.003 deg,
