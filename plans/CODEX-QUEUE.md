@@ -32,6 +32,13 @@ run now reproduces the inference gravity observables behind
 Do.CALC_C20_C22, delegating unchanged to gravity_obs. STRATEGY exception
 list update folded into C21 below.
 
+**Manager review (2026-08-12): C18 ACCEPTED under the revised spec.**
+Independently re-run: 4 passed + 1 strict-xfail (the K_int tripwire).
+Librations.py goes from zero coverage to: VH16 published-value band,
+shell-thickness monotonicity, the adjudicated discrepancy pin, the
+physics-direction tripwire, and the permanent y1 Love-number-sum guard.
+Freeze blocker B3 CLOSED.
+
 **Manager adjudication of the C19 escalation (2026-08-12): ACCEPTED —
 correct stop. REVISED C19 SPEC:** the Saturn PPO driver is
 NON-STATIONARY (drifting phase, amplitude only bounded 1-2 nT, Saur
