@@ -1,0 +1,65 @@
+{
+  "title": "Salt C16 residual decomposition — zero-compute test of MACHINE-B-HANDOFF §0.21 consequence 3",
+  "date": "2026-08-12",
+  "author": "Machine B",
+  "status": "EVIDENCE — awaiting Machine A disposition (see MACHINE-B-HANDOFF.md §0.22). NOT self-adjudicated.",
+  "question": "§0.21 consequence 3 presumes the salt references are 'biased LOW the same way' as the NH3 n_eff=2000 reference, and prescribes an R3-class (n_eff=8000, 3-seed) recompute per composition before salt C16 can become a GATE. Can the NH3-measured reference-side systematic account for the salt C16 residuals?",
+  "answer": "No. It accounts for 10-11% as-is and at most ~37% under a maximally generous variance scaling. The residuals survive at 2.8 sigma (MgSO4) and 3.9 sigma (NaCl).",
+  "method": "Decompose residual = (flow_ocean_prob - reference) + (corrected - flow_ocean_prob) using only fields already committed in the is_validation_*.json files. No new compute; no MCMC recompute.",
+  "residual_decomposition": {
+    "note": "flow_ocean_prob is is_diagnostics.branch.ocean.prob_flow; corrected is prob_corrected; reference is gates.ocean_fraction.reference.",
+    "nh3_neff2000": {"reference": 0.9172548, "flow": 0.93255, "corrected": 0.9292539, "flow_minus_ref": 0.0152952, "snis_shift": -0.0032961, "total_residual": 0.0119991},
+    "nh3_neff8000_R4": {"reference": 0.9286503, "flow": 0.93255, "corrected": 0.9321722, "flow_minus_ref": 0.0038997, "snis_shift": -0.0003778, "total_residual": 0.0035219},
+    "mgso4": {"reference": 0.4901299, "flow": 0.5711, "corrected": 0.5912878, "flow_minus_ref": 0.0809701, "snis_shift": 0.0201878, "total_residual": 0.1011579},
+    "nacl": {"reference": 0.5318198, "flow": 0.62675, "corrected": 0.6498255, "flow_minus_ref": 0.0949302, "snis_shift": 0.0230755, "total_residual": 0.1180056}
+  },
+  "measured_reference_side_systematic": {
+    "definition": "NH3 pooled reference ocean fraction, n_eff=2000 -> n_eff=8000 (the §0.20 R3 recompute)",
+    "value": 0.0113955,
+    "source": "is_validation_nh3.json gates.ocean_fraction.reference (0.9172548) vs r4_resolution_record.gate_at_neff8000.reference_pooled (0.9286503)"
+  },
+  "attribution_test": {
+    "variance_scaling_rationale": "NH3 sits at p~0.92 (near the [0,1] ceiling, low binomial variance); the salts sit at p~0.5 (maximal variance). Scaling the NH3 shift by p(1-p)/p_nh3(1-p_nh3) credits the salts with the full variance advantage, i.e. is maximally generous to the reference-side hypothesis.",
+    "mgso4": {
+      "residual": 0.1011579,
+      "combined_se": 0.0230014,
+      "residual_over_se": 4.4,
+      "explained_as_is_frac": 0.113,
+      "explained_variance_scaled_frac": 0.371,
+      "residual_surviving_generous_fix": 0.0636,
+      "surviving_sigma": 2.8
+    },
+    "nacl": {
+      "residual": 0.1180056,
+      "combined_se": 0.0209093,
+      "residual_over_se": 5.6,
+      "explained_as_is_frac": 0.097,
+      "explained_variance_scaled_frac": 0.317,
+      "residual_surviving_generous_fix": 0.0806,
+      "surviving_sigma": 3.9
+    },
+    "se_construction": "combined_se = hypot(sqrt(p_corr(1-p_corr)/ESS_ocean), sqrt(p_ref(1-p_ref)/n_eff_ref)) with ESS_ocean from is_diagnostics.branch.ocean.ess and n_eff_ref=2000. Same construction the reviewer validated for the NH3 C16 gate. Robust to the exact salt n_eff because the reference-SE term is small relative to both the SNIS-SE term and the residual."
+  },
+  "reference_free_corroboration": {
+    "note": "These pushforward statistics do not involve the reference MCMC at all, so they cannot be a reference artifact. They independently indicate the salt flows under-represent the high-dissipation (ocean) branch.",
+    "wks_im": {"nh3": 0.0608, "mgso4": 0.1350, "nacl": 0.1297, "cap": 0.15},
+    "gap_im_sigma": {"nh3": 0.147, "mgso4": 0.327, "nacl": 0.341},
+    "im_k2_median_flow_to_corrected": {"mgso4": [0.0536, 0.0907], "nacl": [0.0623, 0.1002]}
+  },
+  "reading": "The salt C16 residuals satisfy the §0.20 same-sign corroboration criterion but are NOT explained by the reference-side sampling-resolution mechanism that resolved NH3. They partition into the §0.12 flow-defect class (training-signal / identifiability on the weakly-identified Im_k2 channel), amplified by the salts' p~0.5 branch position where NH3's p~0.92 ceiling masked the same bias. The §0.21(3) recompute is predicted to close ~0.01 of a ~0.10 residual.",
+  "what_this_does_not_claim": [
+    "Does NOT contradict the §0.20 R3/R4 NH3 finding, which was a direct recompute of NH3's own reference and remains load-bearing.",
+    "Does NOT block the NH3 MANAGER-GATE STOP release (reviewer explicitly cleared it).",
+    "Does NOT itself adjudicate salt C16 — that disposition is Machine A's per MACHINE-B-HANDOFF §0.22."
+  ],
+  "reviewer": {
+    "agent": "a9368180b6ee0debb",
+    "verdict": "PASS WITH CONCERNS on the NH3 STOP release; BLOCK on ratifying salt C16 on this evidence package",
+    "required_validation_before_any_salt_c16_ratification": [
+      "MgSO4 + NaCl references recomputed at matched n_eff~8000 (3 seeds, treatment-A pooling, identical config_hash + structure_cache_sha256)",
+      "Larger-N corrected conditioning (~100k) per salt to confirm the residual is structural (does not shrink with ESS)",
+      "Per-branch Im_k2 pushforward WKS tracked against the 0.15 gate for the salt flows specifically",
+      "Report salt residuals against the RESOLVED NH3 comparator (+0.0035), not the pre-resolution +0.015"
+    ]
+  }
+}

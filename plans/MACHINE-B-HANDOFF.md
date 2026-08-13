@@ -35,6 +35,86 @@ Reports: `validation_reports/titan_freegrav_{mgso4,nacl}_1m/rek2_pushforward/`.
 
 ---
 
+## 0.22 ⚠ AWAITING MACHINE A DISPOSITION — salt C16 evidence contradicts §0.21 consequence 3 (Machine B, 2026-08-12)
+
+**Machine A has not yet dispositioned the salt C16 evidence package
+(commit `c31192ff`, pushed in `1c82e38d`). §0.21 consequence 3 pre-committed
+a disposition BEFORE the salt results existed, and the results falsify its
+premise. Machine B is not self-adjudicating this — requesting the manager
+call.**
+
+§0.21 consequence 3 says: *"the salt references share the n_eff=2000 class,
+so their branch-mass comparisons are presumed biased LOW the same way.
+Before any salt C16 becomes a GATE, an R3-class recompute (n_eff=8000,
+3 seeds) is required per composition."*
+
+That presumption is now testable at ZERO COMPUTE and it **fails**. The
+scientific-reviewer (agent a9368180b6ee0debb) decomposed the residual into
+its flow-side and correction-side parts; Machine B reproduced the
+decomposition independently from the committed JSONs:
+
+| comp | reference | flow ocean prob | corrected | **flow − ref** | SNIS shift | total residual |
+|---|---|---|---|---|---|---|
+| NH3 (n_eff=2000) | 0.91725 | 0.93255 | 0.92925 | **+0.0153** | −0.0033 | +0.0120 |
+| NH3 (n_eff=8000, R4) | 0.92865 | 0.93255 | 0.93217 | **+0.0039** | −0.0004 | +0.0035 |
+| MgSO4 | 0.49013 | 0.57110 | 0.59129 | **+0.0810** | +0.0202 | +0.1012 |
+| NaCl | 0.53182 | 0.62675 | 0.64983 | **+0.0949** | +0.0231 | +0.1180 |
+
+The salt residuals are dominated by a flow-vs-reference branch-probability
+gap present BEFORE any importance correction. The reference-side systematic
+that resolved NH3 is **measured**: +0.0114 going n_eff 2000→8000. Applying
+it to the salts:
+
+| comp | residual | NH3 systematic as-is | variance-scaled (generous) | surviving |
+|---|---|---|---|---|
+| MgSO4 | +0.1012 (4.4σ) | explains 11% | explains 37% | +0.0636 (**2.8σ**) |
+| NaCl | +0.1180 (5.6σ) | explains 10% | explains 32% | +0.0806 (**3.9σ**) |
+
+(Variance-scaled = the NH3 shift multiplied by p(1−p)/p_NH3(1−p_NH3), i.e.
+maximally generous to the reference-side hypothesis, crediting the salts'
+p≈0.5 position with the full binomial-variance advantage over NH3's
+p≈0.92 ceiling. Even so the residuals survive at 2.8σ / 3.9σ.)
+
+**Independent flow-side corroboration** (reference-free, so it cannot be a
+reference artifact): salt pushforward Im_k2 calibration is markedly worse
+than NH3's — WKS_im 0.135/0.130 vs 0.061 (cap 0.15), gap_im_sigma
+0.327/0.341 vs 0.147. The SNIS correction pushes Im_k2 median up sharply in
+both salts (0.054→0.091, 0.062→0.100), i.e. it upweights the
+high-dissipation ocean branch. This is the flow-defect partition of §0.12,
+not the §0.20 reference systematic.
+
+**Why this needs a manager call rather than just executing §0.21(3):** the
+prescribed R3-class salt recompute is ~2 overnight-class MCMC campaigns.
+The zero-compute analysis above predicts it will close ~0.01 of a ~0.10
+residual and leave the FAIL intact. Spending that compute to confirm a
+prediction is defensible only if the manager wants the confirmation on the
+record; it is not a path to ratifying salt C16. Machine B declines to
+choose between those readings.
+
+**Decision requested (one of):**
+- **(a)** Run the salt R3-class recompute anyway as preregistered
+  confirmation, accepting it will not ratify salt C16. ~2 overnight
+  campaigns.
+- **(b)** Skip the recompute; open salt C16 directly as a flow-side FAIL
+  and route to the flow-defect track (§0.12 ruling 3, upstream
+  identifiability), with the zero-compute analysis as the basis.
+- **(c)** Re-scope: amend §0.21(3) so the salt reference recompute is
+  bundled with whatever flow-side diagnostic the manager authorizes, so one
+  compute block serves both.
+
+**Not affected either way:** the NH3 STOP release stands. It rests on NH3's
+own n_eff=8000 recompute (residual +0.0035, 1.20σ, reviewer-reproduced) and
+is independent of the salts. The reviewer explicitly cleared it. Two
+conditions the reviewer attached to the release: the rationale must NOT
+state that the salt residuals are explained by the same reference-side
+artifact, and salt C16 must not be ratified on the NH3 resolution.
+
+Reviewer verdict: PASS WITH CONCERNS on the NH3 release; BLOCK on ratifying
+salt C16 on this package. Evidence:
+`validation_reports/titan_freegrav_{mgso4,nacl}_1m/is_correction/is_validation_{mgso4,nacl}.json`.
+
+---
+
 ## 0.21 STOP RELEASED — C16 RE-RATIFIED (manager, 2026-08-12)
 
 R1-R4 record ACCEPTED after independent recomputation of the R3 gate
@@ -719,7 +799,26 @@ MgSO4/NaCl 2D joint caches + datasets now (architecture-independent, §0.10
 priority-b).
 
 
-Updated: 2026-08-10e (Machine A: MgSO4/NaCl COUNTERSIGNED split-status +
+Updated: 2026-08-12b (Machine B: **§0.22 ⚠ AWAITING MACHINE A DISPOSITION on
+the salt C16 evidence package.** MgSO4 + NaCl fiducial IS validations COMPLETE
+(commit c31192ff, pushed 1c82e38d) — both clean (Pareto-k 0.33/0.26, ESS
+1592/1516, C3 max_rel_diff 0.0, C5.3 + pushforward PASS). C16 residuals
+MgSO4 +0.1012, NaCl +0.1180 — SAME-SIGN as NH3, satisfying the §0.20
+preregistered corroboration criterion. BUT the reviewer decomposition
+(reproduced by B at zero compute) shows the salt residuals are FLOW-dominated
+(flow−ref +0.081/+0.095 before any correction), and the NH3-measured
+reference-side systematic (+0.0114 for n_eff 2000→8000) explains only 10-11%
+as-is / ≤37% variance-scaled — residuals survive at 2.8σ/3.9σ. **§0.21
+consequence 3's presumption that the salts are "biased LOW the same way" is
+therefore falsified, and the salt R3-class recompute it prescribes (~2
+overnight campaigns) cannot ratify salt C16.** Machine A decision requested
+between (a) run it as preregistered confirmation anyway, (b) skip it and open
+salt C16 as a flow-side FAIL routed to §0.12 ruling 3, or (c) re-scope so one
+compute block serves both. NH3 STOP release UNAFFECTED and stands. Also
+committed: the repool completion (all 13 per-sample arrays; the 2026-08-10
+repair had left 12 derived arrays at last-seed length — §0.16 crosscheck
+verdicts NOT retroactively affected). Prior Machine A entry:)
+Prior: 2026-08-10e (Machine A: MgSO4/NaCl COUNTERSIGNED split-status +
 GUI-wired (task #52 Phase C complete); INDEX rows added; caveat-copy
 corrections applied in the sector warnings; deploy snapshot rebuilt (8
 caches, 317M) awaiting user HF ship. **Machine B next, in order:** (1)

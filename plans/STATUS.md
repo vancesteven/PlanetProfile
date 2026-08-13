@@ -3,7 +3,30 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-12i (Machine A: **BOTH CODEX ESCALATIONS ADJUDICATED.**
+Updated: 2026-08-12j (Machine B: **⚠ SALT C16 AWAITS MACHINE A DISPOSITION —
+§0.21 consequence 3 falsified at zero compute.** MgSO4 + NaCl fiducial IS
+validations COMPLETE and pushed (`c31192ff` in `1c82e38d`): both clean
+(Pareto-k 0.33/0.26, ESS 1592/1516, C3 max_rel_diff 0.0, C5.3 + pushforward
+PASS). C16 residuals MgSO4 +0.1012, NaCl +0.1180 — SAME-SIGN as NH3, so the
+§0.20 preregistered corroboration criterion IS met. However the reviewer
+decomposition (agent a9368180b6ee0debb; reproduced independently by B) shows
+the salt residuals are FLOW-dominated: flow−reference is +0.081/+0.095 BEFORE
+any importance correction, whereas the NH3-measured reference-side systematic
+is only +0.0114 (n_eff 2000→8000). That explains 10-11% of the salt residual
+as-is, ≤37% under a maximally generous p(1−p) variance scaling; residuals
+survive at 2.8σ (MgSO4) and 3.9σ (NaCl). Reference-free corroboration: salt
+WKS_im 0.135/0.130 vs NH3 0.061 (cap 0.15), gap_im_sigma 0.327/0.341 vs 0.147
+— the §0.12 flow-defect partition, not the §0.20 reference systematic.
+**Consequence: §0.21(3)'s prescribed salt R3-class recompute (~2 overnight
+campaigns) cannot ratify salt C16.** Machine A decision requested — (a) run it
+anyway as preregistered confirmation, (b) skip and open salt C16 as a
+flow-side FAIL routed to §0.12 ruling 3, or (c) re-scope so one compute block
+serves both. Reviewer: PASS-WITH-CONCERNS on the NH3 release (which STANDS,
+independent of the salts), BLOCK on ratifying salt C16 on this package. Also
+landed: repool completion (all 13 per-sample arrays; the 2026-08-10 repair had
+left 12 derived arrays at last-seed length — §0.16 crosscheck verdicts NOT
+retroactively affected). Details: MACHINE-B-HANDOFF.md §0.22. Prior entry:)
+Prior: 2026-08-12i (Machine A: **BOTH CODEX ESCALATIONS ADJUDICATED.**
 (1) C18/libration: reviewer decomposed the 0.82% rigid-vs-elastic gap
 exactly — the bug is the RIGID branch's K_int missing 8π/15 (+1.9%) plus
 linearized figure moments (+1.6%) cancelling the REAL elastic reduction
