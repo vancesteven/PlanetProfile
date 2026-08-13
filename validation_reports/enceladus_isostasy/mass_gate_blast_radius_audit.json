@@ -1,0 +1,43 @@
+{
+  "item": "Blast-radius audit — what a per-node mass-conservation gate would do to ALREADY-RATIFIED caches",
+  "status": "MEASURED 2026-08-13 by Machine B, unprompted, to keep the reviewer's blast-radius ruling from resting on speculation. EVIDENCE for the pending sign-off on the FindInnerWithMoIAndEOS mass gate — not itself an adjudication.",
+  "method": "Midpoint-edge shell integration of every cached structure's own (r_m, rho), compared to that node's stored Mtot_kg. 17 caches, ~31k structures, across Enceladus / Titan / Europa / Ganymede / Callisto. Read-only.",
+  "headline": "A per-node mass gate CANNOT be tightened to catch the Enceladus defect without rejecting nodes inside already-ratified caches. The Enceladus violation (-21.85%) and the ratified population (up to +1.03%) are separated by a factor ~21, but the ratified population is NOT clustered near zero — it sits at a systematic ~0.85% offset.",
+  "per_cache_max_abs_deviation_pct": {
+    "Enceladus/Cassini_smoke": 21.848,
+    "Titan/Test48_andrade_yao2014": 1.026,
+    "Titan/Test49_clathrate2km": 1.026,
+    "Titan/Test49_clathrate4km": 1.026,
+    "Titan/Test46_andrade_hybrid_hydro": 1.025,
+    "Callisto/C2_andrade_nacl": 0.518,
+    "Callisto/C2_andrade_mgso4": 0.464,
+    "Titan/Test54_mgso4_ocean": 0.367,
+    "Titan/Test54_nh3_ocean": 0.366,
+    "Titan/Test54_nacl_ocean": 0.358,
+    "Europa/Test52_seawater_v5": 0.189,
+    "Europa/Test51_seawater": 0.176,
+    "Europa/Test52_seawater_v3": 0.174,
+    "Titan/Test52_andrade_noocean_diff": 0.124,
+    "Titan/Test50_andrade_noocean_yao2014": 0.124,
+    "Ganymede/C2_andrade_pureh2o": 0.120
+  },
+  "gate_sensitivity_by_cache": {"0.1_pct": "17/17 caches flagged", "0.5_pct": "6/17", "1.0_pct": "5/17", "2.0_pct": "1/17 (Enceladus only)"},
+  "the_decisive_detail": {
+    "cache": "Titan/Test48_andrade_yao2014 (RATIFIED), n = 6789 nodes",
+    "percentiles_pct": {"p50": 0.8524, "p90": 0.9517, "p99": 0.9985, "p99.9": 1.0157, "p100": 1.0264},
+    "fraction_over_0.3_pct": 84.21,
+    "fraction_over_0.5_pct": 73.75,
+    "fraction_over_1.0_pct": 0.854,
+    "reading": "This is NOT a small tail of outliers — the MEDIAN node of a ratified Titan cache sits at +0.85%. So a 0.5% gate would reject ~74% of that cache's support, and a 0.3% gate ~84%. Only a gate looser than ~1.05% leaves the ratified population intact."
+  },
+  "consequences_for_the_fix": [
+    "A single global tolerance tight enough to be scientifically meaningful (the Enceladus ocean node achieves -0.018%, so the solver CAN close mass to 2e-4 when the configuration is feasible) would invalidate most of the ratified corpus. A tolerance loose enough to spare the corpus (>~1.05%) is 50x weaker than what a healthy node achieves.",
+    "Therefore the gate MUST NOT be a single global constant applied retroactively. Options for the reviewer: (i) opt-in per body/campaign with the Enceladus campaign electing a tight tolerance; (ii) a build-time-only gate on NEW caches, leaving existing ones grandfathered with their measured deviations recorded; (iii) a two-tier scheme — a hard reject at a loose bound (~2%) plus a recorded mass_residual_frac per node so any consumer can apply its own threshold.",
+    "The ~0.85% systematic offset in the older Titan caches is itself an unexplained finding. It is far too large to be midpoint-edge quadrature noise (the Enceladus ocean node and the Europa/Ganymede caches all achieve <0.2% with the same quadrature), and it is one-signed. It may indicate those caches used a different mass convention or a coarser layer discretization. WORTH A SEPARATE LOOK; it is not evidence that those artifacts are wrong, but it is not yet explained."
+  ],
+  "what_this_does_NOT_claim": [
+    "Does NOT claim any ratified artifact is scientifically invalid. The deviations are measured against a stored TARGET constant and the older caches' ~0.85% offset is unexplained, not established as an error.",
+    "Does NOT adjudicate the tolerance or the gate design — that is the pending scientific-reviewer ruling.",
+    "Does NOT change the Enceladus verdict: -21.85% and -8.86% on the frozen nodes remain a genuine, order-of-magnitude-larger failure of a different kind (a mass-violating profile ACCEPTED by the MoI selector), not a discretization artifact."
+  ]
+}
