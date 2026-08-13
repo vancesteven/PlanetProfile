@@ -136,6 +136,7 @@ class BulkSubstruct():
 class DoSubstruct:
     def __init__(self):
         self.VALID = True  # Whether this profile is physically possible
+        self.CALC_C20_C22 = False  # Whether to derive hydrostatic degree-2 C20/C22 from the completed radial density profile
         self.Fe_CORE = False  # Whether to model an iron core for this body
         self.ConstantProps = {'Ocean': False, 'Ice': False, 'Inner': False}  # Whether to use constant thermodynamic properties for each layer type instead of geochemical EOS
         self.CustomEOS = {'Ocean': False, 'OceanMelt': False, 'Pore': False}  # Whether to use a user-supplied OceanEOSBase instance for each EOS context. Set the corresponding slot (Ocean.EOS, Ocean.EOSmelt, Sil.poreEOS) before setting flag to True.
@@ -571,6 +572,15 @@ class GravitySubstruct:
         self.parameters_to_convert = {'VP': 1e3, 'VS': 1e3, 'GS': 1e9} # Parameters that need to be converted to ALMA units and conversion factor
         self.model = None # Compatible form of Planet data
         self.ALMAModel = None # Dictionary of data necessary for ALMA functions
+
+        # Hydrostatic degree-2 gravity settings and outputs. Reference-radius
+        # conventions are body-specific and must be supplied when
+        # Do.CALC_C20_C22 is enabled.
+        self.Rref_m = None
+        self.J2overC22 = None
+        self.kf = np.nan
+        self.C20 = np.nan
+        self.C22 = np.nan
 
 
         # Properties needed for ALMA

@@ -37,7 +37,7 @@ from PlanetProfile.Utilities.SetupInit import SetupInit, SetupFilenames, SetCMR2
 from PlanetProfile.Utilities.ResultsIO import WriteResults, ReloadResultsFromPickle, ExtractResults, InductionCalced, ensure_parent_dir
 from PlanetProfile.Thermodynamics.Reaktoro.CustomSolution import SetupCustomSolutionPlotSettings
 from PlanetProfile.Utilities.PPversion import ppVerNum
-from PlanetProfile.Gravity.Gravity import GravityParameters
+from PlanetProfile.Gravity.Gravity import GravityParameters, HydrostaticDegree2
 from PlanetProfile.Utilities.SummaryTables import GetExplorationComparisons, GetLayerMeans, PrintGeneralSummary, PrintLayerSummaryLatex, PrintLayerTableLatex
 from PlanetProfile.Utilities.reducedPlanetModel import GetReducedPlanet
 
@@ -334,6 +334,7 @@ def PlanetProfile(Planet, Params):
     else:
         # Reload previous run
         Planet, Params = ReloadProfile(Planet, Params)
+        Planet = HydrostaticDegree2(Planet)
     # Main plotting functions
     if ((not Params.SKIP_PLOTS) and not (
             Params.DO_INDUCTOGRAM or Params.DO_EXPLOREOGRAM or Params.INVERSION_IN_PROGRESS or Params.DO_MONTECARLO)) \
@@ -556,6 +557,7 @@ def ExecOpts(Params, bodyname, opt, fNames=None):
 def PostProcessingProfile(Planet, Params):
     """ Post-processing of the planet profile """
     Planet = SetCMR2strings(Planet)
+    Planet = HydrostaticDegree2(Planet)
     return Planet
 
 def WriteProfile(Planet, Params):

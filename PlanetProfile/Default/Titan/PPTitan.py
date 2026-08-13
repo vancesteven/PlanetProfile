@@ -21,6 +21,10 @@ Planet.Bulk.Cuncertainty = 0.010  # No uncertainty is reported by Durante et al.
 Planet.Do.NONHYDROSTATIC = True
 Planet.Bulk.Tb_K = 255.0
 
+""" Hydrostatic degree-2 gravity convention (calculation defaults off) """
+Planet.Gravity.Rref_m = 2575.0e3  # Cassini gravity-coefficient reference radius used by the inference configuration
+Planet.Gravity.J2overC22 = 3.3333333333  # Classical synchronous ratio; finite-rotation correction is negligible at Titan
+
 """ Layer step settings """
 Planet.Steps.nIceI = 200
 Planet.Steps.nSilMax = 200

@@ -7,6 +7,7 @@ from PlanetProfile.Gravity.Librations import librations
 from PlanetProfile.Utilities.Indexing import PhaseConv
 from PlanetProfile.Utilities.defineStructs import Constants, Timing
 from PlanetProfile.Utilities.ResultsIO import ensure_parent_dir
+from PlanetProfile.Inference.gravity_obs import clairaut_kf, hydrostatic_c20_c22
 import time
 import mpmath as mp
 
@@ -28,6 +29,60 @@ except ImportError:
     pass
 
 ALMA_TIME_UNIT_S = 1000.0 * 365.25 * 24.0 * 3600.0
+
+
+def HydrostaticDegree2(Planet):
+    """Populate standard-run hydrostatic C20/C22 outputs via direct Clairaut.
+
+    The underlying forward calculation remains owned by
+    ``Inference.gravity_obs``. Body-specific reference-radius and J2/C22
+    conventions must be configured explicitly before enabling the run flag.
+    """
+    if not Planet.Do.CALC_C20_C22:
+        return Planet
+
+    inputs = {
+        'Bulk.Torb_s': Planet.Bulk.Torb_s,
+        'Bulk.R_m': Planet.Bulk.R_m,
+        'Bulk.M_kg': Planet.Bulk.M_kg,
+        'Gravity.Rref_m': Planet.Gravity.Rref_m,
+        'Gravity.J2overC22': Planet.Gravity.J2overC22,
+    }
+    for name, value in inputs.items():
+        if value is None or not np.isfinite(value) or value <= 0:
+            raise ValueError(
+                f'Do.CALC_C20_C22 requires a finite positive {name}.')
+
+    r_m = np.asarray(Planet.r_m, dtype=float).reshape(-1)
+    rho_kgm3 = np.asarray(Planet.rho_kgm3, dtype=float).reshape(-1)
+    # PlanetProfile stores one terminal center boundary beyond its per-layer
+    # density array. Clairaut expects one outer radius for each density shell.
+    if r_m.size == rho_kgm3.size + 1 and np.isclose(r_m[-1], 0.0):
+        r_m = r_m[:-1]
+    if r_m.size != rho_kgm3.size:
+        raise ValueError(
+            'Do.CALC_C20_C22 requires matching radial-boundary and density '
+            f'arrays (got {r_m.size} radii and {rho_kgm3.size} densities).')
+
+    Planet.Gravity.kf = clairaut_kf(r_m, rho_kgm3)
+    omega_radps = 2.0 * np.pi / Planet.Bulk.Torb_s
+    Planet.Gravity.C20, Planet.Gravity.C22 = hydrostatic_c20_c22(
+        Planet.Gravity.kf,
+        omega_radps,
+        Planet.Bulk.R_m,
+        Planet.Bulk.M_kg,
+        R_ref_m=Planet.Gravity.Rref_m,
+        j2_over_c22=Planet.Gravity.J2overC22,
+    )
+    log.info(
+        'Hydrostatic degree-2 gravity (unnormalized, Rref = %.3f km): '
+        'kf = %.8g, C20 = %.8e, C22 = %.8e',
+        Planet.Gravity.Rref_m / 1e3,
+        Planet.Gravity.kf,
+        Planet.Gravity.C20,
+        Planet.Gravity.C22,
+    )
+    return Planet
 
 def GravityParameters(Planet, Params):
     """ Calculate induced gravity responses for the body and prints them to disk."""
