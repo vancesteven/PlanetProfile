@@ -3,7 +3,15 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-12f (Machine A: **CODEX C17 VERIFIED.** Standard-run
+Updated: 2026-08-12g (Machine A Codex: **C18 NOT IMPLEMENTED — SCIENCE
+ESCALATION.** The published Van Hoolst 2016 rigid model reproduces (524.38 m
+inside 466–590 m) and the 5–45 km shell sweep is strictly monotone, but the
+same-node DP-ALMA y1 comparison is rigid 0.110905 deg vs elastic 0.111814 deg
+(0.8196%, failing the <0.1% criterion); a fresh full run independently gives
+0.9452%. Both have the opposite sign from the paper's stated elastic
+reduction. No physics or test files changed; manager/scientific adjudication
+is required before C18 can resume. Prior entry below.)
+Prior: 2026-08-12f (Machine A: **CODEX C17 VERIFIED.** Standard-run
 degree-2 gravity is now available behind default-off
 `Planet.Do.CALC_C20_C22`, returning direct-Clairaut `Gravity.kf/C20/C22`
 with Europa/Titan inference-parity conventions and normal log printout.

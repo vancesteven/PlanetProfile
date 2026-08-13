@@ -11,7 +11,7 @@ Current documents (read by default):
 - `plans/MACHINE-B-HANDOFF.md` — executable heavy-compute queue
   (current §0.18 campaign order and release gates).
 - `plans/CODEX-QUEUE.md` — Codex 5.6 delegate lane (C13–C17 verified; C18
-  next, followed by C19).
+  science-escalated; C19–C21 queued).
 - `plans/mission-body-constraints.md` — current scientific constraint spec.
 - `plans/mission-body-1d-roadmap.md` — forward roadmap.
 - `plans/active/enceladus-config-freeze.md` — active Enceladus campaign

@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-12 (C17 verified; C18 next, then C19, one implementation commit per task). Curated by the Claude model manager
+Updated: 2026-08-12 (C18 escalated; C19–C21 remain queued, one implementation commit per task). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -75,7 +75,7 @@ script as --verify); snippets render. Report `verified`.
 Verification: pytest green for the new test; link/format checks; report
 `verified`.
 
-### C18 — Enceladus libration regression test (freeze blocker B3) [status: in progress (Codex)]
+### C18 — Enceladus libration regression test (freeze blocker B3) [status: not implemented]
 
 `PlanetProfile/Gravity/Librations.py` has ZERO test coverage and is about
 to carry the Enceladus campaign's dominant observable (0.092 ± 0.003 deg,
@@ -89,6 +89,28 @@ decreases with increasing shell thickness over 5-45 km for a fixed
 Enceladus-like interior. Escalate per protocol 4 if reproducing the
 published value requires ANY physics change — report the discrepancy,
 do not fix. Report `verified` with pytest output.
+
+**Report (Codex, 2026-08-12):** `not implemented` — escalated per protocol
+4; no production or test files changed. Two requested checks reproduce
+without a physics change. The rigid Van Hoolst et al. (2016) Figs. 2–3
+yellow-marker interior (20 km shell, 42.1 km ocean, 190 km core,
+rho_shell=925 and rho_ocean=1050 kg/m3; mass closure gives
+rho_core=2418.34 kg/m3) yields 524.38 m / 0.119178 deg, inside the paper's
+466–590 m observation band. A mass-conserving fixed-core sweep from 5 to
+45 km shell thickness is strictly decreasing (1.390239 to 0.054702 deg).
+The required rigid-vs-elastic gate does NOT reproduce: on the same committed
+default cache node the current DP-ALMA y1 path gives 0.110905164 deg rigid
+versus 0.111814157 deg elastic, a 0.8196% difference (criterion <0.1%),
+not the recorded 0.11091/0.11094 deg. A fresh full PlanetProfile Enceladus
+run independently gives 0.109985555 versus 0.111025160 deg, a 0.9452%
+difference. In both cases elasticity increases the result, while Van Hoolst
+et al. (2016) state that elasticity reduces libration amplitude. Resolving
+whether the y1 convention, elastic torque implementation, or the earlier
+record is wrong requires scientific adjudication and potentially a physics
+change; Codex stopped without encoding a passing-by-construction fixture.
+Primary source: Van Hoolst, Baland & Trinh (2016), Icarus 277, 311–318,
+doi:10.1016/j.icarus.2016.05.025. Claim was incorporated by the manager's
+concurrent queue commit `53d30e94`; no implementation commit.
 
 ### C19 — Enceladus induction plumbing (freeze blockers B8-B10) [status: queued]
 
