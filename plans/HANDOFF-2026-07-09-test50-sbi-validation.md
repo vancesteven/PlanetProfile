@@ -1,6 +1,7 @@
 # HANDOFF 2026-07-09 — Test50 Titan SBI validation campaign
 
-> **CURRENT STATE + Machine B queue: see plans/STATUS-2026-07-20.md.**
+> **ARCHIVED:** current state and assignments are in `plans/STATUS.md` and
+> `plans/MACHINE-B-HANDOFF.md`.
 > This file remains the detailed day-by-day log (addenda below).
 
 ## RATIFIED 2026-07-09 (user, via decision prompt)
@@ -1537,12 +1538,27 @@ Machine B MCMC results:
    the estimate stands (documented in config). Tests: rho=0 reduces
    exactly to independent terms; noise correlation verified
    empirically (tests/gravity_channels_test.py, 7/7).
-3. **Elastic libration correction UNNECESSARY**: rigid-shell channel
+3. ~~**Elastic libration correction UNNECESSARY**: rigid-shell channel
    0.11091 deg vs full elastic DP-ALMA (y1, rigid=False) 0.11094 deg
    at the default structure — 0.03% = ~0.01 sigma of the 0.003-deg
    measurement (Enceladus k2 ~ 0.013; negligible tidal softening).
    Rigid channel ships for production; PP-pipeline elastic value
-   retained as the crosscheck.
+   retained as the crosscheck.~~
+   **FALSIFIED — CORRECTED 2026-08-12 (reviewer adjudication of the C18
+   escalation).** The 0.03% figure does not reproduce. On the committed
+   default Enceladus cache node the correct pair is rigid 0.110905164
+   deg vs elastic 0.111814157 deg (+0.8196%); a fresh full run gives
+   0.109986 / 0.111025 (+0.95%). The elastic value is HIGHER only
+   because the rigid branch's internal gravitational coupling constant
+   K_int (Librations.py:190) is too small by 8π/15 (interior figure
+   written as Δρβr⁵ where it must be (B−A)_i) and its ocean-pressure
+   terms are linearized; the elastic branch itself REDUCES the amplitude
+   by 2.6% relative to its own rigid limit, in the direction Van Hoolst,
+   Baland & Trinh (2016) state. The rigid channel still ships for
+   production — see the B2' ruling in
+   plans/active/enceladus-config-freeze.md — but on a documented +0.75%
+   one-sided bias (0.21 sigma_obs), NOT on a claim of negligibility. Do
+   not cite this addendum's original numbers.
 Machine B's Enceladus production queue now has NO blocking items
 beyond compute: dense Tb cache (+ salinity sensitivity if desired),
 8D nuisance config per constraints doc, reference MCMC + training +

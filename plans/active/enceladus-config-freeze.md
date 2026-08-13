@@ -165,11 +165,24 @@ BUILDER needs a zb_grid mode (blocking item B4). The July Tb window was
 **Blocking items before the config JSON commits (owners assigned):**
 B1 libration reachability scan across the (zb,w) box (A + reviewer);
 B2 libration systematic budget in sigma_obs units (A + reviewer)
-   [UPDATE 2026-08-12: the rigid-vs-elastic "0.03%" figure justifying
-   the rigid deferral is FALSIFIED — C18 escalation measured 0.82-0.95%
-   with elasticity RAISING the amplitude, opposite the VH16 statement.
-   Under adjudication; provisionally budget the elastic term at ~0.3
-   sigma_obs symmetric until the ruling lands];
+   [ADJUDICATED 2026-08-12 — the C18 discrepancy is a RIGID-branch
+   normalization bug, not an elastic one: K_int (Librations.py:190) is
+   too small by 8π/15, and the ocean-pressure figure moments are
+   linearized (+2.9% combined formulation error) cancelling the real
+   physical elastic reduction (−1.9 to −2.6%; the elastic branch is
+   validated end-to-end — partial Love numbers sum to the ALMA k2 at
+   0.015%). Net: the shipped rigid channel reads +0.75% LOW (one-sided),
+   +0.21 sigma_obs at the Park-class 25-27 km solution.
+   `libration_model_formulation` budget entry (manager-adopted per the
+   reviewer's preferred handling): apply a +0.8% multiplicative
+   correction to the model libration inside the frozen config, with a
+   residual symmetric ±0.4% (0.12 sigma) for the zb dependence. VOID if
+   the frozen shell rheology changes (at mu = 1 GPa the elastic term is
+   −8.5% and the net flips sign). Campaign runs rigid=True; the K_int
+   code fix is a post-campaign reviewed task and must NOT land alone
+   (fixing K_int without the linearization+elastic terms makes the
+   channel WORSE: +0.47 sigma). Does not cover the hydrostatic-vs-
+   observed-figure term, still open in this budget];
 B3 libration regression test vs published value — Librations.py has no
 test at all (Codex-suitable); B4 zb-axis cache-builder support (A);
 B5 d(libration)/d(zb) scan to set node spacing (A); B6 drop rheology

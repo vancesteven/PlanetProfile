@@ -112,6 +112,25 @@ Primary source: Van Hoolst, Baland & Trinh (2016), Icarus 277, 311–318,
 doi:10.1016/j.icarus.2016.05.025. Claim was incorporated by the manager's
 concurrent queue commit `53d30e94`; no implementation commit.
 
+**C18 UNHELD — adjudication complete (2026-08-12). REVISED TEST SPEC
+(reviewer §6 ruling; supersedes the original rigid-vs-elastic gate):**
+1. Land unchanged: the VH16 published-value test (524.38 m in 466-590 m;
+   docstring note: does not discriminate the K_int normalization — the
+   corrected value 532.70 m is also in the band) + the 5-45 km
+   monotonicity test.
+2. REPLACE the <0.1% consistency gate with: (a) a documented-discrepancy
+   PIN on the committed cache node — rigid == 0.110905164 deg and
+   elastic == 0.111814157 deg (rel 1e-6), ratio == 1.008196 (rel 1e-4),
+   docstring citing the 2026-08-12 adjudication (rigid-branch K_int
+   missing 8π/15) and stating the pin must be updated in the same commit
+   as any K_int fix; (b) an @pytest.mark.xfail(strict=True) test that
+   elastic < rigid on the same node (reason: rigid K_int bug) — fails
+   loudly when the fix lands, forcing the pin update.
+3. ADD permanently: partial-Love-number sum check — the elastic branch's
+   y1-derived k2s+k2ot+k2ob+k2i must equal the ALMA k2 within 0.1%
+   (measured 0.015%); this is the guard on the y1 convention.
+No physics change in this task. Report `verified` with pytest output.
+
 **Manager ruling on the C18 escalation (2026-08-12): escalation ACCEPTED
 — correctly stopped, correctly scoped.** The rigid-branch results
 (published-value reproduction 0.119178 deg inside the VH16 band +
