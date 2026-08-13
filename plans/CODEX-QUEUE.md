@@ -95,7 +95,7 @@ script as --verify); snippets render. Report `verified`.
 Verification: pytest green for the new test; link/format checks; report
 `verified`.
 
-### C18 — Enceladus libration regression test (freeze blocker B3) [status: not implemented]
+### C18 — Enceladus libration regression test (freeze blocker B3) [status: in progress (Codex)]
 
 `PlanetProfile/Gravity/Librations.py` has ZERO test coverage and is about
 to carry the Enceladus campaign's dominant observable (0.092 ± 0.003 deg,
