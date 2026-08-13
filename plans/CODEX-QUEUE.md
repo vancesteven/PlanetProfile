@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-12 (C18–C19 escalated; C20–C21 remain queued, one implementation commit per task). Curated by the Claude model manager
+Updated: 2026-08-12 (C18 verified; C19 resumed; C20–C21 remain queued, one implementation commit per task). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -95,7 +95,7 @@ script as --verify); snippets render. Report `verified`.
 Verification: pytest green for the new test; link/format checks; report
 `verified`.
 
-### C18 — Enceladus libration regression test (freeze blocker B3) [status: in progress (Codex)]
+### C18 — Enceladus libration regression test (freeze blocker B3) [status: verified]
 
 `PlanetProfile/Gravity/Librations.py` has ZERO test coverage and is about
 to carry the Enceladus campaign's dominant observable (0.092 ± 0.003 deg,
@@ -150,6 +150,17 @@ concurrent queue commit `53d30e94`; no implementation commit.
    y1-derived k2s+k2ot+k2ob+k2i must equal the ALMA k2 within 0.1%
    (measured 0.015%); this is the guard on the y1 convention.
 No physics change in this task. Report `verified` with pytest output.
+
+**Report (Codex, 2026-08-12, resumed spec):** `verified`. Added
+`tests/librations_test.py` with the VH16 yellow-marker published-band
+reproduction (524.38 m inside 466–590 m), a strictly decreasing 5–45 km
+mass-conserving shell sweep, the adjudicated rigid/elastic cache-node pin
+(0.110905164 / 0.111814157 deg; ratio 1.008196), the strict-xfail physical-
+direction expectation, and the permanent y1 partial-Love-number sum guard
+(0.0148% from ALMA Re(k2), inside 0.1%). Focused pytest: 4 passed, 1 xfailed
+in 1.00 s. Nearest Enceladus gate: 5 passed, 1 xfailed in 5.18 s for
+`tests/librations_test.py tests/isostasy_hm2019_gate_test.py`. No production
+physics changed. Re-claim `123a187f`; implementation `54bf8b4a`.
 
 **Manager ruling on the C18 escalation (2026-08-12): escalation ACCEPTED
 — correctly stopped, correctly scoped.** The rigid-branch results

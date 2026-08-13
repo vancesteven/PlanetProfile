@@ -3,7 +3,16 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-12i (Machine A: **BOTH CODEX ESCALATIONS ADJUDICATED.**
+Updated: 2026-08-12j (Machine A Codex: **C18 VERIFIED UNDER REVISED SPEC.**
+First libration regression suite now covers the VH16 published band
+(524.38 m inside 466–590 m), a strictly decreasing 5–45 km shell sweep, the
+adjudicated rigid/elastic discrepancy pin (0.110905164/0.111814157 deg), a
+strict-xfail physical-direction tripwire for the future K_int repair, and a
+permanent y1 partial-Love-number sum guard (0.0148% vs ALMA Re(k2), inside
+0.1%). Focused + nearest Enceladus gate: 5 passed, 1 xfailed. No production
+physics changed. Implementation `54bf8b4a`; C19 resumed next. Prior entry
+below.)
+Prior: 2026-08-12i (Machine A: **BOTH CODEX ESCALATIONS ADJUDICATED.**
 (1) C18/libration: reviewer decomposed the 0.82% rigid-vs-elastic gap
 exactly — the bug is the RIGID branch's K_int missing 8π/15 (+1.9%) plus
 linearized figure moments (+1.6%) cancelling the REAL elastic reduction
