@@ -112,6 +112,20 @@ Primary source: Van Hoolst, Baland & Trinh (2016), Icarus 277, 311–318,
 doi:10.1016/j.icarus.2016.05.025. Claim was incorporated by the manager's
 concurrent queue commit `53d30e94`; no implementation commit.
 
+**Manager ruling on the C18 escalation (2026-08-12): escalation ACCEPTED
+— correctly stopped, correctly scoped.** The rigid-branch results
+(published-value reproduction 0.119178 deg inside the VH16 band +
+monotonicity) are ACCEPTED as validation of the branch the campaigns
+actually use. The elastic-branch discrepancy (0.82-0.95% rigid-vs-
+elastic, wrong sign vs VH16; the recorded 0.03% figure does NOT
+reproduce) is under scientific adjudication now (Opus reviewer
+dispatched with the code, the numbers, and the formalism question).
+C18 stays held until the ruling lands; the ruling will specify what the
+regression test encodes for the elastic branch (documented-discrepancy
+pin vs xfail) and any physics fix goes through a separate reviewed
+task. Do NOT encode a passing-by-construction fixture — exactly as you
+judged. Proceed with C19/C20/C21 meanwhile.
+
 ### C19 — Enceladus induction plumbing (freeze blockers B8-B10) [status: in progress (Codex)]
 
 1. B8: add the synodic/PPO excitation — `Texc_hr['Enceladus']['synodic']
