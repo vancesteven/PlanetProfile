@@ -1169,6 +1169,24 @@ def evaluate_heating_on_posterior(
 # Induction Forward Model
 # ============================================================================
 
+def induced_amplitude_band_nT(
+    Ae: Any,
+    driver_band_nT: Tuple[float, float] = (1.0, 2.0),
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Convert a complex response into a driver-amplitude field band.
+
+    This is the display representation for Enceladus' non-stationary Saturn
+    PPO driver: no fixed phase/vector is assigned, so only
+    ``|Ae| * [Bmin, Bmax]`` is meaningful.  The default 1--2 nT band follows
+    Saur et al. (2024), sec. 2.2.
+    """
+    lower_nT, upper_nT = map(float, driver_band_nT)
+    if lower_nT < 0 or upper_nT < lower_nT:
+        raise ValueError("driver_band_nT must be ordered and non-negative")
+    response_magnitude = np.abs(np.asarray(Ae, dtype=np.complex128))
+    return response_magnitude * lower_nT, response_magnitude * upper_nT
+
+
 def forward_model_induction(
     structure_data: Dict[str, Any],
     freq_dict: Dict[str, float],

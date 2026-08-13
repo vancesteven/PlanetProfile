@@ -52,7 +52,13 @@ class ExcitationsList:
             'orbital 2nd-TA-year beat': 22.679,
             'orbital 2nd-TA-half year beat': 22.681
         }
-        Texc_hr['Enceladus'] = {'true anomaly': 32.93}
+        Texc_hr['Enceladus'] = {
+            # Saturn's PPO driver is non-stationary, so this period is used
+            # only to evaluate the response A(omega), Phi(omega).  There is
+            # intentionally no fixed Be1xyz row (Saur et al. 2024, sec. 2.2).
+            'synodic': 15.5592,
+            'true anomaly': 32.93,
+        }
         Texc_hr['Tethys'] = {'true anomaly': 45.26, 'TA-year beat': 45.27}
         Texc_hr['Dione'] = {'orbital-half year beat': 65.72}
         Texc_hr['Rhea'] = {'orbital': 108.42}
