@@ -1,0 +1,27 @@
+{
+  "item": "B15 — Sigma_model (H&M 2019 Eq. 22/24 model-covariance inflation)",
+  "status": "CLOSED 2026-08-13 from the PRIMARY SOURCE with independent verification. Supersedes both the r3 placeholders and the second reviewer pass's claim that the values were ~2x too large.",
+  "source": "papers/hemingway2019enceladus.pdf Table 1, Tajeddine et al. (2017) block, column sigma_lm^topo*; R_ref = 252.22 km; rho_shell = 925 kg/m^3. Libration model sigma from section 2.6 / Eq. 26.",
+  "adopted_values": {"sigma_model_C20": 5.3e-06, "sigma_model_C22": 1.7e-06, "sigma_model_C30": 4.4e-06, "sigma_model_libration_deg": 0.00025},
+  "verification_eq25": {
+    "formula": "sigma_lm^topo* = (3 rho_shell / (R rho_bar (2l+1))) * sigma_lm^topo   [H&M Eq. 25]",
+    "inputs": {"sigma_topo_m": {"2,0": 3.9, "2,2": 1.3, "3,0": 4.5}, "rho_bar_kgm3": 1607.3, "rho_bar_derivation": "M / ((4/3) pi R^3) with M = 1.08022e20, R = 252.22 km"},
+    "reproduced_e6": {"2,0": 5.339, "2,2": 1.780, "3,0": 4.401},
+    "published_e6": {"2,0": 5.3, "2,2": 1.7, "3,0": 4.4},
+    "agreement": "(2,0) 0.7%, (3,0) 0.02%, (2,2) 4.7% — see discrepancy note"
+  },
+  "verification_eq24": {
+    "formula": "sigma_lm = sqrt((sigma_lm^grav)^2 + (sigma_lm^topo*)^2)   [H&M Eq. 24]",
+    "check": "Against the IESS gravity sigmas H&M used (35.4 / 15.8 / 23.4 e-6) this reproduces Table 1's printed COMBINED column (35.8 / 15.9 / 23.8 e-6) as 35.79 / 15.89 / 23.81 e-6 — three-digit agreement on all three rows, confirming the whole chain is read correctly."
+  },
+  "discrepancy_recorded_not_reconciled": "Eq. 25 gives 1.780e-6 for (2,2) while Table 1 prints 1.7e-6 — 4.7%, larger than the other rows' agreement and in the direction of truncation rather than rounding. The published 1.7e-6 is adopted as the value of record; the difference is 0.08e-6 = 0.005 sigma_obs, immaterial.",
+  "retraction_of_the_second_pass_claim": "The second reviewer pass independently propagated sigma_topo and obtained 2.59 / 0.95 / 2.28e-6, concluding the config values were 1.8-2.05x inflated and REOPENING B15. That propagation was wrong: Eq. 25 with H&M's own rho_bar and the (2l+1) factor reproduces the published values to better than 1% on two of three rows, and the Eq. 24 combined-sigma cross-check independently confirms the chain. The r3 NUMBERS were right; only the r3 provenance SENTENCE was defective (it described the combined Iess-era observational sigmas as if they were the model column). Both are now fixed.",
+  "effect_on_this_campaign": {
+    "note": "This campaign conditions on PARK 2024 gravity sigmas, not the Iess sigmas H&M used, so the combined sigmas differ from Table 1's.",
+    "C20": {"sigma_obs_e6": 36.99, "combined_e6": 37.37, "inflation_pct": 1.02},
+    "C22": {"sigma_obs_e6": 14.70, "combined_e6": 14.80, "inflation_pct": 0.67},
+    "C30": {"sigma_obs_e6": 33.42, "combined_e6": 33.71, "inflation_pct": 0.86},
+    "libration": {"sigma_obs_deg": 0.003, "combined_deg": 0.003010, "inflation_pct": 0.35},
+    "reading": "Sigma_model inflates the effective sigmas by under 1.1% on every gravity row and 0.35% on the libration — negligible against the measurement errors. This vindicates H&M's own remark that Tajeddine's shape uncertainties are small enough not to kill the channel, whereas Nimmo's would inflate sigma(C20) ~7x. The libration term must be applied because the SAME H_obs feeds both the gravity rows and the libration row, so their model errors are correlated."
+  }
+}

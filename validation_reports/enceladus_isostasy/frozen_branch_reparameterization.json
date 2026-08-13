@@ -1,0 +1,31 @@
+{
+  "item": "Frozen-branch reparameterization — declared rho_rock prior with derived zb",
+  "status": "IMPLEMENTED in the config 2026-08-13 (branch_model block). Reviewer ratification of the new branch model still outstanding.",
+  "finding": "Reviewer NEW-MAJOR-2: an explicit discrete model index with declared 0.5/0.5 prior odds does NOT cure the box-edge arbitrariness of the frozen branch — it RELABELS it. Fixing the branch PRIOR leaves each branch's EVIDENCE INTEGRAL running over whatever zb range was declared, and on the frozen branch that range IS a prior on rock density.",
+  "two_measured_symptoms": {
+    "box_edge_dependence": {"frozen_fraction_of_box": {"hi_60_km": 0.227, "hi_70_km": 0.346, "hi_80_km": 0.433},
+      "reading": "The reported ocean/no-ocean odds would have been linearly rescalable by a choice with no physical content — exactly the fragile statistic the NH3 C16 saga identified."},
+    "prior_distortion": {
+      "mechanism": "zb <-> rho_rock is a bijection on the frozen branch with d(rho_rock)/d(zb) ~ 22-28 kg m^-3 km^-1, so a UNIFORM prior in zb is NOT uniform in rho_rock.",
+      "induced_rho_rock_range_kgm3": [2201, 2705],
+      "prior_mass_by_density_quintile": [0.280, 0.230, 0.192, 0.162, 0.138],
+      "uniform_would_be": 0.200,
+      "reading": "A factor 2.0 tilt FAVOURING low-density rock — i.e. the old parameterization put its heaviest prior weight on the densities furthest from the H&M/Park requirement of 2340-2410."
+    }
+  },
+  "fix_applied": {
+    "frozen_branch_samples": ["rho_rock_kgm3 ~ U[2200,2600]", "rho_ice_kgm3", "libration_sys_frac"],
+    "zb_km": "DERIVED by mass conservation from (rho_rock, rho_ice) — not sampled",
+    "derived_zb_range_km": [47.45, 65.26],
+    "why_this_fixes_it": "The frozen support is now the mass-conservation image of a DECLARED density prior, so it is independent of any box edge, and the prior sits on the quantity that actually has literature constraints.",
+    "not_sampled_on_the_frozen_branch": {
+      "log10_wOcean_ppt": "no ocean -> salinity is UNDEFINED there, not merely unconstrained",
+      "compensation_C2": "no ice/ocean interface -> rigid uncompensated support via isostatic_gravity(R_b=None)"
+    },
+    "dimensionality": "frozen 3 free parameters vs ocean 5 — the branches are NOT nested, so each evidence must be computed over its own support",
+    "ocean_branch_zb_prior_restored": "[5, 45] km, its own support. The single continuous [5,70] axis of r2/r3 is retired."
+  },
+  "bijection_table_rho_ice_925": {"2200": 47.45, "2300": 52.54, "2400": 57.16, "2500": 61.38, "2600": 65.26},
+  "required_validation": "Recompute the discrete-index odds with the frozen density prior at U[2200,2600] vs a widened U[2100,2700]; the odds SHOULD now be insensitive to the zb reach, and only sensitive to the declared density prior — which is the intended, defensible dependence.",
+  "grid_consequence": "The frozen segment spans the derived 47.45-65.26 km at 0.5 km (frozen nodes are discriminated at 23-45 sigma, so coarse is ample). The w axis applies to the OCEAN branch only; the builder must not multiply frozen zb nodes by 40 salinities."
+}
