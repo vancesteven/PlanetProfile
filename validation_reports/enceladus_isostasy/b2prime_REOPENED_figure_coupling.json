@@ -1,0 +1,49 @@
+{
+  "item": "B2' REOPENED — the figure convention is not a scaling choice, it is a structural coupling. ESCALATION.",
+  "status": "OPEN / ESCALATED 2026-08-13. Machine B is NOT self-adjudicating this. The option-A implementation landed in 27fc71df is now SUSPECT and its +1.10 km result must not be used until this is ruled on.",
+  "why_reopened": "The third reviewer pass raised a MAJOR against the implementation: the code multiplies the WHOLE (Bs - As) — a DIFFERENCE of surface and shell-base figure terms — while the docstring justifies scaling the SURFACE figure only. Investigating that from the primary source (papers/hemingway2019enceladus.pdf sections 2.3 and 2.5) shows BOTH readings are wrong about H&M's actual treatment.",
+  "what_HM_actually_do": {
+    "section_2.3_Eq_12": "H&M set the surface relief to the OBSERVATIONS and compute the base relief from Airy isostasy: H_b^nh = -H_t^nh (rho_ice/dRho)(g_t/g_b). The base figure is NOT hydrostatic and NOT a rescaled copy of the surface — it is the ISOSTATIC RESPONSE to the non-hydrostatic surface load, with the OPPOSITE SIGN and an amplification of rho_ice/dRho.",
+    "section_2.5_Eq_19_20": "The libration is driven by (B-A)/C summed over layers with each layer's own (a_i, b_i, c_i) and density contrast, and Eq. 20's Ks/Kc/K_int are 'functions of moment of inertia differences (B-A) in those layers'. H&M state explicitly: 'the outer shape of the ice shell comes directly from the observations ... and the shape of the ice/ocean interface is obtained as described in section 2.3 or 2.4.' So BOTH interfaces carry non-hydrostatic figure, and the base one comes from the isostasy model.",
+    "consequence": "The libration torque therefore depends on the COMPENSATION STATE. It is not a fixed multiplicative correction at all."
+  },
+  "measured_at_the_fiducial_zb25_Doc36": {
+    "hydrostatic_surface_H22_m": 783.65,
+    "hydrostatic_base_H22_m": 667.61,
+    "observed_surface_H22_m": 857.0,
+    "nonhydrostatic_surface_H22_m": 73.35,
+    "airy_root_base_H22nh_m_at_C2_1": -814.35,
+    "amplification_rho_ice_over_dRho": 11.56,
+    "g_t_over_g_b": 0.9602,
+    "note": "The Airy root is LARGER IN MAGNITUDE than the hydrostatic base figure itself (814 m vs 668 m), which is why this is a structural effect and not a small correction."
+  },
+  "four_treatments_matched_shell_thickness": {
+    "columns": "shell-figure factor applied to (Bs-As); libration at zb=25 km; deviation from the hydrostatic case; zb matching the observed 0.092 deg (D_ocean=36 km)",
+    "hydrostatic_PP_default": {"factor": 1.0, "libration_deg": 0.09077, "sigma_vs_hydrostatic": 0.0, "zb_match_km": 24.7},
+    "whole_difference_as_implemented_27fc71df": {"factor": 1.0936, "libration_deg": 0.09502, "sigma_vs_hydrostatic": 1.417, "zb_match_km": 25.8},
+    "surface_only_reviewer_alternative": {"factor": 1.2133, "libration_deg": 0.10054, "sigma_vs_hydrostatic": 3.256, "zb_match_km": 27.34},
+    "HM_Eq12_observed_surface_plus_Airy_root_C2_1": {"factor": 2.773, "libration_deg": 0.18237, "sigma_vs_hydrostatic": 30.53, "zb_match_km": null, "note": "NO zb in [12,44] km reproduces the observed libration under this treatment"}
+  },
+  "the_decisive_new_finding": {
+    "claim": "The libration DOES depend on compensation_C2, contradicting the third pass's finding that dlibration/dC2 = 0.00 sigma.",
+    "measurement_zb25_Doc36": [
+      {"C2": 0.0, "figure_factor": 1.2133, "libration_deg": 0.10054, "dev_vs_obs_sigma": 2.85},
+      {"C2": 0.1, "figure_factor": 1.3693, "libration_deg": 0.10788, "dev_vs_obs_sigma": 5.29},
+      {"C2": 0.25, "figure_factor": 1.6032, "libration_deg": 0.11921, "dev_vs_obs_sigma": 9.07},
+      {"C2": 0.5, "figure_factor": 1.9931, "libration_deg": 0.13899, "dev_vs_obs_sigma": 15.66},
+      {"C2": 0.75, "figure_factor": 2.383, "libration_deg": 0.16001, "dev_vs_obs_sigma": 22.67},
+      {"C2": 1.0, "figure_factor": 2.773, "libration_deg": 0.18237, "dev_vs_obs_sigma": 30.12}
+    ],
+    "why_the_earlier_finding_differed": "The third pass measured dlibration/dC2 with the libration on the HYDROSTATIC figure, where C2 genuinely cannot enter — the Airy root never reaches the torque. Once the base figure carries the isostatic response (H&M's actual treatment) C2 enters the libration directly. So 'the libration breaks the C2-zb degeneracy' is true ONLY in the hydrostatic formulation; under H&M's it does not, and MAJOR-4's conclusion that gravity is a pure compensation-state measurement while libration is a pure thickness channel would need revisiting."
+  },
+  "what_this_means_and_what_it_does_not": {
+    "does_not_mean": "It does NOT mean the H&M treatment is right and PP is wrong. A 30-sigma discrepancy at C2=1 more plausibly indicates that my mapping of the Airy root into the triaxial (B-A) is inconsistent with how H&M assemble Eq. 19 — e.g. they may apply the isostatic root to the l=2 ORDER-2 sectoral figure with a different normalization, or their (B-A) uses the density CONTRAST at the interface rather than the layer densities I used.",
+    "does_mean": [
+      "The +1.10 km figure from 27fc71df rests on a scaling (whole-difference) that matches NEITHER a surface-only reading NOR H&M's Eq. 12, so it should not be quoted as 'the H&M convention' as the config currently does.",
+      "The three candidate treatments span zb 24.7 / 25.8 / 27.34 km — 2.6 km, comparable to the 6 km H&M-vs-Park band separation the campaign exists to adjudicate. This is now the campaign's largest single unresolved systematic.",
+      "Because the libration is the SOLE thickness channel (third-pass MAJOR-4), this is not a nuisance-width question. It sets where the answer lands."
+    ]
+  },
+  "recommendation_not_a_ruling": "Do NOT quote the +1.10 km. Keep the H22_obs_m kwarg (default None is byte-identical, so nothing is broken) but STOP treating the whole-difference scaling as adjudicated. The next step is not another scaling guess: it is to reproduce H&M's own Table 2 shell thicknesses from their inputs with the libration in the loop, which would discriminate the treatments against a published answer. That is the same strategy that made the B13 gravity gate trustworthy.",
+  "not_self_adjudicated": "Routed to the scientific-reviewer. Machine B has measured the four treatments and the C2 dependence and is not choosing among them."
+}
