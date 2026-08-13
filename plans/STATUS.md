@@ -3,7 +3,24 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-12h (Machine A Codex: **C19 NOT IMPLEMENTED — SOURCE-DATA
+Updated: 2026-08-12i (Machine A: **BOTH CODEX ESCALATIONS ADJUDICATED.**
+(1) C18/libration: reviewer decomposed the 0.82% rigid-vs-elastic gap
+exactly — the bug is the RIGID branch's K_int missing 8π/15 (+1.9%) plus
+linearized figure moments (+1.6%) cancelling the REAL elastic reduction
+(−2.6%; elastic branch validated end-to-end, Love-number sum matches
+ALMA k2 at 0.015%, VH16 direction confirmed). Shipped rigid channel is
++0.75% LOW (0.21σ_obs at the Park solution) BY CANCELLATION — not
+robust to rheology. Adopted: +0.8% multiplicative correction in the
+frozen config + ±0.4% residual (freeze-doc B2); falsified 0.03% record
+corrected in the 2026-07-09 handoff; K_int fix = post-campaign reviewed
+task, must not land alone; C18 UNHELD with revised spec (published-value
++ monotonicity land; discrepancy pin + strict-xfail + permanent
+Love-number-sum guard). (2) C19/induction: the PPO driver is
+non-stationary — no stable Be vector exists; synodic channel represented
+by response function + amplitude BAND A×[1,2] nT, no Be1xyz row
+invented; orbital row stays the primary. C19 resumed under the amended
+spec. Campaign remains rigid=True.)
+Prior: 2026-08-12h (Machine A Codex: **C19 NOT IMPLEMENTED — SOURCE-DATA
 ESCALATION.** Saur et al. 2024 §2.2 supplies the nominal PPO period
 (0.6483 d = 15.5592 hr) but only a time-varying amplitude of up to 1–2 nT;
 it does not supply the exact J2000 complex Cartesian vector required for a

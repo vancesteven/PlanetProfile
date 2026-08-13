@@ -32,6 +32,26 @@ run now reproduces the inference gravity observables behind
 Do.CALC_C20_C22, delegating unchanged to gravity_obs. STRATEGY exception
 list update folded into C21 below.
 
+**Manager adjudication of the C19 escalation (2026-08-12): ACCEPTED —
+correct stop. REVISED C19 SPEC:** the Saturn PPO driver is
+NON-STATIONARY (drifting phase, amplitude only bounded 1-2 nT, Saur
+§2.2), so a fixed Be1xyz vector is the WRONG representation and must not
+be invented. Amended tasks:
+1. B8': add `Texc_hr['Enceladus']['synodic'] = 15.5592` (period only —
+   used for the response function A(omega), Phi(omega), which needs NO
+   Be vector). Do NOT add a synodic Be1xyz row. The synodic |B_ind|
+   deliverable becomes a BAND: A_synodic x [1, 2] nT, computed at
+   display time; the caption states the driver is Saturn's drifting PPO
+   with time-varying amplitude and no stable phase (Saur §2.2).
+2. B9 unchanged: fix the Be-file resolution for the ORBITAL row (the
+   stable, eccentricity-driven primary channel).
+3. B10 unchanged (conductivity acceptance test).
+4. Two-period smoke: InducedAeList at both periods returns finite Ae —
+   Ae needs only the period, not Be; the smoke is completable under
+   this spec.
+This is recorded as the freeze-doc induction design's concrete synodic
+treatment (display band, not vector). Resume C19 under this spec.
+
 ### C20 — Per-campaign methods-snippet generator (1.0 milestone item 6) [status: queued]
 
 The paper's methods section must be assemblable per campaign from
