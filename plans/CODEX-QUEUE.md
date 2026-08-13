@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-12 (C16t verified; C17 next, then C18→C19 in order, one implementation commit per task). Curated by the Claude model manager
+Updated: 2026-08-12 (C17 verified; C18 next, then C19, one implementation commit per task). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -236,7 +236,7 @@ reproduced from a fixed seed with artifact+cache SHAs pinned in the
 committed reference record. Exactly what the program review asked for.
 C17 in progress.
 
-### C17 — Expose degree-2 C20/C22 as a standard PlanetProfile run output (core-parity, STRATEGY exception (b)) [status: in progress (Codex)]
+### C17 — Expose degree-2 C20/C22 as a standard PlanetProfile run output (core-parity, STRATEGY exception (b)) [status: verified]
 
 The direct-Clairaut calculation exists in
 `PlanetProfile/Inference/gravity_obs.py`; only its invocation path is
@@ -248,6 +248,24 @@ DO NOT alter the calculation itself (protocol 4: escalate if any
 physics change seems needed). Verification: targeted test comparing the
 new standard-run output against gravity_obs directly on one Europa +
 one Titan case; suite green. Report `verified`.
+
+**Report (Codex, 2026-08-12):** `verified`. Added the default-off
+`Planet.Do.CALC_C20_C22` standard-run path, with `Gravity.kf`, `Gravity.C20`,
+and `Gravity.C22` returned on the Planet structure and an INFO-level derived-
+quantity printout. The path delegates unchanged to
+`Inference.gravity_obs.clairaut_kf` and `hydrostatic_c20_c22`; Europa and
+Titan defaults carry the same body-specific reference radius and J2/C22
+conventions already committed in their inference configurations. New runs,
+interior reruns, and reloads are covered without changing the positional
+profile-file format; disabled runs retain prior behavior. Verification:
+`python -m unittest tests.standard_gravity_output_test tests.gravity_obs_test
+tests.gravity_channels_test -v` = **20 passed** (including direct-helper
+parity for one Europa and one Titan case). Full `pytest -q tests` = **162
+passed, 2 subtests passed, 2 unrelated pre-existing Reaktoro speciation
+failures**, independently reproduced in `tests.mccleskey_speciation_test`
+(`KeyError: SupcrtAqueousLookupByFormula`); C17-focused suites are green.
+`py_compile` and `git diff --check` PASS. Claim commit `4ef68886`;
+implementation commit `da01ce26`.
 
 _Prior triage (C9-C12, closed): triage of the C8 doc-doctor report (2 PASS / 10 FINDING,
 `validation_reports/doc_doctor/2026-08-06_first_pass.md`). Already resolved

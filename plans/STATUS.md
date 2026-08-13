@@ -3,7 +3,14 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-12e (Machine A: **C16 STOP RELEASED — re-ratified after
+Updated: 2026-08-12f (Machine A: **CODEX C17 VERIFIED.** Standard-run
+degree-2 gravity is now available behind default-off
+`Planet.Do.CALC_C20_C22`, returning direct-Clairaut `Gravity.kf/C20/C22`
+with Europa/Titan inference-parity conventions and normal log printout.
+Focused gravity verification is 20/20 PASS; full pytest is 162 PASS + 2
+pre-existing Reaktoro-speciation failures (`SupcrtAqueousLookupByFormula`).
+Implementation `da01ce26`; C18 next. Prior entry below.)
+Prior: 2026-08-12e (Machine A: **C16 STOP RELEASED — re-ratified after
 independent gate recomputation** (residual 1.20 sigma inside the
 preregistered 2x bound; R4 recorded: the n_eff=2000 reference was the
 biased estimator, LOW on branch mass, FAIL-ADJUDICATED with narrow
