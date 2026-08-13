@@ -112,7 +112,7 @@ Primary source: Van Hoolst, Baland & Trinh (2016), Icarus 277, 311–318,
 doi:10.1016/j.icarus.2016.05.025. Claim was incorporated by the manager's
 concurrent queue commit `53d30e94`; no implementation commit.
 
-### C19 — Enceladus induction plumbing (freeze blockers B8-B10) [status: queued]
+### C19 — Enceladus induction plumbing (freeze blockers B8-B10) [status: in progress (Codex)]
 
 1. B8: add the synodic/PPO excitation — `Texc_hr['Enceladus']['synodic']
    = 15.559` in `PlanetProfile/MagneticInduction/Moments.py:55` (cite
