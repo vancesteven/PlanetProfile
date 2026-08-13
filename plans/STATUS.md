@@ -3,29 +3,35 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-12j (Machine B: **⚠ SALT C16 AWAITS MACHINE A DISPOSITION —
-§0.21 consequence 3 falsified at zero compute.** MgSO4 + NaCl fiducial IS
-validations COMPLETE and pushed (`c31192ff` in `1c82e38d`): both clean
-(Pareto-k 0.33/0.26, ESS 1592/1516, C3 max_rel_diff 0.0, C5.3 + pushforward
-PASS). C16 residuals MgSO4 +0.1012, NaCl +0.1180 — SAME-SIGN as NH3, so the
-§0.20 preregistered corroboration criterion IS met. However the reviewer
-decomposition (agent a9368180b6ee0debb; reproduced independently by B) shows
-the salt residuals are FLOW-dominated: flow−reference is +0.081/+0.095 BEFORE
-any importance correction, whereas the NH3-measured reference-side systematic
-is only +0.0114 (n_eff 2000→8000). That explains 10-11% of the salt residual
-as-is, ≤37% under a maximally generous p(1−p) variance scaling; residuals
-survive at 2.8σ (MgSO4) and 3.9σ (NaCl). Reference-free corroboration: salt
-WKS_im 0.135/0.130 vs NH3 0.061 (cap 0.15), gap_im_sigma 0.327/0.341 vs 0.147
-— the §0.12 flow-defect partition, not the §0.20 reference systematic.
-**Consequence: §0.21(3)'s prescribed salt R3-class recompute (~2 overnight
-campaigns) cannot ratify salt C16.** Machine A decision requested — (a) run it
-anyway as preregistered confirmation, (b) skip and open salt C16 as a
-flow-side FAIL routed to §0.12 ruling 3, or (c) re-scope so one compute block
-serves both. Reviewer: PASS-WITH-CONCERNS on the NH3 release (which STANDS,
-independent of the salts), BLOCK on ratifying salt C16 on this package. Also
-landed: repool completion (all 13 per-sample arrays; the 2026-08-10 repair had
-left 12 derived arrays at last-seed length — §0.16 crosscheck verdicts NOT
-retroactively affected). Details: MACHINE-B-HANDOFF.md §0.22. Prior entry:)
+Updated: 2026-08-12l (Machine A Codex: **C19 VERIFIED UNDER THE ADJUDICATED
+RESPONSE-BAND DESIGN.** Enceladus now carries the 15.5592 hr PPO period for
+response-only evaluation; no fixed PPO `Be1xyz` vector was invented. The
+existing true-anomaly row resolves unchanged from arbitrary working
+directories and cannot be silently reused as the synodic row. The inference
+display reports `|Ae| x [1,2] nT` with the drifting PPO/no-stable-phase
+caption. The Saur conductivity bracket, two-period finite-Ae smoke, loader
+guard, band unit test, and AppTest all pass; focused induction/inference
+regressions 52/52 pass. Implementation `eab1d788`; C20 next.)
+Prior: 2026-08-12k (Machine A: **REBALANCING DIRECTIVE §0.22 — user
+raised bog-down concern; manager agrees on the margin.** Salt C16
+FAIL-track OPENED (reviewer: flow-dominated, 4.4/5.6 sigma) and PARKED
+post-1.0 — reference ocean fractions are the citable numbers (MgSO4
+~0.49, NaCl ~0.53: salt Titan models genuinely ocean-ambiguous, vs NH3
+93%). NH3 lift gates -> background. ENCELADUS = foreground: Machine A
+finishing freeze blockers (zb builder + libration scans on the
++0.8%-corrected model), then B runs cache->dataset->n_eff=8000
+reference->training. Track 2b/2c post-1.0. B's repool-repair completion
+accepted. Codex C18 verified under the revised spec (5 passed + 1
+strict-xfail tripwire; Love-number-sum guard permanent).)
+Prior: 2026-08-12j (Machine A Codex: **C18 VERIFIED UNDER REVISED SPEC.**
+First libration regression suite now covers the VH16 published band
+(524.38 m inside 466–590 m), a strictly decreasing 5–45 km shell sweep, the
+adjudicated rigid/elastic discrepancy pin (0.110905164/0.111814157 deg), a
+strict-xfail physical-direction tripwire for the future K_int repair, and a
+permanent y1 partial-Love-number sum guard (0.0148% vs ALMA Re(k2), inside
+0.1%). Focused + nearest Enceladus gate: 5 passed, 1 xfailed. No production
+physics changed. Implementation `54bf8b4a`; C19 resumed next. Prior entry
+below.)
 Prior: 2026-08-12i (Machine A: **BOTH CODEX ESCALATIONS ADJUDICATED.**
 (1) C18/libration: reviewer decomposed the 0.82% rigid-vs-elastic gap
 exactly — the bug is the RIGID branch's K_int missing 8π/15 (+1.9%) plus

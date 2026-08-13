@@ -2,7 +2,7 @@
   "title": "Salt C16 residual decomposition — zero-compute test of MACHINE-B-HANDOFF §0.21 consequence 3",
   "date": "2026-08-12",
   "author": "Machine B",
-  "status": "EVIDENCE — awaiting Machine A disposition (see MACHINE-B-HANDOFF.md §0.22). NOT self-adjudicated.",
+  "status": "EVIDENCE — DISPOSITIONED by Machine A, MACHINE-B-HANDOFF.md §0.22 REBALANCING DIRECTIVE order 1 (commit a3f55a43): salt C16 FAIL-track OPENED and PARKED post-1.0; no further salt tidal/branch-mass compute before 1.0; salt slots ship as-is with the reference MCMC ocean fractions as the citable numbers. Machine A reached this independently and concurrently with this analysis. This record is retained because it establishes at zero compute that the §0.21(3) salt R3-class recompute could not have ratified salt C16 — order 1 therefore forgoes no reachable result. NOT self-adjudicated by Machine B.",
   "question": "§0.21 consequence 3 presumes the salt references are 'biased LOW the same way' as the NH3 n_eff=2000 reference, and prescribes an R3-class (n_eff=8000, 3-seed) recompute per composition before salt C16 can become a GATE. Can the NH3-measured reference-side systematic account for the salt C16 residuals?",
   "answer": "No. It accounts for 10-11% as-is and at most ~37% under a maximally generous variance scaling. The residuals survive at 2.8 sigma (MgSO4) and 3.9 sigma (NaCl).",
   "method": "Decompose residual = (flow_ocean_prob - reference) + (corrected - flow_ocean_prob) using only fields already committed in the is_validation_*.json files. No new compute; no MCMC recompute.",

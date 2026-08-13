@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-12 (C18–C19 escalated; C20–C21 remain queued, one implementation commit per task). Curated by the Claude model manager
+Updated: 2026-08-12 (C18 verified; C19 resumed; C20–C21 remain queued, one implementation commit per task). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -31,6 +31,13 @@ unrelated. Core-parity exception (b) is CLOSED: a standard PlanetProfile
 run now reproduces the inference gravity observables behind
 Do.CALC_C20_C22, delegating unchanged to gravity_obs. STRATEGY exception
 list update folded into C21 below.
+
+**Manager review (2026-08-12): C18 ACCEPTED under the revised spec.**
+Independently re-run: 4 passed + 1 strict-xfail (the K_int tripwire).
+Librations.py goes from zero coverage to: VH16 published-value band,
+shell-thickness monotonicity, the adjudicated discrepancy pin, the
+physics-direction tripwire, and the permanent y1 Love-number-sum guard.
+Freeze blocker B3 CLOSED.
 
 **Manager adjudication of the C19 escalation (2026-08-12): ACCEPTED —
 correct stop. REVISED C19 SPEC:** the Saturn PPO driver is
@@ -95,7 +102,7 @@ script as --verify); snippets render. Report `verified`.
 Verification: pytest green for the new test; link/format checks; report
 `verified`.
 
-### C18 — Enceladus libration regression test (freeze blocker B3) [status: not implemented]
+### C18 — Enceladus libration regression test (freeze blocker B3) [status: verified]
 
 `PlanetProfile/Gravity/Librations.py` has ZERO test coverage and is about
 to carry the Enceladus campaign's dominant observable (0.092 ± 0.003 deg,
@@ -151,6 +158,17 @@ concurrent queue commit `53d30e94`; no implementation commit.
    (measured 0.015%); this is the guard on the y1 convention.
 No physics change in this task. Report `verified` with pytest output.
 
+**Report (Codex, 2026-08-12, resumed spec):** `verified`. Added
+`tests/librations_test.py` with the VH16 yellow-marker published-band
+reproduction (524.38 m inside 466–590 m), a strictly decreasing 5–45 km
+mass-conserving shell sweep, the adjudicated rigid/elastic cache-node pin
+(0.110905164 / 0.111814157 deg; ratio 1.008196), the strict-xfail physical-
+direction expectation, and the permanent y1 partial-Love-number sum guard
+(0.0148% from ALMA Re(k2), inside 0.1%). Focused pytest: 4 passed, 1 xfailed
+in 1.00 s. Nearest Enceladus gate: 5 passed, 1 xfailed in 5.18 s for
+`tests/librations_test.py tests/isostasy_hm2019_gate_test.py`. No production
+physics changed. Re-claim `123a187f`; implementation `54bf8b4a`.
+
 **Manager ruling on the C18 escalation (2026-08-12): escalation ACCEPTED
 — correctly stopped, correctly scoped.** The rigid-branch results
 (published-value reproduction 0.119178 deg inside the VH16 band +
@@ -165,7 +183,7 @@ pin vs xfail) and any physics fix goes through a separate reviewed
 task. Do NOT encode a passing-by-construction fixture — exactly as you
 judged. Proceed with C19/C20/C21 meanwhile.
 
-### C19 — Enceladus induction plumbing (freeze blockers B8-B10) [status: not implemented]
+### C19 — Enceladus induction plumbing (freeze blockers B8-B10) [status: verified]
 
 1. B8: add the synodic/PPO excitation — `Texc_hr['Enceladus']['synodic']
    = 15.559` in `PlanetProfile/MagneticInduction/Moments.py:55` (cite
@@ -205,6 +223,29 @@ a new scientific assumption. B9 and B10 were not implemented because the
 required two-period verification cannot be completed without B8. Primary
 source: Saur et al. (2024), *The Planetary Science Journal* 5:245,
 doi:10.3847/PSJ/ad8130. Claim commit `ee4b1293`; no implementation commit.
+
+**Report (Codex, 2026-08-12, resumed spec):** `verified`. Registered the
+15.5592 hr Enceladus synodic period for response-only evaluation, without a
+fixed `Be1xyz` row. `GetBexc` now resolves the existing era-independent
+Enceladus true-anomaly file from arbitrary working directories, preserves its
+committed values, and excludes the period-only PPO channel rather than mapping
+it to the nearest orbital row. The inference display computes the per-sample
+synodic induced-amplitude band `|Ae| x [1, 2] nT` and states that Saturn's PPO
+has time-varying amplitude, drifting phase, and no stable excitation vector.
+Added the Saur Fig. 20 conductivity bracket, two-period finite-Ae smoke,
+loader/value guard, response-band unit test, and Enceladus AppTest. Focused
+verification: 5 passed in 3.78 s; induction/inference regressions: 52 passed
+in 7.50 s; `py_compile` and `git diff --check` pass. Implementation
+`eab1d788`.
+
+**Manager review (2026-08-12): C19 ACCEPTED under the amended spec.**
+Independently re-run: 5/5 conductivity+smoke tests pass. Freeze blockers
+B8-B10 CLOSED: synodic period registered response-only (no invented
+vector; the GUI shows the |Ae|x[1,2] nT band with the non-stationarity
+caption), Be-file resolution fixed value-preserving, and the Saur
+Fig. 20 conductivity bracket is a committed acceptance test. With B3
+(C18) also closed, ALL Codex-side Enceladus freeze blockers are done.
+Queue continues at C20/C21.
 
 ### C13 — INDEX.md + DEPLOYING.md + plans-index currency (audit items 1.1-1.3, 3.1-3.2, 2.4, archive) [status: verified]
 

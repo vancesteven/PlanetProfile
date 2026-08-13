@@ -253,7 +253,12 @@ def ExtractInductionData(InductionResults, bodyname, PlanetGrid, Params):
         PlanetGrid = PlanetGrid.reshape(1, -1)
     
     BeList = Excitations(bodyname)
-    eachT = np.logical_and([Params.Induct.excSelectionCalc[key] for key in BeList.keys()], [BeList[key] is not None for key in BeList.keys()])
+    eachT = np.logical_and(
+        [Params.Induct.excSelectionCalc[key] for key in BeList.keys()],
+        [BeList[key] is not None
+         and not (bodyname == 'Enceladus' and key == 'synodic')
+         for key in BeList.keys()],
+    )
     nPeaks = sum(eachT)
     # Extract magnetic induction results from the PlanetGrid
     Benm_nT = PlanetGrid[0, 0].Magnetic.Benm_nT

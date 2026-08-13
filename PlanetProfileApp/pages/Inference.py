@@ -3501,6 +3501,35 @@ def render_results():
                 import matplotlib.pyplot as plt
 
                 _be = (result.metadata or {}).get('Be_nT') or {}
+                _bodyname = str(getattr(result.config, 'bodyname', ''))
+                if (_bodyname.lower() == 'enceladus'
+                        and 'synodic' in _ind_ae):
+                    from PlanetProfile.Inference.forward_models import (
+                        induced_amplitude_band_nT,
+                    )
+                    _ppo_ae = (
+                        np.asarray(_ind_ae['synodic']['re'], float)
+                        + 1j * np.asarray(_ind_ae['synodic']['im'], float)
+                    )
+                    _ppo_lo, _ppo_hi = induced_amplitude_band_nT(_ppo_ae)
+                    _finite = np.isfinite(_ppo_lo) & np.isfinite(_ppo_hi)
+                    if np.any(_finite):
+                        _lo_med = float(np.median(_ppo_lo[_finite]))
+                        _hi_med = float(np.median(_ppo_hi[_finite]))
+                        st.metric(
+                            "Synodic induced-amplitude band",
+                            f"{_lo_med:.3g}–{_hi_med:.3g} nT",
+                            help=("Median posterior |Ae| multiplied by the "
+                                  "1–2 nT PPO driver-amplitude range."),
+                        )
+                    st.caption(
+                        "Enceladus synodic |B_ind| is shown as the per-sample "
+                        "band |Ae| × [1, 2] nT. Saturn's PPO driver has "
+                        "time-varying amplitude, drifting phase, and no stable "
+                        "excitation vector (Saur et al. 2024, §2.2); the "
+                        "eccentricity/true-anomaly channel remains the stable "
+                        "primary."
+                    )
                 unit_opts = ['Ae (dimensionless)']
                 if _be:
                     unit_opts.append('Ae·|B| (nT, per component)')

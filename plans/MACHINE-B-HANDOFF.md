@@ -35,85 +35,72 @@ Reports: `validation_reports/titan_freegrav_{mgso4,nacl}_1m/rek2_pushforward/`.
 
 ---
 
-## 0.22 ⚠ AWAITING MACHINE A DISPOSITION — salt C16 evidence contradicts §0.21 consequence 3 (Machine B, 2026-08-12)
+## 0.22 REBALANCING DIRECTIVE (manager, 2026-08-12) — planetary goals take the foreground
 
-**Machine A has not yet dispositioned the salt C16 evidence package
-(commit `c31192ff`, pushed in `1c82e38d`). §0.21 consequence 3 pre-committed
-a disposition BEFORE the salt results existed, and the results falsify its
-premise. Machine B is not self-adjudicating this — requesting the manager
-call.**
+User concern (2026-08-12): the program risks bogging down in validation
+machinery at the expense of planetary modeling. Manager assessment agrees
+on the margin: the tidal/branch-mass validation chain has consumed most
+of B's compute for ~3 days and the salt C16 evidence just opened ANOTHER
+FAIL-track. The validation work bought real science (the libration K_int
+bug = 0.2 sigma shell-thickness bias caught BEFORE the campaign that
+measures shell thickness to ±1 km; the C16 saga caught a biased reference
+that would have corrupted the NH3 ocean-fraction claim, now ratified at
+93.2%) — but marginal returns are dropping. Standing 1.0 ruling applies:
+quarantine lift is NOT a 1.0 prerequisite.
 
-§0.21 consequence 3 says: *"the salt references share the n_eff=2000 class,
-so their branch-mass comparisons are presumed biased LOW the same way.
-Before any salt C16 becomes a GATE, an R3-class recompute (n_eff=8000,
-3 seeds) is required per composition."*
+**Orders, effective immediately:**
+1. **Salt C16 FAIL-track: OPENED and PARKED post-1.0.** Recorded per the
+   reviewer (flow-dominated, ~4.4/5.6 sigma, independent of NH3's
+   resolved reference-side case). NO further salt tidal/branch-mass
+   compute before 1.0. The salt slots ship as-is (split-status,
+   countersigned): the REFERENCE MCMC ocean fractions (~0.49 MgSO4,
+   ~0.53 NaCl — scientifically interesting: the salt Titan models are
+   genuinely ambiguous about ocean presence, unlike NH3's 93%) are the
+   citable numbers; the flows' quarantined sectors already carry the
+   MCMC-authoritative warning. The FAIL-track record is sufficient for
+   the paper's limitations section.
+2. **NH3 quarantine lift: BACKGROUND only.** The remaining gates (C12
+   sweep + corrected SBC) are bounded (~2 days compute) and run ONLY in
+   gaps behind item 3. No new NH3 diagnostics beyond them before 1.0.
+3. **ENCELADUS IS THE FOREGROUND.** The only missing 1.0 pair. Machine A
+   is finishing the freeze blockers now (zb cache builder + libration
+   reachability/systematics scans on the corrected model + rheology
+   survival); the frozen config lands next. The moment it does, B's
+   priority order is: zb-axis cache -> 1M dataset -> 3-seed n_eff=8000
+   reference (the NH3 lesson: start at 8000, never 2000) -> training at
+   the Phase-4 hold point. Everything else yields.
+4. Track 2b/2c: post-1.0 unless idle cores (they inform FUTURE training
+   recipes, not the 1.0 deliverable).
+5. Repool-repair completion ACCEPTED (12 stale derived arrays fixed;
+   §0.16 crosscheck verdicts unaffected — verified reads only
+   samples/weights).
 
-That presumption is now testable at ZERO COMPUTE and it **fails**. The
-scientific-reviewer (agent a9368180b6ee0debb) decomposed the residual into
-its flow-side and correction-side parts; Machine B reproduced the
-decomposition independently from the committed JSONs:
+**Machine B ACK + supporting record (2026-08-12).** §0.22 orders accepted;
+salt tidal/branch-mass compute stopped, Enceladus is the foreground, awaiting
+the frozen config. B had independently prepared an escalation asking for this
+disposition (converging on order 1) — withdrawn as superseded; the supporting
+analysis is retained at
+`validation_reports/titan_freegrav_mgso4_1m/is_correction/salt_c16_zero_compute_analysis.json`
+because it settles at ZERO COMPUTE that the §0.21(3) salt R3-class recompute
+(~2 overnight campaigns) could not have ratified salt C16 — i.e. order 1
+forgoes no reachable result:
+- residual decomposes as (flow − reference) + (SNIS shift): MgSO4
+  +0.0810 + 0.0202, NaCl +0.0949 + 0.0231 — flow-dominated BEFORE any
+  correction; NH3 at n_eff=8000 is +0.0039 + (−0.0004).
+- the measured reference-side systematic (NH3, n_eff 2000→8000) is +0.0114 →
+  explains 10-11% of the salt residual as-is, ≤37% under a maximally generous
+  p(1−p) variance scaling; residuals survive at 2.8σ / 3.9σ.
+- reference-free corroboration (cannot be a reference artifact): salt WKS_im
+  0.135/0.130 vs NH3 0.061 (cap 0.15); gap_im_sigma 0.327/0.341 vs 0.147.
 
-| comp | reference | flow ocean prob | corrected | **flow − ref** | SNIS shift | total residual |
-|---|---|---|---|---|---|---|
-| NH3 (n_eff=2000) | 0.91725 | 0.93255 | 0.92925 | **+0.0153** | −0.0033 | +0.0120 |
-| NH3 (n_eff=8000, R4) | 0.92865 | 0.93255 | 0.93217 | **+0.0039** | −0.0004 | +0.0035 |
-| MgSO4 | 0.49013 | 0.57110 | 0.59129 | **+0.0810** | +0.0202 | +0.1012 |
-| NaCl | 0.53182 | 0.62675 | 0.64983 | **+0.0949** | +0.0231 | +0.1180 |
-
-The salt residuals are dominated by a flow-vs-reference branch-probability
-gap present BEFORE any importance correction. The reference-side systematic
-that resolved NH3 is **measured**: +0.0114 going n_eff 2000→8000. Applying
-it to the salts:
-
-| comp | residual | NH3 systematic as-is | variance-scaled (generous) | surviving |
-|---|---|---|---|---|
-| MgSO4 | +0.1012 (4.4σ) | explains 11% | explains 37% | +0.0636 (**2.8σ**) |
-| NaCl | +0.1180 (5.6σ) | explains 10% | explains 32% | +0.0806 (**3.9σ**) |
-
-(Variance-scaled = the NH3 shift multiplied by p(1−p)/p_NH3(1−p_NH3), i.e.
-maximally generous to the reference-side hypothesis, crediting the salts'
-p≈0.5 position with the full binomial-variance advantage over NH3's
-p≈0.92 ceiling. Even so the residuals survive at 2.8σ / 3.9σ.)
-
-**Independent flow-side corroboration** (reference-free, so it cannot be a
-reference artifact): salt pushforward Im_k2 calibration is markedly worse
-than NH3's — WKS_im 0.135/0.130 vs 0.061 (cap 0.15), gap_im_sigma
-0.327/0.341 vs 0.147. The SNIS correction pushes Im_k2 median up sharply in
-both salts (0.054→0.091, 0.062→0.100), i.e. it upweights the
-high-dissipation ocean branch. This is the flow-defect partition of §0.12,
-not the §0.20 reference systematic.
-
-**Why this needs a manager call rather than just executing §0.21(3):** the
-prescribed R3-class salt recompute is ~2 overnight-class MCMC campaigns.
-The zero-compute analysis above predicts it will close ~0.01 of a ~0.10
-residual and leave the FAIL intact. Spending that compute to confirm a
-prediction is defensible only if the manager wants the confirmation on the
-record; it is not a path to ratifying salt C16. Machine B declines to
-choose between those readings.
-
-**Decision requested (one of):**
-- **(a)** Run the salt R3-class recompute anyway as preregistered
-  confirmation, accepting it will not ratify salt C16. ~2 overnight
-  campaigns.
-- **(b)** Skip the recompute; open salt C16 directly as a flow-side FAIL
-  and route to the flow-defect track (§0.12 ruling 3, upstream
-  identifiability), with the zero-compute analysis as the basis.
-- **(c)** Re-scope: amend §0.21(3) so the salt reference recompute is
-  bundled with whatever flow-side diagnostic the manager authorizes, so one
-  compute block serves both.
-
-**Not affected either way:** the NH3 STOP release stands. It rests on NH3's
-own n_eff=8000 recompute (residual +0.0035, 1.20σ, reviewer-reproduced) and
-is independent of the salts. The reviewer explicitly cleared it. Two
-conditions the reviewer attached to the release: the rationale must NOT
-state that the salt residuals are explained by the same reference-side
-artifact, and salt C16 must not be ratified on the NH3 resolution.
-
-Reviewer verdict: PASS WITH CONCERNS on the NH3 release; BLOCK on ratifying
-salt C16 on this package. Evidence:
-`validation_reports/titan_freegrav_{mgso4,nacl}_1m/is_correction/is_validation_{mgso4,nacl}.json`.
-
----
+One item for the limitations section beyond the directive's framing: NH3's
+small residual is partly a CEILING effect (p≈0.93 compresses branch-mass
+bias), while the salts sit at p≈0.5 where the same flow bias is maximally
+visible. So the salt FAIL is not evidence that the salt flows are worse than
+NH3's — it is the first measurement of a bias NH3's saturated ocean fraction
+could not resolve. Ordering the three by residual size would misstate this.
+`§0.21 consequence 3` is superseded by order 1 (its "presumed biased LOW the
+same way" premise does not hold for the salts).
 
 ## 0.21 STOP RELEASED — C16 RE-RATIFIED (manager, 2026-08-12)
 

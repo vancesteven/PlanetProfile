@@ -251,7 +251,12 @@ def CalcInducedMoments(Planet, Params):
 
     Planet.Magnetic.calcedExc = [key for key, CALCED in Params.Induct.excSelectionCalc.items()
                                  if CALCED and key in Excitations.Texc_hr[Planet.bodyname].keys()
-                                 and Excitations.Texc_hr[Planet.bodyname][key] is not None]
+                                 and Excitations.Texc_hr[Planet.bodyname][key] is not None
+                                 # Enceladus PPO is response-only: without a
+                                 # stable Be vector it is not a calculated
+                                 # induced-moment channel in this pathway.
+                                 and not (Planet.bodyname == 'Enceladus'
+                                          and key == 'synodic')]
     # Save calculated magnetic moments to disk
     if (not Params.NO_SAVEFILE) and (not Params.INVERSION_IN_PROGRESS or not Params.MONTECARLO_IN_PROGRESS):
         saveDict = {
@@ -689,7 +694,8 @@ def GetBexc(bodyname, era, model, excSelection, MPmodel=None, nprmMax=1, pMax=0)
             log.warning('n\'_max greater than 1 is not yet supported. Be only up to n=1 will be loaded.')
             nprmMax = 1
 
-        if not os.path.isfile(os.path.join(fPath, f'{fNames[0]}.txt')):
+        requestedFName = fNames[0]
+        if not os.path.isfile(os.path.join(fPath, f'{requestedFName}.txt')):
             # CWD-independent fallback: the relative <Body>/inductionData
             # path only resolves when the CWD is the repo/install root.
             # Consumers importing PlanetProfile from elsewhere (e.g. the
@@ -698,25 +704,53 @@ def GetBexc(bodyname, era, model, excSelection, MPmodel=None, nprmMax=1, pMax=0)
             # not the directory. Same fix family as the SPICE-kernel and
             # UserConfigs resolvers (2026-07-12).
             _rootPath = os.path.join(os.path.dirname(_ROOT), fPath)
-            if os.path.isfile(os.path.join(_rootPath, f'{fNames[0]}.txt')):
+            if os.path.isfile(os.path.join(_rootPath, f'{requestedFName}.txt')):
                 fPath = _rootPath
+
+        # Enceladus has one committed, era-independent eccentricity/true-
+        # anomaly row.  Do not require an era/model suffix that does not
+        # exist, and do not synthesize a fixed row for the non-stationary PPO
+        # driver (Saur et al. 2024, sec. 2.2).
+        if (bodyname == 'Enceladus'
+                and not os.path.isfile(os.path.join(
+                    fPath, f'{requestedFName}.txt'))):
+            baseFName = 'Be1xyz_Enceladus'
+            basePaths = [
+                fPath,
+                os.path.join(os.path.dirname(_ROOT), bodyname,
+                             'inductionData'),
+                os.path.join(_Defaults, bodyname, 'inductionData'),
+            ]
+            for basePath in basePaths:
+                if os.path.isfile(os.path.join(basePath,
+                                               f'{baseFName}.txt')):
+                    fPath = basePath
+                    fNames[0] = baseFName
+                    break
 
         if os.path.isfile(os.path.join(fPath, f'{fNames[0]}.txt')):
             inpTexc_hr, inpBenm_nT, B0_nT, BeNames, Bexyz_nT = GetBenm(nprmMax, pMax, fpath=fPath,
                                                                     fName=fNames[0])
             BeList = Excitations(bodyname)
-            eachT = np.logical_and([excSelection[key] for key in BeList.keys()], [BeList[key] is not None for key in BeList.keys()])
-            nPeaks = sum(eachT)
+            availableNames = set(np.asarray(BeNames).astype(str))
+            selected = [
+                oscillation for oscillation, included in excSelection.items()
+                if included and oscillation in BeList
+                and BeList[oscillation] is not None
+                and (bodyname != 'Enceladus'
+                     or oscillation in availableNames)
+            ]
+            nPeaks = len(selected)
             Texc_hr = np.zeros(nPeaks)
             Benm_nT = np.zeros((nPeaks, 2, nprmMax+pMax+1, nprmMax+pMax+1), dtype=np.complex128)
             # Include in the excitation spectrum only the periods specified in configPPinduct.py
             iPeak = 0
-            for oscillation, included in excSelection.items():
-                if included and oscillation in BeList.keys() and BeList[oscillation] is not None:
-                    iClosest = np.argmin(abs(inpTexc_hr - BeList[oscillation]))
-                    Texc_hr[iPeak] = inpTexc_hr[iClosest]
-                    Benm_nT[iPeak, ...] = inpBenm_nT[inpTexc_hr == Texc_hr[iPeak], ...]
-                    iPeak += 1
+            for oscillation in selected:
+                iClosest = np.argmin(abs(inpTexc_hr - BeList[oscillation]))
+                Texc_hr[iPeak] = inpTexc_hr[iClosest]
+                Benm_nT[iPeak, ...] = inpBenm_nT[
+                    inpTexc_hr == Texc_hr[iPeak], ...]
+                iPeak += 1
 
             omegaExc_radps = 2*np.pi / Texc_hr / 3600
 
