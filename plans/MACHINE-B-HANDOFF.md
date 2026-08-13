@@ -35,6 +35,46 @@ Reports: `validation_reports/titan_freegrav_{mgso4,nacl}_1m/rek2_pushforward/`.
 
 ---
 
+## 0.22 REBALANCING DIRECTIVE (manager, 2026-08-12) — planetary goals take the foreground
+
+User concern (2026-08-12): the program risks bogging down in validation
+machinery at the expense of planetary modeling. Manager assessment agrees
+on the margin: the tidal/branch-mass validation chain has consumed most
+of B's compute for ~3 days and the salt C16 evidence just opened ANOTHER
+FAIL-track. The validation work bought real science (the libration K_int
+bug = 0.2 sigma shell-thickness bias caught BEFORE the campaign that
+measures shell thickness to ±1 km; the C16 saga caught a biased reference
+that would have corrupted the NH3 ocean-fraction claim, now ratified at
+93.2%) — but marginal returns are dropping. Standing 1.0 ruling applies:
+quarantine lift is NOT a 1.0 prerequisite.
+
+**Orders, effective immediately:**
+1. **Salt C16 FAIL-track: OPENED and PARKED post-1.0.** Recorded per the
+   reviewer (flow-dominated, ~4.4/5.6 sigma, independent of NH3's
+   resolved reference-side case). NO further salt tidal/branch-mass
+   compute before 1.0. The salt slots ship as-is (split-status,
+   countersigned): the REFERENCE MCMC ocean fractions (~0.49 MgSO4,
+   ~0.53 NaCl — scientifically interesting: the salt Titan models are
+   genuinely ambiguous about ocean presence, unlike NH3's 93%) are the
+   citable numbers; the flows' quarantined sectors already carry the
+   MCMC-authoritative warning. The FAIL-track record is sufficient for
+   the paper's limitations section.
+2. **NH3 quarantine lift: BACKGROUND only.** The remaining gates (C12
+   sweep + corrected SBC) are bounded (~2 days compute) and run ONLY in
+   gaps behind item 3. No new NH3 diagnostics beyond them before 1.0.
+3. **ENCELADUS IS THE FOREGROUND.** The only missing 1.0 pair. Machine A
+   is finishing the freeze blockers now (zb cache builder + libration
+   reachability/systematics scans on the corrected model + rheology
+   survival); the frozen config lands next. The moment it does, B's
+   priority order is: zb-axis cache -> 1M dataset -> 3-seed n_eff=8000
+   reference (the NH3 lesson: start at 8000, never 2000) -> training at
+   the Phase-4 hold point. Everything else yields.
+4. Track 2b/2c: post-1.0 unless idle cores (they inform FUTURE training
+   recipes, not the 1.0 deliverable).
+5. Repool-repair completion ACCEPTED (12 stale derived arrays fixed;
+   §0.16 crosscheck verdicts unaffected — verified reads only
+   samples/weights).
+
 ## 0.21 STOP RELEASED — C16 RE-RATIFIED (manager, 2026-08-12)
 
 R1-R4 record ACCEPTED after independent recomputation of the R3 gate

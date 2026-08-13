@@ -3,7 +3,18 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-12j (Machine A Codex: **C18 VERIFIED UNDER REVISED SPEC.**
+Updated: 2026-08-12k (Machine A: **REBALANCING DIRECTIVE §0.22 — user
+raised bog-down concern; manager agrees on the margin.** Salt C16
+FAIL-track OPENED (reviewer: flow-dominated, 4.4/5.6 sigma) and PARKED
+post-1.0 — reference ocean fractions are the citable numbers (MgSO4
+~0.49, NaCl ~0.53: salt Titan models genuinely ocean-ambiguous, vs NH3
+93%). NH3 lift gates -> background. ENCELADUS = foreground: Machine A
+finishing freeze blockers (zb builder + libration scans on the
++0.8%-corrected model), then B runs cache->dataset->n_eff=8000
+reference->training. Track 2b/2c post-1.0. B's repool-repair completion
+accepted. Codex C18 verified under the revised spec (5 passed + 1
+strict-xfail tripwire; Love-number-sum guard permanent).)
+Prior: 2026-08-12j (Machine A Codex: **C18 VERIFIED UNDER REVISED SPEC.**
 First libration regression suite now covers the VH16 published band
 (524.38 m inside 466–590 m), a strictly decreasing 5–45 km shell sweep, the
 adjudicated rigid/elastic discrepancy pin (0.110905164/0.111814157 deg), a

@@ -176,7 +176,7 @@ pin vs xfail) and any physics fix goes through a separate reviewed
 task. Do NOT encode a passing-by-construction fixture — exactly as you
 judged. Proceed with C19/C20/C21 meanwhile.
 
-### C19 — Enceladus induction plumbing (freeze blockers B8-B10) [status: not implemented]
+### C19 — Enceladus induction plumbing (freeze blockers B8-B10) [status: in progress (Codex)]
 
 1. B8: add the synodic/PPO excitation — `Texc_hr['Enceladus']['synodic']
    = 15.559` in `PlanetProfile/MagneticInduction/Moments.py:55` (cite
