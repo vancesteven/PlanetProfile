@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-12 (C15 verified; C16t next, then C17→C19 in order, one implementation commit per task). Curated by the Claude model manager
+Updated: 2026-08-12 (C18–C19 escalated; C20–C21 remain queued, one implementation commit per task). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -25,7 +25,77 @@ findings cited per task) + program-review items. All are doc/test/code
 tasks with NO scientific adjudication — copy authoritative wording, never
 re-adjudicate; escalate per protocol 4 on anything ambiguous._
 
-### C18 — Enceladus libration regression test (freeze blocker B3) [status: queued]
+**Manager review (2026-08-12): C17 ACCEPTED.** Independently re-run
+(13 passed + 2 subtests); Reaktoro failures confirmed pre-existing and
+unrelated. Core-parity exception (b) is CLOSED: a standard PlanetProfile
+run now reproduces the inference gravity observables behind
+Do.CALC_C20_C22, delegating unchanged to gravity_obs. STRATEGY exception
+list update folded into C21 below.
+
+**Manager adjudication of the C19 escalation (2026-08-12): ACCEPTED —
+correct stop. REVISED C19 SPEC:** the Saturn PPO driver is
+NON-STATIONARY (drifting phase, amplitude only bounded 1-2 nT, Saur
+§2.2), so a fixed Be1xyz vector is the WRONG representation and must not
+be invented. Amended tasks:
+1. B8': add `Texc_hr['Enceladus']['synodic'] = 15.5592` (period only —
+   used for the response function A(omega), Phi(omega), which needs NO
+   Be vector). Do NOT add a synodic Be1xyz row. The synodic |B_ind|
+   deliverable becomes a BAND: A_synodic x [1, 2] nT, computed at
+   display time; the caption states the driver is Saturn's drifting PPO
+   with time-varying amplitude and no stable phase (Saur §2.2).
+2. B9 unchanged: fix the Be-file resolution for the ORBITAL row (the
+   stable, eccentricity-driven primary channel).
+3. B10 unchanged (conductivity acceptance test).
+4. Two-period smoke: InducedAeList at both periods returns finite Ae —
+   Ae needs only the period, not Be; the smoke is completable under
+   this spec.
+This is recorded as the freeze-doc induction design's concrete synodic
+treatment (display band, not vector). Resume C19 under this spec.
+
+### C20 — Per-campaign methods-snippet generator (1.0 milestone item 6) [status: queued]
+
+The paper's methods section must be assemblable per campaign from
+committed material (doc-doctor E11; STRATEGY 1.0 item 6). Write
+`plans/scripts/generate_methods_snippet.py`: given a campaign key (reuse
+the is_correction_validate.py CAMPAIGNS table pattern; cover nh3, mgso4,
+nacl, v5, v6, v1p1, v4, test50), emit a Markdown methods paragraph
+assembled ONLY from committed sources — config (priors, observables,
+sigmas, sampled params), cache manifest (grid axes/counts, comp, builder
+flags, SHA), artifact metadata (n_train, seed, architecture, torch/sbi
+versions), gate outcomes (from gate summaries / RATIFICATION.md incl.
+FAIL-ADJUDICATED wording verbatim), and deployment state (INDEX row).
+Every sentence carries a source pointer comment. NO new prose judgments:
+where a verdict is needed, quote the committed adjudication text. Output
+to validation_reports/<campaign>/methods_snippet.md. Run it for all
+eight campaigns and commit the outputs. Verification: each generated
+snippet's numbers grep-match their sources (write the check into the
+script as --verify); snippets render. Report `verified`.
+
+### C21 — Enceladus doc/test odds and ends (freeze non-blockers N2/N5 + supersessions) [status: queued]
+
+1. `plans/mission-body-constraints.md`: fix the stale lines per the
+   2026-08-12 freeze adjudication — libration IS implemented (Librations
+   .py, wired via mcmc_runner; the doc's 223-232 region claims
+   otherwise); the proposed hypothetical Enceladus k2 channel is
+   REJECTED (user-ratified; note pointing at
+   plans/active/enceladus-config-freeze.md); gravity/libration source =
+   Park et al. 2024 erratum (supersedes Iess 2014 + Thomas 2016 —
+   update the values with exact numbers from the freeze doc).
+2. STRATEGY core-parity exception list: mark exception (b)
+   direct-Clairaut CLOSED by C17 (Do.CALC_C20_C22).
+3. N5: state the rigid-vs-elastic libration deferral (rigid=True in
+   inference; 0.03% check) in the freeze doc metadata section.
+4. N2 test: `tests/seawater_extrapolation_test.py` — GSW Seawater
+   rho/Cp/sigma at w in {42, 70, 100} ppt, P=3 MPa, T 271-274 K return
+   finite, monotone-in-w values (documents the PSS-78 extrapolation
+   behavior; cite the Europa v3 Gate 2 18.5% bound in the docstring).
+5. Regenerate `plans/active/titan-campaign-methods.html` FROM the .md
+   (pandoc or python-markdown, generator stamp in a comment) or delete
+   the .html and note the md as sole source — per the docs ruling.
+Verification: pytest green for the new test; link/format checks; report
+`verified`.
+
+### C18 — Enceladus libration regression test (freeze blocker B3) [status: not implemented]
 
 `PlanetProfile/Gravity/Librations.py` has ZERO test coverage and is about
 to carry the Enceladus campaign's dominant observable (0.092 ± 0.003 deg,
@@ -40,7 +110,62 @@ Enceladus-like interior. Escalate per protocol 4 if reproducing the
 published value requires ANY physics change — report the discrepancy,
 do not fix. Report `verified` with pytest output.
 
-### C19 — Enceladus induction plumbing (freeze blockers B8-B10) [status: queued]
+**Report (Codex, 2026-08-12):** `not implemented` — escalated per protocol
+4; no production or test files changed. Two requested checks reproduce
+without a physics change. The rigid Van Hoolst et al. (2016) Figs. 2–3
+yellow-marker interior (20 km shell, 42.1 km ocean, 190 km core,
+rho_shell=925 and rho_ocean=1050 kg/m3; mass closure gives
+rho_core=2418.34 kg/m3) yields 524.38 m / 0.119178 deg, inside the paper's
+466–590 m observation band. A mass-conserving fixed-core sweep from 5 to
+45 km shell thickness is strictly decreasing (1.390239 to 0.054702 deg).
+The required rigid-vs-elastic gate does NOT reproduce: on the same committed
+default cache node the current DP-ALMA y1 path gives 0.110905164 deg rigid
+versus 0.111814157 deg elastic, a 0.8196% difference (criterion <0.1%),
+not the recorded 0.11091/0.11094 deg. A fresh full PlanetProfile Enceladus
+run independently gives 0.109985555 versus 0.111025160 deg, a 0.9452%
+difference. In both cases elasticity increases the result, while Van Hoolst
+et al. (2016) state that elasticity reduces libration amplitude. Resolving
+whether the y1 convention, elastic torque implementation, or the earlier
+record is wrong requires scientific adjudication and potentially a physics
+change; Codex stopped without encoding a passing-by-construction fixture.
+Primary source: Van Hoolst, Baland & Trinh (2016), Icarus 277, 311–318,
+doi:10.1016/j.icarus.2016.05.025. Claim was incorporated by the manager's
+concurrent queue commit `53d30e94`; no implementation commit.
+
+**C18 UNHELD — adjudication complete (2026-08-12). REVISED TEST SPEC
+(reviewer §6 ruling; supersedes the original rigid-vs-elastic gate):**
+1. Land unchanged: the VH16 published-value test (524.38 m in 466-590 m;
+   docstring note: does not discriminate the K_int normalization — the
+   corrected value 532.70 m is also in the band) + the 5-45 km
+   monotonicity test.
+2. REPLACE the <0.1% consistency gate with: (a) a documented-discrepancy
+   PIN on the committed cache node — rigid == 0.110905164 deg and
+   elastic == 0.111814157 deg (rel 1e-6), ratio == 1.008196 (rel 1e-4),
+   docstring citing the 2026-08-12 adjudication (rigid-branch K_int
+   missing 8π/15) and stating the pin must be updated in the same commit
+   as any K_int fix; (b) an @pytest.mark.xfail(strict=True) test that
+   elastic < rigid on the same node (reason: rigid K_int bug) — fails
+   loudly when the fix lands, forcing the pin update.
+3. ADD permanently: partial-Love-number sum check — the elastic branch's
+   y1-derived k2s+k2ot+k2ob+k2i must equal the ALMA k2 within 0.1%
+   (measured 0.015%); this is the guard on the y1 convention.
+No physics change in this task. Report `verified` with pytest output.
+
+**Manager ruling on the C18 escalation (2026-08-12): escalation ACCEPTED
+— correctly stopped, correctly scoped.** The rigid-branch results
+(published-value reproduction 0.119178 deg inside the VH16 band +
+monotonicity) are ACCEPTED as validation of the branch the campaigns
+actually use. The elastic-branch discrepancy (0.82-0.95% rigid-vs-
+elastic, wrong sign vs VH16; the recorded 0.03% figure does NOT
+reproduce) is under scientific adjudication now (Opus reviewer
+dispatched with the code, the numbers, and the formalism question).
+C18 stays held until the ruling lands; the ruling will specify what the
+regression test encodes for the elastic branch (documented-discrepancy
+pin vs xfail) and any physics fix goes through a separate reviewed
+task. Do NOT encode a passing-by-construction fixture — exactly as you
+judged. Proceed with C19/C20/C21 meanwhile.
+
+### C19 — Enceladus induction plumbing (freeze blockers B8-B10) [status: not implemented]
 
 1. B8: add the synodic/PPO excitation — `Texc_hr['Enceladus']['synodic']
    = 15.559` in `PlanetProfile/MagneticInduction/Moments.py:55` (cite
@@ -63,6 +188,23 @@ do not fix. Report `verified` with pytest output.
    bracketing Saur's ~5 S/m ceiling.
 Verification: pytest green + one InducedAeList smoke at both Enceladus
 periods returning finite Ae. Report `verified`.
+
+**Report (Codex, 2026-08-12):** `not implemented` — escalated at B8 per
+protocol 4 and the task's explicit no-invention condition; no production or
+test files changed. Saur et al. (2024) §2.2 supports the nominal PPO period
+(`0.6483 days = 15.5592 hr`) and describes the inducing-field amplitude only
+as time-varying, "up to 1–2 nT." It also states that northern and southern
+PPO amplitudes and phases drift independently over the Cassini mission and
+that the three magnetic-field components can be phase-shifted from each
+other. That is insufficient to populate the required `Be1xyz` row, whose
+format needs exact J2000-referenced real and imaginary values for all three
+Cartesian components. The existing Enceladus row provides only the true-
+anomaly excitation; no committed table supplies a synodic vector. Selecting
+a component, amplitude within the 1–2 nT range, or phase would therefore be
+a new scientific assumption. B9 and B10 were not implemented because the
+required two-period verification cannot be completed without B8. Primary
+source: Saur et al. (2024), *The Planetary Science Journal* 5:245,
+doi:10.3847/PSJ/ad8130. Claim commit `ee4b1293`; no implementation commit.
 
 ### C13 — INDEX.md + DEPLOYING.md + plans-index currency (audit items 1.1-1.3, 3.1-3.2, 2.4, archive) [status: verified]
 
@@ -199,7 +341,7 @@ no-WebGL fallback, per-phase shells), k2 ellipse zoom, provenance
 exports, and sector warnings with exact control labels; stale
 FIGURE_CHANGES.md link removed. Queue continues at C16t.
 
-### C16t — Slot-level end-to-end reproduction regression test (program review item) [status: queued]
+### C16t — Slot-level end-to-end reproduction regression test (program review item) [status: verified]
 
 New test `tests/slot_reproduction_test.py`: for every registry slot with
 an existing artifact+config+cache, assert (1) the slot config's hash
@@ -212,7 +354,31 @@ under ~5 min; heavier per-slot draws are out of scope. This turns the
 traceability principle into a testable claim. Report `verified` with
 pytest output.
 
-### C17 — Expose degree-2 C20/C22 as a standard PlanetProfile run output (core-parity, STRATEGY exception (b)) [status: queued]
+**Report (Codex, 2026-08-12):** `verified`. Added
+`tests/slot_reproduction_test.py` and the first-run Test50 reference record
+`tests/data/slot_reproduction_test50.json`. The regression discovers the
+literal GUI registry without executing the Streamlit page; all 13 locally
+complete slots match their artifact config hash after the documented
+MCMC-to-SBI mode switch, and each config cache path matches its slot. Seven
+committed manifest records covering five ready-slot caches reproduce their
+installed cache SHA-256. The designated Test50 slot reproduces mean, sample
+standard deviation, median, and 5th/95th percentiles for all eight parameters
+from 1,000 posterior draws at seed 1601 (`rtol=1e-4`, `atol=1e-5`), with the
+artifact and cache SHA-256 pinned in the reference record. Verification:
+`python -m pytest -q tests/slot_reproduction_test.py` = **15 passed, 2
+warnings in 2.20s** (pre-existing TidalPy deprecation and nflows/torch API
+warnings); `py_compile`, JSON parse, and `git diff --check` PASS. Claim commit
+`cd1c007c`; implementation commit `798dc937`.
+
+**Manager review (2026-08-12): C16t ACCEPTED.** Independently re-run:
+15/15 pass in 2.7s. The traceability principle is now a CI-checkable
+claim: 13 slots hash-verified against artifacts, 5 ready caches
+SHA-pinned to manifests, and the Test50 slot's full posterior summary
+reproduced from a fixed seed with artifact+cache SHAs pinned in the
+committed reference record. Exactly what the program review asked for.
+C17 in progress.
+
+### C17 — Expose degree-2 C20/C22 as a standard PlanetProfile run output (core-parity, STRATEGY exception (b)) [status: verified]
 
 The direct-Clairaut calculation exists in
 `PlanetProfile/Inference/gravity_obs.py`; only its invocation path is
@@ -224,6 +390,24 @@ DO NOT alter the calculation itself (protocol 4: escalate if any
 physics change seems needed). Verification: targeted test comparing the
 new standard-run output against gravity_obs directly on one Europa +
 one Titan case; suite green. Report `verified`.
+
+**Report (Codex, 2026-08-12):** `verified`. Added the default-off
+`Planet.Do.CALC_C20_C22` standard-run path, with `Gravity.kf`, `Gravity.C20`,
+and `Gravity.C22` returned on the Planet structure and an INFO-level derived-
+quantity printout. The path delegates unchanged to
+`Inference.gravity_obs.clairaut_kf` and `hydrostatic_c20_c22`; Europa and
+Titan defaults carry the same body-specific reference radius and J2/C22
+conventions already committed in their inference configurations. New runs,
+interior reruns, and reloads are covered without changing the positional
+profile-file format; disabled runs retain prior behavior. Verification:
+`python -m unittest tests.standard_gravity_output_test tests.gravity_obs_test
+tests.gravity_channels_test -v` = **20 passed** (including direct-helper
+parity for one Europa and one Titan case). Full `pytest -q tests` = **162
+passed, 2 subtests passed, 2 unrelated pre-existing Reaktoro speciation
+failures**, independently reproduced in `tests.mccleskey_speciation_test`
+(`KeyError: SupcrtAqueousLookupByFormula`); C17-focused suites are green.
+`py_compile` and `git diff --check` PASS. Claim commit `4ef68886`;
+implementation commit `da01ce26`.
 
 _Prior triage (C9-C12, closed): triage of the C8 doc-doctor report (2 PASS / 10 FINDING,
 `validation_reports/doc_doctor/2026-08-06_first_pass.md`). Already resolved

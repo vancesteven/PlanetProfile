@@ -3,7 +3,57 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-12d (Machine B: **§0.20 R1→R3 COMPLETE — C16 RE-RATIFIED
+Updated: 2026-08-12i (Machine A: **BOTH CODEX ESCALATIONS ADJUDICATED.**
+(1) C18/libration: reviewer decomposed the 0.82% rigid-vs-elastic gap
+exactly — the bug is the RIGID branch's K_int missing 8π/15 (+1.9%) plus
+linearized figure moments (+1.6%) cancelling the REAL elastic reduction
+(−2.6%; elastic branch validated end-to-end, Love-number sum matches
+ALMA k2 at 0.015%, VH16 direction confirmed). Shipped rigid channel is
++0.75% LOW (0.21σ_obs at the Park solution) BY CANCELLATION — not
+robust to rheology. Adopted: +0.8% multiplicative correction in the
+frozen config + ±0.4% residual (freeze-doc B2); falsified 0.03% record
+corrected in the 2026-07-09 handoff; K_int fix = post-campaign reviewed
+task, must not land alone; C18 UNHELD with revised spec (published-value
++ monotonicity land; discrepancy pin + strict-xfail + permanent
+Love-number-sum guard). (2) C19/induction: the PPO driver is
+non-stationary — no stable Be vector exists; synodic channel represented
+by response function + amplitude BAND A×[1,2] nT, no Be1xyz row
+invented; orbital row stays the primary. C19 resumed under the amended
+spec. Campaign remains rigid=True.)
+Prior: 2026-08-12h (Machine A Codex: **C19 NOT IMPLEMENTED — SOURCE-DATA
+ESCALATION.** Saur et al. 2024 §2.2 supplies the nominal PPO period
+(0.6483 d = 15.5592 hr) but only a time-varying amplitude of up to 1–2 nT;
+it does not supply the exact J2000 complex Cartesian vector required for a
+`Be1xyz` row. Choosing its direction, phase, or a value within that range
+would invent a scientific assumption, so Codex stopped at B8 without
+production/test changes; B9/B10 remain not implemented because the required
+two-period smoke cannot be completed. Claim `ee4b1293`; manager scientific-
+data adjudication is required. Prior entry below.)
+Prior: 2026-08-12g (Machine A Codex: **C18 NOT IMPLEMENTED — SCIENCE
+ESCALATION.** The published Van Hoolst 2016 rigid model reproduces (524.38 m
+inside 466–590 m) and the 5–45 km shell sweep is strictly monotone, but the
+same-node DP-ALMA y1 comparison is rigid 0.110905 deg vs elastic 0.111814 deg
+(0.8196%, failing the <0.1% criterion); a fresh full run independently gives
+0.9452%. Both have the opposite sign from the paper's stated elastic
+reduction. No physics or test files changed; manager/scientific adjudication
+is required before C18 can resume. Prior entry below.)
+Prior: 2026-08-12f (Machine A: **CODEX C17 VERIFIED.** Standard-run
+degree-2 gravity is now available behind default-off
+`Planet.Do.CALC_C20_C22`, returning direct-Clairaut `Gravity.kf/C20/C22`
+with Europa/Titan inference-parity conventions and normal log printout.
+Focused gravity verification is 20/20 PASS; full pytest is 162 PASS + 2
+pre-existing Reaktoro-speciation failures (`SupcrtAqueousLookupByFormula`).
+Implementation `da01ce26`; C18 next. Prior entry below.)
+Prior: 2026-08-12e (Machine A: **C16 STOP RELEASED — re-ratified after
+independent gate recomputation** (residual 1.20 sigma inside the
+preregistered 2x bound; R4 recorded: the n_eff=2000 reference was the
+biased estimator, LOW on branch mass, FAIL-ADJUDICATED with narrow
+scope). §0.21: n_eff=8000 pooled set is the authoritative NH3 reference;
+NH3 C12 sweep + corrected SBC UNBLOCKED; salt C16 stays evidence-only
+until R3-class reference recomputes per composition. The corrected NH3
+ocean fraction ~0.932 is now ratified. Codex C15 accepted earlier;
+C16t in progress.)
+Prior: 2026-08-12d (Machine B: **§0.20 R1→R3 COMPLETE — C16 RE-RATIFIED
 BY REVIEWER (PASS-WITH-CONCERNS); STOP RELEASE IS MACHINE A's CALL.** The
 C16 tension is CONSTRUCTIVELY RESOLVED: the n_eff=2000 reference was biased
 LOW by sampling resolution, not the corrected side. R1 (PASS-w/-concerns):
@@ -47,7 +97,9 @@ generated from the .md per the docs ruling. Codex C13 accepted
 separately. Codex C14 verified: salt RATIFICATION consolidations +
 future-run gate-manifest provenance schema, implementation `f282b669`.
 Codex C15 verified: SBI methodology + GUI capability docs, implementation
-`87f4ca31`; C16t next.)
+`87f4ca31`. Codex C16t verified: 13-slot artifact/config/cache provenance +
+fixed-seed Test50 reproduction regression, 15 tests passing in 2.20s,
+implementation `9754646e`; C17 next.)
 Prior: 2026-08-12b (Machine A: **ISOSTASY MODULE IMPLEMENTED — B13
 REPRODUCTION GATE PASSES ON FIRST RUN.** PlanetProfile/Gravity/isostasy.py
 (core-parity per user directive: available to CLI + App): H&M equal-

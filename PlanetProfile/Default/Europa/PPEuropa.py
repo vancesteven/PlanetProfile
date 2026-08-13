@@ -23,6 +23,10 @@ Planet.Bulk.Cmeasured = 0.346  # Value from Anderson et al. (1998): https://doi.
 Planet.Bulk.Cuncertainty = 0.005
 Planet.Bulk.Tb_K = 268.305  # 30 km ice with 1.0x Seawater
 
+""" Hydrostatic degree-2 gravity convention (calculation defaults off) """
+Planet.Gravity.Rref_m = 1565.0e3  # Gomez Casajus et al. (2021) coefficient reference radius
+Planet.Gravity.J2overC22 = 3.324  # Tricarico (2014) finite-rotation correction used by Gomez Casajus et al. (2021)
+
 """ Layer step settings """
 Planet.Steps.nIceI = 200
 Planet.Steps.nSilMax = 300

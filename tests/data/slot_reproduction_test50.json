@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "slot": "titan_andrade_noocean_posterior.pt",
+  "artifact_path": "PlanetProfile/Inference/sbi_artifacts/titan_andrade_noocean_posterior.pt",
+  "artifact_sha256": "c439625cda9bf512a9a21642b069f487c0bca6b2b7cefb5b144d3da626986989",
+  "artifact_config_hash": "629afbd55a4f0ce5",
+  "config_path": "PlanetProfile/Inference/configs/test50_titan_noocean_andrade_8D.json",
+  "cache_path": "PlanetProfile/Test/mcmc_results/Titan/Test50_andrade_noocean_yao2014/titan_allice_yao2014_structure_grid.pkl",
+  "cache_sha256": "2c47d2c3c3bbf4ed5e956e333bbdfc66c81e4662fec76763a8fbac271b774a85",
+  "seed": 1601,
+  "n_draws": 1000,
+  "conditioning": {
+    "Re_k2": 0.608,
+    "Im_k2": 0.135
+  },
+  "param_names": [
+    "alpha",
+    "log10_zeta",
+    "log10_eta_Ih",
+    "log10_eta_III",
+    "log10_eta_V",
+    "log10_eta_VI",
+    "log10_eta_sil",
+    "Tb_K"
+  ],
+  "statistics": {
+    "alpha": {
+      "mean": 0.2973551864027977,
+      "std": 0.08462172087878088,
+      "median": 0.29193177819252014,
+      "q05": 0.16647256910800934,
+      "q95": 0.43178912699222566
+    },
+    "log10_zeta": {
+      "mean": -1.3610325330600026,
+      "std": 1.37488721035802,
+      "median": -1.9314808249473572,
+      "q05": -2.825540244579315,
+      "q95": 1.5298538148403165
+    },
+    "log10_eta_Ih": {
+      "mean": 12.795723250389099,
+      "std": 1.6818737048745227,
+      "median": 12.775619506835938,
+      "q05": 10.215971183776855,
+      "q95": 15.557489156723022
+    },
+    "log10_eta_III": {
+      "mean": 12.809054914474487,
+      "std": 1.7166998142904257,
+      "median": 12.739118576049805,
+      "q05": 10.286462450027466,
+      "q95": 15.575955152511597
+    },
+    "log10_eta_V": {
+      "mean": 12.195928860664369,
+      "std": 1.6651406063406382,
+      "median": 11.725274562835693,
+      "q05": 10.26987066268921,
+      "q95": 15.514827489852903
+    },
+    "log10_eta_VI": {
+      "mean": 12.74822531414032,
+      "std": 1.7528323805183892,
+      "median": 12.4770827293396,
+      "q05": 10.209128713607788,
+      "q95": 15.601701164245606
+    },
+    "log10_eta_sil": {
+      "mean": 19.689442964553834,
+      "std": 1.0899565679089158,
+      "median": 19.54468059539795,
+      "q05": 18.134327793121336,
+      "q95": 21.6103157043457
+    },
+    "Tb_K": {
+      "mean": 249.97620808410645,
+      "std": 0.578947522908832,
+      "median": 249.97218322753906,
+      "q05": 249.08887252807617,
+      "q95": 250.8453269958496
+    }
+  },
+  "tolerance": {
+    "rtol": 0.0001,
+    "atol": 0.00001
+  },
+  "generated_with": {
+    "torch": "2.8.0",
+    "artifact_torch": "2.11.0",
+    "sbi": "0.26.1"
+  }
+}
