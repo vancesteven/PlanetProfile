@@ -1,0 +1,26 @@
+{
+  "item": "B2' — libration figure-convention systematic (hydrostatic vs observed triaxial figure)",
+  "status": "QUANTIFIED (Machine B, 2026-08-13). Not self-adjudicated — routed to the scientific-reviewer for the formulation ruling.",
+  "why_it_blocks": "The second reviewer pass established (MAJOR-4) that with compensation_C2 free the gravity/shape channel is a compensation-state measurement, not a shell-thickness channel (gravity-only corr(zb,C2)=0.991, sigma(zb)=37 km). The LIBRATION is therefore the campaign's SOLE shell-thickness channel, so any systematic on it is a systematic on the entire result — and the campaign exists to adjudicate H&M (19-24 km) vs Park (25-29 km).",
+  "the_discrepancy": "Hemingway & Mittal 2019 drive the libration from the OBSERVED non-hydrostatic triaxial figure. PlanetProfile's Librations.py drives it from the HYDROSTATIC figure: compute_eccentricities (full iterative Tricarico, per-interface) -> radial2abc -> moi_ellps supplies every Ai/Bi/Ci and every beta=(a-b)/a in the VH08 torques. Verified by reading the code path, not assumed.",
+  "measurement": {
+    "method": "Replicated the VH08 rigid ocean branch (Librations.py:164-213) and verified the replica reproduces the library to 6 significant figures at scale=1 (0.090772 deg). Then scaled ONLY the shell's surface (B-A) contribution to the observed figure by the ratio H22_obs/H22_hyd, leaving inner interfaces and K_int hydrostatic. NOTE: a first attempt scaled the eccentricity eq directly and produced a sign flip and -73 sigma; that was a bad perturbation (it broke the polar/equatorial pair and K_int self-consistency), NOT a physical result. Recorded so the error is not repeated.",
+    "H22_observed_m": 857.0,
+    "H22_hydrostatic_m": "778.9 to 787.7 across zb 22-30 km",
+    "observed_over_hydrostatic": "1.088 to 1.100 (i.e. the observed surface figure is ~9-10% super-hydrostatic)",
+    "libration_shift_sigma_obs": "+1.40 to +1.43 sigma, ONE-SIDED, and remarkably stable across zb 22-30 km",
+    "shell_thickness_shift_km": 1.10,
+    "zb_matching_libration_0p092_deg": {"hydrostatic_figure_current_code": 24.7, "observed_figure_HM_convention": 25.8, "D_ocean_km_fixed": 36.0},
+    "local_sensitivity_sigma_per_km": 1.38
+  },
+  "reading": "The systematic is REAL, one-sided, and ~1.4 sigma_obs — but the SHELL-THICKNESS consequence is +1.10 km, which is smaller than the second reviewer pass's estimate of 2-2.5 km. The direction matters: adopting the H&M convention moves the inferred shell THICKER, i.e. AWAY from the H&M 19-24 km band and INTO the Park 25-29 km band. So the convention choice does not decide the H&M-vs-Park question by itself (the shift is ~1/4 of the 6 km gap between band centres), but it is comparable to each band's own width and must be fixed before the campaign can claim to adjudicate between them.",
+  "consequence_for_libration_sys_frac": "The config's current nuisance is N(0, 0.004) truncated +/-0.012 (a +/-0.4% zb-dependence residual), on top of a deterministic +0.8% correction for the separately-adjudicated K_int/linearization formulation error. The figure-convention term measured here is ~+9.4% in (B-A), worth ~+1.4 sigma_obs in the libration — an order of magnitude larger than the +/-0.4% residual and NOT covered by the +0.8% correction, which addresses a different defect (B2, the rigid-branch K_int normalization). The fix is a FORMULATION CHANGE, not a wider prior.",
+  "options_for_the_reviewer": {
+    "A_adopt_HM_convention": "Drive the shell (B-A) from the observed figure, as H&M do. Then the +1.10 km shift is absorbed into the forward model and libration_sys_frac carries only the residual uncertainty in the observed figure itself (Tajeddine-propagated, ~0.00025 deg = 0.08 sigma). Cleanest and matches the paper the campaign is reproducing.",
+    "B_keep_hydrostatic_add_budget": "Keep Librations.py as-is and carry the +1.4 sigma as a one-sided systematic. Rejected in Machine B's view: a 1.4 sigma one-sided term on the SOLE thickness channel is not a budget item, it is a bias, and burying it in a nuisance would widen the posterior instead of moving it.",
+    "C_hybrid": "Adopt the observed figure for the SHELL's (B-A) only (what was measured here) vs for all interfaces. H&M's own treatment applies to the shell; the interior figure is not observed. Needs the reviewer's ruling on whether the interior should stay hydrostatic."
+  },
+  "interaction_with_grid": "The +1.10 km shift moves the binding region. The r3 grid places its 0.25 km refinement over zb 22-30 km, which STILL BRACKETS the shifted solution (24.7 -> 25.8 km), so the r3 segmentation survives this shift — but the segment boundaries must not be frozen until the formulation ruling lands.",
+  "not_covered_here": "The first-order triaxial_to_H2m issue (-0.65% in H22 at every interface, ~0.65 sigma_obs on C22) is a SEPARATE defect affecting the gravity rows; it is not part of this measurement and remains open.",
+  "reproduce": "See the measurement.method description; the script is inline in the session record. Uses only PlanetProfile.Gravity.Librations and .isostasy public functions at a mass-conserved 3-layer structure (R_T 252.22 km, M 1.08022e20, rho_ice 925, rho_ocean 1005, rho_core by mass conservation)."
+}
