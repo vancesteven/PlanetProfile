@@ -107,7 +107,62 @@ def moi_ellps(a, b, c, rho):
     return Ai, Bi, Ci
 
 def librations(radial, rho, omega, ecc, rigid=True, ocean=True,
-                       ocean_idx=1, y1=None, rek2=None):
+                       ocean_idx=1, y1=None, rek2=None, H22_obs_m=None):
+    """Compute the forced libration amplitude (metres, at the surface).
+
+    Figure convention (ocean=True, rigid=True branch only)
+    -------------------------------------------------------
+    PlanetProfile's historical (default) behaviour drives every layer's
+    (B - A) contribution to the libration torques -- including the outer
+    shell's -- from the HYDROSTATIC Tricarico figure computed internally
+    by ``compute_eccentricities`` / ``radial2abc`` / ``moi_ellps``. This is
+    the PP-native convention and is exactly what runs when ``H22_obs_m`` is
+    left at its default of ``None``.
+
+    Hemingway & Mittal (2019) instead drive the shell's libration torque
+    from the body's OBSERVED (non-hydrostatic) surface triaxial figure,
+    since real icy-shell surfaces are not exactly hydrostatic. Passing
+    ``H22_obs_m`` (the observed surface H22 in metres, same convention as
+    ``PlanetProfile.Gravity.isostasy.triaxial_to_H2m``, i.e.
+    H22 = (a - b) / 6) opts into that convention: only the shell's own
+    (Bs - As) term is rescaled by the ratio observed/hydrostatic H22,
+    leaving the ocean-pressure term (Bsp_Asp), the deep-interior torque,
+    and K_int on the hydrostatic figure.
+
+    Scope of the option, stated precisely: the SURFACE figure is the only
+    one that is actually observed, so it is the only one rescaled here.
+    Interior interfaces stay hydrostatic because there is no measurement to
+    replace them with -- not as an approximation of convenience. In the
+    recorded measurement's option list this is option A (adopt the H&M
+    convention) as applied to the shell; the A-vs-C distinction there
+    concerns whether INTERIOR interfaces would also be rescaled, and
+    rescaling them is not implemented and is not currently justifiable.
+    K_int is deliberately untouched: it carries the separately-adjudicated
+    8*pi/15 normalization defect whose repair is a post-campaign task that
+    must not land piecemeal (see the strict-xfail tripwire in
+    tests/librations_test.py).
+
+    See validation_reports/enceladus_isostasy/b2prime_libration_figure_convention.json
+    for the quantified size of this systematic for Enceladus (~9-10%
+    super-hydrostatic surface figure -> ~+1.4 sigma_obs libration shift,
+    ~+1.10 km inferred shell thickness).
+
+    Parameters
+    ----------
+    H22_obs_m : float, optional
+        Observed surface H22 in metres. When ``None`` (default), the
+        hydrostatic figure is used everywhere and behaviour is identical
+        to leaving this parameter unset entirely. Only supported for the
+        ``ocean=True, rigid=True`` branch; passing a non-default value for
+        any other branch raises ``NotImplementedError``.
+    """
+    if H22_obs_m is not None and not (ocean and rigid):
+        raise NotImplementedError(
+            "H22_obs_m (observed-figure libration convention) is only "
+            "implemented for the ocean=True, rigid=True (Van Hoolst et al. "
+            "2008 rigid) branch. Got ocean=%r, rigid=%r." % (ocean, rigid)
+        )
+
     # Compute eccentricities of the layers, semi-major axes, and moments of
     # inertia from Tricarico (2014) formulation
     ep, eq = compute_eccentricities(radial, rho, omega)
@@ -182,8 +237,24 @@ def librations(radial, rho, omega, ecc, rigid=True, ocean=True,
             Bip_Aip = 8/15*np.pi * rho[ocean_idx] * beta[0] * radial[0]**5
             Bsp_Asp = 8/15*np.pi * rho[ocean_idx] * beta[ocean_idx] * radial[ocean_idx]**5
 
+            # Optional H&M 2019 observed-figure convention: rescale only the
+            # shell's own (Bs - As) contribution by observed/hydrostatic
+            # surface H22. Defaults to 1.0 (hydrostatic, PP-native), which
+            # is byte-identical to the historical code path.
+            if H22_obs_m is None:
+                shell_figure_scale = 1.0
+            else:
+                H22_hyd_m = (a[-1] - b[-1]) / 6
+                shell_figure_scale = H22_obs_m / H22_hyd_m
+                log.debug(
+                    "librations(): H&M observed-figure convention active "
+                    "-- H22_hydrostatic=%.6g m, H22_observed=%.6g m, "
+                    "shell_figure_scale=%.6g",
+                    H22_hyd_m, H22_obs_m, shell_figure_scale,
+                )
+
             # Compute torques separately acting on outer shell and interior
-            Ks = 3 * omega**2 * ((Bs - As) + Bsp_Asp)
+            Ks = 3 * omega**2 * ((Bs - As) * shell_figure_scale + Bsp_Asp)
             Kc = 3 * omega**2 * ((Bc - Ac) - Bip_Aip)
 
             # Gravitational coupling torque

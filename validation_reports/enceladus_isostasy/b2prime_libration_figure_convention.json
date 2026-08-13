@@ -1,6 +1,6 @@
 {
   "item": "B2' — libration figure-convention systematic (hydrostatic vs observed triaxial figure)",
-  "status": "QUANTIFIED (Machine B, 2026-08-13). Not self-adjudicated — routed to the scientific-reviewer for the formulation ruling.",
+  "status": "RULED 2026-08-13 — USER ADOPTED OPTION A (H&M observed-figure convention). Implemented as the opt-in H22_obs_m kwarg on PlanetProfile/Gravity/Librations.py::librations(), scoped to the ocean=True/rigid=True branch, default None byte-identical to prior behaviour (independently verified across the edit at 4 structures, every digit). Reproduction pinned by tests/librations_test.py::test_h22_obs_m_reproduces_b2prime_measurement (+1.4167 sigma at the fiducial). Reviewer ratification of the adoption still outstanding.",
   "why_it_blocks": "The second reviewer pass established (MAJOR-4) that with compensation_C2 free the gravity/shape channel is a compensation-state measurement, not a shell-thickness channel (gravity-only corr(zb,C2)=0.991, sigma(zb)=37 km). The LIBRATION is therefore the campaign's SOLE shell-thickness channel, so any systematic on it is a systematic on the entire result — and the campaign exists to adjudicate H&M (19-24 km) vs Park (25-29 km).",
   "the_discrepancy": "Hemingway & Mittal 2019 drive the libration from the OBSERVED non-hydrostatic triaxial figure. PlanetProfile's Librations.py drives it from the HYDROSTATIC figure: compute_eccentricities (full iterative Tricarico, per-interface) -> radial2abc -> moi_ellps supplies every Ai/Bi/Ci and every beta=(a-b)/a in the VH08 torques. Verified by reading the code path, not assumed.",
   "measurement": {
@@ -9,8 +9,12 @@
     "H22_hydrostatic_m": "778.9 to 787.7 across zb 22-30 km",
     "observed_over_hydrostatic": "1.088 to 1.100 (i.e. the observed surface figure is ~9-10% super-hydrostatic)",
     "libration_shift_sigma_obs": "+1.40 to +1.43 sigma, ONE-SIDED, and remarkably stable across zb 22-30 km",
-    "shell_thickness_shift_km": 1.10,
-    "zb_matching_libration_0p092_deg": {"hydrostatic_figure_current_code": 24.7, "observed_figure_HM_convention": 25.8, "D_ocean_km_fixed": 36.0},
+    "shell_thickness_shift_km": 1.1,
+    "zb_matching_libration_0p092_deg": {
+      "hydrostatic_figure_current_code": 24.7,
+      "observed_figure_HM_convention": 25.8,
+      "D_ocean_km_fixed": 36.0
+    },
     "local_sensitivity_sigma_per_km": 1.38
   },
   "reading": "The systematic is REAL, one-sided, and ~1.4 sigma_obs — but the SHELL-THICKNESS consequence is +1.10 km, which is smaller than the second reviewer pass's estimate of 2-2.5 km. The direction matters: adopting the H&M convention moves the inferred shell THICKER, i.e. AWAY from the H&M 19-24 km band and INTO the Park 25-29 km band. So the convention choice does not decide the H&M-vs-Park question by itself (the shift is ~1/4 of the 6 km gap between band centres), but it is comparable to each band's own width and must be fixed before the campaign can claim to adjudicate between them.",
@@ -22,5 +26,25 @@
   },
   "interaction_with_grid": "The +1.10 km shift moves the binding region. The r3 grid places its 0.25 km refinement over zb 22-30 km, which STILL BRACKETS the shifted solution (24.7 -> 25.8 km), so the r3 segmentation survives this shift — but the segment boundaries must not be frozen until the formulation ruling lands.",
   "not_covered_here": "The first-order triaxial_to_H2m issue (-0.65% in H22 at every interface, ~0.65 sigma_obs on C22) is a SEPARATE defect affecting the gravity rows; it is not part of this measurement and remains open.",
-  "reproduce": "See the measurement.method description; the script is inline in the session record. Uses only PlanetProfile.Gravity.Librations and .isostasy public functions at a mass-conserved 3-layer structure (R_T 252.22 km, M 1.08022e20, rho_ice 925, rho_ocean 1005, rho_core by mass conservation)."
+  "reproduce": "See the measurement.method description; the script is inline in the session record. Uses only PlanetProfile.Gravity.Librations and .isostasy public functions at a mass-conserved 3-layer structure (R_T 252.22 km, M 1.08022e20, rho_ice 925, rho_ocean 1005, rho_core by mass conservation).",
+  "implementation": {
+    "kwarg": "H22_obs_m (observed surface H22 in metres; H22 = (a-b)/6, matching isostasy.triaxial_to_H2m)",
+    "scope": "scales ONLY the shell's own (Bs - As) in Ks; Bsp_Asp, the deep-interior torque and K_int stay hydrostatic",
+    "why_interior_stays_hydrostatic": "the SURFACE figure is the only one observed; there is no measurement to replace interior figures with. This is option A as applied to the shell — the A-vs-C distinction concerns interior interfaces, and rescaling them is neither implemented nor currently justifiable.",
+    "K_int_untouched": "deliberate — K_int carries the separately-adjudicated 8*pi/15 normalization defect whose repair is a post-campaign task that must not land piecemeal (strict-xfail tripwire in tests/librations_test.py).",
+    "other_branches": "passing H22_obs_m with ocean=False or rigid=False raises NotImplementedError rather than silently ignoring it",
+    "tests_added": [
+      "default is byte-identical (== , not approx)",
+      "scale=1 no-op to 1e-12 relative",
+      "reproduces the +1.40-1.43 sigma Enceladus measurement",
+      "unsupported branch raises NotImplementedError"
+    ],
+    "test_result": "26 passed, 1 xfailed (was 22 passed, 1 xfailed) across librations/isostasy/isostasy_hm2019_gate/enceladus_conductivity; broader sweep 41 passed, 1 xfailed, 2 subtests. No regressions; xfail tripwire unchanged.",
+    "call_sites_unaffected": [
+      "PlanetProfile/Gravity/Gravity.py:927",
+      "PlanetProfile/Inference/mcmc_runner.py:1678",
+      "tests/isostasy_hm2019_gate_test.py:99",
+      "tests/librations_test.py:69,144,145"
+    ]
+  }
 }

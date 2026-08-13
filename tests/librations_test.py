@@ -28,7 +28,11 @@ from PlanetProfile.Gravity.Gravity import (  # noqa: E402
     ALMA_TIME_UNIT_S,
     LibrationModelInputs,
 )
-from PlanetProfile.Gravity.Librations import librations  # noqa: E402
+from PlanetProfile.Gravity.Librations import (  # noqa: E402
+    compute_eccentricities,
+    librations,
+    radial2abc,
+)
 from PlanetProfile.Utilities.defineStructs import Constants  # noqa: E402
 
 R_ENCELADUS_M = 252.1e3
@@ -221,3 +225,86 @@ def test_partial_love_numbers_reproduce_alma_k2():
         values["partial_k2"] - values["alma_k2"].real
     ) / abs(values["alma_k2"].real)
     assert relative_error < 1e-3
+
+
+# --- B2' H&M 2019 observed-figure libration convention (opt-in) --------
+#
+# See validation_reports/enceladus_isostasy/b2prime_libration_figure_convention.json
+# for the recorded measurement these tests reproduce.
+
+def _enceladus_b2prime_structure():
+    """Mass-conserved 3-layer Enceladus structure from the B2' measurement."""
+    R_T = 252.22e3
+    M = 1.08022e20
+    rho_ice = 925.0
+    rho_ocean = 1005.0
+    zb_km = 25.0
+    D_ocean_km = 36.0
+
+    R_b = R_T - zb_km * 1e3
+    R_c = R_b - D_ocean_km * 1e3
+    V = 4.0 * np.pi / 3.0
+    m_shell = rho_ice * V * (R_T ** 3 - R_b ** 3)
+    m_ocean = rho_ocean * V * (R_b ** 3 - R_c ** 3)
+    rho_core = (M - m_shell - m_ocean) / (V * R_c ** 3)
+
+    radial = np.array([R_c, R_b, R_T])
+    rho = np.array([rho_core, rho_ocean, rho_ice])
+    omega = 5.307e-5
+    ecc = 0.0047
+    return radial, rho, omega, ecc
+
+
+def test_h22_obs_m_default_is_byte_identical():
+    """Omitting H22_obs_m and passing it explicitly as None must agree exactly."""
+    radial, rho, omega, ecc = _enceladus_b2prime_structure()
+    lib_default = librations(radial, rho, omega, ecc, rigid=True, ocean=True,
+                              ocean_idx=1)
+    lib_explicit_none = librations(radial, rho, omega, ecc, rigid=True,
+                                    ocean=True, ocean_idx=1, H22_obs_m=None)
+    assert lib_default == lib_explicit_none
+
+
+def test_h22_obs_m_matching_hydrostatic_is_a_noop():
+    """Passing the hydrostatic H22 itself reproduces the default to ~1e-12 rel."""
+    radial, rho, omega, ecc = _enceladus_b2prime_structure()
+    lib_default = librations(radial, rho, omega, ecc, rigid=True, ocean=True,
+                              ocean_idx=1)
+
+    ep, eq = compute_eccentricities(radial, rho, omega)
+    a, b, c = radial2abc(radial, ep, eq)
+    H22_hyd_m = (a[-1] - b[-1]) / 6
+
+    lib_scaled = librations(radial, rho, omega, ecc, rigid=True, ocean=True,
+                             ocean_idx=1, H22_obs_m=H22_hyd_m)
+    assert lib_scaled == pytest.approx(lib_default, rel=1e-12)
+
+
+def test_h22_obs_m_reproduces_b2prime_measurement():
+    """Observed-figure convention shifts the libration by +1.40 to +1.43 sigma_obs.
+
+    Reproduces validation_reports/enceladus_isostasy/
+    b2prime_libration_figure_convention.json at the recorded mass-conserved
+    structure (zb=25 km, D_ocean=36 km, H22_obs_m=857.0).
+    """
+    radial, rho, omega, ecc = _enceladus_b2prime_structure()
+    sigma_obs_deg = 0.003
+
+    lib_hyd_m = librations(radial, rho, omega, ecc, rigid=True, ocean=True,
+                            ocean_idx=1)
+    lib_obs_m = librations(radial, rho, omega, ecc, rigid=True, ocean=True,
+                            ocean_idx=1, H22_obs_m=857.0)
+
+    lib_hyd_deg = np.degrees(lib_hyd_m / radial[-1])
+    lib_obs_deg = np.degrees(lib_obs_m / radial[-1])
+
+    shift_sigma = (lib_obs_deg - lib_hyd_deg) / sigma_obs_deg
+    assert 1.40 <= shift_sigma <= 1.43
+
+
+def test_h22_obs_m_unsupported_branch_raises():
+    """H22_obs_m is only implemented for ocean=True, rigid=True; else raise."""
+    radial, rho, omega, ecc = _enceladus_b2prime_structure()
+    with pytest.raises(NotImplementedError):
+        librations(radial, rho, omega, ecc, rigid=True, ocean=False,
+                   H22_obs_m=857.0)
