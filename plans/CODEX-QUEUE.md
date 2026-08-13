@@ -59,7 +59,7 @@ be invented. Amended tasks:
 This is recorded as the freeze-doc induction design's concrete synodic
 treatment (display band, not vector). Resume C19 under this spec.
 
-### C20 — Per-campaign methods-snippet generator (1.0 milestone item 6) [status: queued]
+### C20 — Per-campaign methods-snippet generator (1.0 milestone item 6) [status: in progress (Codex)]
 
 The paper's methods section must be assemblable per campaign from
 committed material (doc-doctor E11; STRATEGY 1.0 item 6). Write
