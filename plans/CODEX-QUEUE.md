@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-12 (C18 escalated; C19–C21 remain queued, one implementation commit per task). Curated by the Claude model manager
+Updated: 2026-08-12 (C18–C19 escalated; C20–C21 remain queued, one implementation commit per task). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -126,7 +126,7 @@ pin vs xfail) and any physics fix goes through a separate reviewed
 task. Do NOT encode a passing-by-construction fixture — exactly as you
 judged. Proceed with C19/C20/C21 meanwhile.
 
-### C19 — Enceladus induction plumbing (freeze blockers B8-B10) [status: in progress (Codex)]
+### C19 — Enceladus induction plumbing (freeze blockers B8-B10) [status: not implemented]
 
 1. B8: add the synodic/PPO excitation — `Texc_hr['Enceladus']['synodic']
    = 15.559` in `PlanetProfile/MagneticInduction/Moments.py:55` (cite
@@ -149,6 +149,23 @@ judged. Proceed with C19/C20/C21 meanwhile.
    bracketing Saur's ~5 S/m ceiling.
 Verification: pytest green + one InducedAeList smoke at both Enceladus
 periods returning finite Ae. Report `verified`.
+
+**Report (Codex, 2026-08-12):** `not implemented` — escalated at B8 per
+protocol 4 and the task's explicit no-invention condition; no production or
+test files changed. Saur et al. (2024) §2.2 supports the nominal PPO period
+(`0.6483 days = 15.5592 hr`) and describes the inducing-field amplitude only
+as time-varying, "up to 1–2 nT." It also states that northern and southern
+PPO amplitudes and phases drift independently over the Cassini mission and
+that the three magnetic-field components can be phase-shifted from each
+other. That is insufficient to populate the required `Be1xyz` row, whose
+format needs exact J2000-referenced real and imaginary values for all three
+Cartesian components. The existing Enceladus row provides only the true-
+anomaly excitation; no committed table supplies a synodic vector. Selecting
+a component, amplitude within the 1–2 nT range, or phase would therefore be
+a new scientific assumption. B9 and B10 were not implemented because the
+required two-period verification cannot be completed without B8. Primary
+source: Saur et al. (2024), *The Planetary Science Journal* 5:245,
+doi:10.3847/PSJ/ad8130. Claim commit `ee4b1293`; no implementation commit.
 
 ### C13 — INDEX.md + DEPLOYING.md + plans-index currency (audit items 1.1-1.3, 3.1-3.2, 2.4, archive) [status: verified]
 

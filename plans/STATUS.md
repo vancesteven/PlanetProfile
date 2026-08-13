@@ -3,7 +3,16 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-12g (Machine A Codex: **C18 NOT IMPLEMENTED — SCIENCE
+Updated: 2026-08-12h (Machine A Codex: **C19 NOT IMPLEMENTED — SOURCE-DATA
+ESCALATION.** Saur et al. 2024 §2.2 supplies the nominal PPO period
+(0.6483 d = 15.5592 hr) but only a time-varying amplitude of up to 1–2 nT;
+it does not supply the exact J2000 complex Cartesian vector required for a
+`Be1xyz` row. Choosing its direction, phase, or a value within that range
+would invent a scientific assumption, so Codex stopped at B8 without
+production/test changes; B9/B10 remain not implemented because the required
+two-period smoke cannot be completed. Claim `ee4b1293`; manager scientific-
+data adjudication is required. Prior entry below.)
+Prior: 2026-08-12g (Machine A Codex: **C18 NOT IMPLEMENTED — SCIENCE
 ESCALATION.** The published Van Hoolst 2016 rigid model reproduces (524.38 m
 inside 466–590 m) and the 5–45 km shell sweep is strictly monotone, but the
 same-node DP-ALMA y1 comparison is rigid 0.110905 deg vs elastic 0.111814 deg
