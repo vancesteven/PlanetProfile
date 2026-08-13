@@ -384,3 +384,105 @@ def test_rho_ice_mass_neutral_compensation_reduces_libration_shift():
         # Measured: ~0.225 sigma uncompensated, ~0.147 sigma compensated.
         assert 0.19 <= abs(shift_uncomp) <= 0.27
         assert 0.10 <= abs(shift_comp) <= 0.20
+
+
+def test_rho_shell_override_identity_is_a_noop():
+    """An identity shell-density override must not move the libration.
+
+    Reviewer MAJOR (2026-08-13): the mass-neutral override originally
+    conserved against ``struct['Mtot_kg']`` -- the template TARGET -- while
+    the reduced 3-layer stack carries its own residual from volume-weighted
+    coarse-graining (measured -0.312% on the Enceladus ocean node, +0.835%
+    on a Titan NH3 node). Conserving against the target therefore made an
+    identity override shift the interior density by that residual and bias
+    the libration by ~0.19 sigma_obs -- a silent bias injected merely by
+    ENABLING the nuisance, and the reason the measured compensated shifts
+    were not symmetric about zero. Conserving against the stack's own mass
+    makes identity exact. This test fails against the old behaviour.
+    """
+    radial, rho, omega, ecc = _enceladus_b2prime_structure()
+    r_in = np.concatenate(([0.0], radial[:-1]))
+    M_stack = float(np.sum(rho * (4.0 * np.pi / 3.0)
+                           * (radial ** 3 - r_in ** 3)))
+
+    rho_out, residual = mass_neutral_shell_density(
+        radial, rho, rho[2], M_stack, shell_idx=2, interior_idx=0)
+
+    # densities untouched, mass residual exactly zero
+    assert np.allclose(rho_out, rho, rtol=0.0, atol=1e-9), (
+        f'identity override perturbed densities: {rho} -> {rho_out}')
+    assert abs(residual) < 1e-12, f'residual not zero: {residual!r}'
+
+    # and the libration is unmoved
+    base = _libration_deg(radial, rho, rigid=True)
+    same = _libration_deg(radial, rho_out, rigid=True)
+    assert abs(same - base) < 1e-12, (
+        f'identity override moved the libration: {base} -> {same}')
+
+
+def test_rho_shell_override_identity_is_a_noop_on_a_CACHED_node():
+    """The identity no-op must hold on a REAL cached structure.
+
+    The synthetic-stack version above cannot catch the bug it guards: a
+    hand-built 3-layer stack is constructed mass-consistently, so the
+    reduced-stack mass and the template target agree exactly and BOTH the
+    old and the new code return 0.0000%. The bias only appears where
+    volume-weighted coarse-graining leaves a residual -- i.e. on real cache
+    nodes. Measured 2026-08-13: reduced-stack-vs-target residual -0.3118%
+    (Enceladus ocean node) and -0.7467% (Titan NH3). Against the OLD
+    target-conserving behaviour an identity override moved the interior
+    density +0.4672% / +0.8349% and the Enceladus libration by -0.1913
+    sigma_obs -- a silent bias from merely enabling the nuisance.
+    """
+    with CACHE_PATH.open("rb") as stream:
+        cache = pickle.load(stream)
+    index = int(np.argmin(np.abs(np.asarray(cache["Tb_K_grid"]) - 272.46)))
+    structure = cache["structures"][index]
+
+    r = np.asarray(structure["r_m"], dtype=float)
+    rho = np.asarray(structure["rho"], dtype=float)
+    phases = np.asarray(structure["phases"])
+    order = np.argsort(r)
+    r, rho, phases = r[order], rho[order], phases[order]
+
+    ocean = np.where(phases == 0)[0]
+    assert ocean.size, "expected a liquid ocean in the 272.46 K node"
+    first, last = int(ocean[0]), int(ocean[-1])
+
+    def _vw(i0, i1):
+        r_in = np.concatenate(([0.0], r))[i0:i1 + 1]
+        r_out = r[i0:i1 + 1]
+        vol = r_out ** 3 - r_in ** 3
+        good = vol > 0
+        return float(np.sum(rho[i0:i1 + 1][good] * vol[good])
+                     / np.sum(vol[good]))
+
+    reduced_r = np.array([r[first - 1], r[last], r[-1]])
+    reduced_rho = np.array([_vw(0, first - 1), _vw(first, last),
+                            _vw(last + 1, r.size - 1)])
+
+    r_in = np.concatenate(([0.0], reduced_r[:-1]))
+    M_stack = float(np.sum(reduced_rho * (4.0 * np.pi / 3.0)
+                           * (reduced_r ** 3 - r_in ** 3)))
+    M_target = float(structure["Mtot_kg"])
+    # the coarse-graining residual that makes this test meaningful
+    assert abs(M_stack / M_target - 1.0) > 1e-4, (
+        "cached node has no coarse-graining residual; test cannot "
+        "discriminate the regression")
+
+    rho_out, residual = mass_neutral_shell_density(
+        reduced_r, reduced_rho, reduced_rho[2], M_stack,
+        shell_idx=2, interior_idx=0)
+
+    assert abs(rho_out[0] / reduced_rho[0] - 1.0) < 1e-12, (
+        f"identity override moved the interior density by "
+        f"{100 * (rho_out[0] / reduced_rho[0] - 1):+.4f}% -- the regression")
+    assert abs(residual) < 1e-12
+
+    omega = float(structure["omega"])
+    ecc = float(structure["eccentricity"])
+    base = librations(reduced_r, reduced_rho, omega, ecc, rigid=True,
+                      ocean=True, ocean_idx=1)
+    same = librations(reduced_r, rho_out, omega, ecc, rigid=True,
+                      ocean=True, ocean_idx=1)
+    assert abs(same - base) < 1e-9

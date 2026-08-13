@@ -1695,8 +1695,22 @@ class MCMCRunner:
         if rho_shell_override is not None:
             from PlanetProfile.Gravity.isostasy import (
                 mass_neutral_shell_density)
-            M_body = float(struct.get('Mtot_kg', np.nan))
-            if not np.isfinite(M_body):
+            # Conserve against the mass of the REDUCED STACK, not against
+            # struct['Mtot_kg'] (the template target). The reduced 3-layer
+            # stack carries its own residual from volume-weighted
+            # coarse-graining -- measured at -0.312% on the Enceladus ocean
+            # node and +0.835% on a Titan NH3 node -- so conserving against
+            # the target would make an IDENTITY override (rho_shell_override
+            # equal to the stack's own shell density) shift the interior
+            # density by that residual and bias the libration by ~0.19
+            # sigma_obs. That is a silent bias injected merely by enabling
+            # the nuisance. Using the stack's own mass makes identity an
+            # exact no-op, which is what
+            # test_rho_shell_override_identity_is_a_noop pins.
+            _r_in = np.concatenate(([0.0], reduced_r[:-1]))
+            M_body = float(np.sum(reduced_rho * (4.0 * np.pi / 3.0)
+                                  * (reduced_r ** 3 - _r_in ** 3)))
+            if not np.isfinite(M_body) or M_body <= 0:
                 return None
             try:
                 reduced_rho, _mass_residual_frac = mass_neutral_shell_density(
