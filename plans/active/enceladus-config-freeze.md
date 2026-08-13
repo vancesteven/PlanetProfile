@@ -164,7 +164,12 @@ BUILDER needs a zb_grid mode (blocking item B4). The July Tb window was
 
 **Blocking items before the config JSON commits (owners assigned):**
 B1 libration reachability scan across the (zb,w) box (A + reviewer);
-B2 libration systematic budget in sigma_obs units (A + reviewer);
+B2 libration systematic budget in sigma_obs units (A + reviewer)
+   [UPDATE 2026-08-12: the rigid-vs-elastic "0.03%" figure justifying
+   the rigid deferral is FALSIFIED — C18 escalation measured 0.82-0.95%
+   with elasticity RAISING the amplitude, opposite the VH16 statement.
+   Under adjudication; provisionally budget the elastic term at ~0.3
+   sigma_obs symmetric until the ruling lands];
 B3 libration regression test vs published value — Librations.py has no
 test at all (Codex-suitable); B4 zb-axis cache-builder support (A);
 B5 d(libration)/d(zb) scan to set node spacing (A); B6 drop rheology
