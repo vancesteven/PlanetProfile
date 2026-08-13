@@ -238,6 +238,15 @@ verification: 5 passed in 3.78 s; induction/inference regressions: 52 passed
 in 7.50 s; `py_compile` and `git diff --check` pass. Implementation
 `eab1d788`.
 
+**Manager review (2026-08-12): C19 ACCEPTED under the amended spec.**
+Independently re-run: 5/5 conductivity+smoke tests pass. Freeze blockers
+B8-B10 CLOSED: synodic period registered response-only (no invented
+vector; the GUI shows the |Ae|x[1,2] nT band with the non-stationarity
+caption), Be-file resolution fixed value-preserving, and the Saur
+Fig. 20 conductivity bracket is a committed acceptance test. With B3
+(C18) also closed, ALL Codex-side Enceladus freeze blockers are done.
+Queue continues at C20/C21.
+
 ### C13 — INDEX.md + DEPLOYING.md + plans-index currency (audit items 1.1-1.3, 3.1-3.2, 2.4, archive) [status: verified]
 
 1. `PlanetProfile/Inference/sbi_artifacts/INDEX.md`: bump the audit
