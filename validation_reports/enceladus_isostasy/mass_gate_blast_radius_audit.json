@@ -1,6 +1,6 @@
 {
   "item": "Blast-radius audit — what a per-node mass-conservation gate would do to ALREADY-RATIFIED caches",
-  "status": "MEASURED 2026-08-13 by Machine B, unprompted, to keep the reviewer's blast-radius ruling from resting on speculation. EVIDENCE for the pending sign-off on the FindInnerWithMoIAndEOS mass gate — not itself an adjudication.",
+  "status": "SUPERSEDED IN ITS HEADLINE 2026-08-13 — see correction_2026_08_13. The per-cache numbers below were computed with MIDPOINT-EDGE quadrature, which is NOT PlanetProfile's layer convention. Re-run under the correct convention REVERSES the conclusion. Retained for the record because the error is instructive: a quadrature choice fabricated an apparent systematic and nearly produced the wrong ruling.",
   "method": "Midpoint-edge shell integration of every cached structure's own (r_m, rho), compared to that node's stored Mtot_kg. 17 caches, ~31k structures, across Enceladus / Titan / Europa / Ganymede / Callisto. Read-only.",
   "headline": "A per-node mass gate CANNOT be tightened to catch the Enceladus defect without rejecting nodes inside already-ratified caches. The Enceladus violation (-21.85%) and the ratified population (up to +1.03%) are separated by a factor ~21, but the ratified population is NOT clustered near zero — it sits at a systematic ~0.85% offset.",
   "per_cache_max_abs_deviation_pct": {
@@ -19,12 +19,23 @@
     "Europa/Test52_seawater_v3": 0.174,
     "Titan/Test52_andrade_noocean_diff": 0.124,
     "Titan/Test50_andrade_noocean_yao2014": 0.124,
-    "Ganymede/C2_andrade_pureh2o": 0.120
+    "Ganymede/C2_andrade_pureh2o": 0.12
   },
-  "gate_sensitivity_by_cache": {"0.1_pct": "17/17 caches flagged", "0.5_pct": "6/17", "1.0_pct": "5/17", "2.0_pct": "1/17 (Enceladus only)"},
+  "gate_sensitivity_by_cache": {
+    "0.1_pct": "17/17 caches flagged",
+    "0.5_pct": "6/17",
+    "1.0_pct": "5/17",
+    "2.0_pct": "1/17 (Enceladus only)"
+  },
   "the_decisive_detail": {
     "cache": "Titan/Test48_andrade_yao2014 (RATIFIED), n = 6789 nodes",
-    "percentiles_pct": {"p50": 0.8524, "p90": 0.9517, "p99": 0.9985, "p99.9": 1.0157, "p100": 1.0264},
+    "percentiles_pct": {
+      "p50": 0.8524,
+      "p90": 0.9517,
+      "p99": 0.9985,
+      "p99.9": 1.0157,
+      "p100": 1.0264
+    },
     "fraction_over_0.3_pct": 84.21,
     "fraction_over_0.5_pct": 73.75,
     "fraction_over_1.0_pct": 0.854,
@@ -39,5 +50,92 @@
     "Does NOT claim any ratified artifact is scientifically invalid. The deviations are measured against a stored TARGET constant and the older caches' ~0.85% offset is unexplained, not established as an error.",
     "Does NOT adjudicate the tolerance or the gate design — that is the pending scientific-reviewer ruling.",
     "Does NOT change the Enceladus verdict: -21.85% and -8.86% on the frozen nodes remain a genuine, order-of-magnitude-larger failure of a different kind (a mass-violating profile ACCEPTED by the MoI selector), not a discretization artifact."
-  ]
+  ],
+  "correction_2026_08_13": {
+    "who_caught_it": "scientific-reviewer (independent review of the fix proposal), confirmed by Machine B re-measurement",
+    "the_error": "This audit paired rho[i] with midpoint-derived edges. PlanetProfile's actual convention (reducedPlanetModel / Geophysical.py:170) is OUTER-EDGE: rho[i] fills [r[i-1], r[i]] with implicit inner edge 0. On a single Titan NH3 node the same structure gives outer -0.777%, midpoint +0.206%, inner-edge +1.210% — a 1.99% convention swing that fully contains the 'systematic 0.85% offset' this audit reported.",
+    "corrected_result_outer_edge_convention": {
+      "Enceladus/Cassini_smoke": {
+        "n": 3,
+        "min_pct": -22.158,
+        "median_pct": -9.211,
+        "max_pct": -0.312
+      },
+      "Titan/Test54_nacl_ocean": {
+        "n": 534,
+        "min_pct": -0.978,
+        "median_pct": -0.728,
+        "max_pct": -0.536
+      },
+      "Titan/Test54_nh3_ocean": {
+        "n": 143,
+        "min_pct": -0.932,
+        "median_pct": -0.759,
+        "max_pct": -0.589
+      },
+      "Titan/Test54_mgso4_ocean": {
+        "n": 272,
+        "min_pct": -0.835,
+        "median_pct": -0.705,
+        "max_pct": -0.555
+      },
+      "Callisto/C2_andrade_nacl": {
+        "n": 11,
+        "min_pct": -0.461,
+        "median_pct": -0.402,
+        "max_pct": -0.32
+      },
+      "Callisto/C2_andrade_mgso4": {
+        "n": 9,
+        "min_pct": -0.453,
+        "median_pct": -0.396,
+        "max_pct": -0.306
+      },
+      "Europa/Test52_seawater_v5": {
+        "n": 1451,
+        "min_pct": -0.281,
+        "median_pct": -0.202,
+        "max_pct": -0.127
+      },
+      "Europa/Test52_seawater_v3": {
+        "n": 1303,
+        "min_pct": -0.281,
+        "median_pct": -0.202,
+        "max_pct": -0.127
+      },
+      "Europa/Test51_seawater": {
+        "n": 36,
+        "min_pct": -0.255,
+        "median_pct": -0.215,
+        "max_pct": -0.127
+      },
+      "Ganymede/C2_andrade_pureh2o": {
+        "n": 45,
+        "min_pct": -0.136,
+        "median_pct": -0.094,
+        "max_pct": -0.047
+      },
+      "Titan/Test50_noocean + Test52_noocean_diff": {
+        "n": 27,
+        "min_pct": -0.001,
+        "median_pct": -0.001,
+        "max_pct": -0.001
+      },
+      "Titan/Test46 + Test48 + Test49x2 (hybrid-hydro)": {
+        "n": 27156,
+        "min_pct": -0.0,
+        "median_pct": 0.0,
+        "max_pct": 0.0
+      }
+    },
+    "max_positive_residual_anywhere_pct": 0.0,
+    "what_this_changes": [
+      "The claimed '+0.85% median in a ratified Titan cache' DOES NOT EXIST. Under PP's convention that cache is at -0.0000%. The +0.85% was manufactured by the wrong quadrature.",
+      "EVERY residual across ~37k structures in 17 caches is NEGATIVE OR ZERO, max positive exactly 0.0000% — precisely the one-signed (-delta_m_step, 0] signature the reviewer predicted from Silicates.py:118 (first profile with Mtot_kg <= M_kg, i.e. one radial step below target).",
+      "The ratified corpus spans -0.001% to -0.978%; the Enceladus frozen nodes are -22.158% and -9.211%. Separation is a factor ~23 from the worst ratified node, and the Enceladus ocean node (-0.312%) sits inside the ratified band.",
+      "THE AUDIT'S CONCLUSION IS RETRACTED. 'A gate must be looser than ~1.05% or it rejects ratified nodes' was an artifact. A step-scaled one-sided gate as the reviewer specifies separates the defect from every healthy node cleanly, so the gate CAN land globally.",
+      "The 'unexplained one-signed 0.85% systematic in older Titan caches' is also retracted — it was the convention, not the solver. The genuinely one-signed thing is the solver's own -1-step bias, which is BY DESIGN."
+    ],
+    "methodological_lesson": "I introduced the midpoint convention in the r4 mass invariant precisely because it closes total volume exactly, and that reasoning was sound FOR AN INVARIANT DEFINED ON ITS OWN TERMS. It was wrong to then reuse it to audit structures whose densities were assigned under a different convention. An invariant and an audit of existing data are not the same task: the audit must adopt the convention the data was BUILT with. The r4 invariant's threshold (5e-4, midpoint) must be revisited on the same grounds — under the outer-edge convention the Enceladus ocean node is -0.312%, not -0.018%, so a 5e-4 midpoint threshold does NOT translate."
+  }
 }
