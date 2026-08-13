@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-12 (C18 verified; C19 resumed; C20–C21 remain queued, one implementation commit per task). Curated by the Claude model manager
+Updated: 2026-08-13 (C18–C20 verified; C21 remains queued, one implementation commit per task). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -59,7 +59,7 @@ be invented. Amended tasks:
 This is recorded as the freeze-doc induction design's concrete synodic
 treatment (display band, not vector). Resume C19 under this spec.
 
-### C20 — Per-campaign methods-snippet generator (1.0 milestone item 6) [status: in progress (Codex)]
+### C20 — Per-campaign methods-snippet generator (1.0 milestone item 6) [status: verified]
 
 The paper's methods section must be assemblable per campaign from
 committed material (doc-doctor E11; STRATEGY 1.0 item 6). Write
@@ -77,6 +77,19 @@ to validation_reports/<campaign>/methods_snippet.md. Run it for all
 eight campaigns and commit the outputs. Verification: each generated
 snippet's numbers grep-match their sources (write the check into the
 script as --verify); snippets render. Report `verified`.
+
+**Report (Codex, 2026-08-13):** `verified`. Added the eight-key
+`plans/scripts/generate_methods_snippet.py` generator and committed outputs for
+`nh3`, `mgso4`, `nacl`, `v5`, `v6`, `v1p1`, `v4`, and `test50`. Every generated
+sentence carries a source-pointer comment. Config priors/observables, cache
+axes/composition/builder flags/SHA-256, artifact training metadata, committed
+gate verdicts/adjudication vocabulary, and INDEX deployment state are read
+directly from their authoritative files. `--verify` regenerates byte-for-byte,
+checks config/artifact parameter and observable names, validates cache hashes
+against manifests where available, and renders each output through
+Python-Markdown. Verification: all eight source/name/hash/render checks pass;
+a non-repository working-directory check also passes; `py_compile` and
+`git diff --check` pass. Implementation `0fbbe6fe`.
 
 ### C21 — Enceladus doc/test odds and ends (freeze non-blockers N2/N5 + supersessions) [status: queued]
 
