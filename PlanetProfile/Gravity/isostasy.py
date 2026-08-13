@@ -249,3 +249,99 @@ def rescale_coeff(C_lm: float, l: int, R_ref_from: float,
     """Reference-radius conversion (B14): C_lm(R_to) =
     C_lm(R_from) * (R_from / R_to)^l  [from U ~ (R_ref/r)^l C_lm]."""
     return C_lm * (R_ref_from / R_ref_to) ** l
+
+
+_RHO_INTERIOR_CEILING_KGM3 = 9000.0
+
+
+def mass_neutral_shell_density(
+    radial: np.ndarray,
+    rho: np.ndarray,
+    rho_shell_new: float,
+    M_body: float,
+    shell_idx: int = -1,
+    interior_idx: int = 0,
+) -> Tuple[np.ndarray, float]:
+    """Apply a shell-density override MASS-NEUTRALLY.
+
+    Any EOS/nuisance override of a shell's density changes that layer's
+    mass unless something else in the stack compensates. This helper
+    absorbs the shell mass delta into a nominated interior layer's density
+    so the body's total mass is conserved EXACTLY (by construction, to
+    floating-point precision) rather than left to drift with the override.
+
+    PlanetProfile convention: ``rho[i]`` occupies the spherical shell
+    ``[radial[i-1], radial[i]]`` (with an implicit inner edge of 0 for
+    ``i = 0``); ``radial`` is ascending and ``radial[-1]`` is the surface.
+
+    Args:
+        radial: ascending outer radii of each layer (m).
+        rho: density of each layer (kg/m^3), same length as ``radial``.
+        rho_shell_new: the overridden density (kg/m^3) for the layer at
+            ``shell_idx``.
+        M_body: total body mass (kg) to conserve exactly.
+        shell_idx: index of the layer receiving the override (default:
+            outermost layer, -1).
+        interior_idx: index of the layer whose density absorbs the shell
+            mass delta (default: innermost layer, 0).
+
+    Returns:
+        (rho_new, mass_residual_frac): a NEW array (input ``rho`` is not
+        mutated) with ``rho_new[shell_idx] = rho_shell_new`` and
+        ``rho_new[interior_idx]`` solved so that
+        ``sum(rho_new * layer_volume) == M_body`` exactly; and the
+        achieved fractional mass residual
+        ``(sum(rho_new * layer_volume) - M_body) / M_body`` (zero to
+        floating-point precision, by construction).
+
+    Raises:
+        ValueError: if ``radial``/``rho`` have fewer than 2 layers, if
+            ``shell_idx`` and ``interior_idx`` resolve to the same layer,
+            if any layer has non-positive volume, or if the interior
+            density required to restore ``M_body`` is unphysical
+            (<= 0 or > 9000 kg/m^3).
+    """
+    radial = np.asarray(radial, dtype=float)
+    rho_in = np.asarray(rho, dtype=float)
+    n = radial.size
+    if n < 2 or rho_in.size != n:
+        raise ValueError(
+            'radial and rho must be 1D arrays of equal length >= 2, got '
+            f'sizes {n} and {rho_in.size}')
+
+    shell_idx = shell_idx % n
+    interior_idx = interior_idx % n
+    if shell_idx == interior_idx:
+        raise ValueError(
+            f'shell_idx ({shell_idx}) and interior_idx ({interior_idx}) '
+            'must refer to distinct layers')
+
+    inner_edges = np.concatenate(([0.0], radial[:-1]))
+    vol = (4.0 / 3.0) * np.pi * (radial ** 3 - inner_edges ** 3)
+    if np.any(vol <= 0.0):
+        raise ValueError('non-positive layer volume in radial stack '
+                          '(radial must be strictly ascending and > 0)')
+
+    # Mass of every layer OTHER than the shell/interior pair is held fixed;
+    # the interior density is solved so the total lands on M_body exactly.
+    m_fixed = float(np.sum(rho_in * vol)
+                    - rho_in[shell_idx] * vol[shell_idx]
+                    - rho_in[interior_idx] * vol[interior_idx])
+    m_shell_new = rho_shell_new * vol[shell_idx]
+    m_interior_new = M_body - m_fixed - m_shell_new
+    rho_interior_new = m_interior_new / vol[interior_idx]
+
+    if (not np.isfinite(rho_interior_new) or rho_interior_new <= 0.0
+            or rho_interior_new > _RHO_INTERIOR_CEILING_KGM3):
+        raise ValueError(
+            'mass-neutral shell-density override is unphysical: restoring '
+            f'M_body={M_body:.6g} kg with shell density {rho_shell_new:.6g} '
+            f'kg/m^3 requires interior density {rho_interior_new:.6g} '
+            f'kg/m^3, outside (0, {_RHO_INTERIOR_CEILING_KGM3:.0f}] kg/m^3')
+
+    rho_out = rho_in.copy()
+    rho_out[shell_idx] = rho_shell_new
+    rho_out[interior_idx] = rho_interior_new
+
+    mass_residual_frac = float(np.sum(rho_out * vol) - M_body) / M_body
+    return rho_out, mass_residual_frac

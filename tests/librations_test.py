@@ -308,3 +308,79 @@ def test_h22_obs_m_unsupported_branch_raises():
     with pytest.raises(NotImplementedError):
         librations(radial, rho, omega, ecc, rigid=True, ocean=False,
                    H22_obs_m=857.0)
+
+
+# --- rho_ice mass-neutrality fix (NEW_MAJOR_1) ---------------------------
+#
+# An un-compensated rho_ice_kgm3 EOS override breaks the campaign's mass
+# invariant by 3-7x (see metadata.blockers_open.NEW_MAJOR_1_rho_ice_mass_
+# neutrality in enceladus_cassini_isostasy_7D.json). This block quantifies
+# the libration-amplitude consequence of compensating that override via
+# PlanetProfile.Gravity.isostasy.mass_neutral_shell_density versus leaving
+# it uncompensated, at the Enceladus fiducial structure.
+
+from PlanetProfile.Gravity.isostasy import mass_neutral_shell_density  # noqa: E402
+
+
+def test_rho_ice_mass_neutral_compensation_reduces_libration_shift():
+    """Mass-neutral compensation shrinks the rho_ice-override libration
+    shift relative to leaving the override uncompensated.
+
+    At the Enceladus fiducial (R_T=252.22e3, M=1.08022e20, omega=5.307e-5,
+    ecc=0.0047, zb=25 km, D_ocean=36 km, rho_ocean=1005), sweeping
+    rho_ice_kgm3 by +/-10 kg/m^3 about the 925 kg/m^3 midpoint of the
+    config's narrowed U[915,935] prior:
+
+    - UNCOMPENSATED (shell density overridden in place, no interior
+      adjustment): the measured shift is ~+/-0.225 sigma_obs
+      (sigma_obs = 0.003 deg).
+    - MASS-NEUTRAL (interior density solved so total mass is exactly
+      conserved): the measured shift is ~+/-0.147 sigma_obs.
+
+    These are the numbers actually measured here, not tuned targets; if a
+    future change to the forward model moves them, this test's bounds must
+    be re-measured against the new numbers rather than widened to fit.
+    """
+    R_T = 252.22e3
+    M_body = 1.08022e20
+    rho_ocean = 1005.0
+    rho_ice_nominal = 925.0
+    zb_km = 25.0
+    D_ocean_km = 36.0
+    omega = 5.307e-5
+    ecc = 0.0047
+    sigma_obs_deg = 0.003
+
+    R_b = R_T - zb_km * 1e3
+    R_c = R_b - D_ocean_km * 1e3
+    V = 4.0 * np.pi / 3.0
+    m_shell = rho_ice_nominal * V * (R_T ** 3 - R_b ** 3)
+    m_ocean = rho_ocean * V * (R_b ** 3 - R_c ** 3)
+    rho_core = (M_body - m_shell - m_ocean) / (V * R_c ** 3)
+    radial = np.array([R_c, R_b, R_T])
+    rho0 = np.array([rho_core, rho_ocean, rho_ice_nominal])
+
+    def _lib_deg(radial_, rho_):
+        m = librations(radial_, rho_, omega, ecc, rigid=True, ocean=True,
+                       ocean_idx=1)
+        return float(np.degrees(m / radial_[-1]))
+
+    base_deg = _lib_deg(radial, rho0)
+
+    for drho in (-10.0, 10.0):
+        rho_shell_new = rho_ice_nominal + drho
+
+        rho_uncomp = rho0.copy()
+        rho_uncomp[2] = rho_shell_new
+        shift_uncomp = (_lib_deg(radial, rho_uncomp) - base_deg) / sigma_obs_deg
+
+        rho_comp, mass_resid = mass_neutral_shell_density(
+            radial, rho0, rho_shell_new, M_body, shell_idx=2,
+            interior_idx=0)
+        shift_comp = (_lib_deg(radial, rho_comp) - base_deg) / sigma_obs_deg
+
+        assert abs(mass_resid) <= 1e-12
+        assert abs(shift_comp) < abs(shift_uncomp)
+        # Measured: ~0.225 sigma uncompensated, ~0.147 sigma compensated.
+        assert 0.19 <= abs(shift_uncomp) <= 0.27
+        assert 0.10 <= abs(shift_comp) <= 0.20

@@ -11,8 +11,8 @@ sys.path.insert(0, str(REPO))
 
 from PlanetProfile.Gravity.isostasy import (  # noqa: E402
     airy_root, eccentricities_to_axes, finite_amplitude_coeffs,
-    interface_gravity_coeff, isostatic_gravity, project_powers,
-    rescale_coeff, triaxial_to_H2m, gravity_g, G)
+    interface_gravity_coeff, isostatic_gravity, mass_neutral_shell_density,
+    project_powers, rescale_coeff, triaxial_to_H2m, gravity_g, G)
 
 # Enceladus constants (Archinal mean radius; mass per program table)
 R_ENC = 252.1e3
@@ -152,3 +152,104 @@ def test_rescale_coeff_b14():
 def test_airy_requires_density_contrast():
     with pytest.raises(ValueError, match='exceed'):
         airy_root({(2, 0): 1.0}, 1020.0, 925.0, 0.11, 0.11)
+
+
+# --- mass_neutral_shell_density (rho_ice mass-neutrality fix) -----------
+#
+# See metadata.blockers_open.NEW_MAJOR_1_rho_ice_mass_neutrality in
+# PlanetProfile/Inference/configs/enceladus_cassini_isostasy_7D.json for the
+# finding this helper closes: an un-compensated rho_ice_kgm3 EOS override
+# breaks the campaign's own per-node mass invariant by 3-7x.
+
+R_T_ENC = 252.22e3
+M_ENC_FIDUCIAL = 1.08022e20
+RHO_OCEAN_ENC = 1005.0
+RHO_ICE_ENC = 925.0
+
+
+def _ocean_stack(zb_km, D_ocean_km, rho_ice=RHO_ICE_ENC,
+                  rho_ocean=RHO_OCEAN_ENC, R_T=R_T_ENC, M=M_ENC_FIDUCIAL):
+    """Mass-conserved 3-layer (core, ocean, shell) Enceladus-class stack."""
+    R_b = R_T - zb_km * 1e3
+    R_c = R_b - D_ocean_km * 1e3
+    V = 4.0 * np.pi / 3.0
+    m_shell = rho_ice * V * (R_T ** 3 - R_b ** 3)
+    m_ocean = rho_ocean * V * (R_b ** 3 - R_c ** 3)
+    rho_core = (M - m_shell - m_ocean) / (V * R_c ** 3)
+    return np.array([R_c, R_b, R_T]), np.array([rho_core, rho_ocean, rho_ice])
+
+
+def _frozen_stack(R_c_km, R_T=R_T_ENC, rho_shell=RHO_ICE_ENC,
+                  M=M_ENC_FIDUCIAL):
+    """Mass-conserved 2-layer (core, shell) frozen stack."""
+    R_c = R_c_km * 1e3
+    V = 4.0 * np.pi / 3.0
+    rho_core = (M - rho_shell * V * (R_T ** 3 - R_c ** 3)) / (V * R_c ** 3)
+    return np.array([R_c, R_T]), np.array([rho_core, rho_shell])
+
+
+def _mass_of(radial, rho):
+    inner = np.concatenate(([0.0], radial[:-1]))
+    vol = 4.0 / 3.0 * np.pi * (radial ** 3 - inner ** 3)
+    return float(np.sum(rho * vol))
+
+
+@pytest.mark.parametrize('zb_km,D_ocean_km,rho_shell_new', [
+    (25.0, 36.0, 915.0),
+    (25.0, 36.0, 935.0),
+    (30.0, 40.0, 918.0),
+    (20.0, 30.0, 933.0),
+])
+def test_mass_neutral_shell_density_conserves_mass_ocean_branch(
+        zb_km, D_ocean_km, rho_shell_new):
+    radial, rho = _ocean_stack(zb_km, D_ocean_km)
+    rho_out, resid = mass_neutral_shell_density(
+        radial, rho, rho_shell_new, M_ENC_FIDUCIAL, shell_idx=2,
+        interior_idx=0)
+    assert rho_out[2] == pytest.approx(rho_shell_new, rel=1e-12)
+    m_new = _mass_of(radial, rho_out)
+    assert abs(m_new / M_ENC_FIDUCIAL - 1.0) <= 1e-12
+    assert abs(resid) <= 1e-12
+
+
+@pytest.mark.parametrize('R_c_km,rho_shell_new', [
+    (200.0, 915.0),
+    (200.0, 935.0),
+    (150.0, 918.0),
+    (220.0, 933.0),
+])
+def test_mass_neutral_shell_density_conserves_mass_frozen_branch(
+        R_c_km, rho_shell_new):
+    radial, rho = _frozen_stack(R_c_km)
+    rho_out, resid = mass_neutral_shell_density(
+        radial, rho, rho_shell_new, M_ENC_FIDUCIAL, shell_idx=1,
+        interior_idx=0)
+    assert rho_out[1] == pytest.approx(rho_shell_new, rel=1e-12)
+    m_new = _mass_of(radial, rho_out)
+    assert abs(m_new / M_ENC_FIDUCIAL - 1.0) <= 1e-12
+    assert abs(resid) <= 1e-12
+
+
+def test_mass_neutral_shell_density_identity_is_noop():
+    radial, rho = _ocean_stack(25.0, 36.0)
+    rho_out, resid = mass_neutral_shell_density(
+        radial, rho, rho[2], M_ENC_FIDUCIAL, shell_idx=2, interior_idx=0)
+    assert np.allclose(rho_out, rho, rtol=1e-12)
+    assert abs(resid) <= 1e-12
+
+
+def test_mass_neutral_shell_density_does_not_mutate_input():
+    radial, rho = _ocean_stack(25.0, 36.0)
+    rho_copy = rho.copy()
+    mass_neutral_shell_density(radial, rho, 915.0, M_ENC_FIDUCIAL,
+                               shell_idx=2, interior_idx=0)
+    assert np.array_equal(rho, rho_copy)
+
+
+def test_mass_neutral_shell_density_unphysical_raises():
+    radial, rho = _frozen_stack(200.0)
+    # A shell density this large cannot be compensated by any positive
+    # interior density: it would require rho_interior < 0.
+    with pytest.raises(ValueError):
+        mass_neutral_shell_density(radial, rho, 1.0e7, M_ENC_FIDUCIAL,
+                                   shell_idx=1, interior_idx=0)

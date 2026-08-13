@@ -1619,7 +1619,8 @@ class MCMCRunner:
         return (c20, c22)
 
     def _derive_libration_deg(
-        self, theta_dict: Dict[str, float]
+        self, theta_dict: Dict[str, float],
+        rho_shell_override: Optional[float] = None,
     ) -> Optional[float]:
         """Forced libration amplitude [degrees] from the per-sample
         structure, via the merged Gravity/Librations.py forward model
@@ -1631,6 +1632,22 @@ class MCMCRunner:
         production refinement (extractable from the TidalPy solution).
         Returns None when the sample's structure has no contiguous
         interior/ocean/shell partition or inputs are non-finite.
+
+        Args:
+            rho_shell_override: OPTIONAL EOS-nuisance override for the
+                reduced stack's outer-shell density (kg/m^3). When
+                ``None`` (the default), behaviour is UNCHANGED from the
+                historical path. When set, the override is applied
+                MASS-NEUTRALLY via
+                :func:`PlanetProfile.Gravity.isostasy.mass_neutral_shell_density`
+                — the shell-mass delta is absorbed into the reduced
+                stack's interior density (index 0) so the body's total
+                mass (``struct['Mtot_kg']``) is conserved exactly, rather
+                than silently drifting (see
+                metadata.blockers_open.NEW_MAJOR_1_rho_ice_mass_neutrality
+                in enceladus_cassini_isostasy_7D.json). Returns None
+                (sample rejected) if ``Mtot_kg`` is missing/non-finite or
+                if the required interior density is unphysical.
         """
         from PlanetProfile.Gravity.Librations import librations
 
@@ -1674,6 +1691,20 @@ class MCMCRunner:
                                 _vw_rho(last + 1, r_m.size - 1)])
         if not np.all(np.isfinite(reduced_rho)):
             return None
+
+        if rho_shell_override is not None:
+            from PlanetProfile.Gravity.isostasy import (
+                mass_neutral_shell_density)
+            M_body = float(struct.get('Mtot_kg', np.nan))
+            if not np.isfinite(M_body):
+                return None
+            try:
+                reduced_rho, _mass_residual_frac = mass_neutral_shell_density(
+                    reduced_r, reduced_rho, rho_shell_override, M_body,
+                    shell_idx=2, interior_idx=0)
+            except ValueError:
+                return None
+
         try:
             lib_m = librations(reduced_r, reduced_rho, omega, ecc,
                                rigid=True, ocean=True, ocean_idx=1)
