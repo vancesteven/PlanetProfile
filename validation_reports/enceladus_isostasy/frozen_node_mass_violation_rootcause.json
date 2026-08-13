@@ -1,0 +1,41 @@
+{
+  "item": "Root cause — Enceladus frozen-node mass-conservation violation in the PP inner-layer solver",
+  "status": "ROOT-CAUSED 2026-08-13 (diagnosis only; NO production physics changed). Fix proposal recorded, one sub-proposal REJECTED by Machine B — see rejected_fix.",
+  "escalation_verdict": "NOT ESCALATED. Enceladus-specific; Titan's already-ratified artifacts are UNAFFECTED (measured below).",
+  "root_cause": {
+    "mechanism": "PlanetProfile's inner-layer solver selects the silicate/porosity profile whose C/MR^2 best matches Bulk.Cmeasured, and NEVER checks that the SELECTED profile conserves total mass. FindInnerWithMoIAndEOS (LayerPropagators.py:1766) picks by MoI window (LayerPropagators.py:1960-1962); the achieved mass Planet.Mtot_kg (LayerPropagators.py:1715 = sum(MLayer_kg[hydrosphere]) + MtotSil_kg + MtotCore_kg) is a BYPRODUCT that is never gated. The only existing mass guard (Silicates.py:74-92) rejects when NO swept profile reaches M_kg — it does not require the SELECTED profile to be within any tolerance.",
+    "why_frozen_fails_and_ocean_passes": "MoI is the only enforced invariant; mass closure is incidental. With a thin ice shell (ocean branch) the MoI-matching profile happens to also be mass-consistent. With a deep-frozen hydrosphere the silicate radius is tightly constrained and the MoI-matching profile is NOT mass-consistent — and nothing catches it. So the ocean branch is not 'better behaved', it is LUCKY.",
+    "PP_logs_the_violation_itself": "Re-running the build live reproduces PP's own acceptance line: 'Found matching MoI of 0.2684 (C/MR^2 = 0.3350 +/- 0.0800) for rho_sil = 2190 kg/m^3, ... M_tot = 0.7787 M_E.' PP states that the accepted structure is 77.87% of the target mass and proceeds with no error and no Do.VALID=False.",
+    "confidence": "CONFIRMED (was medium-confidence hypothesis). Directly reproduced code behaviour plus PP's own log line, not inference."
+  },
+  "measured_mass_deviation_midpoint_edge": {"node_0_Tb_271.8_frozen_pct": -21.85, "node_1_Tb_272.1_frozen_pct": -8.86, "node_2_Tb_272.46_ocean_pct": -0.018},
+  "masking_mechanism": {
+    "finding": "cache_builder.py:561 stores \"Mtot_kg\": Planet.Bulk.M_kg — the TEMPLATE TARGET CONSTANT — not Planet.Mtot_kg, the achieved integral PP already computed and logged. The field name promises the achieved mass and delivers the input, so the violation is invisible to any consumer that trusts it.",
+    "divergent_conventions": "The same field name carries TWO different meanings in the same package: structure_cache.py:478 writes float(getattr(Planet,'Mtot_kg', getattr(Planet.Bulk,'M_kg', nan))) — i.e. ACHIEVED with a target fallback — while cache_builder.py:561 always writes the TARGET. This inconsistency is itself worth fixing, and it means neither meaning can be assumed by a reader."
+  },
+  "rejected_fix": {
+    "proposal": "Change cache_builder.py:561 to store Planet.Mtot_kg so the cache stops masking the violation.",
+    "verdict": "REJECTED AS WRITTEN by Machine B. It would silently change the meaning of a field that DOWNSTREAM CODE CONSUMES AS THE CONSERVATION TARGET, converting a visible-once-audited problem into a wrong-answer problem.",
+    "consumers_verified": ["mcmc_runner.py:925-926 — Mtot_kg is used as an OBSERVABLE (compared to obs_val/obs_err)", "mcmc_runner.py:1416, 1579 — M_total_kg for CMR2 derivation", "mcmc_runner.py:1698 — M_body for the new mass-neutral shell-density path (commit eaa5a2fa)", "build_cmr2_offset_sidecar.py:96", "Test/Test45_mcmc_maxwell_hybrid_hydro.py:196 and Test/Test49_mcmc_andrade_yao2014_clathrate.py:166 — M_hydro = data['Mtot_kg'] - rho_sil_c * V_sil, i.e. explicitly the TARGET"],
+    "correct_shape_of_the_fix": "ADD a separate field (e.g. Mtot_achieved_kg, plus mass_residual_frac) alongside the existing Mtot_kg, leaving Mtot_kg's target semantics untouched. Then gate on the new field. Renaming or repurposing Mtot_kg would require auditing and updating every consumer above, including two Test/ files that must not be edited without permission."
+  },
+  "proposed_fix_retained": [
+    "1. cache_builder: ADD Mtot_achieved_kg (= Planet.Mtot_kg) and mass_residual_frac to the stored node dict. Do NOT repurpose Mtot_kg.",
+    "2. LayerPropagators.FindInnerWithMoIAndEOS: after selecting by MoI, check abs(Planet.Mtot_kg/Planet.Bulk.M_kg - 1) against a tolerance and set Do.VALID=False (mirroring Silicates.py:74-92, which currently guards only the swept set, not the selection). This is the actual defect and it is a production-physics change requiring scientific-reviewer sign-off.",
+    "3. cache_builder node-accept logic: reject/flag nodes failing the invariant at BUILD time, so any future Enceladus cache is protected — not just this campaign's config. The config-side mandatory_node_invariants (midpoint-edge, 5e-4, two-sided) currently specifies this from the config, but enforcement belongs in the builder."
+  ],
+  "MoI_window_answer": {
+    "question": "Is the template MoI acceptance window enforced on this build path?",
+    "answer": "NO — it was deliberately widened at build time. PPEnceladus.py:22-23 sets Cmeasured = 0.335 +/- 0.001. Rebuilding with the template default FAILS OUTRIGHT: 'ValueError: No MoI found matching C/MR^2 = 0.3350 +/- 0.0010. Min: 0.2684, Max: 0.2684.' Commit 6741d2e6 shows the smoke cache was built with bulk_overrides={'Cuncertainty': 0.08} (rationale: MoI swings ~0.07 per 0.7 K of Tb; the inference constrains MoI via its observables instead).",
+    "consequence_for_the_campaign": "The cache therefore stores CMR2 = 0.268 / 0.317 / 0.335, all of which the template's own un-widened window would reject; and the campaign's best-fit structures sit near CMR2 ~ 0.331. This CONFIRMS reviewer MODERATE-4: the production build must set bulk_overrides deliberately with a stated justification, or the campaign would reject the very solutions it exists to test. Whether the widening is scientifically right depends on whether gravity+libration are meant to supersede the MoI window — a scientific-reviewer question, not settled here."
+  },
+  "titan_cross_check": {
+    "cache": "PlanetProfile/Test/mcmc_results/Titan/Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl (144 nodes; the REAL retry_frozen_as_no_ocean mechanism, unlike the Enceladus smoke cache which had no retry metadata at all)",
+    "frozen_nodes": {"n": 26, "deviation_pct_range": [0.206, 0.249], "median_pct": 0.216},
+    "ocean_nodes": {"n": 117, "deviation_pct_range": [0.140, 0.366], "median_pct": 0.271},
+    "nodes_worse_than_1pct": 0,
+    "verdict": "TITAN CLEAN. Frozen and ocean nodes agree to the same ~0.2-0.3% quadrature-noise level, so Titan's frozen branch conserves mass and the already-ratified Titan artifacts are NOT affected. No escalation.",
+    "likely_reason": "Titan's frozen branch routes through the NO_OCEAN_EXCEPT_INNER_ICES HP-ice propagation (LayerPropagators.py:655-722) and its much deeper hydrosphere keeps the MoI-matching silicate profile inside the mass-conserving regime. The agent could not fully separate this mechanism from 'Titan's grid happens to sit in the safe regime' without tracing every intermediate array — but the OUTCOME (closure to <0.3%) is directly measured and unambiguous. Recorded as an open mechanistic question, not a resolved one."
+  },
+  "scope_note": "No production physics was changed by this investigation. Items 2 and 3 above are production changes on the 1.0 critical path and require scientific-reviewer sign-off before implementation."
+}
