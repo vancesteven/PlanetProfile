@@ -786,7 +786,8 @@ MgSO4/NaCl 2D joint caches + datasets now (architecture-independent, §0.10
 priority-b).
 
 
-Updated: 2026-08-12b (Machine B: **§0.22 ⚠ AWAITING MACHINE A DISPOSITION on
+Updated: 2026-08-13 (Machine B: Enceladus frozen-config candidate r4 + physics blockers under the §0.22 foreground directive. Config is a CANDIDATE only — `not implemented`, unrunnable, NOT ratified; four reviewer passes, last NEEDS-MORE-ANALYSIS. B15 / frozen-branch reparameterization / mass-neutral rho_ice CLOSED with measurements; frozen-node mass violation ROOT-CAUSED and Titan confirmed CLEAN (no escalation). B2' REOPENED + ESCALATED as the largest open systematic (figure convention is a structural coupling; 2.6 km spread across treatments vs 6 km H&M-vs-Park; +1.10 km retracted; libration DOES see compensation_C2). Two self-corrections recorded: wrong-quadrature blast-radius audit (headline retracted — the mass gate CAN land globally) and a regression test that could not catch its own bug. BLOCKED on reviewer sign-off: the two-part mass fix (hoist the iSilStart retry out of the Fe_CORE branch, THEN gate). Deep-frozen Enceladus is FEASIBLE, so the MoI widening was never a physics necessity. Full state: validation_reports/enceladus_isostasy/RESUME_NOTE.md. Prior entry below.)
+Prior: 2026-08-12b (Machine B: **§0.22 ⚠ AWAITING MACHINE A DISPOSITION on
 the salt C16 evidence package.** MgSO4 + NaCl fiducial IS validations COMPLETE
 (commit c31192ff, pushed 1c82e38d) — both clean (Pareto-k 0.33/0.26, ESS
 1592/1516, C3 max_rel_diff 0.0, C5.3 + pushforward PASS). C16 residuals
