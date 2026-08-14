@@ -130,12 +130,12 @@ standing constraints on all development:
    standard `Ocean.comp` first). The GUI should make switching physical
    features on/off easy. Known documented exceptions: (a) the freegrav
    rho_sil mass-conservation rescale (roadmap: self-consistent Perple_X
-   refit); (b) the v4+ direct-Clairaut C20/C22 forward calculation
-   (`PlanetProfile/Inference/gravity_obs.py`) is invoked only by the
-   inference runner — no standard PlanetProfile-run path computes it
-   (doc-doctor 2026-08-06 item 5; roadmap: expose degree-2 gravity
-   coefficients as a standard output of a PlanetProfile run so GUI
-   single-model runs reproduce the inference observable).
+   refit). Exception (b), the v4+ direct-Clairaut C20/C22 forward
+   calculation, was **CLOSED by C17**: the default-off standard-run flag
+   `Planet.Do.CALC_C20_C22` delegates unchanged to
+   `PlanetProfile/Inference/gravity_obs.py` and exposes
+   `Gravity.kf/C20/C22`, so GUI/CLI single-model runs can reproduce the
+   degree-2 inference observable.
 3. **Explorability.** Model assumptions must be easy to understand in the
    GUI (assumptions expanders, scope notes, sector warnings) and results
    easy to explore (the 3D globe panel direction).

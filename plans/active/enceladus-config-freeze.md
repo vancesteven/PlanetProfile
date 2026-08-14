@@ -100,9 +100,9 @@ Full review in the session record; binding rulings:
   0.120)**. Implemented (Librations.py, Van Hoolst 2008 ocean+rigid;
   wired through mcmc_runner + SBI x-vector). σ = 3.3% relative;
   ~1.1σ per km of shell — the campaign's dominant channel AND its
-  single point of failure: ZERO test coverage, an unexplained 6.3σ
-  fiducial offset (likely benign: fiducial shell ~21.5 km vs Park's
-  27 km — never demonstrated), no systematic budget.
+  single point of failure at review time. Post-review C18 closed the
+  zero-test-coverage blocker and the B2 adjudication below supplies the
+  rigid-branch systematic budget.
 - **k2 OMITTED entirely** (rejects the constraints-doc hypothetical
   channel): three real channels exist so the v1.1 justification does
   not transfer; a [0.015 ± 0.02] box straddling zero carries ~no
@@ -183,8 +183,10 @@ B2 libration systematic budget in sigma_obs units (A + reviewer)
    (fixing K_int without the linearization+elastic terms makes the
    channel WORSE: +0.47 sigma). Does not cover the hydrostatic-vs-
    observed-figure term, still open in this budget];
-B3 libration regression test vs published value — Librations.py has no
-test at all (Codex-suitable); B4 zb-axis cache-builder support (A);
+B3 CLOSED by C18 — `tests/librations_test.py` reproduces the Van Hoolst
+2016 published band, pins the known rigid/elastic discrepancy, carries a
+strict-xfail physical-direction expectation, and permanently guards the
+partial-Love-number sum; B4 zb-axis cache-builder support (A);
 B5 d(libration)/d(zb) scan to set node spacing (A); B6 drop rheology
 params that map to no observable after k2 removal (A); B7 Ocean.deltaT
 <= ~0.002 K near the melting curve verified (A). Induction-deliverable
@@ -199,6 +201,25 @@ fix; Cuncertainty re-derivation under zb).
 Frozen-config sketch (params/priors/observables/metadata) is in the
 review record; commits after B1-B7 close and the user rules on the
 three ratification points.
+
+### Frozen-config metadata — N5 libration formulation deferral
+
+- The inference campaign uses `rigid=True` and applies the frozen
+  **+0.8% multiplicative correction** to the modeled libration. The
+  `libration_model_formulation` budget retains **±0.4% residual**
+  uncertainty for shell-thickness dependence.
+- This handling is valid only for the frozen rheology. It is **void if
+  shell rheology changes**; a softer shell can reverse the net sign.
+- The rigid `K_int` normalization repair is deferred to a separately
+  reviewed post-campaign change and must not land alone: the missing
+  8π/15 factor, pressure-figure linearization, and elastic terms must be
+  handled together. `tests/librations_test.py` pins today's discrepancy
+  and includes a strict-xfail expectation that detonates when the
+  physical direction is restored, plus a permanent Love-number-sum
+  guard.
+- The earlier 0.03% rigid/elastic consistency claim is struck. The
+  adjudicated shipped rigid result is 0.75% low at the Park-class
+  solution (0.21σ), with the correction and residual above.
 
 ## Shape-channel addendum ruling (reviewer, 2026-08-12, after reading H&M 2019)
 

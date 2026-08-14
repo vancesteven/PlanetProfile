@@ -79,14 +79,16 @@ NaCl and MgSO4 variants exist; salinity sampling is a non-goal here).
 ## 3. Cassini–Enceladus (NEW; template PPEnceladus.py exists; cache = Machine B build)
 
 **PRIMARY SOURCE UPDATED (user 2026-07-19): Park et al. 2024 (JGR
-Planets 129, e2023JE008054; papers/park2024global.pdf) supersedes
-Iess et al. 2014 + Thomas et al. 2016.** Their Case 2 (quadrupole +
+Planets 129, e2023JE008054; papers/park2024global.pdf) and its erratum
+supersede Iess et al. 2014 gravity + Thomas et al. 2016 libration.**
+Their Case 2 (quadrupole +
 J3) is the paper-recommended field; unnormalized, reference radius
 **256.6 km**, formal 1σ:
 
 Data (real, Park et al. 2024 Table 8 Case 2):
 - **C20 = −5477.45 ± 36.99 e-6** (J2 = 5477.45e-6)
 - **C22 = 1517.90 ± 14.70 e-6**
+- **corr(C20,C22) = 0.47**
 - Measured J2/C22 = 3.61 — non-hydrostaticity STRONGER than Iess's
   3.51. With Enceladus's body-specific hydrostatic ratio (~3.22–3.25
   at q_r ≈ 6.3e-3), hydrostatic J2 from the measured C22 is
@@ -126,14 +128,17 @@ Data (real, Park et al. 2024 Table 8 Case 2):
   structural signal in C22_h (≈ k_f q_r/4 ~ 1.6e-3, k_f swing a few
   e-4) is comparable to the nuisance box, so C20/C22 alone constrain
   Enceladus's interior WEAKLY — the ocean/shell evidence is the
-  libration (unsupported, below). Say so in the config scope note; do
+  implemented libration channel. Say so in the config scope note; do
   not present the gravity channel as a CMR2 replacement.
 - CMR2 ≈ 0.335 (Iess 2014 interpretation) is DERIVED (hydrostatic+
   corrections) — do NOT double-count; use only as a sanity cross-check,
   not an observable, when C20/C22 are conditioned directly.
 Remaining gap:
-- k2: unmeasured; tiny predicted (~0.01–0.02 with ocean). Hypothetical
-  channel Re_k2 [0.015, 0.02], Im_k2 [0.005, 0.02].
+- k2 is unmeasured and is **omitted**, not represented by a hypothetical
+  channel. The rejection is user-ratified in
+  `plans/active/enceladus-config-freeze.md`: the proposed
+  Re_k2 [0.015, 0.02], Im_k2 [0.005, 0.02] channel carried essentially
+  no information and risked fake-measurement optics.
 Params (9): as Ganymede minus HP ices (no III/V/VI at Enceladus
 pressures → no log10_eta_HP; zeta_ice = Ih only), plus dC20_nh/dC22_nh.
 Implementation prerequisites (below): body-dependent hydrostatic ratio +
@@ -194,7 +199,7 @@ Params: = v4's 11.
    - `J2_OVER_C22 = 3.324` is Europa's Tricarico-corrected value. The
      correction grows with q_r (ordering verified: Enceladus 6.3e-3 ≫
      Europa 5.0e-4 > Ganymede 1.9e-4 > Callisto 3.7e-5): Enceladus
-     needs its own ratio (~3.22–3.25); Ganymede/Callisto sit nearer
+     uses the frozen ratio **3.25**; Ganymede/Callisto sit nearer
      10/3 (~3.332). Make it a config key (`gravity_j2_over_c22`,
      threaded through hydrostatic_c20_c22 alongside the existing
      R_ref_m parameter) with the body value computed/cited at
@@ -206,24 +211,23 @@ Params: = v4's 11.
      non-hydrostaticity posterior.
    - `R_REF_GC21_M = 1565 km` is the Europa/GC21 reference radius.
      Config key `gravity_ref_radius_m`; per-body literature reference
-     radii (Callisto 2410.3 km Anderson 2001; Enceladus 252.1 km
-     Iess 2014 — VERIFY each paper's stated reference radius when
-     transcribing).
+     radii (Callisto 2410.3 km Anderson 2001; Enceladus **256.6 km,
+     Park 2024 Table 8 Case 2** — verify each remaining body's paper
+     reference radius when transcribing).
    - **Correlated degree-2 conditioning (review-binding):** the
      pipeline currently treats observables as independent Gaussians;
      the Enceladus (and Callisto) J2–C22 published solutions are
-     correlated — the Enceladus detection is RATIO-driven (3.51 ±
-     0.05; independent propagation would give ±0.042, so the
-     off-diagonal is material). Add a per-pair correlation option to
-     the likelihood (2×2 covariance for the C20/C22 block) and pull
-     the published covariances before the Enceladus/Callisto
-     freezes. SBI side: generate the noise draw from the same 2×2
-     covariance.
-2. **Libration + obliquity forward models** — the single biggest
-   missing observable class (Enceladus's ocean detection; JUICE's
-   rotation-state measurements). Van Hoolst formalism; new observable
-   channels + registry entries. Separate plan before any Cassini–
-   Enceladus training.
+     correlated — the Park Enceladus detection is RATIO-driven
+     (J2/C22 = 3.61, corr = 0.47), so the off-diagonal is material. Add
+     a per-pair correlation option to the likelihood (2×2 covariance
+     for the C20/C22 block); the Enceladus value is frozen and the
+     Callisto covariance remains to be obtained before its freeze. SBI
+     side: generate the noise draw from the same 2×2 covariance.
+2. **Libration CLOSED for Enceladus; obliquity remains open.** The Van
+   Hoolst libration formalism is implemented in `Librations.py`, wired
+   through `mcmc_runner` and the SBI observable vector, and guarded by
+   `tests/librations_test.py`. JUICE rotation-state obliquity remains an
+   unsupported observable class.
 3. **Be1xyz_Ganymede excitation table** — required for any future
    Ganymede induction channel (Kivelson 2002 evidence; JUICE J-MAG).
    MoonMag-side work.
@@ -237,8 +241,10 @@ Params: = v4's 11.
 
 - Anderson et al. 1996, Nature 384, 541 (Ganymede gravity, MoI 0.3115)
 - Anderson et al. 2001, Icarus 153, 157 (Callisto gravity/MoI)
-- Iess et al. 2014, Science 344, 78 (Enceladus gravity)
-- Thomas et al. 2016, Icarus 264, 37 (Enceladus libration)
+- Park et al. 2024, JGR Planets 129, e2023JE008054 + erratum
+  (authoritative Enceladus gravity and libration)
+- Iess et al. 2014, Science 344, 78 (superseded Enceladus gravity)
+- Thomas et al. 2016, Icarus 264, 37 (superseded Enceladus libration)
 - Gomez Casajus et al. 2022, GRL 49 (Ganymede gravity after Juno)
 - Cappuccio et al. 2020, PSS (Ganymede 3GM simulation)
 - Cappuccio et al. 2022, PSJ 3, 208 (Callisto + Europa 3GM simulation)
@@ -255,6 +261,7 @@ not 2.7e-4); (2) asymmetric Enceladus nuisances + nuisance-dominated
 honesty statement; (3) correlated J2-C22 conditioning (2x2 covariance)
 as an implementation prerequisite; (4) body-specific hydrostatic ratio
 required for ALL C20/C22 configs (8e-8-class systematic at JUICE
-sigmas). Optional flags retained in-line: Enceladus hypothetical k2
-central is model-dependent; confirm JUICE-Europa ratio-test sigma and
-Anderson-2001 covariance from the papers before freeze.
+sigmas). The later 2026-08-12 freeze adjudication rejects the
+Enceladus hypothetical k2 channel and supersedes that optional flag.
+Confirm JUICE-Europa ratio-test sigma and Anderson-2001 covariance from
+the papers before freeze.
