@@ -1,4 +1,22 @@
 {
+  "SUPERSEDED_2026_08_14": {
+    "verdict": "PARTLY ARTIFACT. Superseded by b2prime_ADJUDICATED_drho_weighting.json (scientific-reviewer BLOCK, 2026-08-14). This file's CORE CONCLUSION SURVIVES — B2' is a real blocking systematic and the three treatments are genuinely distinct — but TWO of its headline numbers are ARTIFACTS and must not be quoted.",
+    "RETRACTED_from_this_file": [
+      "four_treatments_matched_shell_thickness.HM_Eq12_observed_surface_plus_Airy_root_C2_1: the +30.53 sigma and 'NO zb in [12,44] km reproduces the observed libration' are ARTIFACTS. Corrected: +1.66 sigma, zb = 25.99 km.",
+      "the_decisive_new_finding: the C2 sweep 0.10054 -> 0.18237 deg (+2.85 to +30.1 sigma) is an ARTIFACT. The C2 dependence is REAL but the span across C2 in [0,1] is 1.6 sigma, ~19-20x smaller than recorded.",
+      "Consequently this file's suggestion that MAJOR-4's channel split ('gravity = compensation state, libration = sole thickness channel') 'would need revisiting' is WITHDRAWN. At 1.6 sigma the split largely survives."
+    ],
+    "root_cause_of_the_artifact": "The Airy-root base scale was applied INSIDE (Bs - As), where the base interface carries weight -rho_ice = -925 kg/m3, instead of at its PHYSICAL weight Delta_rho = rho_ocean - rho_ice = 80-95 kg/m3. With the Airy root's rho_ice/dRho = 11.56 amplification this inflates the base term ~11.6x. Ks-bracket factor vs hydrostatic: 1.7499 as driven here, 1.0440 when assembled consistently.",
+    "the_same_root_cause_also_condemns_the_treatment_this_file_measured": "The shipped whole-difference scaling (the config's 'option A') has the SAME defect: it applies an implicit, structure-dependent, SIGN-FLIPPING effective scale of +0.33 to -0.58 to the shell-base interface while its docstring claims interior interfaces stay hydrostatic. So whole-difference is NOT a valid candidate treatment. The defensible pair is hydrostatic and surface-only, with Delta_rho-consistent Eq.-12 bracketed by C2 between 25.99 and 27.34 km.",
+    "what_this_file_got_RIGHT": [
+      "The three treatments ARE distinct (a later Machine B claim that whole-difference and surface-only were the same code path was itself wrong and has been retracted).",
+      "Its surface-only factor 1.2133 is corroborated: an independent decomposition gives 1.2075 at rho_ocean = 1020.",
+      "Its 27.34 km surface-only matched thickness is reproduced to 4 digits (27.3395).",
+      "Its 2.6 km spread figure stands; the defensible span is 24.42-27.68 km over the admissible ocean-thickness subrange.",
+      "Its recommendation — do NOT guess a fourth scaling, reproduce a published answer instead — was correct and is what produced the adjudication.",
+      "Its caution that the 30-sigma result 'more plausibly indicates that my mapping of the Airy root into the triaxial (B-A) is inconsistent with how H&M assemble Eq. 19 than that H&M are wrong' was EXACTLY RIGHT, and is precisely what the adjudication found."
+    ]
+  },
   "item": "B2' REOPENED — the figure convention is not a scaling choice, it is a structural coupling. ESCALATION.",
   "status": "OPEN / ESCALATED 2026-08-13. Machine B is NOT self-adjudicating this. The option-A implementation landed in 27fc71df is now SUSPECT and its +1.10 km result must not be used until this is ruled on.",
   "why_reopened": "The third reviewer pass raised a MAJOR against the implementation: the code multiplies the WHOLE (Bs - As) — a DIFFERENCE of surface and shell-base figure terms — while the docstring justifies scaling the SURFACE figure only. Investigating that from the primary source (papers/hemingway2019enceladus.pdf sections 2.3 and 2.5) shows BOTH readings are wrong about H&M's actual treatment.",

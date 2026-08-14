@@ -1,0 +1,130 @@
+{
+  "item": "B2' ADJUDICATION — scientific-reviewer verdict BLOCK, with the root cause identified as Delta_rho mis-weighting. 2026-08-14.",
+  "status": "ADJUDICATED. Reviewer verdict BLOCK. B2' REMAINS BLOCKING. The shipped observed-figure treatment (the one the config adopts as 'option A') is NOT a valid candidate and must be repaired or retired. No production code changed yet — the repair touches the sole thickness channel and a test that pins the current behaviour, so it needs the user's decision first.",
+
+  "CRITICAL_1_CONFIRMED_by_independent_measurement": {
+    "finding": "The shipped H22_obs_m path does NOT leave the shell-base interface hydrostatic, contrary to its own docstring. It applies an implicit, structure-dependent, SIGN-FLIPPING effective scale to that interface.",
+    "the_identity": "PP's layer form telescopes into H&M's Eq. 19 Delta_rho sum: Ks/(3 omega^2) = (Bs-As) + Bsp_Asp = rho_ice*f_top + (rho_ocean - rho_ice)*f_base, with f_i = (4pi/15) a_i b_i c_i (a_i^2 - b_i^2). VERIFIED by Machine B independently: the (Bs-As) = rho_ice*(f_top - f_base) identity holds to rel 0.00e+00 to 1.0e-14 at four structures; the Ks-bracket identity holds to rel 0.9-1.3e-2 (the residual being the known Bsp_Asp linearization, measured at 1.7-2.0%).",
+    "why_it_breaks": "The base interface's PHYSICAL weight in Ks is Delta_rho = rho_ocean - rho_ice = 80-95 kg/m3. But it appears in code as a difference of two ~10x larger cancelling terms: -rho_ice*f_base inside (Bs-As), and +rho_ocean*f_base inside Bsp_Asp. Scaling (Bs-As) by r scales only the first half. Against a net weight of ~95 the perturbation is ORDER UNITY.",
+    "effective_base_scale_MEASURED_by_Machine_B": {
+      "formula": "(rho_ocean - rho_ice*r) / (rho_ocean - rho_ice)",
+      "driver": "/tmp/opus_verify_drho_identity.py",
+      "docstring_claims": 1.0,
+      "measured": [
+        {"zb_km": 20.0, "D_ocean_km": 36.0, "rho_ocean": 1020.0, "r_top": 1.0686, "effective_base_scale": 0.332},
+        {"zb_km": 25.0, "D_ocean_km": 36.0, "rho_ocean": 1020.0, "r_top": 1.0910, "effective_base_scale": 0.114},
+        {"zb_km": 25.0, "D_ocean_km": 36.0, "rho_ocean": 1005.0, "r_top": 1.0936, "effective_base_scale": -0.082},
+        {"zb_km": 30.0, "D_ocean_km": 50.0, "rho_ocean": 1020.0, "r_top": 1.1627, "effective_base_scale": -0.584}
+      ],
+      "verdict": "CONFIRMED. The base figure is attenuated to a third, annihilated, or sign-flipped, by an amount that wanders with zb, D_ocean and rho_ocean. This is a cancellation artifact, not a modelling choice."
+    },
+    "reviewer_table_did_NOT_reproduce": {
+      "note": "The reviewer's own table of effective base scales (+0.158 / -0.106 / -0.409 / -0.933) does NOT match the formula the reviewer itself states. Evaluating that formula gives +0.332 / +0.114 / -0.082 / -0.584, which is exactly what Machine B measured from the code. The discrepancy is most likely that the reviewer's table used the exact rho_ocean*f_base rather than the shipped linearized Bsp_Asp.",
+      "consequence": "The reviewer's QUALITATIVE finding is fully confirmed and is the load-bearing one: the effective base scale is order-unity wrong and sign-flipping rather than 1.0. Only its specific tabulated values are off. Quote the Machine B numbers above, not the reviewer's table.",
+      "why_recorded": "Per this campaign's standing rule, a reviewer number that does not reproduce is recorded as not reproducing rather than propagated. This is the third such instance (after the Sigma_model 2x claim and the dlibration/dC2 = 0 claim), and in all three the reviewer's direction was informative while its magnitude needed independent checking."
+    },
+    "consequence_for_the_config": "enceladus_cassini_isostasy_7D.json records 'USER DECISION 2026-08-13: adopt option A (the H&M observed-figure convention)'. That decision was taken on the understanding that option A WAS the H&M convention and that interior interfaces stayed hydrostatic. Both premises are now falsified. The decision needs re-taking on corrected information — flagged to the user, NOT silently reversed."
+  },
+
+  "CRITICAL_2_prior_escalation_numbers_are_ARTIFACTS": {
+    "finding": "The 30.5-sigma Eq.-12 pathology recorded in b2prime_REOPENED_figure_coupling.json, and the independent agent's treatment-4 multi-valuedness, are the SAME artifact as CRITICAL-1: the Airy-root base scale was applied inside (Bs-As) at weight -rho_ice instead of at the physical +Delta_rho, and with the Airy root's rho_ice/dRho = 11.56 amplification this inflates the base term ~11.6x.",
+    "reviewer_measurement": {
+      "Ks_bracket_factor_vs_hydrostatic_at_fiducial": {"as_driven_escalation": 1.7499, "drho_consistent": 1.0440},
+      "corrected_Eq12_C2_sweep_at_zb25_D36_rho1005": [
+        {"C2": 0.0,  "libration_deg": 0.10054, "sigma_vs_hydrostatic": 3.25, "zb_at_0.092_km": 27.34},
+        {"C2": 0.5,  "libration_deg": 0.09814, "sigma_vs_hydrostatic": 2.46, "zb_at_0.092_km": 26.65},
+        {"C2": 1.0,  "libration_deg": 0.09576, "sigma_vs_hydrostatic": 1.66, "zb_at_0.092_km": 25.99}
+      ],
+      "versus_recorded_escalation": "0.18237 deg / +30.5 sigma / 'NO zb in [12,44] km reproduces the observed libration'"
+    },
+    "RETRACTIONS_REQUIRED": [
+      "b2prime_REOPENED_figure_coupling.json: the HM_Eq12_observed_surface_plus_Airy_root_C2_1 row (+30.53 sigma, zb_match null) is an ARTIFACT. Corrected: +1.66 sigma, zb = 25.99 km.",
+      "b2prime_REOPENED_figure_coupling.json: 'the_decisive_new_finding' C2 sweep (0.10054 -> 0.18237 deg, +2.85 to +30.1 sigma) is an ARTIFACT. Corrected span across C2 in [0,1] is 1.6 sigma, ~19-20x smaller. The C2 dependence is REAL but small.",
+      "RESUME_NOTE.md line ~30: \"H&M's own Eq.-12 treatment gives 30.5 sigma with no zb matching at all\" — RETRACT.",
+      "The third reviewer pass's MAJOR-4 (gravity = compensation state, libration = sole thickness channel) does NOT need re-deriving after all. My earlier claim that it 'would need revisiting' rested on the 30-sigma artifact. At 1.6 sigma the channel split largely survives."
+    ],
+    "analytic_limit_test_the_drivers_FAIL": "Corrected Eq.-12 at C2 = 0 must equal surface-only EXACTLY (C2=0 means no isostatic root, base stays hydrostatic). Reviewer confirms it does (27.34 km both ways at rho_ocean=1005). The escalation's driver fails this limit by a factor 1.75 in the Ks bracket. This is the cheapest available regression test for the code path and should be added."
+  },
+
+  "MAJOR_3_mass_admissibility_STRENGTHENS_the_headline": {
+    "finding": "Imposing H&M's OWN published derived core parameters (rho_core 2340-2410 kg/m3, which also delivers their R_core 192-195 km) closes the joint-vs-libration-only caveat that this measurement flagged as unmeasured — and it costs seconds, not a joint fit.",
+    "reviewer_table": [
+      {"target_deg": 0.120, "treatment": "hydrostatic",  "admissible_D_ocean_km": [38, 41], "zb_km": [19.48, 19.72], "R_core_km": [191.7, 194.5]},
+      {"target_deg": 0.120, "treatment": "shipped",      "admissible_D_ocean_km": [38, 40], "zb_km": [20.15, 20.27]},
+      {"target_deg": 0.120, "treatment": "surface_only", "admissible_D_ocean_km": [36, 39], "zb_km": [21.28, 21.33]},
+      {"target_deg": 0.092, "treatment": "hydrostatic",  "admissible_D_ocean_km": [32, 35], "zb_km": [25.09, 25.39], "R_core_km": [192.1, 194.8]},
+      {"target_deg": 0.092, "treatment": "shipped",      "admissible_D_ocean_km": [31, 33], "zb_km": [26.28, 26.41]},
+      {"target_deg": 0.092, "treatment": "surface_only", "admissible_D_ocean_km": [29, 32], "zb_km": [27.65, 27.70]}
+    ],
+    "why_this_matters": "On the hydrostatic treatment at H&M's own core parameters, the 0.120 solution lands at 19.5-19.7 km — inside H&M's JOINT Table 2 band (19-24 km), not merely the loose libration-only 16-22 km. So the joint-vs-libration-only gap is CLOSED, because H&M's published R_core/rho_core is precisely the extra information their joint fit supplies.",
+    "headline_upgraded": "Delta = +5.6 km (19.5-19.7 -> 25.1-25.4 km) against a band-centre separation of ~5.5 km (21.5 -> 27). So the libration measurement revision accounts for ESSENTIALLY ALL of the H&M-vs-Park separation, not merely 'most of it' as originally claimed.",
+    "does_not_touch_the_frozen_branch": "This constrains only the OCEAN-branch libration locus. It does not remove frozen interiors from support, so the standing user ruling that no-ocean cases stay in the posterior is unaffected."
+  },
+
+  "MODERATE_4_overlap_is_not_containment": {
+    "finding": "The 'reproduces H&M 16-22 km' claim used an OVERLAP test, not containment, and containment fails at the thin-ocean end.",
+    "measurements": {
+      "hydrostatic_0.120_exits_above_22km_for_D_ocean_below_km": 12.71,
+      "zb_at_D_ocean_0.5km": 23.324,
+      "PP_central_curve_over_HM_density_box_km": [16.98, 24.08],
+      "PP_with_1sigma_observational_band_km": [16.03, 25.85],
+      "note": "PP's CENTRAL curve never reaches 16 km. The 16 km edge is reached only once the +/-1 sigma (0.014 deg) observational band is included. The 1-sigma half-width at fixed D is ~1.9-2.1 km — LARGER than the entire treatment spread, which is the deepest reason this test cannot discriminate."
+    },
+    "reconciles_the_two_measurements": "Machine B's hydrostatic range 17.58-21.28 km vs the independent agent's 17.58-23.32 km is PURELY the ocean-thickness sweep floor (D=20 vs D=0.5), not a discrepancy. Reviewer reproduces 23.324 at D=0.5, matching the independent agent to 5 digits. The independent sweep is the correct one for comparison against H&M's Fig. 4 x-axis.",
+    "corrected_statement": "PP's libration-only locus OVERLAPS and is CONSISTENT WITH H&M's stated 16-22 km, but neither contains it nor is contained by it."
+  },
+
+  "MODERATE_5_pole_screen_right_answer_wrong_mechanism": {
+    "machine_B_screen": "first crossing that is locally decreasing",
+    "reviewer_ruling": "The conclusion is CORRECT and neither measurement's ranges are contaminated, but the screen is wrong in principle. The pole is det(A_mat) = 0, i.e. omega crossing the higher system eigenfrequency. Measured crossings at zb ~ 4.53 (D=20) / 4.08 (36) / 3.76 (50) / 3.38 (70) — matching the rejected 'roots' exactly, so those were a SIGN CHANGE of gamma at the pole, not a second branch.",
+    "why_no_real_branch_was_discarded": "On the pre-pole side min|gamma| = 0.40-0.48 deg across D — 3-5x ABOVE both targets — so the pre-pole branch never attains 0.092 or 0.120 at all. This argument does not presume monotonicity, which is what makes it the right justification.",
+    "correct_screen": "det(A_mat) > 0 (equivalently omega above both eigenfrequencies). Monotonicity-free, one line, and would have flagged the hazard automatically. Also: the shipped abs(gs) is correct as an amplitude but destroys the sign diagnostic that would have made the pole self-announcing.",
+    "root_uniqueness": "0 non-unique cases across 29 D x 2 targets x 3 treatments on a 0.1 km grid. brentq on |gamma| over the full bracket returns the correct root directly; brentq on the SIGNED residual lands on the pole. So the 15 km error arises from solving the signed residual, not from bracket width."
+  },
+
+  "MINOR_6_K_int_robustness_STANDS": {
+    "reviewer": "+0.15 to +0.73 km across all treatments and both targets, uniformly positive, never moving a treatment out of its band. Machine B quoted +0.15 to +0.47; the +0.7 tail is at the thin-ocean end.",
+    "independent_agent_claim_refuted": "The independent agent's 'K_int is not benign for treatment 4' is an artifact of CRITICAL-2. With the Delta_rho-consistent assembly, K_int-corrected Eq.-12 is single-valued at every C2 tested.",
+    "verdict": "Robustness verdict unchanged and now extends to treatment 4. The 8pi/15 defect remains unrepaired and its strict-xfail tripwire untouched."
+  },
+
+  "ITEM_B_validation_scope_RESTATED_and_strengthened": {
+    "what_is_NOT_validated": "'The channel.' The 6 km published band is too loose to certify anything at the 0.1-3.3 km level, and per MODERATE-4 it is not even a containment match.",
+    "what_IS_validated_and_is_STRONGER_than_band_overlap": "PP's 2x2 characteristic-equation solve is ALGEBRAICALLY IDENTICAL to H&M Eq. 20. The reviewer derived the closed form gamma = 2e[Ks(Kc + 2Kint - n^2 Cc) + 2 Kint Kc] / [Cs Cc (n^2 - omega_1^2)(n^2 - omega_2^2)] and it agrees with np.linalg.solve to rel <= 2.2e-16 at five structures. PP's layer form also telescopes into H&M's Eq. 19 Delta_rho form to rel <= 8e-15.",
+    "so_the_caveat_was_over_cautious": "This measurement's caveat that the two formulations are 'not term-for-term identical assemblies' was over-cautious about the FORM: it is the same equation. What is NOT certified is the COEFFICIENTS — K_int carries the known 8pi/15 defect and Bsp_Asp is linearized 1.7-2.0% low.",
+    "correct_scope_statement": "PP's rigid ocean libration solver implements H&M/Richard Eq. 20 exactly; its Ks/Kc/K_int coefficient definitions are not independently certified, and the published band is too loose to certify them."
+  },
+
+  "ITEM_C_B2prime_REMAINS_BLOCKING": {
+    "verdict": "BLOCKING. Both my downgrade suggestion and my 'not distinct' claim are withdrawn; but the corrected picture is not 'three candidates spanning 3.3 km' either — it is that ONE OF THE THREE IS NOT A VALID CANDIDATE.",
+    "defensible_span": "hydrostatic -> surface-only: 24.99-27.59 km at D_ocean=36, or 24.42-27.68 km over the admissible D 30-42 km. Numerically the same 3.3 km I measured, but for a different reason.",
+    "the_blocker_is_now_specific_and_cheap": "Adopt surface-only (or Delta_rho-consistent Eq.-12, which C2 brackets between 25.99 and 27.34 km), RETIRE the whole-difference scaling, and carry C2's 1.6-sigma libration coupling as a declared systematic. That is a defect fix, not a scaling guess — which is what the RESUME_NOTE said the next step must not be."
+  },
+
+  "ITEM_E_campaign_purpose_RESTATED": {
+    "reviewer_proposed_framing": "The forward model reproduces both published bands from their own respective libration measurements; they are not competing answers. The campaign's deliverable is a posterior conditioned on the current best libration (Park 0.092 +/- 0.003) with gravity, isostasy and the figure-convention systematic handled jointly — including the no-ocean/frozen branch in the posterior per the standing user ruling — not a referee's verdict between H&M and Park.",
+    "user_ruling_unaffected": "Nothing in this adjudication touches the frozen-branch ruling."
+  },
+
+  "campaign_level_risk_flagged_by_the_reviewer": {
+    "pattern": "The recurring failure mode in this campaign is not arithmetic — it is that a physically meaningful quantity gets perturbed through a DIFFERENCE rather than through the interface weight that actually carries it. One root cause produced the escalation's 30.5 sigma, the independent agent's treatment-4 instability, AND the shipped kwarg's docstring/code divergence.",
+    "recommendation": "Add the Delta_rho identity as a STANDING INVARIANT on the libration module, not a one-off check: perturbing interface i's figure by factor s must change Ks by Delta_rho_i * f_i * (s - 1), with Delta_rho_i the density contrast ACROSS that interface. Every future figure-convention or shape-coupling option is exposed to the same trap.",
+    "machine_B_concurrence": "Concur, and note this is the same error class as my own retracted 'not distinct' claim — I inferred a physical treatment count from the shape of one expression without decomposing what that expression weights. The invariant would have caught that too."
+  },
+
+  "required_validation_before_acceptance": [
+    "1. Retire or repair whole_difference. Any figure-convention option must apply its interface scale to the Delta_rho-weighted term — to f_base wherever it appears, INCLUDING Bsp_Asp — never to (Bs-As) alone. NOTE: tests/librations_test.py::test_h22_obs_m_reproduces_b2prime_measurement currently PINS the +1.40-1.43 sigma shift, so it must move with the fix. That is a test change on the sole thickness channel and needs the user's decision.",
+    "2. Add the analytic limit test: Eq.-12 at C2 = 0 must equal surface-only to machine precision.",
+    "3. Add the det(A_mat) > 0 branch invariant (or return signed gamma alongside the magnitude), plus a regression asserting no root of |gamma| = 0.092 exists for zb < 6 km at Enceladus parameters.",
+    "4. Re-do the published-answer comparison on the mass-admissible subrange, quoting rho_core and R_core alongside zb, against H&M's JOINT Table 2 band rather than the libration-only 16-22 km.",
+    "5. Replace the overlap predicate with containment, recording the D_ocean interval over which containment holds (fails below D ~ 12.7 km).",
+    "6. Correct b2prime_REOPENED_figure_coupling.json and RESUME_NOTE.md per the CRITICAL_2 retraction list.",
+    "7. Add the Delta_rho identity as a standing invariant per the campaign-level risk above."
+  ],
+
+  "still_ambiguous_after_adjudication": [
+    "Whether H&M apply the Airy root to the (2,2) sectoral figure with the same normalization as the triaxial (a-b).",
+    "Whether H&M's Ks/Kc/K_int (via Richard et al. 2014) use the linearized 8pi/15 beta R^5 form or the exact ellipsoid moments. Bears on the coefficient-level validation in item B; not resolvable from H&M's text alone.",
+    "Whether the Tajeddine H22 = 857 m is the right observed input alongside Park gravity. Already flagged un-adjudicated in the config; upstream of everything above."
+  ]
+}

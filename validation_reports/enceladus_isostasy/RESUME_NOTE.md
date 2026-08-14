@@ -20,26 +20,66 @@ frozen branch samples rho_rock_kgm3 / rho_ice_kgm3 / libration_sys_frac with
 
 ## THE ONE THING TO PICK UP FIRST
 
-**B2' is reopened and is the campaign's largest open systematic.**
-`b2prime_REOPENED_figure_coupling.json`.
+**B2' is ADJUDICATED (scientific-reviewer verdict BLOCK, 2026-08-14) and REMAINS
+BLOCKING.** Read `b2prime_ADJUDICATED_drho_weighting.json` FIRST — it supersedes
+both `b2prime_REOPENED_figure_coupling.json` and
+`b2prime_hm_published_discriminant.json`.
 
-The libration figure convention is not a scaling — it is a **structural
-coupling to the compensation state**. Four treatments give matched shell
-thickness 24.70 / 25.80 / 27.34 km, and H&M's own Eq.-12 treatment gives 30.5σ
-with no zb matching at all. The spread (2.6 km) is comparable to the 6 km
-H&M-vs-Park separation the campaign exists to adjudicate, and since the
-libration is the **sole** thickness channel, this sets where the answer lands.
+**The shipped observed-figure treatment — the config's adopted "option A" — is
+not a valid candidate.** `H22_obs_m` scales `(Bs - As)`, but the shell-base
+interface carries weight `-rho_ice = -925` inside that difference while its
+*physical* weight in `Ks` is `Delta_rho = rho_ocean - rho_ice` ~ 80-95 kg/m^3
+(the `Bsp_Asp` term nearly cancels it). So scaling the difference applies an
+implicit, structure-dependent, **sign-flipping** effective scale of **+0.33 to
+-0.58** to that interface, while the docstring states interior interfaces stay
+hydrostatic. Confirmed independently by Machine B: the identity
+`Ks/(3 omega^2) = rho_ice*f_top + Delta_rho*f_base` holds to ~1e-14.
 
-**Do not guess a fourth scaling.** The recommended next step is to reproduce
-H&M's published Table 2 shell thicknesses from their inputs *with the libration
-in the loop* — discriminating the treatments against a published answer, the
-same strategy that made the B13 gravity gate trustworthy.
+The defensible treatments are **hydrostatic** and **surface-only**, with
+Delta_rho-consistent Eq.-12 bracketed by C2 between 25.99 and 27.34 km. Span at
+the conditioned libration: 24.42-27.68 km over the mass-admissible ocean-thickness
+subrange. **The fix is a defect repair, not a scaling guess** — which is what
+this note previously said the next step must not be.
 
-Also from that work: **the libration DOES depend on `compensation_C2`**
-(0.1005 → 0.1824 deg as C2 goes 0 → 1), contradicting an earlier reviewer
-finding of dlibration/dC2 = 0.00σ — that was measured on the hydrostatic figure
-where the Airy root cannot reach the torque. So the "gravity = compensation
-state, libration = thickness" split holds only in the hydrostatic formulation.
+**Two previously-recorded headline numbers are ARTIFACTS of the same
+mis-weighting — do not quote them:** the Eq.-12 "30.5 sigma, no zb matches"
+result (corrected: **+1.66 sigma, zb = 25.99 km**), and the C2 sweep
+"0.1005 -> 0.1824 deg" (corrected span across C2 in [0,1] is **1.6 sigma**,
+~20x smaller). The C2 dependence is real but small, so MAJOR-4's "gravity =
+compensation state, libration = sole thickness channel" split **largely
+survives** after all.
+
+**The published-answer test was run and did NOT discriminate** — all treatments
+fit inside H&M's published 16-22 km libration-only band, whose +/-1 sigma
+half-width (~2 km) exceeds the entire treatment spread. It did produce two
+things worth having: PP's 2x2 solve is **algebraically identical to H&M Eq. 20**
+(rel <= 2.2e-16, so the "not term-for-term identical" caveat was over-cautious
+about the form; the COEFFICIENTS remain uncertified), and imposing H&M's own
+published core parameters puts the answer inside their **joint** Table 2 band.
+
+**Headline finding, RATIFIED:** the H&M-vs-Park shell-thickness separation is
+essentially *entirely* the libration measurement revision (Thomas 0.120 -> Park
+0.092) propagating through an unchanged forward model — **Delta = +5.6 km**
+(19.5-19.7 -> 25.1-25.4 km at H&M's own published core parameters) against a
+~5.5 km band-centre separation. The two published bands are NOT competing
+answers. The campaign's stated deliverable needs restating accordingly; the
+proposed framing is in the adjudication file. The frozen-branch ruling
+(no-ocean interiors stay in the posterior) is **unaffected**.
+
+**Next actions are enumerated** as `required_validation_before_acceptance` items
+1-7 in the adjudication file. Item 1 (retire or repair the whole-difference
+scaling) needs a USER DECISION because it moves
+`tests/librations_test.py::test_h22_obs_m_reproduces_b2prime_measurement`, which
+currently pins the now-suspect +1.40-1.43 sigma shift, and because the config
+records a user decision to adopt option A that was taken on two premises now
+falsified.
+
+**Campaign-level risk flagged by the reviewer:** the recurring failure mode here
+is not arithmetic — it is perturbing a physically meaningful quantity through a
+DIFFERENCE rather than through the interface weight that actually carries it.
+One root cause produced the escalation's 30.5 sigma, an agent's treatment-4
+instability, AND the shipped kwarg's docstring/code divergence. Recommend adding
+the Delta_rho identity as a STANDING INVARIANT on the libration module.
 
 ## Closed this session (with measurements, in validation_reports/enceladus_isostasy/)
 
