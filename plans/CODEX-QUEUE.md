@@ -91,7 +91,7 @@ Python-Markdown. Verification: all eight source/name/hash/render checks pass;
 a non-repository working-directory check also passes; `py_compile` and
 `git diff --check` pass. Implementation `0fbbe6fe`.
 
-### C21 — Enceladus doc/test odds and ends (freeze non-blockers N2/N5 + supersessions) [status: queued]
+### C21 — Enceladus doc/test odds and ends (freeze non-blockers N2/N5 + supersessions) [status: in progress (Codex)]
 
 1. `plans/mission-body-constraints.md`: fix the stale lines per the
    2026-08-12 freeze adjudication — libration IS implemented (Librations
