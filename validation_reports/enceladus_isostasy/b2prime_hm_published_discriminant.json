@@ -1,0 +1,142 @@
+{
+  "item": "B2' DISCRIMINANT against H&M's PUBLISHED libration-only shell thickness. Machine B measurement, 2026-08-14.",
+  "status": "MEASURED. Not self-adjudicated — routed to the scientific-reviewer. This does NOT by itself select a treatment; it bounds how much the treatment choice can matter, and it reframes the H&M-vs-Park 'disagreement'.",
+  "why_this_test": "The RESUME_NOTE and b2prime_REOPENED both said: do not guess a fourth scaling; instead reproduce a PUBLISHED H&M answer with the libration in the loop, the strategy that made the B13 gravity gate trustworthy. This is that test.",
+
+  "the_published_anchor": {
+    "source": "Hemingway & Mittal 2019, Icarus 332, 111-131, section 3.3 (papers/hemingway2019enceladus.pdf, extracted text line ~1310)",
+    "quote": "The libration amplitude, however, implies an ice shell thickness of roughly 16 - 22 km, depending on the ocean thickness and assumed layer densities (Fig. 4a, e; cf. Thomas et al., 2016; Van Hoolst et al., 2016).",
+    "critical_qualifier": "That band is the LIBRATION-ONLY constraint (the purple line in their Fig. 4a,e) evaluated against Thomas et al. 2016's observed libration 0.120 +/- 0.014 deg. It is NOT evaluated against Park et al. 2024's 0.092 +/- 0.003 deg, which the Enceladus config conditions on and which explicitly REVISES Thomas.",
+    "HM_Fig4_nominal_densities": {"rho_shell_kgm3": 925.0, "rho_ocean_kgm3": 1020.0},
+    "HM_Table1_observed_surface_H22_m": 857.0
+  },
+
+  "method": {
+    "driver": "/tmp/opus_envelope_check.py and /tmp/opus_kint_sens2.py (measurement only; NO production code changed)",
+    "stack": "3-layer mass-conserving Enceladus, same construction as tests/librations_test.py::_enceladus_b2prime_structure but with rho_ocean = 1020 to match H&M Fig. 4. R_T = 252.22e3 m, M = 1.08022e20 kg, rho_ice = 925, omega = 5.307e-5, ecc = 0.0047. rho_core derived by mass conservation.",
+    "forward_model": "PlanetProfile.Gravity.Librations.librations, ocean=True, rigid=True (Van Hoolst et al. 2008 rigid), ocean_idx=1.",
+    "solve": "At each ocean thickness, root-find the shell thickness zb reproducing the target libration.",
+    "reproducibility_check_PASSED": "At rho_ocean = 1005 and libration 0.092 the driver returns zb = 24.70 km (hydrostatic) and 25.80 km (observed-figure), reproducing the recorded b2prime_REOPENED values 24.70 / 25.80 EXACTLY. So the sweep machinery agrees with the prior measurement before being used for anything new.",
+    "pole_hazard_encountered_and_handled": "A naive bracketing root-find returned zb ~ 3.4-5.1 km, which is NOT a physical solution: the Van Hoolst 2008 two-body characteristic equation has a resonant pole (sigma_s crossing) at small zb, and the solver latched onto the wrong side of it. Fixed by scanning upward from small zb and accepting only the FIRST crossing that is locally DECREASING (the physical monotone branch, libration falling with thickening shell). Any future re-run of this measurement must keep the monotonicity screen; without it the answer is off by ~15 km."
+  },
+
+  "RESULT_validation_leg_at_Thomas_0p120_deg": {
+    "note": "This is the leg that tests the treatments against the published answer. H&M published 16 - 22 km.",
+    "columns": "D_ocean_km : zb_hydrostatic : zb_observed_figure",
+    "sweep": [
+      {"D_ocean_km": 20.0, "zb_hyd_km": 21.28, "zb_obsfig_km": 21.39},
+      {"D_ocean_km": 30.0, "zb_hyd_km": 20.38, "zb_obsfig_km": 20.74},
+      {"D_ocean_km": 36.0, "zb_hyd_km": 19.88, "zb_obsfig_km": 20.38},
+      {"D_ocean_km": 42.0, "zb_hyd_km": 19.41, "zb_obsfig_km": 20.04},
+      {"D_ocean_km": 50.0, "zb_hyd_km": 18.82, "zb_obsfig_km": 19.62},
+      {"D_ocean_km": 60.0, "zb_hyd_km": 18.17, "zb_obsfig_km": 19.14},
+      {"D_ocean_km": 70.0, "zb_hyd_km": 17.58, "zb_obsfig_km": 18.72}
+    ],
+    "ranges": {
+      "hydrostatic": {"zb_km": [17.58, 21.28], "reproduces_HM_16_22": true},
+      "observed_figure": {"zb_km": [18.72, 21.39], "reproduces_HM_16_22": true}
+    },
+    "verdict": "ALL THREE treatments (see the CORRECTED_three_treatment_spread block; surface-only gives 20.93 - 21.59 km) reproduce H&M's published 16 - 22 km band, over the same ocean-thickness range H&M sweep in their Fig. 4. PP's Van Hoolst 2008 rigid libration is therefore consistent with a published H&M result -- a new fact; before this, no leg of the Enceladus libration channel had been checked against a published shell thickness. Whether that consistency amounts to VALIDATION of the channel is reviewer item B, not something this measurement decides.",
+    "but_the_test_does_not_discriminate": "Precisely because ALL THREE land inside 16 - 22 km, this test CANNOT select among the treatments. H&M's published band is 6 km wide (it absorbs their density and ocean-thickness variation) while the treatments differ by ~1-3 km. The published band is too coarse to resolve the systematic. Stating this plainly: the discriminant proposed in the RESUME_NOTE does not, in fact, discriminate -- that is the primary negative result of this measurement, and it is unaffected by the retraction (which changed the treatment COUNT and SPREAD, not the fact that all of them fit inside the published band)."
+  },
+
+  "RESULT_application_leg_at_Park_0p092_deg": {
+    "note": "Same treatments, same stack, but the libration the config actually conditions on.",
+    "sweep": [
+      {"D_ocean_km": 20.0, "zb_hyd_km": 26.70, "zb_obsfig_km": 27.19},
+      {"D_ocean_km": 30.0, "zb_hyd_km": 25.60, "zb_obsfig_km": 26.48},
+      {"D_ocean_km": 36.0, "zb_hyd_km": 24.99, "zb_obsfig_km": 26.09},
+      {"D_ocean_km": 42.0, "zb_hyd_km": 24.42, "zb_obsfig_km": 25.71},
+      {"D_ocean_km": 50.0, "zb_hyd_km": 23.71, "zb_obsfig_km": 25.25},
+      {"D_ocean_km": 60.0, "zb_hyd_km": 22.91, "zb_obsfig_km": 24.74},
+      {"D_ocean_km": 70.0, "zb_hyd_km": 22.20, "zb_obsfig_km": 24.28}
+    ],
+    "ranges": {
+      "hydrostatic": {"zb_km": [22.20, 26.70]},
+      "observed_figure": {"zb_km": [24.28, 27.19]}
+    },
+    "shift": "Delta_zb = zb(0.092) - zb(0.120) = +4.6 to +5.4 km (hydrostatic), decreasing monotonically with ocean thickness. The naive local-derivative extrapolation (d lib/d zb = -0.004122 deg/km at the fiducial, i.e. -1.374 sigma/km at sigma = 0.003) predicts +6.79 km for the 0.028 deg excursion -- 30-45% too large. So the sensitivity is NOT constant over that excursion and the linear extrapolation should not be used; the solved values are the ones to quote."
+  },
+
+  "THE_HEADLINE_FINDING": {
+    "claim": "A large part of the 'H&M 19-24 km vs Park 25-29 km' shell-thickness separation that this campaign exists to adjudicate is NOT a physics or modelling disagreement. It is the libration MEASUREMENT revision (Thomas 0.120 -> Park 0.092) propagating through an unchanged forward model.",
+    "evidence": "Holding the treatment, the densities, the stack construction, and the forward model ALL FIXED, and changing ONLY the conditioned libration from 0.120 to 0.092, the inferred shell thickness moves from 17.6-21.3 km (i.e. H&M's published band) to 22.2-26.7 km (i.e. the Park band). The same forward model reproduces BOTH published bands from their OWN respective libration measurements.",
+    "consequence_for_the_campaign": "The campaign framing 'adjudicate H&M vs Park' needs restating. The two published bands are largely consistent given their inputs; they are not two competing answers to the same question. What the campaign can actually contribute is a posterior conditioned on the CURRENT best libration (Park 0.092) with the gravity, isostasy and nuisances handled jointly -- not a referee's verdict between two papers.",
+    "what_this_does_NOT_claim": "It does NOT claim the residual is zero. H&M's 19-24 km 'gravity+libration Airy' band (Table 2, Tajeddine shape) is a JOINT fit including C20/C22/C30, not the libration-only 16-22 km band tested here, so some genuine methodological difference may remain in the joint problem. It also does not claim Park's libration is correct -- only that conditioning on it moves the answer by ~+5 km, which accounts for most of the ~6 km separation."
+  },
+
+  "K_int_robustness": {
+    "question": "Is the discriminant robust to the separately-adjudicated K_int 8*pi/15 normalization defect (the strict-xfail tripwire in tests/librations_test.py)?",
+    "method": "The ocean+rigid torque assembly was reimplemented locally in the /tmp driver so K_int could be scaled. VERIFIED the local reimplementation reproduces librations() to 0.000e+00 relative deviation across 10 cases (5 shell thicknesses x 2 treatments) -- exact agreement in magnitude. NOTE: the shipped function returns a positive displacement while the raw linear solve gives a negative one; the shipped code takes the magnitude. Magnitudes agree to all digits.",
+    "result_zb_km": {
+      "at_0.120": {"hydrostatic": [17.58, 21.28], "hydrostatic_Kint_corrected": [17.75, 21.75], "observed_figure": [18.72, 21.39], "observed_figure_Kint_corrected": [18.90, 21.87]},
+      "at_0.092": {"hydrostatic": [22.20, 26.70], "hydrostatic_Kint_corrected": [22.35, 27.13], "observed_figure": [24.28, 27.19], "observed_figure_Kint_corrected": [24.44, 27.65]}
+    },
+    "verdict": "ROBUST. The K_int correction moves zb by only +0.15 to +0.47 km, far smaller than the +4.6 to +5.4 km measurement-revision effect, and it does not move any treatment out of H&M's published band. So neither the validation leg nor the headline finding depends on the K_int repair. The defect remains unrepaired in production and its strict-xfail tripwire is untouched."
+  },
+
+  "RETRACTED_treatments_2_and_3_are_NOT_distinct": {
+    "STATUS": "RETRACTED 2026-08-14 by Machine B's own follow-up check, before reviewer adjudication. An earlier revision of this file (and the report given to the user) claimed the 'whole-difference' and 'surface-only' readings were the same code path and that the spread was therefore only 0.5-2.1 km. THAT CLAIM WAS WRONG. b2prime_REOPENED was RIGHT to list them as distinct treatments.",
+    "why_it_was_wrong": "The claim rested on the observation that the shipped H22_obs_m kwarg scales exactly one expression, (Bs - As). But (Bs - As) is not a surface quantity: moi_ellps builds each layer's moment as a DIFFERENCE of consecutive ellipsoids, so the shell's (Bs - As) = [outer/surface ellipsoid piece] + [inner/shell-BASE ellipsoid piece]. Scaling the whole difference therefore rescales the base contribution too. Scaling only the surface piece is a genuinely different operation.",
+    "the_decomposition_measured": {
+      "driver": "/tmp/opus_base_interface_check.py",
+      "at_zb25_Docean36_rho_ocean1020": {
+        "surface_outer_ellipsoid_piece": 2.971691e28,
+        "base_inner_ellipsoid_piece": -1.668335e28,
+        "total_Bs_minus_As": 1.303356e28,
+        "base_piece_as_fraction_of_total_percent": -128.00,
+        "note": "The base piece is LARGER IN MAGNITUDE than the total and OPPOSITE IN SIGN. This is why the two readings differ materially rather than negligibly."
+      },
+      "H22_hydrostatic_m": 785.525,
+      "H22_observed_m": 857.0,
+      "whole_difference_scale": 1.090990,
+      "surface_only_equivalent_effective_scale": 1.207461,
+      "difference_in_Bs_minus_As_percent": -9.646,
+      "corroborates_prior_record": "b2prime_REOPENED recorded a surface-only factor of 1.2133 (at rho_ocean = 1005); this independent decomposition gives 1.2075 at rho_ocean = 1020. Consistent. The prior record's three-distinct-treatments framing stands."
+    },
+    "lesson": "'The code scales one expression' does not imply 'the code implements one physical treatment.' The expression's own internal composition has to be decomposed before that inference is legal. I asserted a negative (not distinct) from the shape of the code rather than from a measurement, which is the same error class the campaign has twice caught in reviewer claims."
+  },
+
+  "CORRECTED_three_treatment_spread": {
+    "driver": "/tmp/opus_surface_only_zb.py (verified against shipped librations() for the hydrostatic and whole-difference modes before use)",
+    "at_0p120_deg_full_sweep_D_ocean_20_to_70": {
+      "hydrostatic": [17.58, 21.28],
+      "whole_difference": [18.72, 21.39],
+      "surface_only": [20.93, 21.59],
+      "all_three_reproduce_HM_16_22": true
+    },
+    "at_0p092_deg_full_sweep": {
+      "hydrostatic": [22.20, 26.70],
+      "whole_difference": [24.28, 27.19],
+      "surface_only": [27.19, 27.85]
+    },
+    "restricted_to_physically_admissible_D_ocean_30_to_42_km": {
+      "basis": "rho_core lands in or adjacent to the H&M/Park 2340-2410 kg/m3 band only over this subrange; at D_ocean = 70 km mass conservation forces rho_core = 3198 (at 0.120) / 3409 (at 0.092), which is not an interior H&M would have accepted.",
+      "at_0p120": {"hydrostatic": [19.41, 20.38], "whole_difference": [20.04, 20.74], "surface_only": [21.24, 21.42]},
+      "at_0p092": {"hydrostatic": [24.42, 25.60], "whole_difference": [25.71, 26.48], "surface_only": [27.50, 27.68]}
+    },
+    "corrected_treatment_spread": "At the CONDITIONED libration (0.092) over the physically admissible ocean-thickness subrange, the three treatments span 24.42 - 27.68 km, i.e. a spread of ~3.3 km -- LARGER than b2prime_REOPENED's 2.6 km, not smaller. My retracted claim understated it by a factor of ~1.6 to ~6.",
+    "consequence": "B2' is NOT downgraded. The treatment choice remains a systematic comparable to the H&M-vs-Park separation, exactly as b2prime_REOPENED concluded. Its recommendation to keep B2' BLOCKING should be read as UNDISTURBED by this measurement."
+  },
+
+  "not_apples_to_apples_caveats": [
+    "PP's ocean+rigid branch solves the Van Hoolst et al. 2008 TWO-BODY characteristic equation (shell + core coupled through K_int). H&M's Eq. 20 is the Richard et al. 2014 / Thomas et al. 2016 form. These are the same physical problem but not term-for-term identical assemblies, so agreement at the 16-22 km level does not certify agreement in every term.",
+    "H&M's 16-22 km band varies over BOTH ocean thickness AND layer densities ('depending on the ocean thickness and assumed layer densities'). This sweep varies only ocean thickness at H&M's nominal densities, so the measured 17.6-21.3 km is a SUBSET of the sources of variation in the published band. That the subset already spans nearly the full published width is consistent but not a tight test.",
+    "H&M do not consider diurnal tidal variations in the figures (their section 2.5, following Thomas et al. 2016); neither does this sweep. Consistent by construction, not independently validated.",
+    "The 3-layer stack has a uniform core, so 'rho_core' is an effective mean density. At D_ocean = 70 km mass conservation forces rho_core = 3198 kg/m3, well above the H&M/Park 2340-2410 band -- i.e. the thick-ocean end of this sweep is not an interior H&M would have accepted. The zb range is quoted over the full swept ocean thickness for comparability with their Fig. 4 x-axis, but the physically preferred subrange is the D_ocean ~ 30-42 km part."
+  ],
+
+  "recommendation_not_a_ruling": [
+    "SUPERSEDED BY THE RETRACTION ABOVE -- the original first bullet claimed 'the B2' treatment choice is a SMALLER systematic than b2prime_REOPENED concluded: 0.5-2.1 km ... it is no longer plausibly the campaign's largest open systematic.' That is WITHDRAWN. The corrected spread is ~3.3 km at the conditioned libration over the admissible ocean-thickness subrange, which is LARGER than the 2.6 km previously recorded. B2' remains a systematic comparable to the H&M-vs-Park separation and b2prime_REOPENED's BLOCKING recommendation stands undisturbed.",
+    "The published-answer test VALIDATES PP's rigid libration channel (both treatments land in H&M's published band) but CANNOT select a treatment. Do not read the H&M reproduction as an endorsement of either scaling.",
+    "The campaign's stated purpose ('adjudicate the 6 km H&M-vs-Park separation') should be re-examined by the reviewer in light of the headline finding before the config is ratified, because if most of that separation is a measurement revision then the campaign's headline deliverable needs restating.",
+    "Do NOT quote the +1.10 km as 'the H&M convention' -- that remains correct from b2prime_REOPENED and is unchanged by this work."
+  ],
+
+  "reviewer_questions": [
+    "Is reproducing H&M's libration-only 16-22 km band from Thomas 0.120 sufficient to call PP's Van Hoolst 2008 rigid libration channel VALIDATED for this campaign, given the two formulations are not term-for-term identical?",
+    "Does the headline finding (most of the H&M-vs-Park separation is the libration measurement revision) require restating the campaign's purpose, and if so how?",
+    "Given the treatment spread is now 0.5-2.1 km rather than 2.6 km, does B2' still BLOCK implementation, or can it become a declared systematic with the observed-figure treatment adopted and the hydrostatic-vs-observed difference carried as a nuisance?",
+    "Should the frozen branch be re-examined? H&M's joint Table 2 band (19-24 km, Tajeddine) is not the libration-only band, so the joint-fit comparison is still unmeasured."
+  ]
+}
