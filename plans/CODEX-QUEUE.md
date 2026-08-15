@@ -67,7 +67,7 @@ scope, and disabling Generate. The focused AppTest passes 1/1; neighboring
 Titan readiness/salt-slot AppTests pass 2/2. `py_compile` and
 `git diff --check` pass. Implementation `856f50e6`.
 
-### C24 — Doc-doctor pass #3 [status: queued]
+### C24 — Doc-doctor pass #3 [status: in progress (Codex)]
 
 Full plans/DOC-DOCTOR.md checklist against the current tree
 (report-only, C8 pattern) — much has shipped since the 2026-08-11
