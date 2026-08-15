@@ -1722,6 +1722,26 @@ _SBI_ARTIFACT_SLOTS = {
                        'ablation). Published C/MR² is a display reference '
                        'only (no interior-C/MR² claim until Task D, #36).'),
     },
+    'enceladus_cassini_awaiting_artifact': {
+        'slot_id': 'enceladus_cassini',
+        'artifact_filename': None,
+        'artifact_status': 'awaiting_artifact',
+        'label': ('1D · Cassini-Enceladus (Seawater, isostasy) — '
+                  'awaiting artifact'),
+        'bodyname': 'Enceladus',
+        'config_path': None,
+        'cache_path': None,
+        'default_obs': None,
+        'gate_status': 'TODO — awaiting Enceladus artifact and validation',
+        'scope_note': ('Frozen-design intent: condition on C₂₀/C₂₂/C₃₀ '
+                       'and forced libration; use H&M shape-input isostasy; '
+                       'sample ice-shell thickness zb × Seawater salinity; '
+                       'and display the orbital plus non-stationary PPO '
+                       'induction-response bands without conditioning on '
+                       'them. Source: plans/active/'
+                       'enceladus-config-freeze.md. Artifact, config, and '
+                       'cache await the validated campaign handoff.'),
+    },
 }
 
 
@@ -2171,7 +2191,7 @@ def render_amortized_config():
     # This is a deliberate visible state, not a missing-file error: Machine B
     # owns the final artifact names, paths, observable centrals, and gates.
     if slot.get('artifact_status') == 'awaiting_artifact':
-        st.info("⏳ **Awaiting artifact** — this Titan chemistry slot is "
+        st.info("⏳ **Awaiting artifact** — this model slot is "
                 "scaffolded but cannot condition a posterior yet.")
         if slot.get('scope_note'):
             st.caption(f"ℹ️ {slot['scope_note']}")
