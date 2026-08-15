@@ -20,7 +20,7 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-### C22 — Delta_rho standing-invariant test (B2' ruling item 2) [status: queued]
+### C22 — Delta_rho standing-invariant test (B2' ruling item 2) [status: in progress (Codex)]
 
 Reviewer-recommended guard (user-ratified 2026-08-15) against the
 perturb-a-difference failure mode. New test in
