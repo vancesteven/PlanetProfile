@@ -113,6 +113,46 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
         rheology_constraint=None
     ),
 
+    'compensation_C2': ParameterDef(
+        id='compensation_C2',
+        label='Airy Compensation Fraction',
+        latex_label=r'$C_2$',
+        description='Equal-pressures Airy isostatic compensation fraction '
+                    '(Hemingway & Mittal 2019 Eq. 12; C2=1 pure Airy, C2=0 '
+                    'uncompensated/rigid support) at the ice/ocean interface. '
+                    'Sampled nuisance for the isostatic_hm2019 gravity '
+                    'forward model (PlanetProfile.Gravity.isostasy.'
+                    'isostatic_gravity). Does not require a structure '
+                    'rebuild -- applied per-sample to the cached hydrosphere.',
+        category='gravity',
+        default_prior='uniform',
+        default_bounds=[0.0, 1.0],
+        units=None,
+        requires_structure_rebuild=False,
+        rheology_constraint=None
+    ),
+
+    'libration_sys_frac': ParameterDef(
+        id='libration_sys_frac',
+        label='Libration Systematic Fraction',
+        latex_label=r'$f_{\rm sys,lib}$',
+        description='Sampled fractional nuisance on the model forced-'
+                    'libration amplitude, truncated Gaussian N(0, 0.004) on '
+                    '[-0.012, 0.012] (3 sigma), carrying the B2 rigid-vs-'
+                    'elastic residual zb-dependence term (see '
+                    'libration_model_correction in '
+                    'enceladus_cassini_isostasy_7D.json). Observation-model '
+                    'nuisance -- does not require a structure rebuild.',
+        category='gravity',
+        default_prior='truncated_gaussian',
+        default_bounds=[-0.012, 0.012],
+        default_mean=0.0,
+        default_std=0.004,
+        units=None,
+        requires_structure_rebuild=False,
+        rheology_constraint=None
+    ),
+
     'alpha': ParameterDef(
         id='alpha',
         label='Andrade Exponent',
@@ -300,6 +340,50 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
         default_bounds=[251.2, 269.0],
         units='K',
         requires_structure_rebuild=True,
+        rheology_constraint=None
+    ),
+
+    'zb_km': ParameterDef(
+        id='zb_km',
+        label='Ice Shell (Hydrosphere) Thickness',
+        latex_label=r'$z_b$ (km)',
+        description='Ice/ocean-shell thickness sampled DIRECTLY (rather '
+                    'than through Tb_K) via the cache builder\'s zb-axis '
+                    'grid mode (B4; cache_builder.build_zbw_grid_cache). '
+                    'OCEAN-branch prior [5, 45] km -- the frozen branch '
+                    'does not sample zb_km; it derives shell thickness by '
+                    'mass conservation from a sampled rock density instead '
+                    '(see enceladus_cassini_isostasy_7D.json branch_model). '
+                    'Motivation: at Enceladus gravity the whole 5-45 km '
+                    'shell range spans only ~0.27 K of Tb, so a uniform Tb '
+                    'prior is an implicit, highly non-uniform thickness '
+                    'prior; zb_km removes that distortion.',
+        category='structure',
+        default_prior='uniform',
+        default_bounds=[5.0, 45.0],
+        units='km',
+        requires_structure_rebuild=True,
+        rheology_constraint=None
+    ),
+
+    'rho_ice_kgm3': ParameterDef(
+        id='rho_ice_kgm3',
+        label='Ice Shell Density (EOS nuisance)',
+        latex_label=r'$\rho_{\rm ice}$ (kg m$^{-3}$)',
+        description='EOS-error nuisance override for the shell (ice-Ih) '
+                    'density, applied ONLY in the isostasy and libration '
+                    'forward-model paths (PlanetProfile.Gravity.isostasy.'
+                    'mass_neutral_shell_density) -- it does NOT re-open the '
+                    'cached hydrosphere mass balance. The override is '
+                    'applied mass-neutrally: the shell-mass delta is '
+                    'absorbed into the reduced stack\'s interior density so '
+                    'total mass is conserved exactly rather than drifting. '
+                    'Does not require a structure rebuild.',
+        category='structure',
+        default_prior='uniform',
+        default_bounds=[915.0, 935.0],
+        units='kg/m^3',
+        requires_structure_rebuild=False,
         rheology_constraint=None
     ),
 
