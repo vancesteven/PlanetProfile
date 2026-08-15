@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-14 (C18–C21 verified; delegate queue complete, one implementation commit per task). Curated by the Claude model manager
+Updated: 2026-08-15 (C18–C22 verified; C23–C24 queued, one implementation commit per task). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -20,7 +20,7 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-### C22 — Delta_rho standing-invariant test (B2' ruling item 2) [status: in progress (Codex)]
+### C22 — Delta_rho standing-invariant test (B2' ruling item 2) [status: verified]
 
 Reviewer-recommended guard (user-ratified 2026-08-15) against the
 perturb-a-difference failure mode. New test in
@@ -34,6 +34,16 @@ validation_reports/enceladus_isostasy/
 b2prime_ADJUDICATED_drho_weighting.json — copy its formulation; do NOT
 re-derive). Escalate if the identity fails anywhere — that IS the
 invariant firing. Report `verified` with pytest output.
+
+**Report (Codex, 2026-08-15):** `verified`. Added
+`tests/libration_density_contrast_test.py`, which independently compares the
+shell moment plus exact interface-pressure term against the telescoped
+Delta_rho form over 27 mass-conserved Enceladus stacks (zb 5–45 km × ocean
+thickness 20/36/50 km) and one mass-conserved Titan-class stack. The guard
+uses rel=1e-12; the exploratory maximum residual was 1.64e-13. Focused plus
+nearest libration suite: 13 passed, 1 intentional strict-xfail in 0.87 s.
+`py_compile` and `git diff --check` pass. No production physics changed.
+Implementation `093dc971`.
 
 ### C23 — Cassini-Enceladus GUI placeholder slot [status: queued]
 
