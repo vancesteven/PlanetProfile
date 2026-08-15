@@ -20,6 +20,19 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
+**Manager review (2026-08-15): C22, C23, C24 ALL ACCEPTED**
+(independently re-run: invariant + placeholder tests 3/3; baseline
+suites green). The Delta_rho invariant now guards the failure mode that
+produced three defects (max residual 1.64e-13 vs 1e-12 gate); the
+Enceladus placeholder is live in the GUI awaiting the campaign; doc
+health is 11 PASS / 1 FINDING (vs 2/10 at the first audit).
+
+### C25 — Methods snippet for Titan freegrav no-ocean (C24's one finding) [status: queued]
+
+Add the deployed Titan free-gravity no-ocean campaign to the C20
+generator's campaign table and generate+commit its snippet with the
+same --verify pass. Report `verified`.
+
 ### C22 — Delta_rho standing-invariant test (B2' ruling item 2) [status: verified]
 
 Reviewer-recommended guard (user-ratified 2026-08-15) against the
