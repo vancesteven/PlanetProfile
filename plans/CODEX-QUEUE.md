@@ -45,7 +45,7 @@ nearest libration suite: 13 passed, 1 intentional strict-xfail in 0.87 s.
 `py_compile` and `git diff --check` pass. No production physics changed.
 Implementation `093dc971`.
 
-### C23 — Cassini-Enceladus GUI placeholder slot [status: queued]
+### C23 — Cassini-Enceladus GUI placeholder slot [status: in progress (Codex)]
 
 Add the awaiting-artifact placeholder slot (C4 pattern, stable slot_id
 'enceladus_cassini') to _SBI_ARTIFACT_SLOTS: label "1D ·
