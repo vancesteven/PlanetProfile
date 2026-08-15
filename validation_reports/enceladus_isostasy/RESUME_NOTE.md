@@ -158,3 +158,20 @@ prerequisite, not a cleanup.
 `isostasy_hm2019_gate_test.py`, `enceladus_conductivity_test.py`. The xfail is
 the intentional tripwire for the future `K_int` 8π/15 repair — **it must stay
 xfail**, and that repair must not land alone.
+
+## Code_gaps ledger update (Machine A, 2026-08-15)
+
+CLOSED by the reviewed implementation pass (commits 77904840/d3819fa1/
+244ccd5a/fdb81c47; manager-verified, 14 new tests + 40+1xfail baseline
+green): parameter registry (zb_km, compensation_C2, rho_ice_kgm3,
+libration_sys_frac), C30 dispatch, isostatic_hm2019 forward-model
+dispatch (ocean branch; separate-then-sum finite-amplitude per the
+ratified module convention, cross-term vs combined-FA documented <0.2
+sigma), and B4 zb cache mode (build_zbw_grid_cache; solved Tb recorded
+per node; real 6-node smoke build). STILL OPEN (reviewer-blocked or
+ratification-time): frozen-branch builder path + MAJOR-1 mass invariant
+(do not land unilaterally), Sigma_model likelihood inflation wiring,
+config-schema reconciliation (the candidate JSON's top-level isostasy
+keys raise TypeError in InferenceConfig.from_json — dispatch currently
+reads config.metadata['isostasy']), and the B2' Delta_rho repair
+(user-ruled 2026-08-15, §0.23 — B executes under reviewer sign-off).
