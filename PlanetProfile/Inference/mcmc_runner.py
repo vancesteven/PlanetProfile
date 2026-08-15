@@ -852,6 +852,50 @@ class MCMCRunner:
                             if not np.isfinite(_gpred):
                                 return -1e30
                             chi2 += ((_gpred - obs_val) / obs_err) ** 2
+            elif self._gravity_isostatic_active() and (
+                    'C20' in observables or 'C22' in observables
+                    or 'C30' in observables):
+                # Enceladus isostasy configs (gravity_forward_model=
+                # 'isostatic_hm2019'): C20/C22/C30 all come from the same
+                # H&M-2019 Airy-isostatic forward model
+                # (_derive_gravity_isostatic) -- see PlanetProfile.Gravity.
+                # isostasy and plans/active/enceladus-isostasy-module-spec.md.
+                iso_pred = self._derive_gravity_isostatic(theta_dict)
+                if iso_pred is None:
+                    return -1e30
+                C20_m = iso_pred.get((2, 0), np.nan)
+                C22_m = iso_pred.get((2, 2), np.nan)
+                C30_m = iso_pred.get((3, 0), np.nan)
+                # Same correlated-(C20,C22) handling as the Clairaut path
+                # above; C30 has no published correlation with C20/C22
+                # (observable_correlations_provenance, config) so it always
+                # enters as an independent term.
+                _corr = (getattr(self.config, 'metadata', {}) or {}).get(
+                    'observable_correlations', {}) or {}
+                _rho = _corr.get('C20,C22')
+                if (_rho is not None and 'C20' in observables
+                        and 'C22' in observables):
+                    if not (np.isfinite(C20_m) and np.isfinite(C22_m)):
+                        return -1e30
+                    v20, s20 = observables['C20']
+                    v22, s22 = observables['C22']
+                    rho = float(_rho)
+                    det = (s20 * s22) ** 2 * (1.0 - rho ** 2)
+                    r0, r1 = C20_m - v20, C22_m - v22
+                    chi2 += (r0 ** 2 * s22 ** 2 + r1 ** 2 * s20 ** 2
+                             - 2.0 * rho * s20 * s22 * r0 * r1) / det
+                else:
+                    for _gname, _gpred in (('C20', C20_m), ('C22', C22_m)):
+                        if _gname in observables:
+                            obs_val, obs_err = observables[_gname]
+                            if not np.isfinite(_gpred):
+                                return -1e30
+                            chi2 += ((_gpred - obs_val) / obs_err) ** 2
+                if 'C30' in observables:
+                    obs_val, obs_err = observables['C30']
+                    if not np.isfinite(C30_m):
+                        return -1e30
+                    chi2 += ((C30_m - obs_val) / obs_err) ** 2
             else:
                 if 'J2' in observables:
                     obs_val, obs_err = observables['J2']
@@ -862,6 +906,12 @@ class MCMCRunner:
                 if 'C22' in observables:
                     obs_val, obs_err = observables['C22']
                     pred = float(modified.get('C22', np.nan))
+                    if not np.isfinite(pred):
+                        return -1e30
+                    chi2 += ((pred - obs_val) / obs_err) ** 2
+                if 'C30' in observables:
+                    obs_val, obs_err = observables['C30']
+                    pred = float(modified.get('C30', np.nan))
                     if not np.isfinite(pred):
                         return -1e30
                     chi2 += ((pred - obs_val) / obs_err) ** 2
@@ -1526,6 +1576,219 @@ class MCMCRunner:
         model (gravity_forward_model == 'clairaut_hydrostatic')."""
         return (getattr(self.config, 'gravity_forward_model', None)
                 == 'clairaut_hydrostatic')
+
+    def _gravity_isostatic_active(self) -> bool:
+        """True when the config opts into the Hemingway & Mittal (2019)
+        Airy-isostatic forward model (gravity_forward_model ==
+        'isostatic_hm2019'). See PlanetProfile.Gravity.isostasy and
+        plans/active/enceladus-isostasy-module-spec.md. The Clairaut/
+        Radau-Darwin path (gravity_j2_over_c22 etc.) MUST NOT be used by
+        this forward model (config gravity_forward_model_contract)."""
+        return (getattr(self.config, 'gravity_forward_model', None)
+                == 'isostatic_hm2019')
+
+    def _isostasy_physics_config(self) -> Dict[str, Any]:
+        """Isostasy physics inputs (observed shape H_obs_lm, reference
+        radii, finite-amplitude flag) for the isostatic_hm2019 forward
+        model.
+
+        Reads a top-level ``config.isostasy`` attribute first (forward-
+        compatible with a future ``InferenceConfig`` field carrying this
+        block verbatim), falling back to ``config.metadata['isostasy']`` --
+        matching the existing convention that campaign-specific physics
+        inputs like ``gravity_ref_radius_m`` live under ``metadata`` (see
+        ``_derive_gravity_pair``). NOTE: the enceladus_cassini_isostasy_7D
+        frozen-config CANDIDATE currently carries ``isostasy`` (and several
+        other blocks) as top-level JSON keys that are not yet recognized
+        ``InferenceConfig`` dataclass fields, so that exact file does not
+        parse via ``InferenceConfig.from_json`` today -- a config-schema
+        reconciliation left to ratification, out of scope here."""
+        top = getattr(self.config, 'isostasy', None)
+        if isinstance(top, dict) and top:
+            return top
+        meta = getattr(self.config, 'metadata', {}) or {}
+        nested = meta.get('isostasy')
+        return nested if isinstance(nested, dict) else {}
+
+    def _derive_gravity_isostatic(
+        self, theta_dict: Dict[str, float]
+    ) -> Optional[Dict[Tuple[int, int], float]]:
+        """Model-predicted unnormalized {(l,m): C_lm} for the
+        ``isostatic_hm2019`` forward model (Hemingway & Mittal 2019).
+
+        Total predicted C_lm = C_lm_hyd + C_lm_nh(isostatic) (module spec
+        Physics map item 4):
+
+        - C_lm_hyd: hydrostatic Tricarico interface-figure sum over the
+          reduced 3-layer (interior / ocean / shell) stack -- per-interface
+          eccentricities (``Librations.compute_eccentricities``) converted
+          to degree-2 shape coefficients (``isostasy.triaxial_to_H2m``),
+          finite-amplitude adjusted, and summed via
+          ``isostasy.interface_gravity_coeff`` (module spec item 1).
+        - C_lm_nh(isostatic): ``isostasy.isostatic_gravity`` -- the
+          observed-shape non-hydrostatic part, Airy-compensated at the
+          ice/ocean interface with the sampled ``compensation_C2``
+          (module spec items 2-4).
+
+        Both parts are computed at the shape reference radius
+        (``isostasy.shape_ref_radius_m``, Tajeddine convention) and then
+        rescaled (B14, ``isostasy.rescale_coeff``) to the gravity reference
+        radius (``metadata.gravity_ref_radius_m`` / ``isostasy.
+        gravity_ref_radius_m``, Park convention) for comparison against the
+        conditioned observables.
+
+        OCEAN BRANCH ONLY (module spec: "implement the ocean branch first
+        (it is invariant)"): returns None for a frozen-branch structure (no
+        phase-0 ocean layer), exactly like ``_derive_libration_deg``'s
+        current scope. The ``rho_ice_kgm3`` EOS nuisance, when present in
+        ``theta_dict``, is applied mass-neutrally
+        (``isostasy.mass_neutral_shell_density``) to the reduced stack
+        before either sum is computed, mirroring
+        ``_derive_libration_deg``'s ``rho_shell_override`` handling.
+
+        Returns None on any hard-reject condition (no ocean, non-finite
+        inputs, unphysical override, missing isostasy config).
+        """
+        from PlanetProfile.Gravity.isostasy import (
+            isostatic_gravity, finite_amplitude_coeffs,
+            interface_gravity_coeff, eccentricities_to_axes,
+            triaxial_to_H2m, mass_neutral_shell_density, rescale_coeff)
+        from PlanetProfile.Gravity.Librations import compute_eccentricities
+
+        iso_cfg = self._isostasy_physics_config()
+        H_obs_raw = iso_cfg.get('H_obs_lm_m') or iso_cfg.get('H_obs_lm')
+        if not H_obs_raw:
+            return None
+        try:
+            H_obs_lm = {tuple(int(x) for x in str(k).split(',')): float(v)
+                        for k, v in H_obs_raw.items()}
+        except (TypeError, ValueError):
+            return None
+        R_ref_shape = float(iso_cfg.get('shape_ref_radius_m', np.nan))
+        if not np.isfinite(R_ref_shape):
+            return None
+        gm = (getattr(self.config, 'metadata', {}) or {})
+        R_ref_gravity = float(gm.get(
+            'gravity_ref_radius_m',
+            iso_cfg.get('gravity_ref_radius_m', R_ref_shape)))
+        finite_amplitude = bool(iso_cfg.get('finite_amplitude', True))
+
+        struct = self._struct_for_hydrosphere(theta_dict)
+        if struct is None:
+            return None
+        r_m = np.asarray(struct.get('r_m'), dtype=float)
+        rho = np.asarray(struct.get('rho'), dtype=float)
+        phases = np.asarray(struct.get('phases'))
+        omega = float(struct.get('omega', np.nan))
+        if not np.isfinite(omega) or r_m.size < 3:
+            return None
+        order = np.argsort(r_m)
+        r_m, rho, phases = r_m[order], rho[order], phases[order]
+        keep = np.isfinite(r_m) & np.isfinite(rho) & (r_m > 0)
+        r_m, rho, phases = r_m[keep], rho[keep], phases[keep]
+
+        ocean = np.where(phases == 0)[0]
+        if ocean.size == 0:
+            return None  # frozen branch -- not yet supported (module spec)
+        first, last = int(ocean[0]), int(ocean[-1])
+        if not np.all(phases[first:last + 1] == 0):
+            return None
+        if first == 0 or last == r_m.size - 1:
+            return None
+
+        def _vw_rho(i0, i1):
+            r_in = np.concatenate(([0.0], r_m))[i0:i1 + 1]
+            r_out = r_m[i0:i1 + 1]
+            vol = r_out ** 3 - r_in ** 3
+            good = vol > 0
+            if not np.any(good):
+                return np.nan
+            return float(np.sum(rho[i0:i1 + 1][good] * vol[good])
+                         / np.sum(vol[good]))
+
+        reduced_r = np.array([r_m[first - 1], r_m[last], r_m[-1]])
+        reduced_rho = np.array([_vw_rho(0, first - 1),
+                                _vw_rho(first, last),
+                                _vw_rho(last + 1, r_m.size - 1)])
+        if not np.all(np.isfinite(reduced_rho)):
+            return None
+
+        rho_ice_override = theta_dict.get('rho_ice_kgm3')
+        if rho_ice_override is not None:
+            _r_in = np.concatenate(([0.0], reduced_r[:-1]))
+            M_stack = float(np.sum(reduced_rho * (4.0 * np.pi / 3.0)
+                                   * (reduced_r ** 3 - _r_in ** 3)))
+            if not np.isfinite(M_stack) or M_stack <= 0:
+                return None
+            try:
+                reduced_rho, _ = mass_neutral_shell_density(
+                    reduced_r, reduced_rho, float(rho_ice_override),
+                    M_stack, shell_idx=2, interior_idx=0)
+            except ValueError:
+                return None
+
+        n = reduced_r.size
+        M_body = float(np.sum(
+            reduced_rho * (4.0 * np.pi / 3.0)
+            * (reduced_r ** 3 - np.concatenate(([0.0], reduced_r[:-1])) ** 3)))
+        if not np.isfinite(M_body) or M_body <= 0:
+            return None
+
+        try:
+            ep, eq = compute_eccentricities(reduced_r, reduced_rho, omega)
+        except Exception:
+            return None
+        ep = np.asarray(ep, dtype=float)
+        eq = np.asarray(eq, dtype=float)
+        if not (np.all(np.isfinite(ep)) and np.all(np.isfinite(eq))):
+            return None
+
+        H_hyd = []
+        for i, R_i in enumerate(reduced_r):
+            a, b, c = eccentricities_to_axes(float(R_i), float(ep[i]),
+                                             float(eq[i]))
+            H20, H22 = triaxial_to_H2m(a, b, c)
+            H_hyd.append({(2, 0): H20, (2, 2): H22})
+
+        # Hydrostatic Tricarico interface-figure sum (module spec item 1/4):
+        # every interface, H_hyd only. PP layer convention: layer i spans
+        # [r[i-1], r[i]] (implicit inner edge 0), so the interface AT r[i]
+        # has "below" = layer i, "above" = layer i+1 (vacuum for the
+        # outermost) -- drho = rho[i] - rho[i+1] (0 at the surface).
+        _LM = ((2, 0), (2, 2), (3, 0))
+        C_hyd = {lm: 0.0 for lm in _LM}
+        for i in range(n):
+            R_i = float(reduced_r[i])
+            drho = float(reduced_rho[i]
+                        - (reduced_rho[i + 1] if i + 1 < n else 0.0))
+            H_i = (finite_amplitude_coeffs(H_hyd[i], R_i) if finite_amplitude
+                  else H_hyd[i])
+            for lm in _LM:
+                C_hyd[lm] += interface_gravity_coeff(
+                    H_i.get(lm, 0.0), drho, R_i, lm[0], M_body, R_ref_shape)
+
+        # Non-hydrostatic Airy-isostatic gravity (module spec items 2-4).
+        # Ocean branch: R_b = ice/ocean interface radius (reduced_r[1]).
+        C2 = float(theta_dict.get('compensation_C2', 1.0))
+        try:
+            C_nh = isostatic_gravity(
+                H_obs_lm=H_obs_lm, H_hyd_t_lm=H_hyd[-1],
+                R_t=float(reduced_r[-1]), R_b=float(reduced_r[1]),
+                rho_ice=float(reduced_rho[2]), rho_ocean=float(reduced_rho[1]),
+                M_body=M_body, R_ref=R_ref_shape, C2=C2,
+                finite_amplitude=finite_amplitude)
+        except ValueError:
+            return None
+
+        C_total_shape_ref = {lm: C_hyd[lm] + C_nh.get(lm, 0.0)
+                             for lm in _LM}
+        if not all(np.isfinite(v) for v in C_total_shape_ref.values()):
+            return None
+
+        # B14 reference-radius conversion: shape convention -> gravity
+        # convention, so the caller compares against Park-era observables.
+        return {lm: rescale_coeff(v, lm[0], R_ref_shape, R_ref_gravity)
+                for lm, v in C_total_shape_ref.items()}
 
     def _derive_gravity_pair(
         self, theta_dict: Dict[str, float]
