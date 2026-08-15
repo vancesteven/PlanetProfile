@@ -10,7 +10,7 @@ Current documents (read by default):
 - `plans/STATUS.md` — authoritative current state.
 - `plans/MACHINE-B-HANDOFF.md` — executable heavy-compute queue
   (current §0.18 campaign order and release gates).
-- `plans/CODEX-QUEUE.md` — Codex 5.6 delegate lane (C13–C24 verified;
+- `plans/CODEX-QUEUE.md` — Codex 5.6 delegate lane (C13–C25 verified;
   no queued task).
 - `plans/mission-body-constraints.md` — current scientific constraint spec.
 - `plans/mission-body-1d-roadmap.md` — forward roadmap.

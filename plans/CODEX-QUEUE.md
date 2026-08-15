@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-15 (C18–C24 verified; C25 in progress). Curated by the Claude model manager
+Updated: 2026-08-15 (C18–C25 verified; no queued Codex task). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -27,11 +27,23 @@ produced three defects (max residual 1.64e-13 vs 1e-12 gate); the
 Enceladus placeholder is live in the GUI awaiting the campaign; doc
 health is 11 PASS / 1 FINDING (vs 2/10 at the first audit).
 
-### C25 — Methods snippet for Titan freegrav no-ocean (C24's one finding) [status: in progress (Codex)]
+### C25 — Methods snippet for Titan freegrav no-ocean (C24's one finding) [status: verified]
 
 Add the deployed Titan free-gravity no-ocean campaign to the C20
 generator's campaign table and generate+commit its snippet with the
 same --verify pass. Report `verified`.
+
+**Report (Codex, 2026-08-15):** `verified`. Added the `titan_noocean`
+campaign to `plans/scripts/generate_methods_snippet.py` and generated
+`validation_reports/titan_freegrav_noocean_1m/methods_snippet.md`. The snippet
+is sourced from the committed 12-parameter/4-observable config, 9-node v2.1
+cache plus manifest SHA-256, 877,227-simulation artifact metadata, and INDEX
+gate/deployment records. It preserves the raw `SBC PASS; limits FAIL;
+crosscheck FAIL` verdict and separately quotes the committed
+FAIL-adjudicated-acceptable disposition. Full `all --verify` passes for all
+nine campaigns (source values, hashes, parameter/observable names, and
+Markdown rendering); the new key also verifies from `/private/tmp` and the
+generator passes `py_compile`/`git diff --check`. Implementation `2328f12b`.
 
 ### C22 — Delta_rho standing-invariant test (B2' ruling item 2) [status: verified]
 
