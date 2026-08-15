@@ -562,7 +562,19 @@ def build_single_structure(
         "CMR2": CMR2_pp,
         "J2": float(J2_pred),
         "C22": float(C22_pred),
-        "Tb_K": float(Tb_K),
+        # Read back from Planet.Bulk (post-run) rather than echoing the
+        # caller's input ``Tb_K`` unconditionally. Byte-identical to the old
+        # behaviour for every Tb-driven build (Do.ICEIh_THICKNESS=False):
+        # Planet.Bulk.Tb_K is never mutated on that path (verified against
+        # SetupInit.py, which only branches on Tb_K when ICEIh_THICKNESS is
+        # False, and LayerPropagators.py, which never reassigns it there).
+        # For a zb-driven build (Do.ICEIh_THICKNESS=True, Bulk.
+        # zb_approximate_km set -- B4 cache mode), GetIceShellTFreeze SOLVES
+        # for Tb_K and reassigns Planet.Bulk.Tb_K to the root-found value
+        # (LayerPropagators.py:53, ``Planet = GetIceShellTFreeze(Planet,
+        # Params)``); the caller's input Tb_K is then just an unused
+        # placeholder, and this field must read the solved value back.
+        "Tb_K": float(getattr(Planet.Bulk, "Tb_K", Tb_K)),
         # Ocean salinity actually realized in this structure (g/kg). For v3
         # (Tb × w) caches this is the second grid axis; for 1D v2 caches it
         # simply records the fixed seawater value baked in at build time.
@@ -1121,5 +1133,240 @@ def build_tbw_grid_cache(
             f"2D cache written → {output_path} "
             f"({n_Tb} Tb × {n_w} w = {total} nodes: "
             f"{n_ok} built, {n_fail} None)"
+        )
+    return cache
+
+
+def build_zbw_grid_cache(
+    planet_template_module: str,
+    zb_km_grid: Iterable[float],
+    wOcean_ppt_grid: Iterable[float],
+    output_path: str,
+    progress: bool = True,
+    ocean_overrides: Dict[str, Any] | None = None,
+    bulk_overrides: Dict[str, Any] | None = None,
+    planet_overrides: Dict[str, Any] | None = None,
+    do_overrides: Dict[str, Any] | None = None,
+    extrap_ocean: bool = False,
+    tb_placeholder_K: float = 272.0,
+    zb_tol_km: float | None = None,
+) -> Dict[str, Any]:
+    """Build a 2D (zb_km × wOcean_ppt) structure-grid cache -- B4.
+
+    OCEAN BRANCH ONLY (module spec
+    ``plans/active/enceladus-isostasy-module-spec.md`` /
+    ``enceladus_cassini_isostasy_7D.json`` blockers_open.B4/code_gaps): the
+    frozen branch's zb is DERIVED by mass conservation from a sampled rock
+    density, not sampled directly on a zb axis (see the config's
+    ``branch_model.frozen_branch``), and the underlying mass-conservation
+    node invariant (MAJOR-1, the two-part ``iSilStart`` retry fix) is
+    reviewer-blocked production physics that must NOT land unilaterally
+    (RESUME_NOTE.md). This builder only ever produces ocean-branch nodes;
+    it does not attempt the frozen branch at all -- a node whose achieved
+    structure has no phase-0 (liquid) layer is rejected to ``None``, same
+    as an out-of-tolerance zb miss.
+
+    Mechanism (PlanetProfile's existing "two-of-three" zb/Tb pairing,
+    ``Planet.Do.ICEIh_THICKNESS`` + ``Planet.Bulk.zb_approximate_km`` --
+    Main.py's ``oceanComp`` inductogram path, ``LayerPropagators.
+    GetIceShellTFreeze``): each node sets ``Bulk.zb_approximate_km`` to the
+    grid's target shell thickness and ``Do.ICEIh_THICKNESS=True``. That
+    clears the OTHER member of the pair -- SetupInit.py sets
+    ``Bulk.zb_approximate_km = nan`` when ``ICEIh_THICKNESS`` is False and,
+    symmetrically, ``GetIceShellTFreeze`` root-finds ``Tb_K`` and
+    REASSIGNS ``Planet.Bulk.Tb_K`` to the solved value -- so the ``Tb_K``
+    passed into :func:`build_single_structure` here is a placeholder only
+    (never read on this path; verified empirically). The SOLVED Tb_K is
+    read back via the ``"Tb_K"`` field of the returned structure dict
+    (fixed to read ``Planet.Bulk.Tb_K`` post-run rather than echo the
+    input -- see :func:`build_single_structure`).
+
+    Root-finding is only tolerance-bounded in TEMPERATURE space
+    (``GetIceShellTFreeze``'s internal ``xtol=Planet.TfreezeRes_K``), not
+    in zb space. At Enceladus gravity d(zb)/d(Tb) is enormous (~0.27 K
+    spans the WHOLE 5-45 km shell range per the config's own honesty
+    note), so a node can converge in T while still missing its zb target
+    by several km. This builder enforces the zb-placement invariant
+    explicitly (module spec / RESUME_NOTE ``zb_placement``): a node is
+    HARD REJECTED to ``None`` when
+    ``abs(D_iceIh_km_achieved - zb_km_target) >= zb_tol_km``.
+    ``D_iceIh_km`` (summed phase-Ih layer thickness, already computed by
+    :func:`build_single_structure`) is used as the "achieved zb" reading --
+    the existing, already-tested field for shell thickness in this
+    package; it is NOT bit-identical to PlanetProfile's own internal
+    ``Planet.zb_km`` (observed offset ~0.4 km on one probe structure,
+    plausibly the Melosh conductive-layer correction), which is not
+    exposed by :func:`build_single_structure`'s return contract.
+
+    NOT implemented here (explicitly out of scope -- reviewer-blocked
+    production physics, RESUME_NOTE.md "Blocked on reviewer sign-off"):
+    the per-node MASS-CONSERVATION invariant (MAJOR-1) and its two-part
+    ``iSilStart`` retry fix. This builder does not compute or gate on a
+    mass residual; only the zb-placement check above and ordinary build
+    failures reject nodes to ``None``.
+
+    Parameters
+    ----------
+    zb_km_grid
+        Iterable of target ice-shell thicknesses (km). Cast to 1-D float,
+        sorted ascending.
+    wOcean_ppt_grid
+        See :func:`build_tbw_grid_cache`.
+    tb_placeholder_K
+        Value passed as the (unused, overwritten-by-solve) ``Tb_K``
+        argument to :func:`build_single_structure`. Default 272.0 K is
+        empirically verified to build successfully across the Enceladus
+        template's zb range; override for a different body/template.
+    zb_tol_km
+        Half-width of the zb-placement acceptance window (km). Default
+        (``None``) uses half the smallest spacing in ``zb_km_grid``.
+
+    Returns
+    -------
+    The saved-to-disk dict::
+
+        {'zb_km_grid': np.ndarray (n_zb,),
+         'wOcean_ppt_grid': np.ndarray (n_w,),
+         'structures': [structure_dict | None, ...],  # row-major, len n_zb*n_w
+         'ocean_comp': str | None,
+         'schema_version': 'v3.1-zbw',
+         'zb_tol_km': float,
+         'n_zb_placement_rejected': int}
+
+    ``structures`` is row-major: entry ``i_zb * n_w + i_w`` is the
+    structure at ``(zb_km_grid[i_zb], wOcean_ppt_grid[i_w])``. Each
+    surviving structure additionally carries ``zb_km_node`` (the grid
+    target) alongside its existing ``Tb_K`` (now the SOLVED value) and
+    ``D_iceIh_km`` (the achieved zb) fields.
+    """
+    zb_arr = np.asarray(list(zb_km_grid), dtype=np.float64)
+    w_arr = np.asarray(list(wOcean_ppt_grid), dtype=np.float64)
+    if zb_arr.ndim != 1 or zb_arr.size < 2:
+        raise ValueError(
+            f"zb_km_grid must be a 1-D iterable with >= 2 points, got {zb_arr!r}"
+        )
+    if w_arr.ndim != 1 or w_arr.size < 2:
+        raise ValueError(
+            f"wOcean_ppt_grid must be a 1-D iterable with >= 2 points, "
+            f"got {w_arr!r}"
+        )
+    zb_arr = zb_arr[np.argsort(zb_arr)]
+    w_arr = w_arr[np.argsort(w_arr)]
+
+    if zb_tol_km is None:
+        zb_tol_km = float(np.min(np.diff(zb_arr)) / 2.0)
+    zb_tol_km = float(zb_tol_km)
+
+    base_overrides = dict(ocean_overrides or {})
+    base_overrides.pop("wOcean_ppt", None)
+    ocean_comp = base_overrides.get("comp")
+    if progress and ocean_comp is not None:
+        log.info(f"Ocean composition baked into every node: comp={ocean_comp!r}")
+
+    base_do_overrides = dict(do_overrides or {})
+    base_do_overrides["ICEIh_THICKNESS"] = True
+    base_bulk_overrides = dict(bulk_overrides or {})
+
+    n_zb, n_w = zb_arr.size, w_arr.size
+    total = n_zb * n_w
+    structures: List[Dict[str, Any] | None] = [None] * total
+    n_ok = 0
+    n_fail = 0
+    n_zb_reject = 0
+    for i_zb, zb_km in enumerate(zb_arr):
+        for i_w, w_ppt in enumerate(w_arr):
+            flat = i_zb * n_w + i_w
+            if progress:
+                log.info(
+                    f"[{flat + 1}/{total}] zb_km={zb_km:.4f} "
+                    f"wOcean_ppt={w_ppt:.4f}"
+                )
+            try:
+                struct = build_single_structure(
+                    planet_template_module, float(tb_placeholder_K),
+                    ocean_overrides={**base_overrides,
+                                     "wOcean_ppt": float(w_ppt)},
+                    bulk_overrides={**base_bulk_overrides,
+                                    "zb_approximate_km": float(zb_km)},
+                    planet_overrides=planet_overrides,
+                    do_overrides=base_do_overrides,
+                    extrap_ocean=extrap_ocean,
+                )
+            except Exception as exc:
+                log.warning(
+                    f"    × (zb={zb_km:.4f}, w={w_ppt:.4f}) → None — "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                structures[flat] = None
+                n_fail += 1
+                continue
+
+            has_ocean = bool(np.any(np.asarray(struct["phases"]) == 0))
+            if not has_ocean:
+                # Ocean-branch-only builder (see docstring): a frozen
+                # result at a requested zb is out of scope, not a failure
+                # to retry.
+                log.warning(
+                    f"    × (zb={zb_km:.4f}, w={w_ppt:.4f}) → None — "
+                    f"no phase-0 layer (frozen; ocean-branch-only builder)"
+                )
+                structures[flat] = None
+                n_fail += 1
+                continue
+
+            zb_actual_km = float(struct.get("D_iceIh_km", np.nan))
+            zb_residual_km = zb_actual_km - float(zb_km)
+            if not (np.isfinite(zb_actual_km)
+                    and abs(zb_residual_km) < zb_tol_km):
+                log.warning(
+                    f"    × (zb={zb_km:.4f}, w={w_ppt:.4f}) → None — "
+                    f"zb_placement invariant failed: achieved "
+                    f"{zb_actual_km:.4f} km, residual {zb_residual_km:+.4f} "
+                    f"km >= tol {zb_tol_km:.4f} km"
+                )
+                structures[flat] = None
+                n_zb_reject += 1
+                n_fail += 1
+                continue
+
+            struct["has_ocean"] = True
+            struct["zb_km_node"] = float(zb_km)
+            struct["zb_km_actual"] = zb_actual_km
+            struct["zb_residual_km"] = zb_residual_km
+            structures[flat] = struct
+            n_ok += 1
+            if progress:
+                log.info(
+                    f"    → Tb_K_solved={struct['Tb_K']:.4f}, "
+                    f"zb_actual={zb_actual_km:.4f} km "
+                    f"(residual {zb_residual_km:+.4f} km), "
+                    f"CMR²={struct.get('CMR2', float('nan')):.4f}"
+                )
+
+    if n_ok == 0:
+        raise RuntimeError(
+            f"All {total} (zb, w) nodes failed; no cache to write."
+        )
+
+    cache = {
+        "zb_km_grid": zb_arr,
+        "wOcean_ppt_grid": w_arr,
+        "structures": structures,
+        "ocean_comp": ocean_comp,
+        "schema_version": "v3.1-zbw",
+        "zb_tol_km": zb_tol_km,
+        "n_zb_placement_rejected": int(n_zb_reject),
+        # Ocean-branch-only (B4 scope; see docstring). A production
+        # frozen-branch grid (derived zb by mass conservation) is a
+        # separate, reviewer-blocked follow-on -- not built here.
+        "frozen_branch_supported": False,
+    }
+    _save_cache_atomic(cache, output_path)
+    if progress:
+        log.info(
+            f"zb×w cache written → {output_path} "
+            f"({n_zb} zb × {n_w} w = {total} nodes: "
+            f"{n_ok} built, {n_fail} None, "
+            f"{n_zb_reject} rejected by zb_placement)"
         )
     return cache
