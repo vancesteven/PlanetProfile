@@ -1,0 +1,139 @@
+{
+  "mode": "mcmc",
+  "bodyname": "Callisto",
+  "param_space": {
+    "alpha": {
+      "prior_type": "uniform",
+      "bounds": [
+        0.15,
+        0.45
+      ]
+    },
+    "log10_zeta": {
+      "prior_type": "uniform",
+      "bounds": [
+        -3.0,
+        2.0
+      ]
+    },
+    "log10_eta_Ih": {
+      "prior_type": "uniform",
+      "bounds": [
+        10.0,
+        16.0
+      ]
+    },
+    "log10_eta_HP": {
+      "prior_type": "uniform",
+      "bounds": [
+        10.0,
+        16.0
+      ]
+    },
+    "log10_eta_sil": {
+      "prior_type": "uniform",
+      "bounds": [
+        18.0,
+        22.0
+      ]
+    },
+    "Tb_K": {
+      "prior_type": "uniform",
+      "bounds": [
+        250.0,
+        254.9
+      ]
+    },
+    "R_core_km": {
+      "prior_type": "uniform",
+      "bounds": [
+        0.0,
+        1205.15
+      ]
+    },
+    "rho_core_kgm3": {
+      "prior_type": "uniform",
+      "bounds": [
+        5000.0,
+        8000.0
+      ]
+    }
+  },
+  "param_groups": {
+    "log10_eta_HP": [
+      "log10_eta_III",
+      "log10_eta_V",
+      "log10_eta_VI"
+    ]
+  },
+  "derived_params": {
+    "rho_sil_kgm3": {
+      "derivation": "mass_conservation",
+      "bounds": [
+        1800.0,
+        3500.0
+      ],
+      "reject_if_outside_bounds": true
+    }
+  },
+  "ocean_overrides": {
+    "comp": "NaCl",
+    "wOcean_ppt": 100.0
+  },
+  "observables": {
+    "CMR2": [
+      0.3549,
+      0.0042
+    ],
+    "Re_k2": [
+      0.2,
+      0.05
+    ],
+    "Im_k2": [
+      0.0,
+      0.05
+    ],
+    "Re_h2": [
+      1.12,
+      0.1
+    ],
+    "Im_h2": [
+      0.0,
+      0.1
+    ],
+    "Ae_synodic_real": [0.02051409479311859, 0.04478621643526883],
+    "Ae_synodic_imag": [-0.14787121479781914, 0.04478621643526883],
+    "Ae_synodic 2nd_real": [0.07765463514380143, 0.08713686574764876],
+    "Ae_synodic 2nd_imag": [-0.27988314148716587, 0.08713686574764876],
+    "Ae_orbital_real": [1.3498801229296462e-05, 0.0011488564874188713],
+    "Ae_orbital_imag": [-0.003829497833481145, 0.0011488564874188713]
+  },
+  "sampler_settings": {
+    "n_effective": 500,
+    "n_reeval": 500,
+    "rheology": "andrade",
+    "arrhenius_params": {
+      "activation_energy_kJ_mol": {
+        "Ih": 60.0
+      },
+      "R_J_mol_K": 8.314462
+    }
+  },
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Callisto/C2_andrade/callisto_nacl_structure_grid.pkl",
+  "random_state": 42,
+  "planet_template_module": "PlanetProfile.Default.Callisto.PPCallisto",
+  "metadata": {
+    "schema_version": "v2.1 (sampled Tb + sampled core + derived rho_sil + transition-aware grid)",
+    "description": "Phase C1 BodyConfig: Callisto with NaCl 100 ppt ocean and Andrade rheology. HP ice shell present (Ice III/V/VI locked together). 8D problem. Observable expansion (C2-A): added Re_k2/Im_k2 (Mazarico 2023, k2\u22480.2\u00b10.05; Im_k2 default 0\u00b10.05), Re_h2/Im_h2 (Mazarico 2023, h2\u2248+1.12\u00b10.10; Im_h2 default 0\u00b10.10). Same values for all three bodies as placeholders pending body-specific updates. J2/C22 were specified earlier but DROPPED from this config: PP currently has no forward model for the static gravity coefficients \u2014 Planet.J2/C22 are observation inputs, not predictions. Future work: build a generalized gravity-coefficient forward model that produces J_n and C_nm/S_nm to arbitrary degree/order for bodies with high-resolution gravity (Mars, Moon, Enceladus). Magnetic induction wired (C2-B) but observable values not yet specified; add Ae_<label>_real / Ae_<label>_imag (or BiAmp_<label> / BiPhase_<label>_deg) keys to enable induction in the likelihood.",
+    "ocean_composition": "NaCl 100 ppt (switched from MgSO4 100 ppt \u2014 SeaFreeze NaCl EOS extends to P=5000 MPa, T=501 K; the MgSO4 EOS only covers P<800 MPa and forces slow extrapolation regeneration when Callisto's ocean conditions exceed it)",
+    "primary_constraint": "CMR2 from Anderson et al. (2001)",
+    "k2_status": "NOT INCLUDED - no published k2 measurement. Add when available.",
+    "Tb_bounds_rationale": "Tb_K=[250.0, 254.9] K targets the geological-likely range D_iceIh=[~102, ~140] km with D_ocean spanning [10, ~67] km. Cold bound 250.0 K corresponds to D_ocean=10.2 km — within the user's 'within 10 km of frozen' spec. NOTE: 250.0 K is BELOW the pure-water Ih-III-L triple point (251.165 K), but PP converges and produces physical structures because NaCl 100 ppt depresses the freezing point. The relevant ice-fluid coexistence at this composition may be Ih-II-L rather than Ih-III-L; PP-via-SeaFreeze handles the brine equilibria correctly. Probed via PlanetProfile.Inference.find_tb_bounds at Tb={249.0, 249.5, 250.0, 250.5, 251.0} K (D_ocean = {0, 6.8, 10.2, 13.7, 17.1} km respectively); composition-aware triple-point lookup is tracked as future PP work. Warm bound 254.9 K gives D_iceIh=102 km. Default PP Tb=262.0 K is now ABOVE the prior range — this config tightens the upper bound to enforce D_iceIh ≥ 100 km per the geological-minimum spec.",
+    "no_ocean_variant_note": "Callisto may have no ocean at all; that case will be modeled as a separate config (analogous to Test50 for Titan), not via this ocean-bearing config.",
+    "core_bounds_rationale": "R_core in [0, 0.5 R_body] permits the no-core limit; rho_core in [5000, 8000] kg/m^3 brackets metallic Fe / Fe-S compositions. rho_sil is derived from M_total mass conservation given the cached ice+ocean profile and sampled core; samples with rho_sil outside [1800, 3500] kg/m^3 are rejected by the likelihood. Lower bound is 1800 (not the 2200 used for Europa/Ganymede) because Callisto's silicate is porous (phi_vac approximately 0.91 from PP MoI matching), giving cached rho_sil approximately 2025 kg/m^3. Tightening to 2200 rejected every MCMC sample at the mass-conservation gate.",
+    "next_step_after_C1": "Per-composition runs by sweeping NaCl wOcean_ppt in 0.1 molal increments (~5.84 ppt steps) using the SeaFreeze NaCl representation. The ocean_overrides block in this config is the knob.",
+    "stage2_dependencies": "Toolkit must (a) parse the derived_params block, (b) implement the rho_sil mass-conservation solver and rejection, (c) extend the structure cache to include M_ice_kg / M_ocean_kg / R_oceanbot_m / M_total_kg per Tb point, (d) recompute CMR2 from the sampled core + derived rho_sil + cached ice/ocean profile.",
+    "stage3_dependencies": "Build Tb-grid structure cache for Callisto with NaCl ocean across the sampled Tb range, with v2.1 transition-aware refinement.",
+    "induction_note": "Ae observables are exploratory placeholders. NaCl 100ppt conductivity via McCleskey ionic contribution framework. Orbital Ae~0.004 is small (skin depth > ocean thickness) but included for exploratory completeness. TA dropped (nearly circular orbit). sigma=30%|Ae|."
+  }
+}

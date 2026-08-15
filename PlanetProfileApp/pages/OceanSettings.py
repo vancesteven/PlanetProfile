@@ -1,0 +1,228 @@
+import streamlit as st
+import os
+import sys
+import re
+from Utilities.planet_sidebar import show_planet_status
+
+# ----- Streamlit Page Setup -----
+st.set_page_config(
+    page_title="Ocean Settings",
+    page_icon="./PPlogo.ico",
+    layout="wide"
+)
+show_planet_status()
+st.title("Ocean Settings")
+st.write("Configure your ocean here. Use a pre-defined ocean or set your own salt species and concentrations. The default for each planet is a predefined ocean which will automatically populate below.")
+st.markdown("---")
+
+# Get the planet name from the session state
+Planet = st.session_state.get("Planet", None)
+if not Planet:
+    st.error("Please Select a Planet on the Planet Profile Main Settings Page")
+    st.stop()
+
+# Check if the planet is set to have no ocean by default
+planet_has_ocean = not getattr(Planet.Do, "NO_H2O", False) # Default to False if attribute doesn't exist
+#Initializing user_wants_ocean into session state
+if "user_wants_ocean" not in st.session_state:
+    st.session_state["user_wants_ocean"] = planet_has_ocean
+
+# ----- Reset Button to return to Defaults -----
+#initializing the reset_ocean_flag in the session state as False
+if "reset_ocean_flag" not in st.session_state:
+    st.session_state["reset_ocean_flag"] = False
+
+# If reset has been triggered, reset all ocean-related session state
+# This block is only executed when the user clicks the “Reset” button.
+if st.session_state["reset_ocean_flag"]: #if flag is true (if user presses reset button)
+    # Revert to default: no ocean or default ocean
+    st.session_state["user_wants_ocean"] = planet_has_ocean
+    st.session_state["custom_ocean_flag"] = False
+    st.session_state["custom_ocean_comp"] = None
+    st.session_state["reset_ocean_flag"] = False
+    st.success("Ocean settings reset to planet defaults.")
+    st.rerun()
+
+# ----- Toggle for Ocean/No ocean -----
+st.subheader("Include an Ocean for your Planet?")
+st.write("Determine whether your planet has a liquid water ocean.")
+
+# If the default No_H2O is true, then toggle defaults to False (unchecked)
+# If the default is to have an ocean, then this is set to true and the rest of the ocean settings pop up
+user_wants_ocean = st.toggle("Include an ocean?",  value = st.session_state["user_wants_ocean"])
+st.session_state["user_wants_ocean"] = user_wants_ocean  # update session state with toggle value
+
+
+
+# ----- If the User wants an ocean, they set all of the settings here -----
+if user_wants_ocean:
+
+    # Define or access the default ocean composition (set this wherever you define defaults)
+    default_ocean = getattr(Planet.Ocean, "comp")
+    default_ocean_ppt = Planet.Ocean.wOcean_ppt
+
+    # Initializing Ocean session state variables
+    if "custom_ocean_flag" not in st.session_state: #custom ocean in this case is just to keep track if the user is using any ocean other than the default for their selected planet
+        st.session_state["custom_ocean_flag"] = False
+    if "custom_ocean_comp" not in st.session_state:
+        st.session_state["custom_ocean_comp"] = None
+    if "custom_ocean_concentration" not in st.session_state:
+        st.session_state["custom_ocean_concentration"] = None
+
+
+    st.markdown("---")
+
+    st.subheader("Ocean Composition")
+    user_ocean_type = st.selectbox("Use Predefined Ocean or Define own Ocean Composition", ("Use pre-defined ocean composition","Define your own ocean composition"),index = 0, placeholder = "Select Ocean Type")
+    #User selects which water they want to use, will have to call from prespecified options list
+
+    # ----- Predefined ocean Options and Settings -----
+    # Predefined options list
+    predefined_ocean_options = ("PureH2O", "Seawater", "MgSO4", "NaCl", "NH3")
+
+    if user_ocean_type == "Use pre-defined ocean composition":
+        try:
+            default_ocean_type_index = predefined_ocean_options.index(Planet.Ocean.comp) #selectbox needs an integer input for default values, so this searches the predefined ocean options and gets the index of the default ocean comp from PPPlanet.py
+        except ValueError:
+            default_ocean_type_index = 0  # Fallback to first option if not found
+
+        selected_ocean = st.selectbox("Choose Predefined Ocean", predefined_ocean_options, index=default_ocean_type_index)
+
+
+        # Ocean type check
+        if selected_ocean != default_ocean:
+            st.session_state["custom_ocean_comp"] = selected_ocean
+        else:
+            st.session_state["custom_ocean_comp"] = None
+
+        # Salinity input
+        if selected_ocean != "PureH2O":
+            ocean_concentration = st.number_input(
+                "Please input your desired parts per thousand (ppt) for your salt",
+                value = float(default_ocean_ppt),
+                min_value = 0.0,
+                step = 0.1
+            )
+
+            if ocean_concentration != default_ocean_ppt:
+                st.session_state["custom_ocean_concentration"] = ocean_concentration
+            else:
+                st.session_state["custom_ocean_concentration"] = None
+        else:
+            st.session_state["custom_ocean_concentration"] = None  # No salt input for pure H2O
+
+        # Final check: set the custom flag if either value is custom
+        if (
+            st.session_state["custom_ocean_comp"] is not None or
+            st.session_state["custom_ocean_concentration"] is not None
+        ):
+            st.session_state["custom_ocean_flag"] = True
+        else:
+            st.session_state["custom_ocean_flag"] = False
+
+
+
+
+    # Maybe to add later- dynamic loading of reaktoro salt databases. For now, these are the main 3 we use
+    reaktoro_supported_databases = ["frezchem", "frezchemNH3", "frezchemSiCH4"]
+
+    # ----- Custom Ocean Options and Settings ----
+    if user_ocean_type == "Define your own ocean composition":
+        st.session_state["custom_ocean_flag"] = True  # User is customizing their own ocean
+        st.write("Planet Profile uses reaktoro databases to define aqueous salt species. Please select a reaktoro database to pull salts from. Frezchem is the default. frezchemNH3 supports ammonia species. frezchemSiCH4 supports methane species")
+
+
+        from Utilities.SaltLoader import read_salt_db
+        # Lets user pick whcih reaktoro database they want to run salts from
+        selected_salt = st.selectbox("Choose a salt database:", reaktoro_supported_databases, index =0) #defaults to frezchem database
+
+        # When selected, load the database
+        species = []
+        if selected_salt:
+            st.write(f"Loading species from `{selected_salt}.dat`...")
+            try:
+                species = read_salt_db(selected_salt + ".dat")
+                st.success(f"Loaded {len(species)} aqueous species.")
+            except Exception as e:
+                st.error(f"Failed to load database: {e}")
+                st.stop()
+            st.markdown("---")
+
+        # User selection for which concentration units they want for their salts
+        st.markdown("### Salt Concentration Settings")
+        species_concentration_unit = st.selectbox("Choose Salt Species Concentration Units", ("absolute mol/kg", "relative ratios"))
+        if species_concentration_unit == "relative ratios":
+            Planet.Ocean.wOcean_ppt = st.number_input("Please input your desired parts per thousand (ppt) for you salts")
+        else:
+            Planet.Ocean.wOcean_ppt = None
+        st.markdown("---")
+
+        # Ion species as a TABLE: one row per ion, concentration column.
+        # A null or 0 concentration means the ion is absent (dropped from
+        # the composition). Add rows with the + at the table's bottom.
+        import pandas as pd
+        from Utilities.custom_solution import build_custom_solution_comp
+
+        st.markdown("### Ion Species")
+        # Published Europa ocean models seed the table; the table stays
+        # fully editable afterwards (concentration 0/null removes an ion).
+        from Utilities.europa_ocean_presets import EUROPA_OCEAN_PRESETS
+        preset_choice = st.selectbox(
+            "Start from a published Europa ocean model (optional):",
+            ['(blank table)'] + list(EUROPA_OCEAN_PRESETS.keys()),
+            key='custom_ocean_preset',
+            help="Literature predictions of Europa's ocean composition "
+                 "(mol/kg). Selecting one pre-fills the table below; edit "
+                 "freely afterwards.")
+        _preset_rows = EUROPA_OCEAN_PRESETS.get(preset_choice, {})
+        _missing = [sp for sp in _preset_rows if sp not in species]
+        if _missing:
+            st.warning(
+                f"Species not in the {selected_salt} database and skipped: "
+                f"{', '.join(_missing)}. (NH3 needs the frezchemNH3 "
+                f"database.)")
+        _rows = {sp: c for sp, c in _preset_rows.items() if sp in species}
+        st.caption("Add one row per ion. Concentration null or 0 = ion "
+                   "absent (row ignored).")
+        _seed = pd.DataFrame({
+            'Species': pd.Series(list(_rows.keys()), dtype='str'),
+            'Concentration': pd.Series(list(_rows.values()), dtype='float'),
+        })
+        edited = st.data_editor(
+            _seed,
+            num_rows='dynamic',
+            # Preset in the key: choosing a different preset creates a fresh
+            # editor seeded from it; edits persist while the preset is fixed.
+            key=f"custom_ocean_table_{selected_salt}_{preset_choice}",
+            column_config={
+                'Species': st.column_config.SelectboxColumn(
+                    'Species', options=species, required=False),
+                'Concentration': st.column_config.NumberColumn(
+                    f'Concentration ({species_concentration_unit})',
+                    min_value=0.0, format='%.6f'),
+            },
+            width='stretch')
+
+        st.markdown("### Salt Configuration")
+        st.write(f"Selected salt concentration unit: `{species_concentration_unit}`")
+        solution_name = st.text_input("Please name you custom ocean solution here (ex. MgSO4)") #user gets to pick how they want to name their ocean composition - this will get passed to Planet Profile
+
+        rows = list(zip(edited['Species'].tolist(),
+                        edited['Concentration'].tolist()))
+        comp, kept, warns = build_custom_solution_comp(solution_name, rows)
+        for w in warns:
+            st.warning(w)
+        if comp:
+            #This gets passed to Planet.Ocean.comp
+            st.session_state["custom_ocean_comp"] = comp
+            st.write(comp)
+        elif not kept:
+            st.info("Add at least one ion with a nonzero concentration.")
+        else:
+            st.info("Name the solution to finish the custom composition.")
+
+# Actual reset button widget at the bottom of the page
+st.markdown("---")
+if st.button("🔄 Reset to default ocean (double click)"): #when user clicks reset button,
+    st.session_state["reset_ocean_flag"] = True #"reset_ocean_flag" is set to true in the session_state,
+    # which triggers the if st.session_state["reset_ocean_flag"] function above

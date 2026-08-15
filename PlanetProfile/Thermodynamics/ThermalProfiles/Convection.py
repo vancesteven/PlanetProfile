@@ -1,0 +1,1316 @@
+import numpy as np
+import logging
+from PlanetProfile.Thermodynamics.Geophysical import PropagateConduction, EvalLayerProperties, \
+    PorosityCorrectionVacIce, PorosityCorrectionFilledIce, PropagateAdiabaticSolid, \
+    PropagateAdiabaticPorousVacIce, PropagateAdiabaticPorousFilledIce, PropogateConductionFromDepth, \
+    PropagateAdiabaticSolidFromDepth, PropagateLinearThermalProfile, PropagateMeltingCurveThermalProfile
+from PlanetProfile.Utilities.Indexing import PhaseConv
+from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import ConvectionDeschampsSotin2001, \
+    ConvectionKalousova2018, ConvectionYao2014, kThermHobbs1974, kThermMelinder2007, ConvectionPetricca2024
+from PlanetProfile.Utilities.defineStructs import Constants
+
+# Assign logger
+log = logging.getLogger('PlanetProfile')
+
+
+def IceIConvectSolid(Planet, Params):
+    """ Apply convection models from literature to determine thermal profile and
+        state variables for possibly convecting ice I layers
+
+        Assigns Planet attributes:
+            Tconv_K, etaConv_Pas, eLid_m, deltaTBL_m, QfromMantle_W, all physical layer arrays
+    """
+    if Planet.Do.SPHERICAL_CONVECTION:
+        log.debug('Applying solid-state convection to surface ice I based on Yao et al. (2014) spherical scaling.')
+        zbI_m = Planet.z_m[Planet.Steps.nIbottom]
+        Pmid_MPa = (Planet.PbI_MPa + Planet.P_MPa[0]) / 2
+        phaseTop = PhaseConv(Planet.phase[0])
+        Planet.kTherm_WmK[0] = Planet.Ocean.surfIceEOS[phaseTop].fn_kTherm_WmK(Pmid_MPa, Planet.Bulk.Tb_K)
+
+        Planet.Tconv_K, Planet.etaConv_Pas, Planet.eLid_m, Planet.Dconv_m, Planet.deltaTBL_m, Planet.Ocean.QfromMantle_W, \
+            Planet.RaConvect, Planet.RaCrit = \
+            ConvectionYao2014(Planet.T_K[0], Planet.r_m[0], Planet.kTherm_WmK[0], Planet.Bulk.Tb_K,
+                              zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.EOS,
+                              Planet.Ocean.surfIceEOS['Ih'], 1, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol, Planet.Ocean.etaMelt_Pas,
+                              Htidal_Wm3=Planet.Ocean.HtidalIce_Wm3)
+
+        log.debug(f'Ice I convection (Yao2014, f={1 - zbI_m/Planet.r_m[0]:.3f}):\n'
+                  f'    T_convect = {Planet.Tconv_K:.3f} K,\n'
+                  f'    Viscosity etaConvect = {Planet.etaConv_Pas:.3e} Pa*s,\n'
+                  f'    Conductive lid thickness eLid = {Planet.eLid_m/1e3:.1f} km,\n'
+                  f'    Convecting layer thickness Dconv = {Planet.Dconv_m/1e3:.1f} km,\n'
+                  f'    Rayleigh number Ra = {Planet.RaConvect:.3e}.')
+
+        Planet.Ocean.surfIceEOS['Ih'].updateConvectionViscosity(Planet.etaConv_Pas, Planet.Tconv_K)
+
+        if(zbI_m <= Planet.eLid_m + Planet.deltaTBL_m):
+            log.info(f'Ice shell thickness ({zbI_m/1e3:.1f} km) is less than that of the thermal ' +
+                    'boundary layers--convection is absent. Applying whole-shell conductive profile.')
+            Planet.eLid_m = zbI_m
+            Planet.Dconv_m = 0.0
+            Planet.deltaTBL_m = 0.0
+
+            qSurf_Wm2 = (Planet.T_K[1] - Planet.T_K[0]) / (Planet.r_m[0] - Planet.r_m[1]) * Planet.kTherm_WmK[0]
+            Planet.Ocean.QfromMantle_W = qSurf_Wm2 * 4*np.pi * Planet.Bulk.R_m**2
+
+        else:
+            try:
+                nConduct = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > Planet.eLid_m)
+            except StopIteration:
+                raise RuntimeError('Failed to find any depth indices for upper TBL of ice I (Yao2014). Try increasing Steps.nIceILitho.')
+
+            try:
+                nConvect = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > zbI_m - Planet.deltaTBL_m) - nConduct
+            except StopIteration:
+                raise RuntimeError('Failed to find any depth indices for lower TBL of ice I (Yao2014). Try increasing Steps.nIceILitho.')
+
+            indsTBL = range(nConduct + nConvect, Planet.Steps.nIbottom+1)
+
+            PconvTop_MPa = Planet.P_MPa[nConduct]
+
+            if Planet.Do.CLATHRATE:
+                log.debug('Evaluating clathrate layers in conductive lid (Yao2014).')
+
+                if Planet.Bulk.clathType == 'top':
+                    if (Planet.eLid_m < Planet.zClath_m):
+                        Planet.Bulk.clathMaxDepth_m = Planet.eLid_m
+                        log.debug('Clathrate lid thickness was greater than the conductive lid thickness. ' +
+                                'Planet.Bulk.clathMaxDepth_m has been reduced to be equal to the conductive lid thickness.')
+                    if Planet.PbClathMax_MPa > PconvTop_MPa:
+                        Planet.PbClathMax_MPa = PconvTop_MPa
+                        Planet.TclathTrans_K = Planet.Tconv_K
+                        Planet.P_MPa[:Planet.Steps.nClath] = np.linspace(Planet.P_MPa[0], PconvTop_MPa, Planet.Steps.nClath+1)[:-1]
+                        Planet.P_MPa[Planet.Steps.nClath:Planet.Steps.nIbottom+1] = \
+                            np.linspace(PconvTop_MPa, Planet.PbI_MPa, Planet.Steps.nIceI+1)
+                        PlidRatios = Planet.P_MPa[:Planet.Steps.nClath+1] / PconvTop_MPa
+                        Planet.T_K[:Planet.Steps.nClath+1] = Planet.Tconv_K**(PlidRatios) * Planet.T_K[0]**(1 - PlidRatios)
+
+                        nConduct = Planet.Steps.nClath
+                        nConvect = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > zbI_m - Planet.deltaTBL_m) - nConduct
+                        indsTBL = range(nConduct + nConvect, Planet.Steps.nIbottom+1)
+
+                    else:
+                        log.warning('Max. clathrate layer thickness is less than that of the stagnant lid. Lid thickness ' +
+                                    'was calculated using a constant thermal conductivity equal to that of clathrates at the ' +
+                                    'surface, so the properties of the ice I conductive layer between the clathrate lid and ' +
+                                    'convective region are likely to be physically inconsistent (i.e., an unrealistically low ' +
+                                    'thermal conductivity). Increase Bulk.clathMaxDepth_m to greater than ' +
+                                f'{Planet.eLid_m/1e3:.3f} km for these run settings to avoid this problem.')
+                        Planet.P_MPa[:Planet.Steps.nClath] = np.linspace(Planet.P_MPa[0], Planet.PbClathMax_MPa, Planet.Steps.nClath+1)[:-1]
+                        Planet.P_MPa[Planet.Steps.nClath:Planet.Steps.nIbottom+1] = \
+                            np.linspace(Planet.PbClathMax_MPa, Planet.PbI_MPa, Planet.Steps.nIceI+1)
+                        PlidRatiosClath = (Planet.P_MPa[:Planet.Steps.nClath+1] - Planet.P_MPa[0]) / (Planet.PbClathMax_MPa - Planet.P_MPa[0])
+                        Planet.T_K[:Planet.Steps.nClath+1] = Planet.TclathTrans_K**(PlidRatiosClath) * Planet.T_K[0]**(1 - PlidRatiosClath)
+                        PlidRatiosIceI = (Planet.P_MPa[Planet.Steps.nClath:nConduct+1] - Planet.PbClathMax_MPa) / (PconvTop_MPa - Planet.PbClathMax_MPa)
+                        Planet.T_K[Planet.Steps.nClath:nConduct+1] = Planet.Tconv_K**(PlidRatiosIceI) * Planet.TclathTrans_K**(1 - PlidRatiosIceI)
+                    if Planet.Do.MIXED_CLATHRATE_ICE:
+                        phaseStr = 'MixedClathrateIh'
+                    else:
+                        phaseStr = 'Clath'
+                    Planet = EvalLayerProperties(Planet, Params, 0, Planet.Steps.nClath, Planet.Ocean.surfIceEOS[phaseStr],
+                                                    Planet.P_MPa[:Planet.Steps.nClath], Planet.T_K[:Planet.Steps.nClath])
+
+                    Planet.rho_kgm3[:Planet.Steps.nClath] = Planet.rhoMatrix_kgm3[:Planet.Steps.nClath] + 0.0
+
+                else:
+                    raise ValueError(f'IceIConvect behavior is not defined for Bulk.clathType "{Planet.Bulk.clathType}".')
+            else:
+                log.debug('Modeling ice I conduction in stagnant lid (Yao2014)...')
+                PlidRatios = (Planet.P_MPa[:nConduct+1] - Planet.P_MPa[0]) / (PconvTop_MPa - Planet.P_MPa[0])
+                Planet.T_K[:nConduct+1] = Planet.Tconv_K**(PlidRatios) * Planet.T_K[0]**(1 - PlidRatios)
+
+            Planet = EvalLayerProperties(Planet, Params, Planet.Steps.nClath, nConduct+1, Planet.Ocean.surfIceEOS['Ih'],
+                                            Planet.P_MPa[Planet.Steps.nClath:nConduct+1], Planet.T_K[Planet.Steps.nClath:nConduct+1])
+            Planet.rho_kgm3[Planet.Steps.nClath:nConduct+1] = Planet.rhoMatrix_kgm3[Planet.Steps.nClath:nConduct+1] + 0.0
+
+            Planet = PropagateConduction(Planet, Params, 0, nConduct-1)
+            log.debug('Stagnant lid conductive profile complete (Yao2014). Modeling ice I convecting layer...')
+
+            Planet = PropagateAdiabaticSolid(Planet, Params, nConduct, nConduct+nConvect, Planet.Ocean.surfIceEOS['Ih'])
+            Planet.Steps.iConv[nConduct:nConduct+nConvect] = True
+            log.debug('Convective profile complete (Yao2014). Modeling conduction in lower thermal boundary layer...')
+
+            PTBLratios = (Planet.P_MPa[indsTBL] - Planet.P_MPa[nConduct+nConvect-1]) / (Planet.PbI_MPa - Planet.P_MPa[nConduct+nConvect-1])
+            Planet.T_K[indsTBL] = Planet.Bulk.Tb_K**(PTBLratios) * Planet.T_K[nConduct+nConvect-1]**(1 - PTBLratios)
+
+            Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1]+1,
+                                        Planet.Ocean.surfIceEOS['Ih'],
+                                        Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
+            Planet.rho_kgm3[indsTBL] = Planet.rhoMatrix_kgm3[indsTBL] + 0.0
+
+            Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1])
+
+            log.debug('Ice I convection calculations complete (Yao2014).')
+
+        return Planet
+
+    log.debug('Applying solid-state convection to surface ice I based on Deschamps and Sotin (2001).')
+    zbI_m = Planet.z_m[Planet.Steps.nIbottom]
+    # Get "middle" pressure
+    Pmid_MPa = (Planet.PbI_MPa + Planet.P_MPa[0]) / 2
+    # Get a lower estimate for thermal conductivity if there's no clathrate lid, to be more consistent
+    # with the Matlab implementation of Deschamps and Sotin (2001). The thermal conductivity of clathrates
+    # is essentially fixed at 0.5 W/(m K), so doing this operation when the top layer is clathrate
+    # gives us what we want in that case, too.
+    phaseTop = PhaseConv(Planet.phase[0])
+    Planet.kTherm_WmK[0] = Planet.Ocean.surfIceEOS[phaseTop].fn_kTherm_WmK(Pmid_MPa, Planet.Bulk.Tb_K)
+
+    # Run calculations to get convection layer parameters
+    Planet.Tconv_K, Planet.etaConv_Pas, Planet.eLid_m, Planet.Dconv_m, Planet.deltaTBL_m, Planet.Ocean.QfromMantle_W, \
+        Planet.RaConvect, Planet.RaCrit = \
+        ConvectionDeschampsSotin2001(Planet.T_K[0], Planet.r_m[0], Planet.kTherm_WmK[0], Planet.Bulk.Tb_K,
+                                    zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.EOS,
+                                    Planet.Ocean.surfIceEOS['Ih'], 1, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol, Planet.Ocean.etaMelt_Pas,
+                                    Htidal_Wm3=Planet.Ocean.HtidalIce_Wm3)
+    
+    log.debug(f'Ice I convection parameters:\n    T_convect = {Planet.Tconv_K:.3f} K,\n' +
+            f'    Viscosity etaConvect = {Planet.etaConv_Pas:.3e} Pa*s,\n' +
+            f'    Conductive lid thickness eLid = {Planet.eLid_m/1e3:.1f} km,\n' +
+            f'    Convecting layer thickness Dconv = {Planet.Dconv_m/1e3:.1f} km,\n' +
+            f'    Lower TBL thickness deltaTBL = {Planet.deltaTBL_m/1e3:.1f} km,\n' +
+            f'    Rayleigh number Ra = {Planet.RaConvect:.3e}.')
+    
+    # Update the viscosity of the Ice Ih EOS to use the convective viscosity
+    Planet.Ocean.surfIceEOS['Ih'].updateConvectionViscosity(Planet.etaConv_Pas, Planet.Tconv_K)
+
+    # Check for whole-lid conduction
+    if(zbI_m <= Planet.eLid_m + Planet.deltaTBL_m):
+        log.info(f'Ice shell thickness ({zbI_m/1e3:.1f} km) is less than that of the thermal ' +
+                'boundary layers--convection is absent. Applying whole-shell conductive profile.')
+        Planet.eLid_m = zbI_m
+        Planet.Dconv_m = 0.0
+        Planet.deltaTBL_m = 0.0
+
+        # Recalculate heat flux, as it will be too high for conduction-only:
+        qSurf_Wm2 = (Planet.T_K[1] - Planet.T_K[0]) / (Planet.r_m[0] - Planet.r_m[1]) * Planet.kTherm_WmK[0]
+        Planet.Ocean.QfromMantle_W = qSurf_Wm2 * 4*np.pi * Planet.Bulk.R_m**2
+
+    # We leave the remaining quantities as initially assigned,
+    # as we find the initial profile assuming conduction only.
+    else:
+        # Now model conductive + convective layers
+        # Get layer transition indices from previous profile
+        # Find index where depth exceeds conductive lid thickness (eLid_m)
+        try:
+            # nConduct is the first index where depth (z_m) is greater than the conductive lid thickness
+            nConduct = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > Planet.eLid_m)
+        except StopIteration:
+            raise RuntimeError('Failed to find any depth indices for upper TBL of ice I. Try increasing Steps.nIceI.')
+
+        # Find number of points in convective layer by getting index where depth is greater than 
+        # bottom of ice shell minus thermal boundary layer thickness, and subtracting conductive index
+        try:
+            nConvect = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > zbI_m - Planet.deltaTBL_m) - nConduct
+        except StopIteration:
+            raise RuntimeError('Failed to find any depth indices for lower TBL of ice I. Try increasing Steps.nIceI.')
+
+        # Get indices for thermal boundary layer - from end of convective layer to bottom of ice shell
+        indsTBL = range(nConduct + nConvect, Planet.Steps.nIbottom+1)
+        
+        
+        # Get pressure at top of convecting layer
+        PconvTop_MPa = Planet.P_MPa[nConduct]
+
+        # Reset profile of upper layers, keeping pressure values fixed
+        if Planet.Do.CLATHRATE:
+            log.debug('Evaluating clathrate layers in conductive lid.')
+
+            if Planet.Bulk.clathType == 'top':
+                if (Planet.eLid_m < Planet.zClath_m):
+                    Planet.Bulk.clathMaxDepth_m = Planet.eLid_m
+                    log.debug('Clathrate lid thickness was greater than the conductive lid thickness. ' +
+                            'Planet.Bulk.clathMaxDepth_m has been reduced to be equal to the conductive lid thickness.')
+                if Planet.PbClathMax_MPa > PconvTop_MPa:
+                    Planet.PbClathMax_MPa = PconvTop_MPa
+                    Planet.TclathTrans_K = Planet.Tconv_K
+                    Planet.P_MPa[:Planet.Steps.nClath] = np.linspace(Planet.P_MPa[0], PconvTop_MPa, Planet.Steps.nClath+1)[:-1]
+                    Planet.P_MPa[Planet.Steps.nClath:Planet.Steps.nIbottom+1] = \
+                        np.linspace(PconvTop_MPa, Planet.PbI_MPa, Planet.Steps.nIceI+1)
+                    # Reassign T profile to be consistent with conduction
+                    PlidRatios = Planet.P_MPa[:Planet.Steps.nClath+1] / PconvTop_MPa
+                    Planet.T_K[:Planet.Steps.nClath+1] = Planet.Tconv_K**(PlidRatios) * Planet.T_K[0]**(1 - PlidRatios)
+
+                    # Reset nConduct/nConvect/indsTBL to account for the index shift moving clathrates to be above the
+                    # transition to ice I
+                    nConduct = Planet.Steps.nClath
+                    nConvect = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > zbI_m - Planet.deltaTBL_m) - nConduct
+                    indsTBL = range(nConduct + nConvect, Planet.Steps.nIbottom+1)
+                    
+                else:
+                    log.warning('Max. clathrate layer thickness is less than that of the stagnant lid. Lid thickness ' +
+                                'was calculated using a constant thermal conductivity equal to that of clathrates at the ' +
+                                'surface, so the properties of the ice I conductive layer between the clathrate lid and ' +
+                                'convective region are likely to be physically inconsistent (i.e., an unrealistically low ' +
+                                'thermal conductivity). Increase Bulk.clathMaxDepth_m to greater than ' +
+                            f'{Planet.eLid_m/1e3:.3f} km for these run settings to avoid this problem.')
+                    # Keep existing transition (P,T) from clathrates to ice I
+                    Planet.P_MPa[:Planet.Steps.nClath] = np.linspace(Planet.P_MPa[0], Planet.PbClathMax_MPa, Planet.Steps.nClath+1)[:-1]
+                    Planet.P_MPa[Planet.Steps.nClath:Planet.Steps.nIbottom+1] = \
+                        np.linspace(Planet.PbClathMax_MPa, Planet.PbI_MPa, Planet.Steps.nIceI+1)
+                    # Model conduction in ice I between clathrate lid and convective region
+                    PlidRatiosClath = (Planet.P_MPa[:Planet.Steps.nClath+1] - Planet.P_MPa[0]) / (Planet.PbClathMax_MPa - Planet.P_MPa[0])
+                    Planet.T_K[:Planet.Steps.nClath+1] = Planet.TclathTrans_K**(PlidRatiosClath) * Planet.T_K[0]**(1 - PlidRatiosClath)
+                    PlidRatiosIceI = (Planet.P_MPa[Planet.Steps.nClath:nConduct+1] - Planet.PbClathMax_MPa) / (PconvTop_MPa - Planet.PbClathMax_MPa)
+                    Planet.T_K[Planet.Steps.nClath:nConduct+1] = Planet.Tconv_K**(PlidRatiosIceI) * Planet.TclathTrans_K**(1 - PlidRatiosIceI)
+                if Planet.Do.MIXED_CLATHRATE_ICE:
+                    phaseStr = 'MixedClathrateIh'
+                else:
+                    phaseStr = 'Clath'
+                # Get physical properties of clathrate lid
+                Planet = EvalLayerProperties(Planet, Params, 0, Planet.Steps.nClath, Planet.Ocean.surfIceEOS[phaseStr],
+                                                Planet.P_MPa[:Planet.Steps.nClath], Planet.T_K[:Planet.Steps.nClath])
+
+                Planet.rho_kgm3[:Planet.Steps.nClath] = Planet.rhoMatrix_kgm3[:Planet.Steps.nClath] + 0.0
+
+            else:
+                raise ValueError(f'IceIConvect behavior is not defined for Bulk.clathType "{Planet.Bulk.clathType}".')
+        else:
+            log.debug('Modeling ice I conduction in stagnant lid...')
+            # Reassign conductive profile with new bottom temperature for conductive layer
+            PlidRatios = (Planet.P_MPa[:nConduct+1] - Planet.P_MPa[0]) / (PconvTop_MPa - Planet.P_MPa[0])
+            Planet.T_K[:nConduct+1] = Planet.Tconv_K**(PlidRatios) * Planet.T_K[0]**(1 - PlidRatios)
+
+        # Get physical properties of upper conducting layer, and include 1 layer of convective layer for next step
+        Planet = EvalLayerProperties(Planet, Params, Planet.Steps.nClath, nConduct+1, Planet.Ocean.surfIceEOS['Ih'],
+                                        Planet.P_MPa[Planet.Steps.nClath:nConduct+1], Planet.T_K[Planet.Steps.nClath:nConduct+1])
+        Planet.rho_kgm3[Planet.Steps.nClath:nConduct+1] = Planet.rhoMatrix_kgm3[Planet.Steps.nClath:nConduct+1] + 0.0
+
+        Planet = PropagateConduction(Planet, Params, 0, nConduct-1)
+        log.debug('Stagnant lid conductive profile complete. Modeling ice I convecting layer...')
+
+        Planet = PropagateAdiabaticSolid(Planet, Params, nConduct, nConduct+nConvect, Planet.Ocean.surfIceEOS['Ih'])
+        # Set logical array for convective ice layers
+        Planet.Steps.iConv[nConduct:nConduct+nConvect] = True
+        log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
+
+        # Reassign conductive profile with new top temperature for conductive layer
+        PTBLratios = (Planet.P_MPa[indsTBL] - Planet.P_MPa[nConduct+nConvect-1]) / (Planet.PbI_MPa - Planet.P_MPa[nConduct+nConvect-1])
+        Planet.T_K[indsTBL] = Planet.Bulk.Tb_K**(PTBLratios) * Planet.T_K[nConduct+nConvect-1]**(1 - PTBLratios)
+
+        # Get physical properties of thermal boundary layer
+        Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1]+1,
+                                    Planet.Ocean.surfIceEOS['Ih'],
+                                    Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
+        Planet.rho_kgm3[indsTBL] = Planet.rhoMatrix_kgm3[indsTBL] + 0.0
+        
+        # Apply conductive profile to lower TBL
+        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1])
+
+        log.debug('Ice I convection calculations complete.')
+
+    return Planet
+
+
+def IceIConvectPorous(Planet, Params):
+    """ Apply convection models from literature to determine thermal profile and
+        state variables for possibly convecting ice I layers
+
+        Assigns Planet attributes:
+            Tconv_K, etaConv_Pas, eLid_m, deltaTBL_m, QfromMantle_W, all physical layer arrays
+    """
+
+    log.debug('Applying solid-state convection to surface ice I based on Deschamps and Sotin (2001).')
+    zbI_m = Planet.z_m[Planet.Steps.nIbottom]
+    # Get "middle" pressure
+    Pmid_MPa = (Planet.PbI_MPa + Planet.P_MPa[0]) / 2
+    # Get a lower estimate for thermal conductivity if there's no clathrate lid, to be more consistent
+    # with the Matlab implementation of Deschamps and Sotin (2001). The thermal conductivity of clathrates
+    # is essentially fixed at 0.5 W/(m K), so doing this operation when the top layer is clathrate
+    # gives us what we want in that case, too.
+    phaseTop = PhaseConv(Planet.phase[0])
+    Planet.kTherm_WmK[0] = Planet.Ocean.surfIceEOS[phaseTop].fn_kTherm_WmK(Pmid_MPa, Planet.Bulk.Tb_K)
+    Planet.kTherm_WmK[0] = Planet.Ocean.surfIceEOS[phaseTop].fn_porosCorrect(Planet.kTherm_WmK[0], 0,
+                           Planet.Ocean.surfIceEOS[phaseTop].fn_phi_frac(Pmid_MPa, Planet.Bulk.Tb_K),
+                           Planet.Ocean.JkTherm)
+
+    # Run calculations to get convection layer parameters
+    Planet.Tconv_K, Planet.etaConv_Pas, Planet.eLid_m, Planet.Dconv_m, Planet.deltaTBL_m, Planet.Ocean.QfromMantle_W, \
+        Planet.RaConvect, Planet.RaCrit = \
+        ConvectionDeschampsSotin2001(Planet.T_K[0], Planet.r_m[0], Planet.kTherm_WmK[0], Planet.Bulk.Tb_K,
+                                     zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.EOS,
+                                     Planet.Ocean.surfIceEOS['Ih'], 1, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol, Planet.Ocean.etaMelt_Pas,
+                                     Htidal_Wm3=Planet.Ocean.HtidalIce_Wm3)
+    # Update the viscosity of the Ice Ih EOS to use the convective viscosity
+    Planet.Ocean.surfIceEOS['Ih'].updateConvectionViscosity(Planet.etaConv_Pas, Planet.Tconv_K)
+    log.debug(f'Ice I convection parameters:\n    T_convect = {Planet.Tconv_K:.3f} K,\n' +
+              f'    Viscosity etaConvect = {Planet.etaConv_Pas:.3e} Pa*s,\n' +
+              f'    Conductive lid thickness eLid = {Planet.eLid_m/1e3:.1f} km,\n' +
+              f'    Convecting layer thickness Dconv = {Planet.Dconv_m/1e3:.1f} km,\n' +
+              f'    Lower TBL thickness deltaTBL = {Planet.deltaTBL_m/1e3:.1f} km,\n' +
+              f'    Rayleigh number Ra = {Planet.RaConvect:.3e}.')
+    # Update the viscosity of the Ice Ih EOS to use the convective viscosity
+    Planet.Ocean.surfIceEOS['Ih'].updateConvectionViscosity(Planet.etaConv_Pas, Planet.Tconv_K)
+    # Check for whole-lid conduction
+    if(zbI_m <= Planet.eLid_m + Planet.deltaTBL_m):
+        log.info(f'Ice shell thickness ({zbI_m/1e3:.1f} km) is less than that of the thermal ' +
+                  'boundary layers--convection is absent. Applying whole-shell conductive profile.')
+        Planet.eLid_m = zbI_m
+        Planet.Dconv_m = 0.0
+        Planet.deltaTBL_m = 0.0
+        indsTBL = [1, 0]
+
+        # Recalculate heat flux, as it will be too high for conduction-only:
+        qSurf_Wm2 = (Planet.T_K[1] - Planet.T_K[0]) / (Planet.r_m[0] - Planet.r_m[1]) * Planet.kTherm_WmK[0]
+        Planet.Ocean.QfromMantle_W = qSurf_Wm2 * 4*np.pi * Planet.Bulk.R_m**2
+
+        # We leave the remaining quantities as initially assigned,
+        # as we find the initial profile assuming conduction only.
+    else:
+        # Now model conductive + convective layers
+        # Get layer transition indices from previous profile
+        try:
+            nConduct = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > Planet.eLid_m)
+        except StopIteration:
+            raise RuntimeError('Failed to find any depth indices for upper TBL of ice I. Try increasing Steps.nIceI.')
+        try:
+            nConvect = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > zbI_m - Planet.deltaTBL_m) - nConduct
+        except StopIteration:
+            raise RuntimeError('Failed to find any depth indices for lower TBL of ice I. Try increasing Steps.nIceI.')
+        indsTBL = range(nConduct + nConvect, Planet.Steps.nIbottom+1)
+        # Get pressure at the convecting transition
+        PconvTop_MPa = Planet.P_MPa[nConduct]
+
+        # Reset profile of upper layers, keeping pressure values fixed
+        if Planet.Do.CLATHRATE:
+            log.debug('Evaluating clathrate layers in stagnant lid.')
+
+            if Planet.Bulk.clathType == 'top':
+                if (Planet.eLid_m < Planet.zClath_m):
+                    Planet.Bulk.clathMaxDepth_m = Planet.eLid_m
+                    log.debug('Clathrate lid thickness was greater than the conductive lid thickness. ' +
+                              'Planet.Bulk.clathMaxDepth_m has been reduced to be equal to the conductive lid thickness.')
+                if Planet.PbClathMax_MPa > PconvTop_MPa:
+                    Planet.PbClathMax_MPa = PconvTop_MPa
+                    Planet.TclathTrans_K = Planet.Tconv_K
+                    Planet.P_MPa[:Planet.Steps.nClath] = np.linspace(Planet.P_MPa[0], PconvTop_MPa, Planet.Steps.nClath+1)[:-1]
+                    Planet.P_MPa[Planet.Steps.nClath:Planet.Steps.nIbottom+1] = \
+                        np.linspace(PconvTop_MPa, Planet.PbI_MPa, Planet.Steps.nIceI+1)
+                    # Reassign T profile to be consistent with conduction
+                    PlidRatios = Planet.P_MPa[:Planet.Steps.nClath+1] / PconvTop_MPa
+                    Planet.T_K[:Planet.Steps.nClath+1] = Planet.Tconv_K**(PlidRatios) * Planet.T_K[0]**(1 - PlidRatios)
+
+                    # Reset nConduct/nConvect/indsTBL to account for the index shift moving clathrates to be above the
+                    # transition to ice I
+                    nConduct = Planet.Steps.nClath
+                    nConvect = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > zbI_m - Planet.deltaTBL_m) - nConduct
+                    indsTBL = range(nConduct + nConvect, Planet.Steps.nIbottom+1)
+                else:
+                    log.warning('Max. clathrate layer thickness is less than that of the stagnant lid. Lid thickness ' +
+                                'was calculated using a constant thermal conductivity equal to that of clathrates at the ' +
+                                'surface, so the properties of the ice I conductive layer between the clathrate lid and ' +
+                                'convective region are likely to be physically inconsistent (i.e., an unrealistically low ' +
+                                'thermal conductivity). Increase Bulk.clathMaxDepth_m to greater than ' +
+                               f'{Planet.eLid_m/1e3:.3f} km for these run settings to avoid this problem.')
+                    # Keep existing transition (P,T) from clathrates to ice I
+                    Planet.P_MPa[:Planet.Steps.nClath] = np.linspace(Planet.P_MPa[0], Planet.PbClathMax_MPa, Planet.Steps.nClath+1)[:-1]
+                    Planet.P_MPa[Planet.Steps.nClath:Planet.Steps.nIbottom+1] = \
+                        np.linspace(Planet.PbClathMax_MPa, Planet.PbI_MPa, Planet.Steps.nIceI+1)
+                    # Model conduction in ice I between clathrate lid and convective region
+                    PlidRatiosClath = (Planet.P_MPa[:Planet.Steps.nClath+1] - Planet.P_MPa[0]) / (Planet.PbClathMax_MPa - Planet.P_MPa[0])
+                    Planet.T_K[:Planet.Steps.nClath+1] = Planet.TclathTrans_K**(PlidRatiosClath) * Planet.T_K[0]**(1 - PlidRatiosClath)
+                    PlidRatiosIceI = (Planet.P_MPa[Planet.Steps.nClath:nConduct+1] - Planet.PbClathMax_MPa) / (PconvTop_MPa - Planet.PbClathMax_MPa)
+                    Planet.T_K[Planet.Steps.nClath:nConduct+1] = Planet.Tconv_K**(PlidRatiosIceI) * Planet.TclathTrans_K**(1 - PlidRatiosIceI)
+                if Planet.Do.MIXED_CLATHRATE_ICE:
+                    phaseStr = 'MixedClathrateIh'
+                else:
+                    phaseStr = 'Clath'
+                # Get physical properties of clathrate lid
+                Planet = EvalLayerProperties(Planet, Params, 0, Planet.Steps.nClath,
+                                             Planet.Ocean.surfIceEOS[phaseStr],
+                                             Planet.P_MPa[:Planet.Steps.nClath],
+                                             Planet.T_K[:Planet.Steps.nClath])
+                # Correct for porosity in clathrate layers
+                Planet = PorosityCorrectionVacIce(Planet, Params, 0, Planet.Steps.nClath,
+                                                  Planet.Ocean.surfIceEOS[phaseStr],
+                                                  Planet.P_MPa[:Planet.Steps.nClath],
+                                                  Planet.T_K[:Planet.Steps.nClath])
+
+            else:
+                raise ValueError(f'IceIConvect behavior is not defined for Bulk.clathType "{Planet.Bulk.clathType}".')
+        else:
+            log.debug('Modeling ice I conduction in stagnant lid...')
+            # Reassign conductive profile with new bottom temperature for conductive layer
+            PlidRatios = (Planet.P_MPa[:nConduct+1] - Planet.P_MPa[0]) / (PconvTop_MPa - Planet.P_MPa[0])
+            Planet.T_K[:nConduct+1] = Planet.Tconv_K**(PlidRatios) * Planet.T_K[0]**(1 - PlidRatios)
+
+        # Get physical properties of upper conducting layer, and include 1 layer of convective layer for next step
+        Planet = EvalLayerProperties(Planet, Params, Planet.Steps.nClath, nConduct+1,
+                                     Planet.Ocean.surfIceEOS['Ih'],
+                                     Planet.P_MPa[Planet.Steps.nClath:nConduct+1],
+                                     Planet.T_K[Planet.Steps.nClath:nConduct+1])
+        # Correct for porosity in ice I layers
+        Planet = PorosityCorrectionVacIce(Planet, Params, Planet.Steps.nClath, nConduct+1,
+                                          Planet.Ocean.surfIceEOS['Ih'],
+                                          Planet.P_MPa[Planet.Steps.nClath:nConduct+1],
+                                          Planet.T_K[Planet.Steps.nClath:nConduct+1])
+
+        Planet = PropagateConduction(Planet, Params, 0, nConduct-1)
+        log.debug('Stagnant lid conductive profile complete. Modeling ice I convecting layer...')
+
+        # Propagate adiabatic thermal profile
+        Planet = PropagateAdiabaticPorousVacIce(Planet, Params, nConduct, nConduct+nConvect,
+                                                Planet.Ocean.surfIceEOS['Ih'])
+        # Set logical array for convective ice layers
+        Planet.Steps.iConv[nConduct:nConvect] = True
+        log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
+
+        # Reassign conductive profile with new top temperature for conductive layer
+        PTBLratios = (Planet.P_MPa[indsTBL] - Planet.P_MPa[nConduct+nConvect-1]) / (Planet.PbI_MPa - Planet.P_MPa[nConduct+nConvect-1])
+        Planet.T_K[indsTBL] = Planet.Bulk.Tb_K**(PTBLratios) * Planet.T_K[nConduct+nConvect-1]**(1 - PTBLratios)
+
+        # Get physical properties of thermal boundary layer
+        Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1],
+                                     Planet.Ocean.surfIceEOS['Ih'],
+                                     Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]])
+
+        # Correct for porosity in ice I layers, assuming pores may be treated as vacuum
+
+        Planet = PorosityCorrectionVacIce(Planet, Params, indsTBL[0], indsTBL[-1]+1,
+                                          Planet.Ocean.surfIceEOS['Ih'],
+                                          Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
+
+    # Apply conductive profile to lower TBL
+    Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1])
+    log.debug('Ice I convection calculations complete.')
+
+    return Planet
+
+
+def IceIIIConvectSolid(Planet, Params):
+    """ Apply convection models from literature to determine thermal profile and
+        state variables for possibly convecting ice layers
+
+        Assigns Planet attributes:
+            TconvIII_K, etaConvIII_Pas, eLidIII_m, deltaTBLIII_m, QfromMantle_W, all physical layer arrays
+    """
+
+    if Planet.Do.KALOUSOVA_CONVECTION:
+        log.debug('Applying solid-state convection to surface ice III based on Kalousova et al. (2018).')
+        convectionFunc = ConvectionKalousova2018
+    else:
+        log.debug('Applying solid-state convection to surface ice III based on Deschamps and Sotin (2001).')
+        convectionFunc = ConvectionDeschampsSotin2001
+
+    zbIII_m = Planet.z_m[Planet.Steps.nIIIbottom] - Planet.z_m[Planet.Steps.nIbottom]
+    # Get "middle" pressure
+    PmidIII_MPa = (Planet.PbIII_MPa + Planet.PbI_MPa) / 2
+
+    # Run calculations to get convection layer parameters
+    Planet.TconvIII_K, Planet.etaConvIII_Pas, Planet.eLidIII_m, Planet.DconvIII_m, Planet.deltaTBLIII_m, Planet.Ocean.QfromMantle_W, \
+        Planet.RaConvectIII, Planet.RaCritIII = convectionFunc(Planet.Bulk.Tb_K, Planet.r_m[Planet.Steps.nIbottom],
+                                     Planet.kTherm_WmK[Planet.Steps.nIbottom], Planet.Bulk.TbIII_K, zbIII_m,
+                                     Planet.g_ms2[Planet.Steps.nIbottom], PmidIII_MPa, Planet.Ocean.EOS,
+                                     Planet.Ocean.surfIceEOS['III'], 3, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol, Planet.Ocean.etaMelt_Pas,
+                                     Htidal_Wm3=Planet.Ocean.HtidalIce_Wm3)
+
+    # Store melt fraction if using Kalousova
+    if Planet.Do.KALOUSOVA_CONVECTION:
+        # Temperate layer exists if eLidIII_m > 0 (Kalousova & Sotin 2018)
+        if Planet.eLidIII_m > 0:
+            Planet.DO_HP_MELT = True
+            # TODO: Calculate actual melt fraction from two-phase convection model
+            # For now, set nominal value indicating partial melt is present
+            Planet.meltFractionIII = 0.01  # Nominal placeholder
+            log.info(f'Ice III temperate layer detected: partial melting present in top {Planet.eLidIII_m/1e3:.3f} km')
+        else:
+            Planet.meltFractionIII = 0.0
+
+    # Calculate heat flux density at ice III layer base
+    r_base_III_m = Planet.r_m[Planet.Steps.nIIIbottom]
+    A_base_III_m2 = 4 * np.pi * r_base_III_m**2
+    q_base_III_mWm2 = Planet.Ocean.QfromMantle_W / A_base_III_m2 * 1e3  # Convert W/m² to mW/m²
+
+    log.debug(f'Ice III convection parameters:\n    T_convectIII = {Planet.TconvIII_K:.3f} K,\n' +
+              f'    Viscosity etaConvectIII = {Planet.etaConvIII_Pas:.3e} Pa*s,\n' +
+              f'    Conductive lid thickness eLidIII = {Planet.eLidIII_m/1e3:.1f} km,\n' +
+              f'    Convecting layer thickness DconvIII = {Planet.DconvIII_m/1e3:.1f} km,\n' +
+              f'    Lower TBL thickness deltaTBLIII = {Planet.deltaTBLIII_m/1e3:.1f} km,\n' +
+              f'    Rayleigh number RaIII = {Planet.RaConvectIII:.3e}.')
+    log.info(f'Ice III heat transport: q = {q_base_III_mWm2:.2f} mW/m² ' +
+             f'(Total: {Planet.Ocean.QfromMantle_W/1e12:.3f} TW) through layer')
+    # Update the viscosity of the Ice III EOS to use the convective viscosity
+    Planet.Ocean.surfIceEOS['III'].updateConvectionViscosity(Planet.etaConvIII_Pas, Planet.TconvIII_K)
+    # Check for whole-lid conduction
+    if(zbIII_m <= Planet.eLidIII_m + Planet.deltaTBLIII_m):
+        log.info(f'Underplate ice III thickness ({zbIII_m/1e3:.1f} km) is less than that of the thermal ' +
+                  'boundary layers--convection is absent. Applying whole-layer conductive profile.')
+        Planet.eLidIII_m = zbIII_m
+        Planet.DconvIII_m = 0.0
+        Planet.deltaTBLIII_m = 0.0
+
+        # We leave the remaining quantities as initially assigned,
+        # as we find the initial profile assuming conduction only.
+    else:
+        # Now model conductive + convective layers
+        # Get layer transition indices
+        iConductEnd = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > Planet.z_m[Planet.Steps.nIbottom] + Planet.eLidIII_m)
+        iConvectEnd = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > Planet.z_m[Planet.Steps.nIbottom] + zbIII_m - Planet.deltaTBLIII_m)
+        indsTBL = range(iConvectEnd, Planet.Steps.nIIIbottom+1)
+
+        # Get pressure at the convecting transition
+        PconvTopIII_MPa = Planet.P_MPa[iConductEnd]
+        # Reset profile of upper layers, keeping pressure values fixed
+        log.debug('Modeling ice III conduction in stagnant lid...')
+
+        thisMAbove_kg = np.sum(Planet.MLayer_kg[:Planet.Steps.nIbottom])
+        # Reassign conductive profile with new bottom temperature for conductive layer
+        PlidRatios = (Planet.P_MPa[Planet.Steps.nIbottom:iConductEnd+1] - Planet.P_MPa[Planet.Steps.nIbottom]) / \
+                     (PconvTopIII_MPa - Planet.P_MPa[Planet.Steps.nIbottom])
+        Planet.T_K[Planet.Steps.nIbottom:iConductEnd+1] = Planet.TconvIII_K**(PlidRatios) * Planet.T_K[Planet.Steps.nIbottom]**(1 - PlidRatios)
+
+        # Get physical properties of upper conducting layer, and include 1 layer of convective layer for next step
+        Planet = EvalLayerProperties(Planet, Params, Planet.Steps.nIbottom, iConductEnd+1,
+                                    Planet.Ocean.surfIceEOS['III'],
+                                    Planet.P_MPa[Planet.Steps.nIbottom:iConductEnd+1],
+                                    Planet.T_K[Planet.Steps.nIbottom:iConductEnd+1])
+
+        Planet = PropagateConduction(Planet, Params, Planet.Steps.nIbottom, iConductEnd-1)
+
+        log.debug('Stagnant lid conductive profile complete. Modeling ice III convecting layer...')
+
+        # Use melting-curve temperature profile for Kalousova convection, adiabat for Deschamps & Sotin
+        if Planet.Do.KALOUSOVA_CONVECTION:
+            # Convecting interior follows melting curve T_melt(P) at each depth
+            # (Kalousova & Sotin 2018: vigorous two-phase convection maintains solidus)
+            Tm_top_K = Planet.Ocean.surfIceEOS['III'].fn_Tmelt_K(Planet.P_MPa[iConductEnd])
+            Tm_bot_K = Planet.Ocean.surfIceEOS['III'].fn_Tmelt_K(Planet.P_MPa[iConvectEnd-1])
+            log.debug(f'Using melting-curve thermal profile: Tmelt_top={Tm_top_K:.2f} K, '
+                     f'Tmelt_bot={Tm_bot_K:.2f} K')
+
+            Planet = PropagateMeltingCurveThermalProfile(Planet, Params, iConductEnd, iConvectEnd,
+                                                        Planet.Ocean.surfIceEOS['III'])
+        else:
+            # Adiabatic profile for Deschamps & Sotin convection
+            Planet = PropagateAdiabaticSolid(Planet, Params, iConductEnd, iConvectEnd,
+                                           Planet.Ocean.surfIceEOS['III'])
+
+        # Set logical array for convective ice layers
+        Planet.Steps.iConv[iConductEnd:iConvectEnd] = True
+        log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
+
+        if(Planet.T_K[iConvectEnd-1] > Planet.Bulk.TbIII_K):
+            raise ValueError(f'Ice III bottom temperature of {Planet.Bulk.TbIII_K:.3f} K ' +
+                              'is less than the temperature at the lower TBL transition of ' +
+                             f'{Planet.T_K[iConvectEnd-1]:.3f} K. Try increasing Bulk.TbIII_K ' +
+                              'or decreasing Bulk.Tb_K to create a more realistic thermal profile.')
+
+        # Reassign conductive profile with new top temperature for conductive layer
+
+        PTBLratios = (Planet.P_MPa[indsTBL] - Planet.P_MPa[iConvectEnd-1]) / (Planet.PbIII_MPa - Planet.P_MPa[iConvectEnd-1])
+        Planet.T_K[indsTBL] = Planet.Bulk.TbIII_K**(PTBLratios) \
+                              * Planet.T_K[iConvectEnd-1]**(1 - PTBLratios)
+
+        # Get physical properties of thermal boundary layer
+        Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1]+1,
+                                    Planet.Ocean.surfIceEOS['III'],
+                                    Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
+
+        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1])
+
+    log.debug('Ice III convection calculations complete.')
+
+    return Planet
+
+
+def IceIIIConvectPorous(Planet, Params):
+    """ Apply convection models from literature to determine thermal profile and
+        state variables for possibly convecting ice layers
+
+        Assigns Planet attributes:
+            TconvIII_K, etaConvIII_Pas, eLidIII_m, deltaTBLIII_m, QfromMantle_W, all physical layer arrays
+    """
+
+    log.debug('Applying solid-state convection to surface ice III based on Deschamps and Sotin (2001).')
+    zbIII_m = Planet.z_m[Planet.Steps.nIIIbottom] - Planet.z_m[Planet.Steps.nIbottom]
+    # Get "middle" pressure
+    PmidIII_MPa = (Planet.PbIII_MPa + Planet.PbI_MPa) / 2
+    # Porosity is unlikely to change the rough kTherm estimate we use here, so we do not
+    # correct for porosity, unlike in the ice Ih/clathrate functions.
+
+    # Run calculations to get convection layer parameters
+    Planet.TconvIII_K, Planet.etaConvIII_Pas, Planet.eLidIII_m, Planet.DconvIII_m, Planet.deltaTBLIII_m, Planet.Ocean.QfromMantle_W, \
+        Planet.RaConvectIII, Planet.RaCritIII = ConvectionDeschampsSotin2001(Planet.Bulk.Tb_K, Planet.r_m[Planet.Steps.nIbottom],
+                                     Planet.kTherm_WmK[Planet.Steps.nIbottom], Planet.Bulk.TbIII_K, zbIII_m,
+                                     Planet.g_ms2[Planet.Steps.nIbottom], PmidIII_MPa, Planet.Ocean.EOS,
+                                     Planet.Ocean.surfIceEOS['III'], 3, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol, Planet.Ocean.etaMelt_Pas,
+                                     Htidal_Wm3=Planet.Ocean.HtidalIce_Wm3)
+
+    # Calculate heat flux density at ice III layer base
+    r_base_III_m = Planet.r_m[Planet.Steps.nIIIbottom]
+    A_base_III_m2 = 4 * np.pi * r_base_III_m**2
+    q_base_III_mWm2 = Planet.Ocean.QfromMantle_W / A_base_III_m2 * 1e3  # Convert W/m² to mW/m²
+
+    log.debug(f'Ice III convection parameters:\n    T_convectIII = {Planet.TconvIII_K:.3f} K,\n' +
+              f'    Viscosity etaConvectIII = {Planet.etaConvIII_Pas:.3e} Pa*s,\n' +
+              f'    Conductive lid thickness eLidIII = {Planet.eLidIII_m/1e3:.1f} km,\n' +
+              f'    Convecting layer thickness DconvIII = {Planet.DconvIII_m/1e3:.1f} km,\n' +
+              f'    Lower TBL thickness deltaTBLIII = {Planet.deltaTBLIII_m/1e3:.1f} km,\n' +
+              f'    Rayleigh number RaIII = {Planet.RaConvectIII:.3e}.')
+    log.info(f'Ice III heat transport: q = {q_base_III_mWm2:.2f} mW/m² ' +
+             f'(Total: {Planet.Ocean.QfromMantle_W/1e12:.3f} TW) through layer')
+    # Update the viscosity of the Ice III EOS to use the convective viscosity
+    Planet.Ocean.surfIceEOS['III'].updateConvectionViscosity(Planet.etaConvIII_Pas, Planet.TconvIII_K)
+    # Check for whole-lid conduction
+    if(zbIII_m <= Planet.eLidIII_m + Planet.deltaTBLIII_m):
+        log.info(f'Underplate ice III thickness ({zbIII_m/1e3:.1f} km) is less than that of the thermal ' +
+                  'boundary layers--convection is absent. Applying whole-layer conductive profile.')
+        Planet.eLidIII_m = zbIII_m
+        Planet.DconvIII_m = 0.0
+        Planet.deltaTBLIII_m = 0.0
+
+        # We leave the remaining quantities as initially assigned,
+        # as we find the initial profile assuming conduction only.
+    else:
+        # Now model conductive + convective layers
+        # Get layer transition indices
+        iConductEnd = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > Planet.z_m[Planet.Steps.nIbottom] + Planet.eLidIII_m)
+        iConvectEnd = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > Planet.z_m[Planet.Steps.nIbottom] + zbIII_m - Planet.deltaTBLIII_m)
+        indsTBL = range(iConvectEnd, Planet.Steps.nIIIbottom+1)
+
+        # Get pressure at the convecting transition
+        PconvTopIII_MPa = Planet.P_MPa[iConductEnd]
+        # Reset profile of upper layers, keeping pressure values fixed
+        log.debug('Modeling ice III conduction in stagnant lid...')
+
+        thisMAbove_kg = np.sum(Planet.MLayer_kg[:Planet.Steps.nIbottom])
+        # Reassign conductive profile with new bottom temperature for conductive layer
+        PlidRatios = (Planet.P_MPa[Planet.Steps.nIbottom:iConductEnd+1] - Planet.P_MPa[Planet.Steps.nIbottom]) / \
+                     (PconvTopIII_MPa - Planet.P_MPa[Planet.Steps.nIbottom])
+        Planet.T_K[Planet.Steps.nIbottom:iConductEnd+1] = Planet.TconvIII_K**(PlidRatios) * Planet.T_K[Planet.Steps.nIbottom]**(1 - PlidRatios)
+
+        # Get physical properties of upper conducting layer, and include 1 layer of convective layer for next step
+        Planet = EvalLayerProperties(Planet, Params, Planet.Steps.nIbottom, iConductEnd+1,
+                                     Planet.Ocean.surfIceEOS['III'],
+                                     Planet.P_MPa[Planet.Steps.nIbottom:iConductEnd+1],
+                                     Planet.T_K[Planet.Steps.nIbottom:iConductEnd+1])
+
+        Planet = PorosityCorrectionVacIce(Planet, Params, Planet.Steps.nIbottom, iConductEnd+1,
+                                          Planet.Ocean.surfIceEOS['III'],
+                                          Planet.P_MPa[Planet.Steps.nIbottom:iConductEnd+1],
+                                          Planet.T_K[Planet.Steps.nIbottom:iConductEnd+1])
+
+        Planet = PropagateConduction(Planet, Params, Planet.Steps.nIbottom, iConductEnd-1)
+
+        log.debug('Stagnant lid conductive profile complete. Modeling ice III convecting layer...')
+
+        Planet = PropagateAdiabaticPorousVacIce(Planet, Params, iConductEnd, iConvectEnd,
+                                                Planet.Ocean.surfIceEOS['III'])
+        # Set logical array for convective ice layers
+        Planet.Steps.iConv[iConductEnd:iConvectEnd] = True
+        log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
+
+        if(Planet.T_K[iConvectEnd-1] > Planet.Bulk.TbIII_K):
+            raise ValueError(f'Ice III bottom temperature of {Planet.Bulk.TbIII_K:.3f} K ' +
+                              'is less than the temperature at the lower TBL transition of ' +
+                             f'{Planet.T_K[iConvectEnd-1]:.3f} K. Try increasing Bulk.TbIII_K ' +
+                              'or decreasing Bulk.Tb_K to create a more realistic thermal profile.')
+
+        # Reassign conductive profile with new top temperature for conductive layer
+
+        PTBLratios = (Planet.P_MPa[indsTBL] - Planet.P_MPa[iConvectEnd-1]) / (Planet.PbIII_MPa - Planet.P_MPa[iConvectEnd-1])
+        Planet.T_K[indsTBL] = Planet.Bulk.TbIII_K**(PTBLratios) \
+                              * Planet.T_K[iConvectEnd-1]**(1 - PTBLratios)
+
+        # Get physical properties of thermal boundary layer
+        Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1],
+                                     Planet.Ocean.surfIceEOS['III'],
+                                     Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]])
+
+        Planet = PorosityCorrectionVacIce(Planet, Params, indsTBL[0], indsTBL[-1]+1,
+                                          Planet.Ocean.surfIceEOS['III'],
+                                          Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
+
+        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1])
+
+    log.debug('Ice III convection calculations complete.')
+
+    return Planet
+
+
+def IceVConvectSolid(Planet, Params):
+    """ Apply convection models from literature to determine thermal profile and
+        state variables for possibly convecting ice layers
+
+        Assigns Planet attributes:
+            TconvV_K, etaConvV_Pas, eLidV_m, deltaTBLV_m, QfromMantle_W, all physical layer arrays
+    """
+
+    if Planet.Do.KALOUSOVA_CONVECTION:
+        log.debug('Applying solid-state convection to surface ice V based on Kalousova et al. (2018).')
+        convectionFunc = ConvectionKalousova2018
+    else:
+        log.debug('Applying solid-state convection to surface ice V based on Deschamps and Sotin (2001).')
+        convectionFunc = ConvectionDeschampsSotin2001
+
+    zbV_m = Planet.z_m[Planet.Steps.nSurfIce-1] - Planet.z_m[Planet.Steps.nIIIbottom]
+    # Get "middle" pressure
+    PmidV_MPa = (Planet.PbV_MPa + Planet.PbIII_MPa) / 2
+
+    # Run calculations to get convection layer parameters
+    Planet.TconvV_K, Planet.etaConvV_Pas, Planet.eLidV_m, Planet.DconvV_m, Planet.deltaTBLV_m, Planet.Ocean.QfromMantle_W, \
+        Planet.RaConvectV, Planet.RaCritV = convectionFunc(Planet.Bulk.TbIII_K, Planet.r_m[Planet.Steps.nIIIbottom],
+                                     Planet.kTherm_WmK[Planet.Steps.nIIIbottom], Planet.Bulk.TbV_K, zbV_m,
+                                     Planet.g_ms2[Planet.Steps.nIIIbottom], PmidV_MPa, Planet.Ocean.EOS,
+                                     Planet.Ocean.surfIceEOS['V'], 5, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol, Planet.Ocean.etaMelt_Pas,
+                                     Htidal_Wm3=Planet.Ocean.HtidalIce_Wm3)
+
+    # Store melt fraction if using Kalousova
+    if Planet.Do.KALOUSOVA_CONVECTION:
+        # Temperate layer exists if eLidV_m > 0 (Kalousova & Sotin 2018)
+        if Planet.eLidV_m > 0:
+            Planet.DO_HP_MELT = True
+            # TODO: Calculate actual melt fraction from two-phase convection model
+            # For now, set nominal value indicating partial melt is present
+            Planet.meltFractionV = 0.01  # Nominal placeholder
+            log.info(f'Ice V temperate layer detected: partial melting present in top {Planet.eLidV_m/1e3:.3f} km')
+        else:
+            Planet.meltFractionV = 0.0
+
+    # Calculate heat flux density at ice V layer base
+    r_base_V_m = Planet.r_m[Planet.Steps.nSurfIce] if Planet.Do.BOTTOM_ICEV else Planet.r_m[Planet.Steps.nIIIbottom]
+    A_base_V_m2 = 4 * np.pi * r_base_V_m**2
+    q_base_V_mWm2 = Planet.Ocean.QfromMantle_W / A_base_V_m2 * 1e3  # Convert W/m² to mW/m²
+
+    log.debug(f'Ice V convection parameters:\n    T_convectV = {Planet.TconvV_K:.3f} K,\n' +
+              f'    Viscosity etaConvectV = {Planet.etaConvV_Pas:.3e} Pa*s,\n' +
+              f'    Conductive lid thickness eLidV = {Planet.eLidV_m/1e3:.1f} km,\n' +
+              f'    Convecting layer thickness DconvV = {Planet.DconvV_m/1e3:.1f} km,\n' +
+              f'    Lower TBL thickness deltaTBLV = {Planet.deltaTBLV_m/1e3:.1f} km,\n' +
+              f'    Rayleigh number RaV = {Planet.RaConvectV:.3e}.')
+    log.info(f'Ice V heat transport: q = {q_base_V_mWm2:.2f} mW/m² ' +
+             f'(Total: {Planet.Ocean.QfromMantle_W/1e12:.3f} TW) through layer')
+    # Update the viscosity of the Ice V EOS to use the convective viscosity
+    Planet.Ocean.surfIceEOS['V'].updateConvectionViscosity(Planet.etaConvV_Pas, Planet.TconvV_K)
+    # Check for whole-lid conduction
+    if(zbV_m <= Planet.eLidV_m + Planet.deltaTBLV_m):
+        log.info(f'Underplate ice V thickness ({zbV_m/1e3:.1f} km) is less than that of the thermal ' +
+                  'boundary layers--convection is absent. Applying whole-layer conductive profile.')
+        Planet.eLidV_m = zbV_m
+        Planet.DconvV_m = 0.0
+        Planet.deltaTBLV_m = 0.0
+
+        # We leave the remaining quantities as initially assigned,
+        # as we find the initial profile assuming conduction only.
+    else:
+        # Now model conductive + convective layers
+        # Get layer transition indices
+        try:
+            iConductEnd = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > Planet.z_m[Planet.Steps.nIIIbottom] + Planet.eLidV_m)
+        except StopIteration:
+            raise RuntimeError('Failed to find any depth indices for upper TBL of ice V. Try increasing Steps.nIceVLitho.')
+        try:
+            iConvectEnd = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > Planet.z_m[Planet.Steps.nIIIbottom] + zbV_m - Planet.deltaTBLV_m)
+        except StopIteration:
+            raise RuntimeError('Failed to find any depth indices for lower TBL of ice V. Try increasing Steps.nIceVLitho.')
+        indsTBL = range(iConvectEnd, Planet.Steps.nSurfIce+1)
+
+        # Get pressure at the convecting transition
+        PconvTopV_MPa = Planet.P_MPa[iConductEnd]
+        # Reset profile of upper layers, keeping pressure values fixed
+        log.debug('Modeling ice V conduction in stagnant lid...')
+
+        thisMAbove_kg = np.sum(Planet.MLayer_kg[:Planet.Steps.nIIIbottom])
+        # Reassign conductive profile with new bottom temperature for conductive layer
+        PlidRatios = (Planet.P_MPa[Planet.Steps.nIIIbottom:iConductEnd+1] - Planet.P_MPa[Planet.Steps.nIIIbottom]) / \
+                     (PconvTopV_MPa - Planet.P_MPa[Planet.Steps.nIIIbottom])
+        Planet.T_K[Planet.Steps.nIIIbottom:iConductEnd+1] = Planet.TconvV_K**(PlidRatios) \
+                                                            * Planet.T_K[Planet.Steps.nIIIbottom]**(1 - PlidRatios)
+
+        # Get physical properties of upper conducting layer, and include 1 layer of convective layer for next step
+        Planet = EvalLayerProperties(Planet, Params, Planet.Steps.nIIIbottom, iConductEnd+1,
+                                     Planet.Ocean.surfIceEOS['V'],
+                                     Planet.P_MPa[Planet.Steps.nIIIbottom:iConductEnd+1],
+                                     Planet.T_K[Planet.Steps.nIIIbottom:iConductEnd+1])
+
+        Planet = PropagateConduction(Planet, Params, Planet.Steps.nIIIbottom, iConductEnd-1)
+        log.debug('Stagnant lid conductive profile complete. Modeling ice V convecting layer...')
+
+        # Use linear temperature profile for Kalousova convection, adiabat for Deschamps & Sotin
+        if Planet.Do.KALOUSOVA_CONVECTION:
+            # Convecting interior follows melting curve T_melt(P) at each depth
+            # (Kalousova & Sotin 2018: vigorous two-phase convection maintains solidus)
+            Tm_top_K = Planet.Ocean.surfIceEOS['V'].fn_Tmelt_K(Planet.P_MPa[iConductEnd])
+            Tm_bot_K = Planet.Ocean.surfIceEOS['V'].fn_Tmelt_K(Planet.P_MPa[iConvectEnd-1])
+            log.debug(f'Using melting-curve thermal profile: Tmelt_top={Tm_top_K:.2f} K, '
+                     f'Tmelt_bot={Tm_bot_K:.2f} K')
+
+            Planet = PropagateMeltingCurveThermalProfile(Planet, Params, iConductEnd, iConvectEnd,
+                                                        Planet.Ocean.surfIceEOS['V'])
+        else:
+            # Adiabatic profile for Deschamps & Sotin convection
+            Planet = PropagateAdiabaticSolid(Planet, Params, iConductEnd, iConvectEnd,
+                                           Planet.Ocean.surfIceEOS['V'])
+
+        # Set logical array for convective ice layers
+        Planet.Steps.iConv[iConductEnd:iConvectEnd] = True
+        log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
+
+        if(Planet.T_K[iConvectEnd-1] > Planet.Bulk.TbV_K):
+            raise ValueError(f'Ice V bottom temperature of {Planet.Bulk.TbV_K:.3f} K ' +
+                              'is less than the temperature at the lower TBL transition of ' +
+                             f'{Planet.T_K[iConvectEnd-1]:.3f} K. Try increasing TbV_K ' +
+                              'to create a more realistic thermal profile.')
+
+        # Reassign conductive profile with new top temperature for conductive layer
+        PTBLratios = (Planet.P_MPa[indsTBL] - Planet.P_MPa[iConvectEnd-1]) / (Planet.PbV_MPa - Planet.P_MPa[iConvectEnd-1])
+        Planet.T_K[indsTBL] = Planet.Bulk.TbV_K**(PTBLratios) * Planet.T_K[iConvectEnd-1]**(1 - PTBLratios)
+
+        # Get physical properties of thermal boundary layer
+        Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1]+1,
+                                    Planet.Ocean.surfIceEOS['V'],
+                                    Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
+
+        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1])
+
+    log.debug('Ice V convection calculations complete.')
+
+    return Planet
+
+
+def IceVConvectPorous(Planet, Params):
+    """ Apply convection models from literature to determine thermal profile and
+        state variables for possibly convecting ice layers
+
+        Assigns Planet attributes:
+            TconvV_K, etaConvV_Pas, eLidV_m, deltaTBLV_m, QfromMantle_W, all physical layer arrays
+    """
+
+    log.debug('Applying solid-state convection to surface ice V based on Deschamps and Sotin (2001).')
+    zbV_m = Planet.z_m[Planet.Steps.nSurfIce-1] - Planet.z_m[Planet.Steps.nIIIbottom]
+    # Get "middle" pressure
+    PmidV_MPa = (Planet.PbV_MPa + Planet.PbIII_MPa) / 2
+
+    # Run calculations to get convection layer parameters
+    Planet.TconvV_K, Planet.etaConvV_Pas, Planet.eLidV_m, Planet.DconvV_m, Planet.deltaTBLV_m, Planet.Ocean.QfromMantle_W, \
+        Planet.RaConvectV, Planet.RaCritV = ConvectionDeschampsSotin2001(Planet.Bulk.TbIII_K, Planet.r_m[Planet.Steps.nIIIbottom],
+                                     Planet.kTherm_WmK[Planet.Steps.nIIIbottom], Planet.Bulk.TbV_K, zbV_m,
+                                     Planet.g_ms2[Planet.Steps.nIIIbottom], PmidV_MPa, Planet.Ocean.EOS,
+                                     Planet.Ocean.surfIceEOS['V'], 5, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol, Planet.Ocean.etaMelt_Pas,
+                                     Htidal_Wm3=Planet.Ocean.HtidalIce_Wm3)
+
+    # Calculate heat flux density at ice V layer base
+    r_base_V_m = Planet.r_m[Planet.Steps.nSurfIce] if Planet.Do.BOTTOM_ICEV else Planet.r_m[Planet.Steps.nIIIbottom]
+    A_base_V_m2 = 4 * np.pi * r_base_V_m**2
+    q_base_V_mWm2 = Planet.Ocean.QfromMantle_W / A_base_V_m2 * 1e3  # Convert W/m² to mW/m²
+
+    log.debug(f'Ice V convection parameters:\n    T_convectV = {Planet.TconvV_K:.3f} K,\n' +
+              f'    Viscosity etaConvectV = {Planet.etaConvV_Pas:.3e} Pa*s,\n' +
+              f'    Conductive lid thickness eLidV = {Planet.eLidV_m/1e3:.1f} km,\n' +
+              f'    Convecting layer thickness DconvV = {Planet.DconvV_m/1e3:.1f} km,\n' +
+              f'    Lower TBL thickness deltaTBLV = {Planet.deltaTBLV_m/1e3:.1f} km,\n' +
+              f'    Rayleigh number RaV = {Planet.RaConvectV:.3e}.')
+    log.info(f'Ice V heat transport: q = {q_base_V_mWm2:.2f} mW/m² ' +
+             f'(Total: {Planet.Ocean.QfromMantle_W/1e12:.3f} TW) through layer')
+    # Update the viscosity of the Ice V EOS to use the convective viscosity
+    Planet.Ocean.surfIceEOS['V'].updateConvectionViscosity(Planet.etaConvV_Pas, Planet.TconvV_K)
+    # Check for whole-lid conduction
+    if(zbV_m <= Planet.eLidV_m + Planet.deltaTBLV_m):
+        log.info(f'Underplate ice V thickness ({zbV_m/1e3:.1f} km) is less than that of the thermal ' +
+                  'boundary layers--convection is absent. Applying whole-layer conductive profile.')
+        Planet.eLidV_m = zbV_m
+        Planet.DconvV_m = 0.0
+        Planet.deltaTBLV_m = 0.0
+
+        # We leave the remaining quantities as initially assigned,
+        # as we find the initial profile assuming conduction only.
+    else:
+        # Now model conductive + convective layers
+        # Get layer transition indices
+        try:
+            iConductEnd = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > Planet.z_m[Planet.Steps.nIIIbottom] + Planet.eLidV_m)
+        except StopIteration:
+            raise RuntimeError('Failed to find any depth indices for upper TBL of ice V. Try increasing Steps.nIceVLitho.')
+        try:
+            iConvectEnd = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > Planet.z_m[Planet.Steps.nIIIbottom] + zbV_m - Planet.deltaTBLV_m)
+        except StopIteration:
+            raise RuntimeError('Failed to find any depth indices for lower TBL of ice V. Try increasing Steps.nIceVLitho.')
+        indsTBL = range(iConvectEnd, Planet.Steps.nSurfIce+1)
+
+        # Get pressure at the convecting transition
+        PconvTopV_MPa = Planet.P_MPa[iConductEnd]
+        # Reset profile of upper layers, keeping pressure values fixed
+        log.debug('Modeling ice V conduction in stagnant lid...')
+
+        thisMAbove_kg = np.sum(Planet.MLayer_kg[:Planet.Steps.nIIIbottom])
+        # Reassign conductive profile with new bottom temperature for conductive layer
+        PlidRatios = (Planet.P_MPa[Planet.Steps.nIIIbottom:iConductEnd+1] - Planet.P_MPa[Planet.Steps.nIIIbottom]) / \
+                     (PconvTopV_MPa - Planet.P_MPa[Planet.Steps.nIIIbottom])
+        Planet.T_K[Planet.Steps.nIIIbottom:iConductEnd+1] = Planet.TconvV_K**(PlidRatios) \
+                                                            * Planet.T_K[Planet.Steps.nIIIbottom]**(1 - PlidRatios)
+
+        # Get physical properties of upper conducting layer, and include 1 layer of convective layer for next step
+        Planet = EvalLayerProperties(Planet, Params, Planet.Steps.nIIIbottom, iConductEnd+1,
+                                     Planet.Ocean.surfIceEOS['V'],
+                                     Planet.P_MPa[Planet.Steps.nIIIbottom:iConductEnd+1],
+                                     Planet.T_K[Planet.Steps.nIIIbottom:iConductEnd+1])
+
+        Planet = PorosityCorrectionVacIce(Planet, Params, Planet.Steps.nIIIbottom, iConductEnd+1,
+                                          Planet.Ocean.surfIceEOS['V'],
+                                          Planet.P_MPa[Planet.Steps.nIIIbottom:iConductEnd+1],
+                                          Planet.T_K[Planet.Steps.nIIIbottom:iConductEnd+1])
+
+        Planet = PropagateConduction(Planet, Params, Planet.Steps.nIIIbottom, iConductEnd-1)
+        log.debug('Stagnant lid conductive profile complete. Modeling ice V convecting layer...')
+
+        Planet = PropagateAdiabaticPorousVacIce(Planet, Params, iConductEnd, iConvectEnd,
+                                                Planet.Ocean.surfIceEOS['V'])
+        # Set logical array for convective ice layers
+        Planet.Steps.iConv[iConductEnd:iConvectEnd] = True
+        log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
+
+        if(Planet.T_K[iConvectEnd-1] > Planet.Bulk.TbV_K):
+            raise ValueError(f'Ice V bottom temperature of {Planet.Bulk.TbV_K:.3f} K ' +
+                              'is less than the temperature at the lower TBL transition of ' +
+                             f'{Planet.T_K[iConvectEnd-1]:.3f} K. Try increasing TbV_K ' +
+                              'to create a more realistic thermal profile.')
+
+        # Reassign conductive profile with new top temperature for conductive layer
+        PTBLratios = (Planet.P_MPa[indsTBL] - Planet.P_MPa[iConvectEnd-1]) / (Planet.PbV_MPa - Planet.P_MPa[iConvectEnd-1])
+        Planet.T_K[indsTBL] = Planet.Bulk.TbV_K**(PTBLratios) * Planet.T_K[iConvectEnd-1]**(1 - PTBLratios)
+
+        # Get physical properties of thermal boundary layer
+        Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1],
+                                    Planet.Ocean.surfIceEOS['V'],
+                                    Planet.P_MPa[indsTBL[:-1]], Planet.T_K[indsTBL[:-1]])
+
+        Planet = PorosityCorrectionVacIce(Planet, Params, indsTBL[0], indsTBL[-1]+1,
+                                          Planet.Ocean.surfIceEOS['V'],
+                                          Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
+
+        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1])
+
+    log.debug('Ice V convection calculations complete.')
+
+    return Planet
+
+
+def ClathShellConvectSolid(Planet, Params):
+    """ Apply convection models from literature to determine thermal profile and
+        state variables for possibly convecting clathrate layers when the whole
+        shell is made of clathrates.
+
+        Assigns Planet attributes:
+            Tconv_K, etaConv_Pas, eLid_m, deltaTBL_m, QfromMantle_W, all physical layer arrays
+    """
+    if Planet.Do.MIXED_CLATHRATE_ICE:
+        phaseStr = 'MixedClathrateIh'
+        phaseIndex = Constants.phaseClath + 1
+    else:
+        phaseStr = 'Clath'
+        phaseIndex = Constants.phaseClath
+    log.debug('Applying solid-state convection to surface clathrates based on Deschamps and Sotin (2001).')
+    zbI_m = Planet.z_m[Planet.Steps.nIbottom]
+    # Get "middle" pressure
+    Pmid_MPa = (Planet.PbI_MPa - Planet.P_MPa[0]) / 2
+    Planet.kTherm_WmK[0] = Planet.Ocean.surfIceEOS[phaseStr].fn_kTherm_WmK(Planet.P_MPa[0], Planet.Bulk.Tb_K)
+
+    # Run calculations to get convection layer parameters
+    Planet.Tconv_K, Planet.etaConv_Pas, Planet.eLid_m, Planet.Dconv_m, Planet.deltaTBL_m, Planet.Ocean.QfromMantle_W, \
+        Planet.RaConvect, Planet.RaCrit = \
+        ConvectionDeschampsSotin2001(Planet.T_K[0], Planet.r_m[0], Planet.kTherm_WmK[0], Planet.Bulk.Tb_K,
+                                     zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.surfIceEOS[phaseStr],
+                                     Planet.Ocean.surfIceEOS[phaseStr], phaseIndex, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol, Planet.Ocean.etaMelt_Pas,
+                                     Htidal_Wm3=Planet.Ocean.HtidalIce_Wm3)
+
+    log.debug(f'Clathrate shell convection parameters:\n    T_convect = {Planet.Tconv_K:.3f} K,\n' +
+              f'    Viscosity etaConvect = {Planet.etaConv_Pas:.3e} Pa*s,\n' +
+              f'    Conductive lid thickness eLid = {Planet.eLid_m/1e3:.1f} km,\n' +
+              f'    Convecting layer thickness Dconv = {Planet.Dconv_m/1e3:.1f} km,\n' +
+              f'    Lower TBL thickness deltaTBL = {Planet.deltaTBL_m/1e3:.1f} km,\n' +
+              f'    Rayleigh number Ra = {Planet.RaConvect:.3e}.')
+    # Update the viscosity of the Ice Ih EOS to use the convective viscosity
+    Planet.Ocean.surfIceEOS[phaseStr].updateConvectionViscosity(Planet.etaConv_Pas, Planet.Tconv_K)
+    # Check for whole-lid conduction
+    if(zbI_m <= Planet.eLid_m + Planet.deltaTBL_m):
+        log.info(f'Ice shell thickness ({zbI_m/1e3:.1f} km) is less than that of the thermal ' +
+                  'boundary layers--convection is absent. Applying whole-shell conductive profile.')
+        Planet.eLid_m = zbI_m
+        Planet.Dconv_m = 0.0
+        Planet.deltaTBL_m = 0.0
+
+        # Recalculate heat flux, as it will be too high for conduction-only:
+        qSurf_Wm2 = (Planet.T_K[1] - Planet.T_K[0]) / (Planet.r_m[0] - Planet.r_m[1]) * Planet.kTherm_WmK[0]
+        Planet.Ocean.QfromMantle_W = qSurf_Wm2 * 4*np.pi * Planet.Bulk.R_m**2
+
+        # We leave the remaining quantities as initially assigned,
+        # as we find the initial profile assuming conduction only.
+    else:
+        # Now model conductive + convective layers
+        # Get layer transition indices from previous profile
+        nConduct = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > Planet.eLid_m)
+        nConvect = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > zbI_m - Planet.deltaTBL_m) - nConduct
+        indsTBL = range(nConduct + nConvect, Planet.Steps.nIbottom+1)
+        # Get pressure at the convecting transition
+        PconvTop_MPa = Planet.P_MPa[nConduct]
+
+        # Reset profile of upper layers, keeping pressure values fixed
+        log.debug('Modeling clathrate conduction in stagnant lid...')
+        # Reassign conductive profile with new bottom temperature for conductive layer
+        PlidRatios = (Planet.P_MPa[:nConduct+1] - Planet.P_MPa[0]) / (PconvTop_MPa - Planet.P_MPa[0])
+        Planet.T_K[:nConduct+1] = Planet.Tconv_K**(PlidRatios) * Planet.T_K[0]**(1 - PlidRatios)
+
+        # Get physical properties of upper conducting layer, and include 1 layer of convective layer for next step
+        Planet = EvalLayerProperties(Planet, Params, 0, nConduct+1,
+                                     Planet.Ocean.surfIceEOS[phaseStr],
+                                     Planet.P_MPa[:nConduct+1], Planet.T_K[:nConduct+1])
+
+        Planet = PropagateConduction(Planet, Params, 0, nConduct-1)
+
+        log.debug('Stagnant lid conductive profile complete. Modeling ice I convecting layer...')
+
+        Planet = PropagateAdiabaticSolid(Planet, Params, nConduct, nConduct + nConvect,
+                                         Planet.Ocean.surfIceEOS[phaseStr])
+        # Set logical array for convective clathrate layers
+        Planet.Steps.iConv[nConduct:nConvect] = True
+        log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
+
+        # Reassign conductive profile with new top temperature for conductive layer
+        PTBLratios = (Planet.P_MPa[indsTBL] - Planet.P_MPa[nConduct+nConvect-1]) / (Planet.PbI_MPa - Planet.P_MPa[nConduct+nConvect-1])
+        Planet.T_K[indsTBL] = Planet.Bulk.Tb_K**(PTBLratios) * Planet.T_K[nConduct+nConvect-1]**(1 - PTBLratios)
+
+        # Get physical properties of thermal boundary layer
+        Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1]+1,
+                                    Planet.Ocean.surfIceEOS[phaseStr],
+                                    Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
+
+        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1])
+
+    Planet.zClath_m = Planet.z_m[Planet.Steps.nIbottom]
+
+    log.debug('Clathrate convection calculations complete.')
+
+    return Planet
+
+
+def ClathShellConvectPorous(Planet, Params):
+    """ Apply convection models from literature to determine thermal profile and
+        state variables for possibly convecting clathrate layers when the whole
+        shell is made of clathrates.
+
+        Assigns Planet attributes:
+            Tconv_K, etaConv_Pas, eLid_m, deltaTBL_m, QfromMantle_W, all physical layer arrays
+    """
+    if Planet.Do.MIXED_CLATHRATE_ICE:
+        phaseStr = 'MixedClathrateIh'
+    else:
+        phaseStr = 'Clath'
+    log.debug('Applying solid-state convection to surface clathrates based on Deschamps and Sotin (2001).')
+    zbI_m = Planet.z_m[Planet.Steps.nIbottom]
+    # Get "middle" pressure
+    Pmid_MPa = (Planet.PbI_MPa - Planet.P_MPa[0]) / 2
+    Planet.kTherm_WmK[0] = Planet.Ocean.surfIceEOS[phaseStr].fn_kTherm_WmK(Planet.P_MPa[0], Planet.Bulk.Tb_K)
+
+    # Run calculations to get convection layer parameters
+    Planet.Tconv_K, Planet.etaConv_Pas, Planet.eLid_m, Planet.Dconv_m, Planet.deltaTBL_m, Planet.Ocean.QfromMantle_W, \
+        Planet.RaConvect, Planet.RaCrit = \
+        ConvectionDeschampsSotin2001(Planet.T_K[0], Planet.r_m[0], Planet.kTherm_WmK[0], Planet.Bulk.Tb_K,
+                                     zbI_m, Planet.g_ms2[0], Pmid_MPa, Planet.Ocean.surfIceEOS[phaseStr],
+                                     Planet.Ocean.surfIceEOS[phaseStr], Constants.phaseClath, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol, Planet.Ocean.etaMelt_Pas,
+                                     Htidal_Wm3=Planet.Ocean.HtidalIce_Wm3)
+
+    log.debug(f'Clathrate shell convection parameters:\n    T_convect = {Planet.Tconv_K:.3f} K,\n' +
+              f'    Viscosity etaConvect = {Planet.etaConv_Pas:.3e} Pa*s,\n' +
+              f'    Conductive lid thickness eLid = {Planet.eLid_m/1e3:.1f} km,\n' +
+              f'    Convecting layer thickness Dconv = {Planet.Dconv_m/1e3:.1f} km,\n' +
+              f'    Lower TBL thickness deltaTBL = {Planet.deltaTBL_m/1e3:.1f} km,\n' +
+              f'    Rayleigh number Ra = {Planet.RaConvect:.3e}.')
+    # Update the viscosity of the Ice Ih EOS to use the convective viscosity
+    Planet.Ocean.surfIceEOS[phaseStr].updateConvectionViscosity(Planet.etaConv_Pas, Planet.Tconv_K)
+    # Check for whole-lid conduction
+    if(zbI_m <= Planet.eLid_m + Planet.deltaTBL_m):
+        log.info(f'Ice shell thickness ({zbI_m/1e3:.1f} km) is less than that of the thermal ' +
+                  'boundary layers--convection is absent. Applying whole-shell conductive profile.')
+        Planet.eLid_m = zbI_m
+        Planet.Dconv_m = 0.0
+        Planet.deltaTBL_m = 0.0
+
+        # Recalculate heat flux, as it will be too high for conduction-only:
+        qSurf_Wm2 = (Planet.T_K[1] - Planet.T_K[0]) / (Planet.r_m[0] - Planet.r_m[1]) * Planet.kTherm_WmK[0]
+        Planet.Ocean.QfromMantle_W = qSurf_Wm2 * 4*np.pi * Planet.Bulk.R_m**2
+
+        # We leave the remaining quantities as initially assigned,
+        # as we find the initial profile assuming conduction only.
+    else:
+        # Now model conductive + convective layers
+        # Get layer transition indices from previous profile
+        nConduct = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > Planet.eLid_m)
+        nConvect = next(i[0] for i,val in np.ndenumerate(Planet.z_m) if val > zbI_m - Planet.deltaTBL_m) - nConduct
+        indsTBL = range(nConduct + nConvect, Planet.Steps.nIbottom+1)
+        # Get pressure at the convecting transition
+        PconvTop_MPa = Planet.P_MPa[nConduct]
+
+        # Reset profile of upper layers, keeping pressure values fixed
+        log.debug('Modeling clathrate conduction in stagnant lid...')
+        # Reassign conductive profile with new bottom temperature for conductive layer
+        PlidRatios = (Planet.P_MPa[:nConduct+1] - Planet.P_MPa[0]) / (PconvTop_MPa - Planet.P_MPa[0])
+        Planet.T_K[:nConduct+1] = Planet.Tconv_K**(PlidRatios) * Planet.T_K[0]**(1 - PlidRatios)
+
+        # Get physical properties of upper conducting layer, and include 1 layer of convective layer for next step
+        Planet = EvalLayerProperties(Planet, Params, 0, nConduct+1,
+                                     Planet.Ocean.surfIceEOS[phaseStr],
+                                     Planet.P_MPa[:nConduct+1], Planet.T_K[:nConduct+1])
+
+        Planet = PorosityCorrectionVacIce(Planet, Params, 0, nConduct+1,
+                                          Planet.Ocean.surfIceEOS[phaseStr],
+                                          Planet.P_MPa[:nConduct+1], Planet.T_K[:nConduct+1])
+
+        Planet = PropagateConduction(Planet, Params, 0, nConduct-1)
+
+        log.debug('Stagnant lid conductive profile complete. Modeling ice I convecting layer...')
+
+        Planet = PropagateAdiabaticPorousVacIce(Planet, Params, nConduct, nConduct + nConvect,
+                                                Planet.Ocean.surfIceEOS[phaseStr])
+        # Set logical array for convective clathrate layers
+        Planet.Steps.iConv[nConduct:nConvect] = True
+        log.debug('Convective profile complete. Modeling conduction in lower thermal boundary layer...')
+
+        # Reassign conductive profile with new top temperature for conductive layer
+        PTBLratios = (Planet.P_MPa[indsTBL] - Planet.P_MPa[nConduct+nConvect-1]) / (Planet.PbI_MPa - Planet.P_MPa[nConduct+nConvect-1])
+        Planet.T_K[indsTBL] = Planet.Bulk.Tb_K**(PTBLratios) * Planet.T_K[nConduct+nConvect-1]**(1 - PTBLratios)
+
+        # Get physical properties of thermal boundary layer
+        Planet = EvalLayerProperties(Planet, Params, indsTBL[0], indsTBL[-1]+1,
+                                    Planet.Ocean.surfIceEOS[phaseStr],
+                                    Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
+
+        Planet = PorosityCorrectionVacIce(Planet, Params, indsTBL[0], indsTBL[-1]+1,
+                                          Planet.Ocean.surfIceEOS[phaseStr],
+                                          Planet.P_MPa[indsTBL], Planet.T_K[indsTBL])
+
+        Planet = PropagateConduction(Planet, Params, indsTBL[0]-1, indsTBL[-1])
+
+    Planet.zClath_m = Planet.z_m[Planet.Steps.nIbottom]
+
+    log.debug('Clathrate convection calculations complete.')
+
+    return Planet
+
+
+def IceVIConvectSolid(Planet, Params):
+    """ Apply convection models from literature to determine thermal profile and
+        state variables for possibly convecting ice VI layers
+
+        Assigns Planet attributes:
+            TconvVI_K, etaConvVI_Pas, eLidVI_m, deltaTBLVI_m, QfromMantle_W, all physical layer arrays
+    """
+
+    if Planet.Do.KALOUSOVA_CONVECTION:
+        log.debug('Applying solid-state convection to surface ice VI based on Kalousova et al. (2018).')
+        convectionFunc = ConvectionKalousova2018
+    else:
+        # Ice VI convection with Deschamps & Sotin not implemented - treat as conductive
+        log.warning('Ice VI convection with Deschamps & Sotin is not implemented. Treating as conductive.')
+        # Determine layer boundaries
+        iTop = Planet.Steps.nIIIbottom
+        zbVI_m = Planet.z_m[Planet.Steps.nSurfIce-1] - Planet.z_m[iTop]
+        rTopVI_m = Planet.r_m[iTop]
+        TtopVI_K = Planet.T_K[iTop]
+        kTopVI_WmK = Planet.kTherm_WmK[iTop]
+        TbotVI_K = Planet.Bulk.TbV_K  # Best available estimate for bottom of ice VI
+        Planet.TconvVI_K = TtopVI_K
+        Planet.etaConvVI_Pas = Constants.etaMelt_Pas[6]
+        Planet.eLidVI_m = zbVI_m  # Entire layer is conductive
+        Planet.DconvVI_m = 0.0
+        Planet.deltaTBLVI_m = 0.0
+        # Compute conductive heat flux rather than zeroing it out
+        if zbVI_m > 0:
+            qCond_Wm2 = kTopVI_WmK * (TbotVI_K - TtopVI_K) / zbVI_m
+            Planet.Ocean.QfromMantle_W = qCond_Wm2 * 4 * np.pi * (rTopVI_m - zbVI_m)**2
+        Planet.RaConvectVI = 0.0
+        Planet.RaCritVI = np.inf
+        return Planet
+
+    # Calculate layer thickness
+    if hasattr(Planet.Steps, 'nVbottom'):
+        zbVI_m = Planet.z_m[Planet.Steps.nSurfIce-1] - Planet.z_m[Planet.Steps.nVbottom]
+        rTopVI_m = Planet.r_m[Planet.Steps.nVbottom]
+        PtopVI_MPa = Planet.P_MPa[Planet.Steps.nVbottom]
+        TtopVI_K = Planet.T_K[Planet.Steps.nVbottom]
+        ktopVI_WmK = Planet.kTherm_WmK[Planet.Steps.nVbottom]
+        gtopVI_ms2 = Planet.g_ms2[Planet.Steps.nVbottom]
+        TbVI_K = Planet.Bulk.TbVI_K if hasattr(Planet.Bulk, 'TbVI_K') else Planet.Bulk.TbV_K
+    else:
+        # No ice V layer - ice VI is directly below ice III
+        zbVI_m = Planet.z_m[Planet.Steps.nSurfIce-1] - Planet.z_m[Planet.Steps.nIIIbottom]
+        rTopVI_m = Planet.r_m[Planet.Steps.nIIIbottom]
+        PtopVI_MPa = Planet.P_MPa[Planet.Steps.nIIIbottom]
+        TtopVI_K = Planet.T_K[Planet.Steps.nIIIbottom]
+        ktopVI_WmK = Planet.kTherm_WmK[Planet.Steps.nIIIbottom]
+        gtopVI_ms2 = Planet.g_ms2[Planet.Steps.nIIIbottom]
+        TbVI_K = Planet.Bulk.TbVI_K if hasattr(Planet.Bulk, 'TbVI_K') else Planet.Bulk.TbV_K
+
+    # Get "middle" pressure
+    PbVI_MPa = Planet.P_MPa[Planet.Steps.nSurfIce]
+    PmidVI_MPa = (PbVI_MPa + PtopVI_MPa) / 2
+
+    # Run calculations to get convection layer parameters
+    Planet.TconvVI_K, Planet.etaConvVI_Pas, Planet.eLidVI_m, Planet.DconvVI_m, Planet.deltaTBLVI_m, Planet.Ocean.QfromMantle_W, \
+        Planet.RaConvectVI, Planet.RaCritVI = convectionFunc(TtopVI_K, rTopVI_m,
+                                     ktopVI_WmK, TbVI_K, zbVI_m,
+                                     gtopVI_ms2, PmidVI_MPa, Planet.Ocean.EOS,
+                                     Planet.Ocean.surfIceEOS['VI'], 6, Planet.Do.EQUIL_Q, Planet.Ocean.Eact_kJmol, Planet.Ocean.etaMelt_Pas,
+                                     Htidal_Wm3=Planet.Ocean.HtidalIce_Wm3)
+
+    # Determine ice VI cell range in the surface-ice arrays.
+    iTopVI = Planet.Steps.nVbottom if hasattr(Planet.Steps, 'nVbottom') else Planet.Steps.nIIIbottom
+    iBotVI = Planet.Steps.nSurfIce  # exclusive
+
+    # Simplified ice VI profile (full lid + adiabat + TBL propagation deferred — see follow-up).
+    # The pre-Kalousova default for ice VI was a melting-curve T profile, since vigorous
+    # convection in HP ice keeps the interior near the solidus.  ConvectionKalousova2018
+    # returns Tconv_K already on the melting curve; we apply it uniformly across the ice VI
+    # range as a placeholder for the proper three-segment construction used for Ice III/V.
+    if Planet.Do.KALOUSOVA_CONVECTION and iBotVI > iTopVI:
+        Planet.T_K[iTopVI:iBotVI] = Planet.TconvVI_K
+        Planet = EvalLayerProperties(Planet, Params, iTopVI, iBotVI,
+                                     Planet.Ocean.surfIceEOS['VI'],
+                                     Planet.P_MPa[iTopVI:iBotVI],
+                                     Planet.T_K[iTopVI:iBotVI])
+
+    # Store melt fraction if using Kalousova
+    if Planet.Do.KALOUSOVA_CONVECTION:
+        # True temperate layer requires both eLid_m > 0 (Ra* > Ra*c yields a top
+        # conductive lid bounding a melt-bearing region) AND Dconv_m > 0 (a real
+        # convecting interior exists).  When subcritical, eLid = full layer and
+        # Dconv = 0, which is conductive, not temperate.
+        # Use a fixed representative melt fraction of 0.5 as a placeholder for the
+        # actual two-phase solver result.  Constants.phiPercolation (= 0.05) is the
+        # percolation threshold used inside Kalousova's outflow equations and is
+        # intentionally NOT changed here.
+        if Planet.eLidVI_m > 0 and Planet.DconvVI_m > 0:
+            Planet.DO_HP_MELT = True
+            Planet.meltFractionVI = 0.5  # Fixed-phi placeholder; full two-phase solver = TODO
+            log.info(f'Ice VI temperate layer detected: partial melting present in top {Planet.eLidVI_m/1e3:.3f} km '
+                     f'(meltFractionVI=0.5 placeholder; phi_perc unchanged at {Constants.phiPercolation})')
+        else:
+            Planet.meltFractionVI = 0.0
+
+    # Calculate heat flux density at ice VI layer base
+    r_base_VI_m = rTopVI_m  # Top of ice VI is also base of next layer up
+    A_base_VI_m2 = 4 * np.pi * r_base_VI_m**2
+    q_base_VI_mWm2 = Planet.Ocean.QfromMantle_W / A_base_VI_m2 * 1e3  # Convert W/m² to mW/m²
+
+    log.debug(f'Ice VI convection parameters:\n    T_convectVI = {Planet.TconvVI_K:.3f} K,\n' +
+              f'    Viscosity etaConvVI = {Planet.etaConvVI_Pas:.3e} Pa*s,\n' +
+              f'    Conductive lid thickness eLidVI = {Planet.eLidVI_m/1e3:.1f} km,\n' +
+              f'    Convecting layer thickness DconvVI = {Planet.DconvVI_m/1e3:.1f} km,\n' +
+              f'    Lower TBL thickness deltaTBLVI = {Planet.deltaTBLVI_m/1e3:.1f} km,\n' +
+              f'    Rayleigh number RaVI = {Planet.RaConvectVI:.3e}.')
+    log.info(f'Ice VI heat transport: q = {q_base_VI_mWm2:.2f} mW/m² ' +
+             f'(Total: {Planet.Ocean.QfromMantle_W/1e12:.3f} TW) through layer')
+
+    # Follow-up: full three-segment Ice VI profile (stagnant lid + adiabatic interior +
+    # lower TBL) modeled on IceVConvectSolid.  Requires Planet.Steps.nVbottom,
+    # nIceVILitho, layer allocation in IceLayers(), and IceVIConductSolid/Porous.
+    log.debug('Ice VI uses melting-curve T profile (uniform Tconv_K) as a simplified '
+              'placeholder; full lid+adiabat+TBL construction is scheduled.')
+
+    return Planet
+
+
+def IceVIConvectPorous(Planet, Params):
+    """ Apply convection models with porosity for ice VI layers
+        Currently not implemented - calls solid version
+    """
+    log.warning('Ice VI porous convection not implemented. Calling solid version.')
+    return IceVIConvectSolid(Planet, Params)

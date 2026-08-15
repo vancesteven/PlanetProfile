@@ -1,0 +1,1372 @@
+"""
+Body-agnostic structure-cache builder for the MCMC inference toolkit.
+
+Phase C1 Stage 3 deliverable. Mirrors the structure-build logic in
+``PlanetProfile.Test.Test50_mcmc_andrade_noocean_yao2014._build_single_structure``
+with the two body-specific anchors (PP test-module name and surface radius)
+parameterised. Test50 is left unchanged in this commit; a future cleanup can
+delete its private copy and import from here.
+
+Two public entry points:
+
+    build_single_structure(planet_template_module, Tb_K)
+        Run PlanetProfile once at one ``Tb_K`` and return the per-cell
+        cache dict consumed by ``MCMCRunner._make_flexible_log_likelihood``.
+
+    build_tb_grid_cache(planet_template_module, Tb_grid, output_path)
+        Loop ``build_single_structure`` over a ``Tb_K`` grid, save as
+        ``{'Tb_K_grid': [...], 'structures': [{...}, ...]}`` pickle.
+
+The output dict shape matches ``Test50``'s exactly so the existing runner
+paths (single-structure cache, grid-interpolated cache, v1 cached-CMR² and
+v2 mass-conservation paths) all consume it without changes.
+"""
+from __future__ import annotations
+
+import importlib
+import logging
+import os
+import pickle
+import sys
+import tempfile
+from typing import Any, Dict, Iterable, List, Tuple
+
+import numpy as np
+
+# Heavy PP imports are deferred to call-time so importing this module does
+# not initialise EOS tables. Tests of the cache_builder API should avoid
+# triggering ``build_single_structure`` unless a real PP environment is
+# available.
+
+log = logging.getLogger("PlanetProfile.Inference.cache_builder")
+
+
+# Body orbital parameters used by the k2 forward model. PP's default body
+# configs do not set ``Bulk.meanMotion_radps`` or ``Bulk.eccentricity``;
+# Test50 injects them inline for Titan. We do the same here for Phase C1
+# bodies via a lookup keyed on ``Planet.bodyname`` so the cache build
+# works against the unmodified body defaults.
+#
+# Sources:
+#   - Orbital periods from JPL satellite ephemerides (sat427/sat441).
+#   - Eccentricities from Murray & Dermott (1999) Table A.1 / NASA fact sheets.
+# Recompute meanMotion_radps as 2*pi / (T_days * 86400) when updating.
+BODY_ORBITAL_PARAMS: Dict[str, Dict[str, float]] = {
+    "Europa":   {"meanMotion_radps": 2.0479e-5, "eccentricity": 0.0094},
+    "Ganymede": {"meanMotion_radps": 1.0163e-5, "eccentricity": 0.0013},
+    "Callisto": {"meanMotion_radps": 4.358e-6,  "eccentricity": 0.0074},
+    "Titan":    {"meanMotion_radps": 4.560e-6,  "eccentricity": 0.0288},
+    # Enceladus: Torb 32.9 h (PPEnceladus/Archinal); ecc Jacobson 2006.
+    "Enceladus": {"meanMotion_radps": 5.307e-5, "eccentricity": 0.0047},
+}
+
+
+def _save_cache_atomic(data: Any, filepath: str) -> None:
+    """Atomic pickle write. Mirrors ``Test50._save_cache``."""
+    filepath = str(filepath)
+    parent = os.path.dirname(filepath) or "."
+    os.makedirs(parent, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(dir=parent, suffix=".pkl.tmp")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+        os.replace(tmp_path, filepath)
+    except BaseException:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
+
+
+def build_single_structure(
+    planet_template_module: str,
+    Tb_K: float,
+    ocean_overrides: Dict[str, Any] | None = None,
+    bulk_overrides: Dict[str, Any] | None = None,
+    planet_overrides: Dict[str, Any] | None = None,
+    do_overrides: Dict[str, Any] | None = None,
+    extrap_ocean: bool = False,
+) -> Dict[str, Any]:
+    """Run PlanetProfile once and return the cache dict for one ``Tb_K``.
+
+    Parameters
+    ----------
+    planet_template_module
+        Dotted import path of a PP body config module that exposes a
+        ``Planet`` object at module top-level (e.g. ``PlanetProfile.Default.
+        Europa.PPEuropa``, ``PlanetProfile.Test.PPTest50``). The function
+        deep-copies ``Planet`` and overrides ``Planet.Bulk.Tb_K``; the source
+        module is not mutated.
+    Tb_K
+        Basal-temperature override applied to the deep-copied Planet.
+    ocean_overrides
+        Optional dict of ``Planet.Ocean.<key>`` overrides applied after
+        the deep-copy. Use to switch composition (``{'comp': 'NaCl',
+        'wOcean_ppt': 100.0}``) or sweep concentration without
+        modifying the body's default template module. Each key/value
+        is applied via ``setattr(Planet.Ocean, key, value)``.
+    extrap_ocean
+        Per-build override for ``Params.EXTRAP_OCEAN`` (ocean/HP-ice EOS
+        density extrapolation above the composition's table cap). Default
+        ``False`` matches ``defaultConfig``. Threaded explicitly and
+        restored in a ``finally`` so a True value for one composition
+        (e.g. MgSO4, whose Choukroun-Grasset density table caps at 800 MPa
+        while Titan's deep ocean reaches ~1100 MPa) does NOT leak into other
+        compositions built in the same process — ``configParams`` is a
+        module-level singleton, so a caller-side global mutation would
+        contaminate every later build. Set from the config, not the global.
+
+    Returns
+    -------
+    A dict with keys: ``r_m``, ``rho``, ``K_Pa``, ``mu_Pa``, ``eta_Pa_base``,
+    ``phases``, ``T_K``, ``P_MPa``, ``bulk_visc``, ``changeIndices``,
+    ``n_layers``, ``layer_upper_radii``, ``layer_types``, ``region_phases``,
+    ``omega``, ``eccentricity``, ``host_mass``, ``a_m``, ``R_body_m``,
+    ``Mtot_kg``, ``CMR2``, ``Tb_K``, ``rhoSil_kgm3``, ``D_hsphere_km``,
+    ``D_iceIh_km``, ``D_iceIII_km``, ``D_iceV_km``, ``D_iceVI_km``.
+    """
+    from copy import deepcopy
+
+    from PlanetProfile.GetConfig import Params as configParams
+    from PlanetProfile.Gravity.Gravity import SetupGravity
+    from PlanetProfile.Main import PlanetProfile as RunPP
+    from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
+    from PlanetProfile.Utilities.Indexing import PhaseConv
+
+    EOSlist.loaded.clear()
+
+    # Re-import the template module to pick up any in-process edits, then
+    # deep-copy its Planet object so this call doesn't pollute the source.
+    if planet_template_module in sys.modules:
+        importlib.reload(sys.modules[planet_template_module])
+    else:
+        importlib.import_module(planet_template_module)
+    mod = sys.modules[planet_template_module]
+    Planet = deepcopy(mod.Planet)
+
+    Planet.Bulk.Tb_K = Tb_K
+
+    # Apply ocean overrides (e.g. composition switch, concentration sweep).
+    # Applied to the deep-copied Planet only — source module is unaffected.
+    if ocean_overrides:
+        for key, value in ocean_overrides.items():
+            if not hasattr(Planet.Ocean, key):
+                log.warning(
+                    f"ocean_overrides: Planet.Ocean has no attribute {key!r}; "
+                    "setting it anyway."
+                )
+            setattr(Planet.Ocean, key, value)
+        log.info(f"Applied ocean_overrides: {ocean_overrides}")
+
+    # Bulk overrides (e.g. {'Cuncertainty': 0.06} to widen the MoI matching
+    # window for cache builds: small bodies like Enceladus swing MoI hugely
+    # per 0.1 K of Tb, so the template's tight measurement window rejects
+    # every non-default Tb node — the inference constrains MoI through its
+    # CMR2/C20/C22 observables instead, so the cache must ACCEPT a range).
+    if bulk_overrides:
+        for key, value in bulk_overrides.items():
+            if not hasattr(Planet.Bulk, key):
+                log.warning(
+                    f"bulk_overrides: Planet.Bulk has no attribute {key!r}; "
+                    "setting it anyway."
+                )
+            setattr(Planet.Bulk, key, value)
+        log.info(f"Applied bulk_overrides: {bulk_overrides}")
+
+    # Planet-level overrides (top-level Planet attributes, NOT Planet.Ocean or
+    # Planet.Bulk). Needed for e.g. PfreezeUpper_MPa (the GetPfreeze ice-Ih
+    # transition search ceiling, defined on Planet directly in defineStructs;
+    # default 230 MPa), which the cold/fresh NH3 grid corners exceed. Applied
+    # to the deep-copied Planet only — source module is unaffected.
+    if planet_overrides:
+        for key, value in planet_overrides.items():
+            if not hasattr(Planet, key):
+                log.warning(
+                    f"planet_overrides: Planet has no attribute {key!r}; "
+                    "setting it anyway."
+                )
+            setattr(Planet, key, value)
+        log.info(f"Applied planet_overrides: {planet_overrides}")
+
+    # Do overrides (Planet.Do switch flags, NOT Planet / Planet.Ocean /
+    # Planet.Bulk). Used by the 2D cache builder's frozen-node retry to set
+    # ``NO_OCEAN_EXCEPT_INNER_ICES=True`` so a genuinely-frozen (Tb,w) node
+    # builds as a real no-ocean structure (HP-ice column, own k2/gravity)
+    # instead of raising — the mechanism behind the joint no-ocean+ocean Titan
+    # NH3 posterior. Applied to the deep-copied Planet.Do only; the source
+    # template module is unaffected.
+    if do_overrides:
+        for key, value in do_overrides.items():
+            if not hasattr(Planet.Do, key):
+                log.warning(
+                    f"do_overrides: Planet.Do has no attribute {key!r}; "
+                    "setting it anyway."
+                )
+            setattr(Planet.Do, key, value)
+        log.info(f"Applied do_overrides: {do_overrides}")
+
+    # Inject orbital params if the PP default config didn't set them.
+    # Required by the k2 forward model (rheology path); not used by the v2
+    # CMR² mass-conservation path itself.
+    if getattr(Planet.Bulk, "meanMotion_radps", None) is None:
+        # Synchronous rotators: derive mean motion from the template's
+        # orbital period when set (e.g. PPEnceladus defines Torb_s but
+        # not meanMotion_radps) before falling back to the table.
+        Torb_s = getattr(Planet.Bulk, "Torb_s", None)
+        if Torb_s is not None and np.isfinite(Torb_s) and Torb_s > 0:
+            Planet.Bulk.meanMotion_radps = 2.0 * np.pi / float(Torb_s)
+        body_orb = BODY_ORBITAL_PARAMS.get(getattr(Planet, "bodyname", ""))
+        if getattr(Planet.Bulk, "meanMotion_radps", None) is not None:
+            pass
+        elif body_orb is not None:
+            Planet.Bulk.meanMotion_radps = body_orb["meanMotion_radps"]
+            if getattr(Planet.Bulk, "eccentricity", None) is None:
+                Planet.Bulk.eccentricity = body_orb["eccentricity"]
+        else:
+            log.warning(
+                f"Planet.Bulk.meanMotion_radps is None for body "
+                f"{getattr(Planet, 'bodyname', '?')!r} and not in "
+                "BODY_ORBITAL_PARAMS. The k2 forward model will fail "
+                "for this cache; CMR² inference still works."
+            )
+
+    configParams.Gravity.backend = "tidalpy"
+    configParams.CALC_NEW = True
+    configParams.CALC_NEW_GRAVITY = False
+    configParams.NO_SAVEFILE = True
+    configParams.SKIP_PLOTS = True
+
+    # EXTRAP_OCEAN is read only during EOS construction inside RunPP/SetupInit,
+    # so set it from the per-build parameter and restore the module-level
+    # singleton immediately after SetupGravity. try/finally guarantees the
+    # restore even if PP raises — otherwise a True value would leak into every
+    # subsequent build in this process (reviewer acc725ea R1, 2026-07-27).
+    _prior_extrap_ocean = configParams.EXTRAP_OCEAN
+    try:
+        configParams.EXTRAP_OCEAN = bool(extrap_ocean)
+        Planet, Params = RunPP(Planet, configParams)
+        Params.CALC_NEW_GRAVITY = True
+        Planet, Params = SetupGravity(Planet, Params)
+    finally:
+        configParams.EXTRAP_OCEAN = _prior_extrap_ocean
+
+    # Surface radius — body-agnostic, pulled from the Planet object that PP
+    # populated from the template module.
+    R_body_m = float(Planet.Bulk.R_m)
+
+    # ------------------------------------------------------------------
+    # The remainder of this function is a verbatim copy of Test50's
+    # _build_single_structure body, with TITAN_R_M replaced by R_body_m.
+    # ------------------------------------------------------------------
+    model = Planet.Gravity.ALMAModel["model"]
+    cols = Planet.Gravity.columns
+    rIndex = cols.index("r")
+    rhoIndex = cols.index("rho")
+    VPIndex = cols.index("VP")
+    GSIndex = cols.index("GS")
+    etaIndex = cols.index("eta")
+    pIndex = cols.index("phase")
+
+    r_m = model[:, rIndex].astype(np.float64)
+    rho = model[:, rhoIndex].astype(np.float64)
+    mu_Pa = model[:, GSIndex].astype(np.float64)
+    VP_ms = model[:, VPIndex].astype(np.float64)
+    eta_Pa_base = model[:, etaIndex].astype(np.float64)
+    phases = model[:, pIndex]
+
+    try:
+        T_K_primary = np.asarray(Planet.T_K, dtype=np.float64)
+        r_m_primary = np.asarray(Planet.r_m[: T_K_primary.size], dtype=np.float64)
+        sort_idx = np.argsort(r_m_primary)
+        T_K = np.interp(r_m, r_m_primary[sort_idx], T_K_primary[sort_idx])
+    except (AttributeError, ValueError) as _exc:
+        T_K = np.full(r_m.size, np.nan)
+        log.warning(
+            f"Planet.T_K extraction failed ({_exc}) — Arrhenius Ih viscosity will be skipped."
+        )
+
+    try:
+        P_MPa_primary = np.asarray(Planet.P_MPa[: T_K_primary.size], dtype=np.float64)
+        P_MPa = np.interp(r_m, r_m_primary[sort_idx], P_MPa_primary[sort_idx])
+    except (AttributeError, ValueError, NameError) as _exc:
+        P_MPa = np.full(r_m.size, np.nan)
+        log.warning(
+            f"Planet.P_MPa extraction failed ({_exc}) — no-ocean safeguard will be disabled."
+        )
+
+    K_Pa = rho * VP_ms ** 2 - (4.0 / 3.0) * mu_Pa
+    nan_mask = ~np.isfinite(K_Pa) | (K_Pa <= 0)
+    if np.any(nan_mask):
+        for i in np.where(nan_mask)[0]:
+            ph = int(phases[i])
+            if 50 <= ph < 100:
+                nu = 0.25
+            elif ph >= 100:
+                nu = 0.29
+            else:
+                nu = 0.33
+            K_Pa[i] = 2.0 * mu_Pa[i] * (1.0 + nu) / (3.0 * (1.0 - 2.0 * nu))
+    K_Pa = np.maximum(K_Pa, 1e6)
+
+    changeIndices = np.max(Planet.Reduced.changeIndices) - np.flipud(
+        Planet.Reduced.changeIndices
+    )
+    n_layers = len(changeIndices) - 1
+
+    MIN_POINTS = 5
+    needs_padding = any(
+        changeIndices[i + 1] - changeIndices[i] < MIN_POINTS
+        for i in range(n_layers)
+    )
+
+    _orig_iConv = np.flipud(Planet.Reduced.iConv)
+    region_phases = []
+    for i_layer in range(n_layers):
+        start = changeIndices[i_layer]
+        phase = phases[start]
+        if phase >= Constants.phaseClath and phase < Constants.phaseClath + 10:
+            phase = Constants.phaseClath
+        convection = _orig_iConv[start]
+        phase_str = PhaseConv(phase, liq="0")
+        if convection:
+            phase_str += "_conv"
+        region_phases.append(phase_str)
+
+    bulk_visc = np.zeros_like(eta_Pa_base)
+
+    if needs_padding:
+        new_r, new_rho, new_K, new_mu, new_eta, new_phases, new_bv, new_T, new_P = (
+            [], [], [], [], [], [], [], [], []
+        )
+        new_ci = [0]
+        for i_layer in range(n_layers):
+            s, e = changeIndices[i_layer], changeIndices[i_layer + 1]
+            n_pts = e - s
+            if n_pts < MIN_POINTS and n_pts >= 2:
+                r_layer = r_m[s:e]
+                r_interp = np.linspace(r_layer[0], r_layer[-1], MIN_POINTS)
+                new_r.append(r_interp)
+                new_rho.append(np.interp(r_interp, r_layer, rho[s:e]))
+                new_K.append(np.interp(r_interp, r_layer, K_Pa[s:e]))
+                new_mu.append(np.interp(r_interp, r_layer, mu_Pa[s:e]))
+                new_eta.append(np.interp(r_interp, r_layer, eta_Pa_base[s:e]))
+                new_phases.append(np.full(MIN_POINTS, phases[s]))
+                new_bv.append(np.zeros(MIN_POINTS))
+                new_T.append(np.interp(r_interp, r_layer, T_K[s:e]))
+                new_P.append(np.interp(r_interp, r_layer, P_MPa[s:e]))
+                new_ci.append(new_ci[-1] + MIN_POINTS)
+            elif n_pts == 1:
+                r_top = r_m[s]
+                r_bot = r_m[s - 1] if s > 0 else r_top - 1.0
+                if r_bot >= r_top:
+                    r_bot = r_top - 1.0
+                r_interp = np.linspace(r_bot, r_top, MIN_POINTS)
+                new_r.append(r_interp)
+                new_rho.append(np.full(MIN_POINTS, rho[s]))
+                new_K.append(np.full(MIN_POINTS, K_Pa[s]))
+                new_mu.append(np.full(MIN_POINTS, mu_Pa[s]))
+                new_eta.append(np.full(MIN_POINTS, eta_Pa_base[s]))
+                new_phases.append(np.full(MIN_POINTS, phases[s]))
+                new_bv.append(np.zeros(MIN_POINTS))
+                T_lo = T_K[s - 1] if s > 0 and np.isfinite(T_K[s - 1]) else T_K[s]
+                T_hi = T_K[s] if np.isfinite(T_K[s]) else T_lo
+                new_T.append(np.linspace(T_lo, T_hi, MIN_POINTS))
+                P_lo = P_MPa[s - 1] if s > 0 and np.isfinite(P_MPa[s - 1]) else P_MPa[s]
+                P_hi = P_MPa[s] if np.isfinite(P_MPa[s]) else P_lo
+                new_P.append(np.linspace(P_lo, P_hi, MIN_POINTS))
+                new_ci.append(new_ci[-1] + MIN_POINTS)
+            else:
+                new_r.append(r_m[s:e])
+                new_rho.append(rho[s:e])
+                new_K.append(K_Pa[s:e])
+                new_mu.append(mu_Pa[s:e])
+                new_eta.append(eta_Pa_base[s:e])
+                new_phases.append(phases[s:e])
+                new_bv.append(bulk_visc[s:e])
+                new_T.append(T_K[s:e])
+                new_P.append(P_MPa[s:e])
+                new_ci.append(new_ci[-1] + (e - s))
+
+        r_m = np.concatenate(new_r)
+        rho = np.concatenate(new_rho)
+        K_Pa = np.concatenate(new_K)
+        mu_Pa = np.concatenate(new_mu)
+        eta_Pa_base = np.concatenate(new_eta)
+        phases = np.concatenate(new_phases)
+        bulk_visc = np.concatenate(new_bv)
+        P_MPa = np.concatenate(new_P)
+        T_K = np.concatenate(new_T)
+        changeIndices = np.array(new_ci)
+
+    layer_upper_radii: List[float] = []
+    layer_types: List[str] = []
+    for i_layer in range(n_layers):
+        end = changeIndices[i_layer + 1]
+        layer_upper_radii.append(r_m[end - 1])
+        layer_types.append(
+            "liquid" if phases[changeIndices[i_layer]] == 0 else "solid"
+        )
+
+    omega = Planet.Bulk.meanMotion_radps
+    ecc = Planet.Bulk.eccentricity
+    host_mass = Constants.parentMass_kg[Planet.parent]
+    a_m = (Constants.G * host_mass / omega ** 2) ** (1.0 / 3.0)
+
+    D_iceIh_km = D_iceIII_km = D_iceV_km = D_iceVI_km = 0.0
+    D_ocean_km_direct = D_clath_km = 0.0
+    for i_layer in range(n_layers):
+        s = changeIndices[i_layer]
+        e = changeIndices[i_layer + 1]
+        ph = int(phases[s])
+        thick_km = (r_m[e - 1] - r_m[s]) / 1e3
+        if ph == 1:
+            D_iceIh_km += thick_km
+        elif ph == 3:
+            D_iceIII_km += thick_km
+        elif ph == 5:
+            D_iceV_km += thick_km
+        elif ph == 6:
+            D_iceVI_km += thick_km
+        elif ph == 0:
+            D_ocean_km_direct += thick_km
+        elif ph == Constants.phaseClath:
+            D_clath_km += thick_km
+
+    CMR2_pp = Planet.Bulk.Cmeasured if hasattr(Planet.Bulk, "Cmeasured") else np.nan
+    try:
+        CMR2_pp = float(Planet.CMR2mean)
+    except (AttributeError, TypeError):
+        pass
+
+    R_sil = getattr(Planet.Sil, "Rmean_m", r_m[0])
+    D_hsphere_km = (R_body_m - R_sil) / 1e3
+
+    # C2-A: gravity-coefficient observables. Planet.J2 / Planet.C22 are set
+    # by SetupGravity (or the layer-build) and may be None if the body
+    # config didn't request a gravity calc. NaN-default keeps the cache
+    # writeable; the runner rejects samples with non-finite predictions.
+    J2_pred = getattr(Planet, "J2", None)
+    if J2_pred is None or not np.isfinite(J2_pred):
+        J2_pred = np.nan
+    C22_pred = getattr(Planet, "C22", None)
+    if C22_pred is None or not np.isfinite(C22_pred):
+        C22_pred = np.nan
+
+    # C2-B: electrical-conductivity profile for magnetic induction.
+    # Planet.sigma_Sm (S/m) is per-cell on the original Reduced.r grid.
+    # Resample it onto the cache's r_m grid (which has the layer-padding
+    # applied) by linear interpolation. NaN cells in input are left as NaN
+    # in output — induction code skips them.
+    try:
+        sigma_full = np.asarray(Planet.sigma_Sm, dtype=np.float64)
+        if sigma_full.ndim != 1:
+            raise ValueError("Planet.sigma_Sm is not 1-D")
+        # Reduced.r is the same grid Reduced.changeIndices indexes into;
+        # pre-padding it matches r_m_primary (which we built earlier from
+        # Planet.r_m).  We interpolate against r_m_primary if it's available
+        # in scope; otherwise use a uniform fallback.
+        try:
+            sigma_primary = sigma_full[: T_K_primary.size]
+            sigma_Sm = np.interp(r_m, r_m_primary[sort_idx], sigma_primary[sort_idx])
+        except (NameError, ValueError):
+            sigma_Sm = np.full(r_m.size, np.nan)
+    except (AttributeError, ValueError, TypeError) as _exc:
+        log.debug(f"sigma_Sm unavailable ({_exc}); cache field set to NaN.")
+        sigma_Sm = np.full(r_m.size, np.nan)
+
+    # C2-B: layered representation for the induction forward model.
+    # Planet.Magnetic.{rSigChange_m, sigmaLayers_Sm} are short arrays
+    # (~5–10 entries, one per σ region). Planet.Magnetic.Texc_hr is a
+    # numpy array of *periods only* — the canonical labels live in the
+    # body-keyed lookup table in MagneticInduction.Moments.ExcitationsList.
+    # We zip the two together below so the cache exposes a label→period
+    # dict that the induction forward model can consume directly.
+    # Note: PP skips MagneticInduction entirely when Ocean.comp == 'PureH2O'
+    # (see PlanetProfile/Main.py:352), so for pure-water bodies these
+    # fields will all be None — that is expected, not a bug.
+    rSigChange_m = None
+    sigmaLayers_Sm = None
+    Texc_hr = None
+    try:
+        mag = Planet.Magnetic
+        if mag.rSigChange_m is not None:
+            rSigChange_m = np.asarray(mag.rSigChange_m, dtype=np.float64)
+        if mag.sigmaLayers_Sm is not None:
+            sigmaLayers_Sm = np.asarray(mag.sigmaLayers_Sm, dtype=np.float64)
+        if mag.Texc_hr is not None:
+            periods = np.asarray(mag.Texc_hr, dtype=np.float64).ravel()
+            try:
+                from PlanetProfile.MagneticInduction.Moments import (
+                    ExcitationsList,
+                )
+                body_table = ExcitationsList().Texc_hr.get(
+                    getattr(Planet, "bodyname", None), {}
+                )
+                # Match each cached period to its closest labelled period.
+                Texc_hr = {}
+                for p in periods:
+                    if not np.isfinite(p):
+                        continue
+                    best_label = None
+                    best_diff = np.inf
+                    for label, ref_p in body_table.items():
+                        if ref_p is None:
+                            continue
+                        d = abs(float(ref_p) - float(p))
+                        if d < best_diff:
+                            best_diff = d
+                            best_label = label
+                    key = best_label if best_label is not None else f"period_{p:.4f}hr"
+                    Texc_hr[str(key)] = float(p)
+            except (ImportError, AttributeError, TypeError) as _label_exc:
+                log.debug(
+                    f"Could not label Texc_hr periods ({_label_exc}); "
+                    "falling back to numeric keys."
+                )
+                Texc_hr = {f"period_{p:.4f}hr": float(p)
+                           for p in periods if np.isfinite(p)}
+    except (AttributeError, TypeError) as _exc:
+        log.debug(f"Magnetic substruct unavailable ({_exc}); induction "
+                  "fields set to None.")
+
+    # Phase-code → label mapping required by compute_heating (forward_models.py).
+    # Same hardcoded mapping as PlanetProfileApp's extract_structure_from_planet
+    # (structure_cache.py). PP phase codes: 0=ocean, 1=Ih, 2=II, 3=III, 5=V,
+    # 6=VI; PhaseConv() in Electrical.py is the source of truth, but we keep
+    # this dict here because compute_heating accesses it positionally and a
+    # round-trip through PhaseConv would slow the per-sample heating loop.
+    phase_map = {0: '0', 1: 'Ih', 2: 'II', 3: 'III', 5: 'V', 6: 'VI'}
+
+    return {
+        "r_m": np.ascontiguousarray(r_m),
+        "rho": np.ascontiguousarray(rho),
+        "K_Pa": np.ascontiguousarray(K_Pa),
+        "mu_Pa": np.ascontiguousarray(mu_Pa),
+        "eta_Pa_base": eta_Pa_base,
+        "phases": phases,
+        "T_K": np.ascontiguousarray(T_K),
+        "P_MPa": np.ascontiguousarray(P_MPa),
+        "bulk_visc": np.ascontiguousarray(bulk_visc),
+        "sigma_Sm": np.ascontiguousarray(sigma_Sm),
+        "changeIndices": changeIndices,
+        "n_layers": n_layers,
+        "layer_upper_radii": tuple(layer_upper_radii),
+        "layer_types": tuple(layer_types),
+        "region_phases": region_phases,
+        "phase_map": phase_map,
+        "omega": omega,
+        "eccentricity": ecc,
+        "host_mass": host_mass,
+        "a_m": a_m,
+        "R_body_m": R_body_m,
+        "Mtot_kg": Planet.Bulk.M_kg,
+        "CMR2": CMR2_pp,
+        "J2": float(J2_pred),
+        "C22": float(C22_pred),
+        # Read back from Planet.Bulk (post-run) rather than echoing the
+        # caller's input ``Tb_K`` unconditionally. Byte-identical to the old
+        # behaviour for every Tb-driven build (Do.ICEIh_THICKNESS=False):
+        # Planet.Bulk.Tb_K is never mutated on that path (verified against
+        # SetupInit.py, which only branches on Tb_K when ICEIh_THICKNESS is
+        # False, and LayerPropagators.py, which never reassigns it there).
+        # For a zb-driven build (Do.ICEIh_THICKNESS=True, Bulk.
+        # zb_approximate_km set -- B4 cache mode), GetIceShellTFreeze SOLVES
+        # for Tb_K and reassigns Planet.Bulk.Tb_K to the root-found value
+        # (LayerPropagators.py:53, ``Planet = GetIceShellTFreeze(Planet,
+        # Params)``); the caller's input Tb_K is then just an unused
+        # placeholder, and this field must read the solved value back.
+        "Tb_K": float(getattr(Planet.Bulk, "Tb_K", Tb_K)),
+        # Ocean salinity actually realized in this structure (g/kg). For v3
+        # (Tb × w) caches this is the second grid axis; for 1D v2 caches it
+        # simply records the fixed seawater value baked in at build time.
+        # Read back from Planet.Ocean so an ocean_overrides={'wOcean_ppt': w}
+        # is reflected faithfully (defineStructs sets it via 2-of-3 pairing).
+        "wOcean_ppt": float(getattr(Planet.Ocean, "wOcean_ppt", np.nan)),
+        "rhoSil_kgm3": getattr(Planet.Sil, "rhoMean_kgm3", np.nan),
+        "D_hsphere_km": D_hsphere_km,
+        "D_iceIh_km": D_iceIh_km,
+        "D_iceIII_km": D_iceIII_km,
+        "D_iceV_km": D_iceV_km,
+        "D_iceVI_km": D_iceVI_km,
+        # Clathrate shell thickness (phase code Constants.phaseClath). Summed
+        # directly from clathrate layers; 0.0 when the model has none.
+        "D_clath_km": D_clath_km,
+        # Ocean thickness = SUM of actual liquid (phase-0) layer thicknesses,
+        # matching find_tb_bounds.py:156-157 and hybrid_structure_cache.py.
+        # Previously this was D_hsphere − Σ(4 ice phases), which (a) omitted the
+        # clathrate shell and (b) dropped the ~few-km radial gaps between
+        # adjacent layers' boundary nodes — so a FULLY FROZEN hydrosphere (no
+        # phase-0 layer) reported a spurious ~16 km "ocean" (scientific-reviewer
+        # 2026-07-24: verified the residual = clathrate 1.9 km + 14.8 km node
+        # gaps, NOT liquid). Summing liquid layers gives a true 0 for no-ocean
+        # models and the correct thickness for ocean-bearing ones. This is a
+        # real computed 0, NOT the pt.get('D_ocean_km', 0.0) missing-key
+        # fallback that caused the Europa "no-ocean 100%" panel — the key is
+        # still present, so mcmc_plots (855/1069) reads a valid value.
+        "D_ocean_km": D_ocean_km_direct,
+        # C2-B induction layered representation
+        "rSigChange_m": rSigChange_m,
+        "sigmaLayers_Sm": sigmaLayers_Sm,
+        "Texc_hr": Texc_hr,
+    }
+
+
+def _regions_match(s0: Dict[str, Any], s1: Dict[str, Any]) -> bool:
+    """True if two structures share the same layer set (region_phases + n_layers)."""
+    return (
+        s0.get("region_phases") == s1.get("region_phases")
+        and s0.get("n_layers") == s1.get("n_layers")
+    )
+
+
+def _bisect_transition(
+    planet_template_module: str,
+    Tb_lo: float,
+    Tb_hi: float,
+    regions_lo: Any,
+    regions_hi: Any,
+    eps_T: float = 0.01,
+    max_iter: int = 20,
+    ocean_overrides: Dict[str, Any] | None = None,
+    bulk_overrides: Dict[str, Any] | None = None,
+    planet_overrides: Dict[str, Any] | None = None,
+    do_overrides: Dict[str, Any] | None = None,
+    extrap_ocean: bool = False,
+) -> List[Tuple[float, Dict[str, Any]]]:
+    """Bisect ``[Tb_lo, Tb_hi]`` to localise a layer-set transition.
+
+    The interval is shrunk until ``Tb_hi - Tb_lo < eps_T``. Each bisection
+    midpoint runs PP (via :func:`build_single_structure`) and is appended
+    to the returned list of ``(Tb, struct)`` pairs — the caller inserts
+    these into the overall grid, rather than throwing them away. The
+    converged anchor pair (final Tb_lo, final Tb_hi) bracket the actual
+    transition by less than ``eps_T``.
+
+    If a third layer set is discovered at a midpoint (multiple transitions
+    in the original interval), the function recurses into both
+    sub-intervals; the third regime's structure is also added to the
+    returned list.
+
+    Failures of the underlying PP build at a midpoint terminate refinement
+    early — the partially-narrowed interval is returned (with whatever
+    midpoints succeeded), and the caller still has the original endpoints
+    so coverage is preserved.
+    """
+    discovered: List[Tuple[float, Dict[str, Any]]] = []
+    iters = 0
+
+    while (Tb_hi - Tb_lo) > eps_T and iters < max_iter:
+        Tb_mid = 0.5 * (Tb_lo + Tb_hi)
+        try:
+            s_mid = build_single_structure(
+                planet_template_module, float(Tb_mid),
+                ocean_overrides=ocean_overrides,
+                bulk_overrides=bulk_overrides,
+                planet_overrides=planet_overrides,
+                do_overrides=do_overrides,
+                extrap_ocean=extrap_ocean,
+            )
+        except Exception as exc:
+            log.warning(
+                f"    × bisection midpoint Tb_K={Tb_mid:.4f} failed "
+                f"({type(exc).__name__}: {exc}); stopping refinement of this interval."
+            )
+            break
+
+        regions_mid = s_mid.get("region_phases")
+        if regions_mid == regions_lo:
+            Tb_lo = Tb_mid
+            discovered.append((Tb_mid, s_mid))
+        elif regions_mid == regions_hi:
+            Tb_hi = Tb_mid
+            discovered.append((Tb_mid, s_mid))
+        else:
+            log.info(
+                f"    third regime at Tb_K={Tb_mid:.4f}: {regions_mid}; "
+                "splitting bisection."
+            )
+            below = _bisect_transition(
+                planet_template_module, Tb_lo, Tb_mid,
+                regions_lo, regions_mid, eps_T, max_iter,
+                ocean_overrides=ocean_overrides,
+                bulk_overrides=bulk_overrides,
+                planet_overrides=planet_overrides,
+                do_overrides=do_overrides,
+                extrap_ocean=extrap_ocean,
+            )
+            above = _bisect_transition(
+                planet_template_module, Tb_mid, Tb_hi,
+                regions_mid, regions_hi, eps_T, max_iter,
+                ocean_overrides=ocean_overrides,
+                bulk_overrides=bulk_overrides,
+                planet_overrides=planet_overrides,
+                do_overrides=do_overrides,
+                extrap_ocean=extrap_ocean,
+            )
+            discovered.append((Tb_mid, s_mid))
+            discovered.extend(below)
+            discovered.extend(above)
+            break
+        iters += 1
+
+    return discovered
+
+
+def build_tb_grid_cache(
+    planet_template_module: str,
+    Tb_grid: Iterable[float],
+    output_path: str,
+    progress: bool = True,
+    detect_transitions: bool = True,
+    eps_T: float = 0.01,
+    ocean_overrides: Dict[str, Any] | None = None,
+    bulk_overrides: Dict[str, Any] | None = None,
+    planet_overrides: Dict[str, Any] | None = None,
+    do_overrides: Dict[str, Any] | None = None,
+    extrap_ocean: bool = False,
+) -> Dict[str, Any]:
+    """Build a Tb-grid cache by repeatedly calling ``build_single_structure``.
+
+    Two-phase build:
+
+    1. **Regular grid.** Run PP at each ``Tb`` in ``Tb_grid`` (sorted).
+       Skip-on-failure preserves coverage.
+    2. **Transition refinement.** When ``detect_transitions`` is True
+       (default), walk adjacent grid pairs and detect changes in
+       ``region_phases``. For each transition, bisect to within
+       ``eps_T`` Kelvin (default 0.01). The bisection midpoints are
+       added to the grid as extra structures, and the converged
+       endpoints flank the transition by < ``eps_T``. The returned
+       cache also carries a ``transitions`` metadata list so the
+       MCMC runner can dispatch nearest-neighbour across them
+       instead of attempting a layered blend.
+
+    Parameters
+    ----------
+    planet_template_module
+        See :func:`build_single_structure`.
+    Tb_grid
+        Iterable of Tb_K values (K). Cast to a 1-D numpy float array
+        and sorted ascending.
+    output_path
+        Pickle path. Atomic write via tempfile + os.replace.
+    progress
+        Per-grid-point INFO log lines (default True).
+    detect_transitions
+        If True (default), refine the grid near layer-set transitions.
+        Set to False to reproduce the unrefined v2.0 cache shape.
+    eps_T
+        Bisection tolerance in Kelvin (default 0.01). The anchor pair
+        flanking each transition is separated by < ``eps_T``.
+
+    Returns
+    -------
+    The saved-to-disk dict::
+
+        {'Tb_K_grid': np.ndarray,
+         'structures': [structure_dict, ...],
+         'transitions': [{'Tb_lo': float, 'Tb_hi': float,
+                          'regions_lo': [...], 'regions_hi': [...]},
+                         ...],
+         'schema_version': 'v2.1'}
+
+    The ``structures`` list is parallel to ``Tb_K_grid``; index ``i`` of
+    one matches index ``i`` of the other. ``transitions`` is empty when
+    no transitions were detected (or when ``detect_transitions`` is
+    False).
+    """
+    Tb_arr = np.asarray(list(Tb_grid), dtype=np.float64)
+    if Tb_arr.ndim != 1 or Tb_arr.size < 2:
+        raise ValueError(
+            f"Tb_grid must be a 1-D iterable with >= 2 points, got {Tb_arr!r}"
+        )
+    order = np.argsort(Tb_arr)
+    Tb_arr = Tb_arr[order]
+
+    # ----- Phase 1: regular grid -----
+    structures: List[Dict[str, Any]] = []
+    accepted_Tb: List[float] = []
+    skipped: List[Tuple[float, str]] = []
+    for i, Tb_K in enumerate(Tb_arr):
+        if progress:
+            log.info(
+                f"[{i + 1}/{Tb_arr.size}] Building structure at Tb_K={Tb_K:.4f}"
+            )
+        try:
+            struct = build_single_structure(
+                planet_template_module, float(Tb_K),
+                ocean_overrides=ocean_overrides,
+                bulk_overrides=bulk_overrides,
+                planet_overrides=planet_overrides,
+                do_overrides=do_overrides,
+                extrap_ocean=extrap_ocean,
+            )
+        except Exception as exc:
+            log.warning(
+                f"    × Tb_K={Tb_K:.4f} skipped — {type(exc).__name__}: {exc}"
+            )
+            skipped.append((float(Tb_K), f"{type(exc).__name__}: {exc}"))
+            continue
+        structures.append(struct)
+        accepted_Tb.append(float(Tb_K))
+        if progress:
+            log.info(
+                f"    → CMR²={struct.get('CMR2', float('nan')):.4f}, "
+                f"D_iceIh={struct.get('D_iceIh_km', 0.0):.1f} km, "
+                f"D_hsphere={struct.get('D_hsphere_km', 0.0):.1f} km"
+            )
+
+    if not structures:
+        raise RuntimeError(
+            f"All {Tb_arr.size} Tb points failed; no cache to write. "
+            f"Skipped: {skipped!r}"
+        )
+    if skipped and progress:
+        log.warning(
+            f"Regular grid built with gaps: {len(skipped)}/{Tb_arr.size} "
+            f"Tb points skipped — {[f'{t:.2f}' for t, _ in skipped]}"
+        )
+
+    # ----- Phase 2: transition refinement -----
+    extra_Tb: List[float] = []
+    extra_structs: List[Dict[str, Any]] = []
+    if detect_transitions:
+        for i in range(len(structures) - 1):
+            s0, s1 = structures[i], structures[i + 1]
+            if _regions_match(s0, s1):
+                continue
+            Tb_a, Tb_b = accepted_Tb[i], accepted_Tb[i + 1]
+            if progress:
+                log.info(
+                    f"  Transition in [{Tb_a:.4f}, {Tb_b:.4f}]: "
+                    f"{s0.get('region_phases')} → {s1.get('region_phases')}; "
+                    f"refining to ε_T={eps_T:.4f} K"
+                )
+            new_points = _bisect_transition(
+                planet_template_module, Tb_a, Tb_b,
+                s0.get("region_phases"), s1.get("region_phases"),
+                eps_T=eps_T,
+                ocean_overrides=ocean_overrides,
+                bulk_overrides=bulk_overrides,
+                planet_overrides=planet_overrides,
+                do_overrides=do_overrides,
+                extrap_ocean=extrap_ocean,
+            )
+            for Tb_new, s_new in new_points:
+                extra_Tb.append(float(Tb_new))
+                extra_structs.append(s_new)
+
+    # ----- Merge + sort -----
+    all_Tb = accepted_Tb + extra_Tb
+    all_structs = structures + extra_structs
+    order2 = np.argsort(all_Tb)
+    final_Tb = np.asarray([all_Tb[i] for i in order2], dtype=np.float64)
+    final_structs = [all_structs[i] for i in order2]
+
+    # ----- Build transitions metadata from the final, refined grid -----
+    transitions: List[Dict[str, Any]] = []
+    for i in range(len(final_structs) - 1):
+        s0, s1 = final_structs[i], final_structs[i + 1]
+        if not _regions_match(s0, s1):
+            transitions.append({
+                "Tb_lo": float(final_Tb[i]),
+                "Tb_hi": float(final_Tb[i + 1]),
+                "regions_lo": list(s0.get("region_phases", [])),
+                "regions_hi": list(s1.get("region_phases", [])),
+            })
+
+    cache = {
+        "Tb_K_grid": final_Tb,
+        "structures": final_structs,
+        "transitions": transitions,
+        "schema_version": "v2.1",
+    }
+    _save_cache_atomic(cache, output_path)
+    if progress:
+        n_extra = len(extra_Tb)
+        log.info(
+            f"Cache written → {output_path} "
+            f"({len(final_structs)} grid points: "
+            f"{Tb_arr.size} regular + {n_extra} from transition refinement; "
+            f"{len(transitions)} transition(s))"
+        )
+    return cache
+
+
+def build_tbw_grid_cache(
+    planet_template_module: str,
+    Tb_grid: Iterable[float],
+    wOcean_ppt_grid: Iterable[float],
+    output_path: str,
+    progress: bool = True,
+    ocean_overrides: Dict[str, Any] | None = None,
+    bulk_overrides: Dict[str, Any] | None = None,
+    planet_overrides: Dict[str, Any] | None = None,
+    do_overrides: Dict[str, Any] | None = None,
+    extrap_ocean: bool = False,
+    retry_frozen_as_no_ocean: bool = False,
+) -> Dict[str, Any]:
+    """Build a 2D (Tb × wOcean_ppt) structure-grid cache (schema ``v3.0``).
+
+    Europa Clipper v3 samples ocean salinity ``log10_wOcean_ppt`` as an 8th
+    parameter, so the 1D-in-Tb v2.1 cache becomes a 2D grid. Salinity is baked
+    into each cached structure at build time (via ``ocean_overrides=
+    {'wOcean_ppt': w}`` → ``Planet.Ocean.wOcean_ppt`` → the GSW/Seawater EOS →
+    the per-cell ``sigma_Sm`` conductivity profile that drives all induction
+    channels); NO runtime hook recomputes ocean EOS.
+
+    Unlike :func:`build_tb_grid_cache`, this builder uses a **fixed regular
+    grid with no transition refinement** — per-salinity refinement would place
+    different Tb nodes at each ``w`` and could not be stacked row-major. The
+    regular-grid choice is validated in Phase-1 pre-commit checks (max |ΔCMR²|
+    vs the refined v2 cache < 0.25σ; ocean-onset & |Ae_synodic|=0.7 edges
+    agree within one grid step) — see plans/europa-clipper-v3-salinity-plan.md.
+    HP ices (III/V/VI) are structurally impossible on the Europa GSW-seawater
+    path (basal ocean P ~156 MPa < the 200 MPa ``PminHPices_MPa`` cap), so the
+    only discontinuity a regular grid must resolve is ocean-onset (~260 K),
+    which coincides with the induction support edge.
+
+    Parameters
+    ----------
+    planet_template_module
+        See :func:`build_single_structure`.
+    Tb_grid
+        Iterable of basal-temperature values (K). Cast to 1-D float, sorted
+        ascending. Use a regular spacing (e.g. 0.125 K).
+    wOcean_ppt_grid
+        Iterable of ocean salinities (g/kg). Cast to 1-D float, sorted
+        ascending. Use log-spaced nodes (e.g. ``np.logspace(-1, 2, 16)`` for
+        0.1–100 ppt) so the low-w physics (synodic de-saturation, the
+        |Ae_synodic|=0.7 support contour) is resolved.
+    output_path
+        Pickle path. Atomic write via tempfile + ``os.replace``.
+    progress
+        Per-node INFO log lines (default True).
+    ocean_overrides
+        Optional ``Planet.Ocean.<key>`` overrides applied to EVERY node in
+        addition to the per-node ``wOcean_ppt``. The one field that MUST come
+        through here for salted-ocean caches is ``comp`` (e.g. ``'NaCl'``,
+        ``'NH3'``, ``'MgSO4'``): the composition is baked into each cached
+        structure at build time (it dispatches the ocean EOS in
+        ``HydroEOS.py``), and there is NO runtime hook to recompute it. If
+        ``comp`` is omitted the cache inherits the template module's
+        ``Planet.Ocean.comp`` (so e.g. a ``PureH2O`` template yields a
+        pure-water cache regardless of ``wOcean_ppt``). ``wOcean_ppt`` in this
+        dict is ignored — the salinity axis is always set per-node from
+        ``wOcean_ppt_grid``.
+
+    Returns
+    -------
+    The saved-to-disk dict::
+
+        {'Tb_K_grid': np.ndarray (n_Tb,),
+         'wOcean_ppt_grid': np.ndarray (n_w,),
+         'structures': [structure_dict | None, ...],  # row-major, len n_Tb*n_w
+         'ocean_comp': str | None,  # baked-in composition (from ocean_overrides)
+         'schema_version': 'v3.0'}
+
+    ``structures`` is row-major: entry ``i_Tb * n_w + i_w`` is the structure at
+    ``(Tb_K_grid[i_Tb], wOcean_ppt_grid[i_w])``. Failed/rejected builds are
+    stored as explicit ``None`` (never silently dropped) so the 2D lookup can
+    reject those (Tb, w) corners. Each structure carries both ``Tb_K`` and
+    ``wOcean_ppt`` plus a ``has_ocean`` bool. The absence of ``wOcean_ppt_grid``
+    in a cache signals the legacy 1D path, so v1/v2 artifacts stay servable.
+
+    retry_frozen_as_no_ocean
+        When True (used by the joint no-ocean+ocean Titan NH3 campaign), a node
+        that raises :class:`NoIceLiquidTransitionError` (genuinely frozen: no
+        ice-Ih->liquid transition for this Tb/w) is retried ONCE as a real
+        no-ocean structure via ``do_overrides={'NO_OCEAN_EXCEPT_INNER_ICES':
+        True}`` and stored (tagged ``has_ocean=False``) instead of ``None``.
+        This is the ONLY failure that triggers the retry — thin-shell /
+        PHydroMax / EOS-extrapolation failures (and any retry that itself
+        fails) still store ``None``. Default False preserves the ocean-only
+        behavior of every existing 2D cache (Europa v3/v5/v6/v7). The cache
+        dict then also carries ``retry_frozen_as_no_ocean`` and
+        ``n_no_ocean_nodes``.
+    """
+    # Deferred (defineStructs pulls in matplotlib/cmasher); only needed when the
+    # frozen-node retry is active, but cheap to import unconditionally here.
+    from PlanetProfile.Utilities.defineStructs import NoIceLiquidTransitionError
+
+    Tb_arr = np.asarray(list(Tb_grid), dtype=np.float64)
+    w_arr = np.asarray(list(wOcean_ppt_grid), dtype=np.float64)
+    if Tb_arr.ndim != 1 or Tb_arr.size < 2:
+        raise ValueError(
+            f"Tb_grid must be a 1-D iterable with >= 2 points, got {Tb_arr!r}"
+        )
+    if w_arr.ndim != 1 or w_arr.size < 2:
+        raise ValueError(
+            f"wOcean_ppt_grid must be a 1-D iterable with >= 2 points, "
+            f"got {w_arr!r}"
+        )
+    Tb_arr = Tb_arr[np.argsort(Tb_arr)]
+    w_arr = w_arr[np.argsort(w_arr)]
+
+    # Composition (and any other Ocean.* overrides) applied to every node.
+    # ``wOcean_ppt`` is set per-node below, so drop it if present here to
+    # avoid a stale scalar overriding the salinity axis.
+    base_overrides = dict(ocean_overrides or {})
+    base_overrides.pop("wOcean_ppt", None)
+    ocean_comp = base_overrides.get("comp")
+    if progress and ocean_comp is not None:
+        log.info(f"Ocean composition baked into every node: comp={ocean_comp!r}")
+
+    n_Tb, n_w = Tb_arr.size, w_arr.size
+    total = n_Tb * n_w
+    structures: List[Dict[str, Any] | None] = [None] * total
+    n_ok = 0
+    n_fail = 0
+    for i_Tb, Tb_K in enumerate(Tb_arr):
+        for i_w, w_ppt in enumerate(w_arr):
+            flat = i_Tb * n_w + i_w
+            if progress:
+                log.info(
+                    f"[{flat + 1}/{total}] Tb_K={Tb_K:.4f} "
+                    f"wOcean_ppt={w_ppt:.4f}"
+                )
+            try:
+                struct = build_single_structure(
+                    planet_template_module, float(Tb_K),
+                    ocean_overrides={**base_overrides,
+                                     "wOcean_ppt": float(w_ppt)},
+                    bulk_overrides=bulk_overrides,
+                    planet_overrides=planet_overrides,
+                    do_overrides=do_overrides,
+                    extrap_ocean=extrap_ocean,
+                )
+                struct["has_ocean"] = True
+            except NoIceLiquidTransitionError as frozen_exc:
+                # Genuinely-frozen node: Tb is too cold (given this w's
+                # freezing-point depression) for a liquid ocean to exist in the
+                # Pfreeze window — GetPfreeze found no ice-Ih->liquid transition
+                # (typed subclass; NOT a thin-shell / PHydroMax / EOS failure).
+                # For the joint no-ocean+ocean posterior, retry this node ONCE
+                # as a real no-ocean structure (NO_OCEAN_EXCEPT_INNER_ICES: the
+                # "ocean" cells become high-pressure ice; k2/gravity computed on
+                # the frozen column) so it enters the cache instead of being
+                # stored as None (which the 2D interpolant would reject,
+                # implicitly conditioning the posterior on "an ocean exists").
+                # comp is kept (e.g. NH3): the NH3-depressed liquidus still sets
+                # the HP-ice temperature profile via GetTfreeze, so these frozen
+                # structures are NOT identical to a PureH2O no-ocean build.
+                if not retry_frozen_as_no_ocean:
+                    log.warning(
+                        f"    × (Tb={Tb_K:.4f}, w={w_ppt:.4f}) → None — "
+                        f"NoIceLiquidTransitionError: {frozen_exc}"
+                    )
+                    structures[flat] = None
+                    n_fail += 1
+                    continue
+                try:
+                    struct = build_single_structure(
+                        planet_template_module, float(Tb_K),
+                        ocean_overrides={**base_overrides,
+                                         "wOcean_ppt": float(w_ppt)},
+                        bulk_overrides=bulk_overrides,
+                        planet_overrides=planet_overrides,
+                        do_overrides={**(do_overrides or {}),
+                                      "NO_OCEAN_EXCEPT_INNER_ICES": True},
+                        extrap_ocean=extrap_ocean,
+                    )
+                    struct["has_ocean"] = False
+                    if progress:
+                        log.info(
+                            f"    ↻ (Tb={Tb_K:.4f}, w={w_ppt:.4f}) frozen → "
+                            f"rebuilt as no-ocean (NO_OCEAN_EXCEPT_INNER_ICES)"
+                        )
+                except Exception as retry_exc:
+                    log.warning(
+                        f"    × (Tb={Tb_K:.4f}, w={w_ppt:.4f}) frozen retry "
+                        f"failed → None — "
+                        f"{type(retry_exc).__name__}: {retry_exc}"
+                    )
+                    structures[flat] = None
+                    n_fail += 1
+                    continue
+            except Exception as exc:
+                log.warning(
+                    f"    × (Tb={Tb_K:.4f}, w={w_ppt:.4f}) → None — "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                structures[flat] = None
+                n_fail += 1
+                continue
+            structures[flat] = struct
+            n_ok += 1
+            if progress:
+                log.info(
+                    f"    → CMR²={struct.get('CMR2', float('nan')):.4f}, "
+                    f"D_ocean={struct.get('D_ocean_km', 0.0):.1f} km, "
+                    f"D_iceIh={struct.get('D_iceIh_km', 0.0):.1f} km, "
+                    f"has_ocean={struct.get('has_ocean')}"
+                )
+
+    if n_ok == 0:
+        raise RuntimeError(
+            f"All {total} (Tb, w) nodes failed; no cache to write."
+        )
+
+    n_no_ocean = sum(
+        1 for s in structures if s is not None and s.get("has_ocean") is False
+    )
+    cache = {
+        "Tb_K_grid": Tb_arr,
+        "wOcean_ppt_grid": w_arr,
+        "structures": structures,
+        "ocean_comp": ocean_comp,
+        "schema_version": "v3.0",
+        # Joint no-ocean+ocean metadata. When retry_frozen_as_no_ocean is on,
+        # genuinely-frozen (low-w, cold-Tb) nodes are rebuilt as no-ocean
+        # structures (tagged has_ocean=False) and enter the cache instead of
+        # being stored as None — so the amortized posterior spans BOTH frozen
+        # and ocean Titan interiors rather than being implicitly conditioned on
+        # "an ocean exists". The frozen branch models NO residual brine (the
+        # eutectic thin-brine regime is out of scope; ices are pure H2O with
+        # NH3 rejected to the — here absent — liquid). Each structure carries a
+        # per-node ``has_ocean`` bool.
+        "retry_frozen_as_no_ocean": bool(retry_frozen_as_no_ocean),
+        "n_no_ocean_nodes": int(n_no_ocean),
+    }
+    _save_cache_atomic(cache, output_path)
+    if progress:
+        log.info(
+            f"2D cache written → {output_path} "
+            f"({n_Tb} Tb × {n_w} w = {total} nodes: "
+            f"{n_ok} built, {n_fail} None)"
+        )
+    return cache
+
+
+def build_zbw_grid_cache(
+    planet_template_module: str,
+    zb_km_grid: Iterable[float],
+    wOcean_ppt_grid: Iterable[float],
+    output_path: str,
+    progress: bool = True,
+    ocean_overrides: Dict[str, Any] | None = None,
+    bulk_overrides: Dict[str, Any] | None = None,
+    planet_overrides: Dict[str, Any] | None = None,
+    do_overrides: Dict[str, Any] | None = None,
+    extrap_ocean: bool = False,
+    tb_placeholder_K: float = 272.0,
+    zb_tol_km: float | None = None,
+) -> Dict[str, Any]:
+    """Build a 2D (zb_km × wOcean_ppt) structure-grid cache -- B4.
+
+    OCEAN BRANCH ONLY (module spec
+    ``plans/active/enceladus-isostasy-module-spec.md`` /
+    ``enceladus_cassini_isostasy_7D.json`` blockers_open.B4/code_gaps): the
+    frozen branch's zb is DERIVED by mass conservation from a sampled rock
+    density, not sampled directly on a zb axis (see the config's
+    ``branch_model.frozen_branch``), and the underlying mass-conservation
+    node invariant (MAJOR-1, the two-part ``iSilStart`` retry fix) is
+    reviewer-blocked production physics that must NOT land unilaterally
+    (RESUME_NOTE.md). This builder only ever produces ocean-branch nodes;
+    it does not attempt the frozen branch at all -- a node whose achieved
+    structure has no phase-0 (liquid) layer is rejected to ``None``, same
+    as an out-of-tolerance zb miss.
+
+    Mechanism (PlanetProfile's existing "two-of-three" zb/Tb pairing,
+    ``Planet.Do.ICEIh_THICKNESS`` + ``Planet.Bulk.zb_approximate_km`` --
+    Main.py's ``oceanComp`` inductogram path, ``LayerPropagators.
+    GetIceShellTFreeze``): each node sets ``Bulk.zb_approximate_km`` to the
+    grid's target shell thickness and ``Do.ICEIh_THICKNESS=True``. That
+    clears the OTHER member of the pair -- SetupInit.py sets
+    ``Bulk.zb_approximate_km = nan`` when ``ICEIh_THICKNESS`` is False and,
+    symmetrically, ``GetIceShellTFreeze`` root-finds ``Tb_K`` and
+    REASSIGNS ``Planet.Bulk.Tb_K`` to the solved value -- so the ``Tb_K``
+    passed into :func:`build_single_structure` here is a placeholder only
+    (never read on this path; verified empirically). The SOLVED Tb_K is
+    read back via the ``"Tb_K"`` field of the returned structure dict
+    (fixed to read ``Planet.Bulk.Tb_K`` post-run rather than echo the
+    input -- see :func:`build_single_structure`).
+
+    Root-finding is only tolerance-bounded in TEMPERATURE space
+    (``GetIceShellTFreeze``'s internal ``xtol=Planet.TfreezeRes_K``), not
+    in zb space. At Enceladus gravity d(zb)/d(Tb) is enormous (~0.27 K
+    spans the WHOLE 5-45 km shell range per the config's own honesty
+    note), so a node can converge in T while still missing its zb target
+    by several km. This builder enforces the zb-placement invariant
+    explicitly (module spec / RESUME_NOTE ``zb_placement``): a node is
+    HARD REJECTED to ``None`` when
+    ``abs(D_iceIh_km_achieved - zb_km_target) >= zb_tol_km``.
+    ``D_iceIh_km`` (summed phase-Ih layer thickness, already computed by
+    :func:`build_single_structure`) is used as the "achieved zb" reading --
+    the existing, already-tested field for shell thickness in this
+    package; it is NOT bit-identical to PlanetProfile's own internal
+    ``Planet.zb_km`` (observed offset ~0.4 km on one probe structure,
+    plausibly the Melosh conductive-layer correction), which is not
+    exposed by :func:`build_single_structure`'s return contract.
+
+    NOT implemented here (explicitly out of scope -- reviewer-blocked
+    production physics, RESUME_NOTE.md "Blocked on reviewer sign-off"):
+    the per-node MASS-CONSERVATION invariant (MAJOR-1) and its two-part
+    ``iSilStart`` retry fix. This builder does not compute or gate on a
+    mass residual; only the zb-placement check above and ordinary build
+    failures reject nodes to ``None``.
+
+    Parameters
+    ----------
+    zb_km_grid
+        Iterable of target ice-shell thicknesses (km). Cast to 1-D float,
+        sorted ascending.
+    wOcean_ppt_grid
+        See :func:`build_tbw_grid_cache`.
+    tb_placeholder_K
+        Value passed as the (unused, overwritten-by-solve) ``Tb_K``
+        argument to :func:`build_single_structure`. Default 272.0 K is
+        empirically verified to build successfully across the Enceladus
+        template's zb range; override for a different body/template.
+    zb_tol_km
+        Half-width of the zb-placement acceptance window (km). Default
+        (``None``) uses half the smallest spacing in ``zb_km_grid``.
+
+    Returns
+    -------
+    The saved-to-disk dict::
+
+        {'zb_km_grid': np.ndarray (n_zb,),
+         'wOcean_ppt_grid': np.ndarray (n_w,),
+         'structures': [structure_dict | None, ...],  # row-major, len n_zb*n_w
+         'ocean_comp': str | None,
+         'schema_version': 'v3.1-zbw',
+         'zb_tol_km': float,
+         'n_zb_placement_rejected': int}
+
+    ``structures`` is row-major: entry ``i_zb * n_w + i_w`` is the
+    structure at ``(zb_km_grid[i_zb], wOcean_ppt_grid[i_w])``. Each
+    surviving structure additionally carries ``zb_km_node`` (the grid
+    target) alongside its existing ``Tb_K`` (now the SOLVED value) and
+    ``D_iceIh_km`` (the achieved zb) fields.
+    """
+    zb_arr = np.asarray(list(zb_km_grid), dtype=np.float64)
+    w_arr = np.asarray(list(wOcean_ppt_grid), dtype=np.float64)
+    if zb_arr.ndim != 1 or zb_arr.size < 2:
+        raise ValueError(
+            f"zb_km_grid must be a 1-D iterable with >= 2 points, got {zb_arr!r}"
+        )
+    if w_arr.ndim != 1 or w_arr.size < 2:
+        raise ValueError(
+            f"wOcean_ppt_grid must be a 1-D iterable with >= 2 points, "
+            f"got {w_arr!r}"
+        )
+    zb_arr = zb_arr[np.argsort(zb_arr)]
+    w_arr = w_arr[np.argsort(w_arr)]
+
+    if zb_tol_km is None:
+        zb_tol_km = float(np.min(np.diff(zb_arr)) / 2.0)
+    zb_tol_km = float(zb_tol_km)
+
+    base_overrides = dict(ocean_overrides or {})
+    base_overrides.pop("wOcean_ppt", None)
+    ocean_comp = base_overrides.get("comp")
+    if progress and ocean_comp is not None:
+        log.info(f"Ocean composition baked into every node: comp={ocean_comp!r}")
+
+    base_do_overrides = dict(do_overrides or {})
+    base_do_overrides["ICEIh_THICKNESS"] = True
+    base_bulk_overrides = dict(bulk_overrides or {})
+
+    n_zb, n_w = zb_arr.size, w_arr.size
+    total = n_zb * n_w
+    structures: List[Dict[str, Any] | None] = [None] * total
+    n_ok = 0
+    n_fail = 0
+    n_zb_reject = 0
+    for i_zb, zb_km in enumerate(zb_arr):
+        for i_w, w_ppt in enumerate(w_arr):
+            flat = i_zb * n_w + i_w
+            if progress:
+                log.info(
+                    f"[{flat + 1}/{total}] zb_km={zb_km:.4f} "
+                    f"wOcean_ppt={w_ppt:.4f}"
+                )
+            try:
+                struct = build_single_structure(
+                    planet_template_module, float(tb_placeholder_K),
+                    ocean_overrides={**base_overrides,
+                                     "wOcean_ppt": float(w_ppt)},
+                    bulk_overrides={**base_bulk_overrides,
+                                    "zb_approximate_km": float(zb_km)},
+                    planet_overrides=planet_overrides,
+                    do_overrides=base_do_overrides,
+                    extrap_ocean=extrap_ocean,
+                )
+            except Exception as exc:
+                log.warning(
+                    f"    × (zb={zb_km:.4f}, w={w_ppt:.4f}) → None — "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                structures[flat] = None
+                n_fail += 1
+                continue
+
+            has_ocean = bool(np.any(np.asarray(struct["phases"]) == 0))
+            if not has_ocean:
+                # Ocean-branch-only builder (see docstring): a frozen
+                # result at a requested zb is out of scope, not a failure
+                # to retry.
+                log.warning(
+                    f"    × (zb={zb_km:.4f}, w={w_ppt:.4f}) → None — "
+                    f"no phase-0 layer (frozen; ocean-branch-only builder)"
+                )
+                structures[flat] = None
+                n_fail += 1
+                continue
+
+            zb_actual_km = float(struct.get("D_iceIh_km", np.nan))
+            zb_residual_km = zb_actual_km - float(zb_km)
+            if not (np.isfinite(zb_actual_km)
+                    and abs(zb_residual_km) < zb_tol_km):
+                log.warning(
+                    f"    × (zb={zb_km:.4f}, w={w_ppt:.4f}) → None — "
+                    f"zb_placement invariant failed: achieved "
+                    f"{zb_actual_km:.4f} km, residual {zb_residual_km:+.4f} "
+                    f"km >= tol {zb_tol_km:.4f} km"
+                )
+                structures[flat] = None
+                n_zb_reject += 1
+                n_fail += 1
+                continue
+
+            struct["has_ocean"] = True
+            struct["zb_km_node"] = float(zb_km)
+            struct["zb_km_actual"] = zb_actual_km
+            struct["zb_residual_km"] = zb_residual_km
+            structures[flat] = struct
+            n_ok += 1
+            if progress:
+                log.info(
+                    f"    → Tb_K_solved={struct['Tb_K']:.4f}, "
+                    f"zb_actual={zb_actual_km:.4f} km "
+                    f"(residual {zb_residual_km:+.4f} km), "
+                    f"CMR²={struct.get('CMR2', float('nan')):.4f}"
+                )
+
+    if n_ok == 0:
+        raise RuntimeError(
+            f"All {total} (zb, w) nodes failed; no cache to write."
+        )
+
+    cache = {
+        "zb_km_grid": zb_arr,
+        "wOcean_ppt_grid": w_arr,
+        "structures": structures,
+        "ocean_comp": ocean_comp,
+        "schema_version": "v3.1-zbw",
+        "zb_tol_km": zb_tol_km,
+        "n_zb_placement_rejected": int(n_zb_reject),
+        # Ocean-branch-only (B4 scope; see docstring). A production
+        # frozen-branch grid (derived zb by mass conservation) is a
+        # separate, reviewer-blocked follow-on -- not built here.
+        "frozen_branch_supported": False,
+    }
+    _save_cache_atomic(cache, output_path)
+    if progress:
+        log.info(
+            f"zb×w cache written → {output_path} "
+            f"({n_zb} zb × {n_w} w = {total} nodes: "
+            f"{n_ok} built, {n_fail} None, "
+            f"{n_zb_reject} rejected by zb_placement)"
+        )
+    return cache

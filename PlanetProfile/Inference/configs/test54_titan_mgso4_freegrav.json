@@ -1,0 +1,93 @@
+{
+  "mode": "mcmc",
+  "bodyname": "Titan",
+  "gravity_forward_model": "clairaut_hydrostatic",
+  "param_space": {
+    "alpha":            {"prior_type": "uniform", "bounds": [0.15, 0.45]},
+    "log10_zeta":       {"prior_type": "uniform", "bounds": [-3.0, 2.0]},
+    "log10_eta_Ih":     {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_III":    {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_V":      {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_VI":     {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_sil":    {"prior_type": "uniform", "bounds": [18.0, 22.0]},
+    "Tb_K":             {"prior_type": "uniform", "bounds": [248.0, 258.0]},
+    "log10_wOcean_ppt": {"prior_type": "uniform", "bounds": [0.0, 2.2878]},
+    "R_core_km":        {"prior_type": "uniform", "bounds": [0.0, 2000.0]},
+    "rho_core_kgm3":    {"prior_type": "uniform", "bounds": [2591.0, 3600.0]},
+    "dC20_nh":          {"prior_type": "uniform", "bounds": [-2.0e-5, 2.0e-5]},
+    "dC22_nh":          {"prior_type": "uniform", "bounds": [-5.0e-6, 5.0e-6]}
+  },
+  "derived_params": {
+    "rho_sil_kgm3": {
+      "derivation": "mass_conservation",
+      "bounds": [1800.0, 3500.0],
+      "reject_if_outside_bounds": true,
+      "density_inversion_guard": true
+    }
+  },
+  "observables": {
+    "C20":   [-3.3511e-5, 4.71e-7],
+    "C22":   [1.0107e-5, 6.2e-8],
+    "Re_k2": [0.608, 0.048],
+    "Im_k2": [0.135, 0.035]
+  },
+  "sampler_settings": {
+    "n_effective": 500,
+    "n_reeval": 500,
+    "rheology": "andrade",
+    "arrhenius_params": {
+      "activation_energy_kJ_mol": {"Ih": 60.0},
+      "R_J_mol_K": 8.314462
+    },
+    "apply_support_guard": true,
+    "k2_support_bounds": {
+      "Re_k2": [-0.1, 1.5],
+      "Im_k2": [0.0, 1.0],
+      "_rationale": "Physical-k2 support guard, IDENTICAL box to titan_freegrav_noocean.json / test54_titan_nh3_freegrav.json / test54_titan_nacl_freegrav.json (scientific-reviewer a2d7f121). Fluid-limit secular Love ceiling k2<=3/2 => Re_k2 in [-0.1,1.5]; dissipation cannot exceed elastic response => |Im_k2| in [0,1.0]. Applied to the NOISELESS forward output before obs noise (imag_convention='abs' globally), counted as a support rejection so SBI training support == reference-MCMC effective support. Physics-anchored, NOT tuned to pass. In the JOINT posterior this box ADMITS frozen no-ocean nodes into the likelihood-disfavored low-k2 tail rather than support-rejecting them."
+    }
+  },
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Titan/Test54_mgso4_ocean/titan_mgso4_joint_structure_grid_2d.pkl",
+  "random_state": 73,
+  "planet_template_module": "PlanetProfile.Default.Titan.PPTitan",
+  "metadata": {
+    "schema_version": "titan_freegrav_v1 ocean (MgSO4) JOINT no-ocean+ocean posterior — test54_titan_mgso4_freegrav",
+    "gravity_ref_radius_m": 2575000.0,
+    "gravity_j2_over_c22": 3.3333333333,
+    "description": "Titan free-gravity SBI campaign, MgSO4-ocean interior model, Phase B of the Titan free-gravity plan (plans/fluffy-snacking-fountain.md). JOINT no-ocean + ocean posterior (same mechanism as the ratified NH3 artifact test54_titan_nh3_freegrav.json, Task #68): frozen (cold) nodes build as REAL no-ocean interiors (retry_frozen_as_no_ocean=True; comp='MgSO4' kept so the Margules liquidus sets the HP-ice temperature profile) and appear in the posterior. Interior priors, derived rho_sil (mass conservation), rheology/thermal parameter space, gravity channel, and observable vector are IDENTICAL to titan_freegrav_noocean.json / the NH3 & NaCl joint configs (reviewer action item 3: consistent dissipation across all interior models). Differences vs NH3/NaCl: (1) comp='MgSO4' (Choukroun-Grasset density + Margules phase, phaseType='lookup' = uncapped Pmax=inf, acc725ea R2), (2) Tb_K = the MgSO4 monotone-onset band [248,258] K (the genuine ~250 K nearly-FLAT onset, NOT NaCl's tilted [233,272] diagonal), (3) log10_wOcean_ppt upper bound = log10(194)=2.2878 (2-molal MgSO4 cap), (4) a MgSO4 2D (Tb x w) structure cache, (5) phase_stability.enforce DROPPED.",
+    "reference": "Petricca et al. (2025), Nature 648:558 (gravity C20/C22, k2, MoI); interior parameterization from test52. MgSO4 ocean EOS: PP MgSO4 (Choukroun-Grasset 2010 density + Margules liquidus); no SeaFreeze MgSO4 EOS is installed so comp='MgSO4' always routes to HydroEOS.py MgSO4 path.",
+    "salinity_axis_2026_08_06": {
+      "param": "log10_wOcean_ppt",
+      "bounds_log10": [0.0, 2.2878],
+      "range_ppt": [1.0, 194.0],
+      "ceiling_rationale": "MgSO4 2-molal cap: 2 mol/kg * 0.12037 / (1 + 2*0.12037) * 1000 = 194.1 ppt (mass fraction of solution). log10(194)=2.2878. Campaign spec lower limit 1 ppt. Prior uniform in log10 w (Jeffreys)."
+    },
+    "phase_stability_dropped_reason": "phase_stability.enforce is NOT set (contrast titan_freegrav_noocean.json 'no_ocean_Ih'). Omitting it admits BOTH the frozen no-ocean regime and the ocean regime into the joint posterior. density_inversion_guard + k2_support_bounds still apply uniformly.",
+    "mgso4_margules_island_exclusion_2026_08_06": "The MgSO4 phase diagram has a PATHOLOGICAL low-Tb ocean 'island' at the w=194 (2-molal) cap: ocean at Tb=239-240, frozen 242-249, ocean 250+ (onset probe). Scientific-reviewer (a3c9ed8ae24664527, 2026-08-06) adjudicated it a Margules-lookup MELTING-MONOTONICITY VIOLATION (at fixed P=215 MPa, a stable liquid at 239 K refreezes to ice III at 240.5 K — thermodynamically impossible), present ONLY at exactly w=194 (the free-energy crossover evaluated at the 2-molal validity edge, MgSO4Props.py::MgSO4PhaseMargules). It is NOT physical re-entrant melting. EXCLUDED from the training cache by construction: the Tb grid places NO nodes below 248 K at w>=180 ppt (fine band across the monotone ~250 K onset only). A post-build invariant asserts no cached node with w>=180 & Tb<248 carries has_ocean=True — necessary because retry_frozen_as_no_ocean triggers only on NoIceLiquidTransitionError and the island nodes build SUCCESSFULLY as phantom oceans (they do not raise). See project_mgso4_margules_island memory + /tmp/titan_probe/mgso4_island_finecheck.json.",
+    "extrap_ocean_2026_08_06": "extrap_ocean=True (NOT a no-op for MgSO4, contrast NaCl). The MgSO4 density table (EOS2_MgSO4_planetary_smaller) Pmax=800 MPa, but the deep w=194 ocean nodes reach P_basal ~1276-1371 MPa on the production PPTitan (core+porous-rock) template. Reviewer (a3c9ed8ae24664527, 2026-08-06) adjudicated extrap_ocean=True (RegularGridInterpolator linear extrapolation) over flat clamp: the linear extrap is physically sound (monotone rho, smoothly stiffening K_T 8699->9807 MPa over 800-1400, projection error ~1.5% at 1371 MPa water-benchmarked), whereas the clamp imposes an unphysical zero-compressibility density floor on ~500 km of deep brine. A hard 1400 MPa extrapolation CEILING rejects (stores None) any ocean node beyond it (fences runaway); nodes 800-1200 MPa flagged eos_extrapolated='mild', 1200-1400 MPa flagged 'deep' (~1-1.5% error); a post-build dρ/dP-in-[0.14,0.17]-band invariant catches defective columns. Every ocean struct carries P_basal_ocean_MPa. The w~194 tail of the posterior is entirely extrapolation-supported — carry this caveat in any high-salinity science claim.",
+    "gravity_provenance_2026_07_23": {
+      "source": "Petricca et al. (2025), Nature 648:558, degree-2 gravity",
+      "convention": "UNNORMALIZED Stokes coefficients (Anderson/GC21), R_ref = 2575 km. Same as titan_freegrav_noocean.json.",
+      "C20": {"value": -3.3511e-5, "sigma": 4.71e-7, "note": "= -J2, J2 = 33.511 +/- 0.471 x1e-6"},
+      "C22": {"value": 1.0107e-5, "sigma": 6.2e-8, "note": "10.107 +/- 0.062 x1e-6"},
+      "j2_over_c22_used": 3.3333333333,
+      "cmr2_removed_reason": "double-count: Petricca MoI 0.343 is derived from C22 via the hydrostatic Radau-Darwin relation; imposing both CMR2 and C22 uses the same relation twice. See titan_freegrav_noocean.json for the full free-gravity rationale.",
+      "offset_boxes": {"dC20_nh": [-2.0e-5, 2.0e-5], "dC22_nh": [-5.0e-6, 5.0e-6],
+        "note": "Identical to titan_freegrav_noocean.json (reviewer-ratified interior-agnostic widths, agent a0f6f04a5 2026-07-23)."}
+    },
+    "joint_build_2026_08_06": {
+      "task": "#89 (§0.10 priority-b, MgSO4/NaCl production; user 'build caches + datasets now')",
+      "onset": "MgSO4 genuine onset is a nearly-FLAT monotone ~250 K boundary (onset probe /tmp/titan_tb_probe_results.json): w=1 -> ~252 K; w=100 -> ~250 K; w=194 -> ~250 K. Compact fine Tb band [248,258] K, finer w in the 150-194 curvature corner. Contrast NaCl's steep [233,272] diagonal.",
+      "extrap_ocean": "True — see extrap_ocean_2026_08_06 (genuine extrapolation, ceiling 1400 MPa, stratified flags, dρ/dP-band invariant).",
+      "phaseType": "lookup (= MgSO4PhaseMargules, analytic uncapped Pmax=inf; acc725ea R2). Set explicitly via ocean_overrides in the build driver.",
+      "build_driver": "plans/scripts/titanG_build_ocean_cache.py --comp MgSO4 --mgso4-extrap true (clones cache_builder.build_tbw_grid_cache directly).",
+      "production_cache_reviewer_conditions": "Before the 1M SBI build: island-exclusion post-build invariant (no has_ocean=True at w>=180 & Tb<248); gate-3 half-cell Tb-shift -> posterior-ocean-fraction test SPECIFICALLY in the w>=150 corner (catches a phantom-ocean leak near the onset); production fine PfreezeRes; W_Jkg pole at T=246 K (MgSO4Props.py:188) — nominal ocean T>~254 K is safe but confirm no fine Tb node samples near the pole."
+    },
+    "cache_build_2026_08_06": {
+      "template": "PlanetProfile.Default.Titan.PPTitan (ocean-bearing: core + porous rock). Cuncertainty=0.06 via bulk_overrides. comp='MgSO4' + phaseType='lookup' via ocean_overrides.",
+      "note": "The 2D cache stores the hydrosphere structure per (Tb,w); R_core_km/rho_core_kgm3 sampled at inference, core+silicate reassembled per-sample via mass conservation."
+    },
+    "sbi_seeds_2026_08_06": {"data": 73, "noise": 7373, "train": 73},
+    "seeds_note": "Mirror the titanG driver pattern (MgSO4 seeds 73/7373/73 per plans/fluffy-snacking-fountain.md Phase B). random_state:73 is a hashed field for config-hash stability, not the pipeline seed.",
+    "plan_reference": "plans/fluffy-snacking-fountain.md (Titan free-gravity campaign v1, Phase B). NH3 = test54_titan_nh3_freegrav.json (ratified). Scientific-reviewer sign-off on the production cache (island invariant + gate-3 in the w>=150 corner + extrap flags) REQUIRED before the 1M build."
+  }
+}

@@ -1,0 +1,20 @@
+{
+ "label": "Europa: induction & k2 vs salinity (Seawater) and ice thickness (6x6)",
+ "description": "Ocean composition: Seawater (GSW). Mean ocean conductivity driven by salinity 1-100 ppt vs ocean thickness driven by ice shell thickness 5-30 km. Induction at orbital, synodic, and 2nd synodic harmonic; z-variable switchable (amplitude, phase, components, k2) without recompute.",
+ "widgets": {
+  "x_param_select": "sigmaMean_Sm",
+  "x_driver_select": "wOcean_ppt",
+  "x_min": 1.0,
+  "x_max": 100.0,
+  "y_param_select": "D_km",
+  "y_driver_select": "zb_approximate_km",
+  "y_min": 5.0,
+  "y_max": 30.0,
+  "nx_input": 6,
+  "ny_input": 6,
+  "z_param_select": "Amp_nT",
+  "exc_orbital": true,
+  "exc_synodic": true,
+  "exc_synodic 2nd": true
+ }
+}
