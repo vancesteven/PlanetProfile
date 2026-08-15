@@ -35,6 +35,34 @@ Reports: `validation_reports/titan_freegrav_{mgso4,nacl}_1m/rek2_pushforward/`.
 
 ---
 
+## 0.23 B2' USER RULING (2026-08-15) — reviewer recommendation ADOPTED
+
+The user follows the reviewer: the 2026-08-13 "option A" observed-figure
+adoption is RESCINDED (its two premises are falsified per
+b2prime_ADJUDICATED_drho_weighting.json). Adopted in its place:
+1. **Delta_rho-consistent treatment**: hydrostatic interior figures with
+   the Eq.-12 surface treatment (the defensible pair per the
+   adjudication; zb bracketed 25.99-27.34 km by C2 at the conditioned
+   libration). The H22_obs_m path defect is repaired as a DEFECT REPAIR
+   (remove the sign-flipping implicit scale on the shell-base
+   interface), not a scaling guess; the test pinning the suspect
+   +1.40-1.43 sigma shift moves in the same commit, reviewer-signed.
+2. **The Delta_rho identity becomes a STANDING INVARIANT**:
+   Ks/(3 omega^2) = rho_ice*f_top + Delta_rho*f_base, asserted ~1e-12
+   as a committed test across a structure sweep (queued to Codex as
+   C22 — the reviewer-recommended guard against the recurring
+   perturb-a-difference failure mode, which produced all three defects
+   in this campaign).
+3. The RATIFIED headline stands and goes in the paper: the H&M-vs-Park
+   shell-thickness separation is essentially the libration measurement
+   revision (Thomas 0.120 -> Park 0.092 deg) through an unchanged
+   forward model (+5.6 km); the two published interiors are not
+   competing answers.
+**Machine B next (foreground per §0.22):** execute the repair under
+reviewer sign-off; update the frozen-config candidate from option A to
+the ruled treatment; re-run the r4 reviewer pass; then the remaining
+freeze blockers close and the config ratifies for cache build.
+
 ## 0.22 REBALANCING DIRECTIVE (manager, 2026-08-12) — planetary goals take the foreground
 
 User concern (2026-08-12): the program risks bogging down in validation

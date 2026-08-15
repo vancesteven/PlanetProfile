@@ -20,6 +20,45 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
+### C22 — Delta_rho standing-invariant test (B2' ruling item 2) [status: queued]
+
+Reviewer-recommended guard (user-ratified 2026-08-15) against the
+perturb-a-difference failure mode. New test in
+`tests/librations_test.py` (or a sibling file): assert the telescoped
+identity `Ks/(3 omega^2) == rho_ice*f_top + (rho_ocean-rho_ice)*f_base`
+to rel ~1e-12 across a sweep of mass-conserved 3-layer Enceladus stacks
+(zb 5-45 km x 3 ocean thicknesses) AND one Titan-class stack, where
+f_top/f_base are the per-interface figure factors from the existing
+librations machinery (the exact decomposition is documented in
+validation_reports/enceladus_isostasy/
+b2prime_ADJUDICATED_drho_weighting.json — copy its formulation; do NOT
+re-derive). Escalate if the identity fails anywhere — that IS the
+invariant firing. Report `verified` with pytest output.
+
+### C23 — Cassini-Enceladus GUI placeholder slot [status: queued]
+
+Add the awaiting-artifact placeholder slot (C4 pattern, stable slot_id
+'enceladus_cassini') to _SBI_ARTIFACT_SLOTS: label "1D ·
+Cassini-Enceladus (Seawater, isostasy) — awaiting artifact",
+bodyname Enceladus, config/cache/artifact None + artifact_status
+'awaiting_artifact', scope note summarizing the frozen-design intent
+(observables C20/C22/C30 + libration; H&M shape-input isostasy; zb x
+salinity sampling; induction display band) with a pointer to
+plans/active/enceladus-config-freeze.md. AppTest: slot listed, never
+default, awaiting branch renders. Report `verified`.
+
+### C24 — Doc-doctor pass #3 [status: queued]
+
+Full plans/DOC-DOCTOR.md checklist against the current tree
+(report-only, C8 pattern) — much has shipped since the 2026-08-11
+audit: isostasy module + specs, salt RATIFICATIONs, methods snippets
+(C20), IS-correction docs, C16 saga records, Enceladus freeze docs,
+§0.17-0.23. Deliverable:
+validation_reports/doc_doctor/2026-08-15_third_pass.md, per-item
+PASS/FINDING/N/A with file:line. Do not fix findings. Report
+`verified`.
+
+
 _Second doc audit (2026-08-11, full report in the audit agent record;
 findings cited per task) + program-review items. All are doc/test/code
 tasks with NO scientific adjudication — copy authoritative wording, never
