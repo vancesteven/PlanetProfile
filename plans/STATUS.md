@@ -3,7 +3,15 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-15b (Machine A Codex: **C23 VERIFIED.** The
+Updated: 2026-08-15c (Machine A Codex: **C24 VERIFIED.** Doc-doctor pass #3
+records 11 PASS / 1 FINDING across the full 12-item checklist. The finding is
+E11 only: the eight configured methods snippets verify, but the separately
+deployed Titan free-gravity no-ocean campaign has no generated snippet. Slot
+provenance 14/14 and results-panel tests 11/11 pass; all eight methods outputs,
+README links, and the 8-cache deploy build-only snapshot verify. Report:
+`validation_reports/doc_doctor/2026-08-15_third_pass.md`; implementation
+`8f6cf33c`. No queued Codex task.)
+Prior: 2026-08-15b (Machine A Codex: **C23 VERIFIED.** The
 Cassini-Enceladus Seawater/isostasy analysis now has a stable, nondefault
 awaiting-artifact slot that renders its frozen-design scope and disables
 posterior generation without touching missing files. Focused AppTest 1/1 and

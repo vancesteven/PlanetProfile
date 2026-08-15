@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-15 (C18–C23 verified; C24 queued, one implementation commit per task). Curated by the Claude model manager
+Updated: 2026-08-15 (C18–C24 verified; no queued Codex task). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -67,7 +67,7 @@ scope, and disabling Generate. The focused AppTest passes 1/1; neighboring
 Titan readiness/salt-slot AppTests pass 2/2. `py_compile` and
 `git diff --check` pass. Implementation `856f50e6`.
 
-### C24 — Doc-doctor pass #3 [status: in progress (Codex)]
+### C24 — Doc-doctor pass #3 [status: verified]
 
 Full plans/DOC-DOCTOR.md checklist against the current tree
 (report-only, C8 pattern) — much has shipped since the 2026-08-11
@@ -77,6 +77,19 @@ audit: isostasy module + specs, salt RATIFICATIONs, methods snippets
 validation_reports/doc_doctor/2026-08-15_third_pass.md, per-item
 PASS/FINDING/N/A with file:line. Do not fix findings. Report
 `verified`.
+
+**Report (Codex, 2026-08-15):** `verified`. Added
+`validation_reports/doc_doctor/2026-08-15_third_pass.md` with all 12 checklist
+items and line-level evidence: 11 PASS, 1 FINDING. The finding is narrowly
+scoped to E11: the eight configured methods-snippet campaigns verify, but the
+separately deployed Titan free-gravity no-ocean campaign lacks a generated
+snippet; no fix was made in this report-only task. The 13 executable GUI slots
+all have exact artifact/config/cache chains and exact registry/config
+observable centrals; the Enceladus awaiting-artifact slot is marked N/A where
+appropriate. Verification: slot provenance 14 passed (1 slow deselected),
+results panels 11 passed, all eight methods snippets source/hash/name/render
+verified, README links resolved, and deploy `--build-only` staged the exact
+8-cache, 317 MB / 537-file snapshot without pushing. Implementation `8f6cf33c`.
 
 
 _Second doc audit (2026-08-11, full report in the audit agent record;
