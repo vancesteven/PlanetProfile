@@ -31,6 +31,24 @@ INDEX_PATH = ARTIFACT_DIR / "INDEX.md"
 
 
 CAMPAIGNS = {
+    "titan_noocean": {
+        "title": "Titan free-gravity no-ocean",
+        "config": "titan_freegrav_noocean.json",
+        "artifact": "titan_freegrav_noocean_posterior_1m.pt",
+        "report_dir": "validation_reports/titan_freegrav_noocean_1m",
+        "cache_manifest": (
+            "validation_reports/titan_freegrav_noocean_1m/reference/"
+            "titanG_reference_manifest.json"
+        ),
+        "cache_sha_key": "structure_cache_sha256",
+        "gate_kind": "index_excerpt",
+        "gate_source": "PlanetProfile/Inference/sbi_artifacts/INDEX.md",
+        "gate_excerpt": "SBC PASS; limits FAIL; crosscheck FAIL",
+        "deployment_extra": (
+            "The crosscheck and limits exits are FAIL-adjudicated-acceptable "
+            "under the slot's documented scope note."
+        ),
+    },
     "nh3": {
         "title": "Titan free-gravity NH3",
         "config": "test54_titan_nh3_freegrav.json",
