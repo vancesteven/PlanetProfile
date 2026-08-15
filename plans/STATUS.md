@@ -3,7 +3,12 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-08-15a (Machine A Codex: **C22 VERIFIED.** The permanent
+Updated: 2026-08-15b (Machine A Codex: **C23 VERIFIED.** The
+Cassini-Enceladus Seawater/isostasy analysis now has a stable, nondefault
+awaiting-artifact slot that renders its frozen-design scope and disables
+posterior generation without touching missing files. Focused AppTest 1/1 and
+neighboring slot AppTests 2/2 pass. Implementation `856f50e6`; C24 next.)
+Prior: 2026-08-15a (Machine A Codex: **C22 VERIFIED.** The permanent
 Delta_rho libration invariant now covers 27 mass-conserved Enceladus stacks
 plus a Titan-class stack at rel=1e-12 (exploratory maximum residual 1.64e-13).
 Focused plus neighboring libration tests: 13 passed, 1 intentional

@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-15 (C18–C22 verified; C23–C24 queued, one implementation commit per task). Curated by the Claude model manager
+Updated: 2026-08-15 (C18–C23 verified; C24 queued, one implementation commit per task). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -45,7 +45,7 @@ nearest libration suite: 13 passed, 1 intentional strict-xfail in 0.87 s.
 `py_compile` and `git diff --check` pass. No production physics changed.
 Implementation `093dc971`.
 
-### C23 — Cassini-Enceladus GUI placeholder slot [status: in progress (Codex)]
+### C23 — Cassini-Enceladus GUI placeholder slot [status: verified]
 
 Add the awaiting-artifact placeholder slot (C4 pattern, stable slot_id
 'enceladus_cassini') to _SBI_ARTIFACT_SLOTS: label "1D ·
@@ -56,6 +56,16 @@ bodyname Enceladus, config/cache/artifact None + artifact_status
 salinity sampling; induction display band) with a pointer to
 plans/active/enceladus-config-freeze.md. AppTest: slot listed, never
 default, awaiting branch renders. Report `verified`.
+
+**Report (Codex, 2026-08-15):** `verified`. Added the stable
+`enceladus_cassini` awaiting-artifact registry slot with all artifact/config/
+cache paths unset and the frozen-design scope note linked to
+`plans/active/enceladus-config-freeze.md`; generalized the pending-slot banner
+so it is body-neutral. `tests/enceladus_placeholder_test.py` observes the slot
+listed in AppTest, not selected by default, rendering the complete awaiting
+scope, and disabling Generate. The focused AppTest passes 1/1; neighboring
+Titan readiness/salt-slot AppTests pass 2/2. `py_compile` and
+`git diff --check` pass. Implementation `856f50e6`.
 
 ### C24 — Doc-doctor pass #3 [status: queued]
 
