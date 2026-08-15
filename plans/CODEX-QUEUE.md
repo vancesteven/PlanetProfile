@@ -45,6 +45,13 @@ nine campaigns (source values, hashes, parameter/observable names, and
 Markdown rendering); the new key also verifies from `/private/tmp` and the
 generator passes `py_compile`/`git diff --check`. Implementation `2328f12b`.
 
+**Manager review (2026-08-15): C25 ACCEPTED — delegate queue EMPTY.**
+Verify pass re-run: all nine campaign snippets (incl. the new Titan
+no-ocean) verify source values, hashes, names, and render. The paper's
+methods section is now generatable for every deployed campaign. No new
+tasks queued — the next Codex work arrives with the Enceladus
+ratification (slot wiring, methods snippet) or on demand.
+
 ### C22 — Delta_rho standing-invariant test (B2' ruling item 2) [status: verified]
 
 Reviewer-recommended guard (user-ratified 2026-08-15) against the
