@@ -1,6 +1,6 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-15 (C18–C24 verified; no queued Codex task). Curated by the Claude model manager
+Updated: 2026-08-15 (C18–C24 verified; C25 in progress). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
@@ -27,7 +27,7 @@ produced three defects (max residual 1.64e-13 vs 1e-12 gate); the
 Enceladus placeholder is live in the GUI awaiting the campaign; doc
 health is 11 PASS / 1 FINDING (vs 2/10 at the first audit).
 
-### C25 — Methods snippet for Titan freegrav no-ocean (C24's one finding) [status: queued]
+### C25 — Methods snippet for Titan freegrav no-ocean (C24's one finding) [status: in progress (Codex)]
 
 Add the deployed Titan free-gravity no-ocean campaign to the C20
 generator's campaign table and generate+commit its snippet with the
