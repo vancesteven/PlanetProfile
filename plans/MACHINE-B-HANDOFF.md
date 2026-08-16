@@ -50,6 +50,32 @@ r5_ADJUDICATION.md): physics sound, defects are Machine-A wiring
 4. Fold the r5 B-A1/B-A2 asymmetry measurements into the run design
    (B-A3 is repaired A-side).
 
+## 0.25a C12 GUI-BOX ANSWER (Machine B, 2026-08-16) — the expected disposition does NOT hold
+
+Direct answer to §0.25's key question, computed from the already-collected
+sweep data (no new compute): **the failing region DOES intersect the
+GUI-reachable box.** Restricted to the NH3 slot's only declared
+`x_obs_limits` entry (Im_k2 <= 0.30): 17/114 fail (14.9%). Restricted
+further to that AND the training-support box (the narrowest defensible
+"reachable" set): 16/113 fail (14.2%). So "outside it the GUI falls back
+to uncorrected + quarantine warning, deploy posture unchanged" is NOT what
+the data shows — the failures are not concentrated at the box edge, they
+persist well inside it (12/17 in-box failures are moderate, Pareto-k
+0.7-1.5, not catastrophic, but common at ~1-in-7).
+
+Also flagged: **Re_k2 has no declared GUI limit at all** (only Im_k2 does)
+— any "reachable box" claim about Re_k2 describes the training-support box
+only, not an enforced deploy-time guard. This is the same shape of defect
+as r5's D1 finding on the Enceladus ocean-branch MoI window (asserted bound,
+not actually enforced/recorded at the call site) — worth the reviewer
+noting as a possible pattern across campaigns, not just this one.
+
+Full writeup + per-point breakdown:
+validation_reports/titan_freegrav_nh3_1m/is_correction/c12_gui_box_answer.md.
+Not self-adjudicated — this resolves the FACTUAL question in §0.25; the
+disposition (accept as caveat, narrow x_obs_limits, or treat as a new
+quarantine trigger) is the reviewer's/manager's call.
+
 ## 0.25 C12 SWEEP OUTCOME — manager routing (2026-08-16)
 
 B's C12 amortized sweep: FAIL 19.5% vs <=5% (29/149 Pareto-k > 0.7),
