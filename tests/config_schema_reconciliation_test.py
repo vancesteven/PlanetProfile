@@ -99,7 +99,17 @@ def test_moved_block_content_preserved_byte_for_byte():
 
     spec = cfg.metadata['structure_cache_spec']
     assert spec['grid_mode'] == 'zb_w_2d'
-    assert spec['n_nodes_total'] == 4960
+    # 4960 (= 124 zb x 40 w) until the frozen-branch design ruling (task A7)
+    # moved the frozen segment off the shared zb axis onto its own array.
+    # Now 87 ocean zb x 40 w = 3480, plus 39 frozen zb NOT crossed with w:
+    # salinity is undefined without an ocean, so crossing them would store 39
+    # copies of the same structure under a meaningless coordinate.
+    assert spec['n_nodes_total'] == 3519
+    assert spec['zb_km_grid']['hi'] == 45.0, 'ocean zb axis back to its own edge'
+    assert spec['frozen_zb_km_grid']['n'] == 39
+    assert 'retry_frozen_as_no_ocean' not in spec, (
+        'retry_frozen_as_no_ocean is inoperative at Enceladus (no HP ice) '
+        'and must not advertise a build path that does not exist')
 
 
 @pytest.mark.skipif(not CANDIDATE_CONFIG.exists(), reason='candidate config not present')
