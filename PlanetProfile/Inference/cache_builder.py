@@ -1189,6 +1189,166 @@ def build_tbw_grid_cache(
     return cache
 
 
+# ---------------------------------------------------------------------------
+# Frozen-branch (no-ocean) node builder -- frozen-branch design ruling, A3
+# ---------------------------------------------------------------------------
+#
+# BUILD MECHANISM (established empirically, A1 completion; see the
+# build_zbw_grid_cache docstring for the full argument):
+#
+#   Do.ConstantProps['Inner'] = True   -> uniform-density interior, so the
+#     interior density is solved ANALYTICALLY from mass closure rather than
+#     searched (LayerPropagators.FindInnerWithMoIAndConstantRho). This is
+#     ruling F2's "analytically exact mass closure" and it is what makes the
+#     mass residual land at machine precision instead of one radial step.
+#   Do.Fe_CORE = False, Do.POROUS_ROCK = False -> single uniform rock sphere,
+#     matching the config's declared uniform-interior assumption.
+#   Do.SPECIFY_ICEI_BOTTOM_PRESSURE = True + Bulk.PbISet_MPa -> the ice-Ih
+#     base pressure is SET, and Tb_K is derived from the melt curve. This is
+#     the frozen branch's zb control: zb(PbI) is smooth and monotone
+#     (~8.3 km/MPa at Enceladus), so the builder root-finds PbI to land on
+#     each grid node. Driving zb through Do.ICEIh_THICKNESS instead was
+#     measured to miss the target by ~2.1 km -- an order of magnitude past
+#     invariant I-F4's 0.25 km -- so it is not used here.
+#   Do.HYDROSPHERE_THICKNESS = True + Bulk.Dhsphere_m = 0.0 -> the seafloor
+#     is chosen as the SHALLOWEST admissible candidate. Steps.iSilStart
+#     pins that sweep to start at the ice-Ih base, so "shallowest" IS the ice
+#     base: the whole hydrosphere is ice and no liquid layer exists.
+#     Measured: 0 phase-0 layers at every probed node.
+#
+# WHY THIS MAKES THE MoI WINDOW NON-CONDITIONING (ruling 3.2). The window
+# still filters the candidate list, but the selection among survivors is
+# argmin|thickness - 0|, i.e. always the shallowest. So the window cannot
+# move the chosen structure to a different admissible one -- it can only
+# make the ice-base candidate inadmissible, in which case a deeper seafloor
+# is selected, liquid appears, and invariant I-F2 HARD REJECTS the node.
+# The window is therefore incapable of silently conditioning a SURVIVING
+# node. See build_zbw_grid_cache's frozen_Cuncertainty argument.
+
+_FROZEN_G = 6.674e-11
+
+
+def _volume_weighted(rho: np.ndarray, r_sorted: np.ndarray,
+                     mask: np.ndarray) -> float:
+    """Volume-weighted mean of ``rho`` over ``mask``, outer-edge convention."""
+    r_in = np.concatenate(([0.0], r_sorted[:-1]))
+    vol = (4.0 / 3.0) * np.pi * (r_sorted ** 3 - r_in ** 3)
+    if not np.any(mask) or np.sum(vol[mask]) <= 0:
+        return float("nan")
+    return float(np.sum(rho[mask] * vol[mask]) / np.sum(vol[mask]))
+
+
+def _frozen_node_fields(struct: Dict[str, Any]) -> Dict[str, Any]:
+    """Derive the frozen branch's per-node diagnostics from a built structure.
+
+    Returns ``rho_ice_mean_kgm3`` / ``rho_interior_mean_kgm3`` (volume-weighted
+    over the ice-Ih and sub-hydrosphere layers respectively), ``n_liquid_layers``
+    and ``zb_km_actual``.
+
+    ``zb_km_actual`` is ``D_hsphere_km`` = ``(R_body - Sil.Rmean_m)/1e3``, the
+    seafloor depth. On the frozen branch the whole hydrosphere is ice, so the
+    seafloor IS the ice base and this is the shell thickness exactly. It is
+    deliberately NOT ``D_iceIh_km`` (the summed Ih layer thicknesses), which
+    undercounts by the inter-node radial gaps -- measured 0.86-1.18 km at
+    Enceladus, i.e. 3-5x invariant I-F4's whole budget.
+    """
+    r = np.asarray(struct["r_m"], dtype=float)
+    rho = np.asarray(struct["rho"], dtype=float)
+    phases = np.asarray(struct["phases"])
+    order = np.argsort(r)
+    r, rho, phases = r[order], rho[order], phases[order]
+    return {
+        "n_liquid_layers": int(np.sum(phases == 0)),
+        "rho_ice_mean_kgm3": _volume_weighted(rho, r, phases == 1),
+        "rho_interior_mean_kgm3": _volume_weighted(rho, r, phases >= 50),
+        "zb_km_actual": float(struct.get("D_hsphere_km", np.nan)),
+    }
+
+
+def _build_frozen_node(
+    planet_template_module: str,
+    zb_target_km: float,
+    PbI_seed_MPa: float,
+    ocean_overrides: Dict[str, Any],
+    bulk_overrides: Dict[str, Any],
+    planet_overrides: Dict[str, Any] | None,
+    do_overrides: Dict[str, Any],
+    extrap_ocean: bool,
+    solve_tol_km: float,
+    max_iter: int,
+    progress: bool,
+) -> Tuple[Dict[str, Any] | None, float, int]:
+    """Root-find ``Bulk.PbISet_MPa`` so the frozen shell lands on ``zb_target_km``.
+
+    ``zb(PbI)`` is smooth and monotone (hydrostatic to leading order), so a
+    secant iteration converges in a handful of PlanetProfile runs. Seeded
+    from the caller's hydrostatic estimate.
+
+    Returns ``(struct | None, PbI_used_MPa, n_evals)``. ``struct`` carries the
+    frozen diagnostics from :func:`_frozen_node_fields` merged in; ``None``
+    means every attempt raised.
+    """
+    evals: List[Tuple[float, float, Dict[str, Any]]] = []  # (PbI, zb, struct)
+
+    def evaluate(PbI: float):
+        struct = build_single_structure(
+            planet_template_module, 272.0,
+            ocean_overrides=ocean_overrides,
+            bulk_overrides={**bulk_overrides, "PbISet_MPa": float(PbI)},
+            planet_overrides=planet_overrides,
+            do_overrides=do_overrides,
+            extrap_ocean=extrap_ocean,
+        )
+        fields = _frozen_node_fields(struct)
+        struct.update(fields)
+        zb = fields["zb_km_actual"]
+        if not np.isfinite(zb):
+            raise ValueError(f"non-finite achieved zb at PbISet_MPa={PbI}")
+        evals.append((float(PbI), float(zb), struct))
+        return float(zb)
+
+    PbI = float(PbI_seed_MPa)
+    try:
+        zb = evaluate(PbI)
+    except Exception as exc:
+        log.warning(f"    frozen seed PbI={PbI:.4f} MPa failed — "
+                    f"{type(exc).__name__}: {exc}")
+        return None, PbI, len(evals)
+
+    for _ in range(int(max_iter)):
+        if abs(zb - zb_target_km) < solve_tol_km:
+            break
+        if len(evals) >= 2 and evals[-1][0] != evals[-2][0]:
+            # Secant on the last two distinct evaluations.
+            (p0, z0, _), (p1, z1, _) = evals[-2], evals[-1]
+            if z1 == z0:
+                break
+            PbI_next = p1 + (zb_target_km - z1) * (p1 - p0) / (z1 - z0)
+        else:
+            # First correction: proportional, since zb ~ PbI to leading order.
+            if zb <= 0:
+                break
+            PbI_next = PbI * (zb_target_km / zb)
+        if not np.isfinite(PbI_next) or PbI_next <= 0:
+            break
+        PbI = float(PbI_next)
+        try:
+            zb = evaluate(PbI)
+        except Exception as exc:
+            log.warning(f"    frozen iterate PbI={PbI:.4f} MPa failed — "
+                        f"{type(exc).__name__}: {exc}")
+            break
+
+    # Best achieved node, whether or not the loop converged; the I-F4
+    # invariant in the caller decides whether it is good enough.
+    best = min(evals, key=lambda e: abs(e[1] - zb_target_km))
+    if progress:
+        log.info(f"    frozen solve: {len(evals)} PP run(s), "
+                 f"PbI={best[0]:.5f} MPa -> zb={best[1]:.4f} km "
+                 f"(target {zb_target_km:.4f} km)")
+    return best[2], best[0], len(evals)
+
+
 def build_zbw_grid_cache(
     planet_template_module: str,
     zb_km_grid: Iterable[float],
@@ -1202,21 +1362,83 @@ def build_zbw_grid_cache(
     extrap_ocean: bool = False,
     tb_placeholder_K: float = 272.0,
     zb_tol_km: float | None = None,
+    frozen_zb_km_grid: Iterable[float] | None = None,
+    frozen_wOcean_ppt: float | None = None,
+    frozen_Cuncertainty: float = 0.015,
+    frozen_mass_tol: float = 1e-6,
+    frozen_rho_closure_tol_kgm3: float = 12.0,
+    frozen_zb_tol_km: float = 0.25,
+    frozen_moi_nonconditioning_window: Tuple[float, float] | None = None,
+    frozen_max_iter: int = 10,
 ) -> Dict[str, Any]:
-    """Build a 2D (zb_km × wOcean_ppt) structure-grid cache -- B4.
+    """Build a (zb_km × wOcean_ppt) ocean grid plus an optional FROZEN zb axis.
 
-    OCEAN BRANCH ONLY (module spec
-    ``plans/active/enceladus-isostasy-module-spec.md`` /
-    ``enceladus_cassini_isostasy_7D.json`` blockers_open.B4/code_gaps): the
-    frozen branch's zb is DERIVED by mass conservation from a sampled rock
-    density, not sampled directly on a zb axis (see the config's
-    ``branch_model.frozen_branch``), and the underlying mass-conservation
-    node invariant (MAJOR-1, the two-part ``iSilStart`` retry fix) is
-    reviewer-blocked production physics that must NOT land unilaterally
-    (RESUME_NOTE.md). This builder only ever produces ocean-branch nodes;
-    it does not attempt the frozen branch at all -- a node whose achieved
-    structure has no phase-0 (liquid) layer is rejected to ``None``, same
-    as an out-of-tolerance zb miss.
+    Schema ``v3.1-zbw`` (ocean only, unchanged) or ``v3.2-zbw-joint`` when
+    ``frozen_zb_km_grid`` is supplied.
+
+    THE TWO BRANCHES DO NOT SHARE AN AXIS (frozen-branch design ruling):
+    the frozen arrays are SEPARATE (``frozen_zb_km_grid`` /
+    ``frozen_structures``) and are NOT crossed with ``w``. Salinity is
+    UNDEFINED without an ocean -- not merely unconstrained -- so the frozen
+    segment is built once at a single nominal ``w`` (config
+    ``structure_cache_spec.w_axis_scope``); multiplying 39 frozen zb nodes by
+    40 salinities would be 39 copies of the same structure carrying a
+    meaningless coordinate. A single ragged shared zb axis is likewise
+    rejected: the ocean branch's support ends near 45 km and the frozen
+    branch's begins near 46.7 km, and splicing them made the reported branch
+    odds linearly rescalable by an arbitrary box edge (config
+    ``branch_model.why_reparameterized``).
+
+    OCEAN BRANCH (``zb_km_grid`` × ``wOcean_ppt_grid``, schema v3.1 rows):
+    unchanged. A node whose achieved structure has no phase-0 (liquid) layer
+    is rejected to ``None``, same as an out-of-tolerance zb miss -- a frozen
+    result on the OCEAN axis is out of scope there, not a failure to retry.
+
+    FROZEN BRANCH (``frozen_zb_km_grid``, one node per zb): built by the
+    constant-density mass-closure route described in the module-level
+    ``_build_frozen_node`` comment above. On this branch zb is NOT a free
+    parameter -- at fixed ``rho_ice`` mass conservation makes zb <-> rho_rock
+    a bijection (``isostasy.frozen_zb_from_mass``), so the grid indexes the
+    sampled rock density through that map and the recorded support
+    (zb in [46.74, 65.56] km for rho_rock ~ U[2200,2600] x rho_ice ~
+    U[915,935]) is fixed by the density prior rather than by a box edge.
+
+    BUILD-TIME INVARIANTS on every frozen node (ruling I-F1..I-F4).
+    All are HARD REJECT TO ``None`` -- never a warning, never a nearest-node
+    fallback:
+
+    - **I-F1 mass closure**, ``abs(mass_residual_frac) <= frozen_mass_tol``
+      (default 1e-6). The constant-rho path solves the interior density
+      analytically, so this is exact to floating point (measured: 1e-16 at
+      six probed nodes), NOT the one-radial-step residual the EOS path
+      leaves. A node that cannot meet 1e-6 did not take the constant-rho
+      path and must not be silently kept -- that is exactly the MAJOR-1
+      defect, where the smoke cache stored the template ``Mtot_kg`` while
+      being -22.16% / -9.21% off.
+    - **I-F2 no liquid**, zero phase-0 layers, read from the PHASE ARRAY and
+      never from ``D_ocean_km`` (frozen smoke nodes stored ``D_ocean_km``
+      1.510 / 1.151 km with no phase-0 layers at all). This is the invariant
+      that catches a thin liquid film -- the failure mode of driving the
+      seafloor to a target depth BELOW the ice base.
+    - **I-F3 parameterization closure**, the achieved interior density must
+      agree with ``isostasy.frozen_rho_rock_from_zb`` evaluated at the
+      node's own achieved zb and achieved mean ice density, to within
+      ``frozen_rho_closure_tol_kgm3`` (default 12 kg/m^3). This is what
+      makes the sampled coordinate ``rho_rock`` mean the same thing in the
+      cache as it does in the prior.
+    - **I-F4 zb placement**, ``abs(zb_km_actual - zb_km_node) <
+      frozen_zb_tol_km`` (default 0.25 km).
+
+    BUILD-LEVEL INVARIANT (ruling I-F6, non-conditioning). If EVERY
+    surviving frozen node's derived ``CMR2`` lands inside the template's own
+    MoI window (``Bulk.Cmeasured +/- Bulk.Cuncertainty``, Enceladus
+    0.335 +/- 0.001), the BUILD FAILS with ``RuntimeError`` -- it is not a
+    node-level reject. A frozen set that cannot leave a 0.002-wide window is
+    a set that was SELECTED by the MoI, which would reintroduce ruling F1's
+    undeclared conditioning under a new name. Measured on the intended
+    Enceladus grid the derived C/MR^2 spans 0.322-0.344, i.e. 10x outside the
+    window in both directions, so the invariant passes with wide margin.
+    Override the window via ``frozen_moi_nonconditioning_window``.
 
     Mechanism (PlanetProfile's existing "two-of-three" zb/Tb pairing,
     ``Planet.Do.ICEIh_THICKNESS`` + ``Planet.Bulk.zb_approximate_km`` --
@@ -1272,6 +1494,39 @@ def build_zbw_grid_cache(
     zb_tol_km
         Half-width of the zb-placement acceptance window (km). Default
         (``None``) uses half the smallest spacing in ``zb_km_grid``.
+    frozen_zb_km_grid
+        Optional 1-D iterable of frozen-branch shell thicknesses (km). When
+        ``None`` (default) no frozen branch is built and the output is
+        byte-compatible schema ``v3.1-zbw``. The intended Enceladus grid is
+        ``arange(46.5, 65.8 + eps, 0.5)`` (39 nodes), which brackets the
+        true frozen support [46.74, 65.56] km on both sides.
+    frozen_wOcean_ppt
+        Nominal salinity for the frozen build (g/kg). Default ``None`` uses
+        the template's own ``Ocean.wOcean_ppt``. It reaches the frozen
+        structure only through the melt curve that converts the set ice-base
+        pressure into ``Tb_K``, and is recorded per node as
+        ``wOcean_ppt_nominal`` with ``w_is_defined = False``.
+    frozen_Cuncertainty
+        MoI acceptance half-width applied to the frozen build via
+        ``Bulk.Cuncertainty`` (default 0.015, ruling 3.2's documented
+        fallback). The ruling's PREFERRED route is no MoI gate at all; see
+        this function's implementation notes and the A3 report for why
+        PlanetProfile's no-gate path
+        (``Do.SPECIFY_HYDROSPHERE_SEAFLOOR_PRESSURE``) cannot express a
+        seafloor coincident with the ice base at Enceladus. 0.015 is chosen
+        over the template's 0.001 because the frozen set's derived C/MR^2
+        spans 0.322-0.344 (max deviation 0.0108), so 0.001 would reject
+        every node while 0.015 admits all of them with >=0.004 margin; and
+        because with ``Dhsphere_m = 0`` the window cannot bias WHICH
+        admissible structure is selected, only whether the intended one
+        survives (see the module-level note above).
+    frozen_mass_tol, frozen_rho_closure_tol_kgm3, frozen_zb_tol_km
+        Invariant I-F1 / I-F3 / I-F4 thresholds.
+    frozen_moi_nonconditioning_window
+        ``(C_centre, C_halfwidth)`` for invariant I-F6. Default ``None``
+        reads the template's ``Bulk.Cmeasured`` / ``Bulk.Cuncertainty``.
+    frozen_max_iter
+        Maximum secant iterations in the per-node ``PbISet_MPa`` solve.
 
     Returns
     -------
@@ -1281,15 +1536,33 @@ def build_zbw_grid_cache(
          'wOcean_ppt_grid': np.ndarray (n_w,),
          'structures': [structure_dict | None, ...],  # row-major, len n_zb*n_w
          'ocean_comp': str | None,
-         'schema_version': 'v3.1-zbw',
+         'schema_version': 'v3.1-zbw' | 'v3.2-zbw-joint',
          'zb_tol_km': float,
-         'n_zb_placement_rejected': int}
+         'n_zb_placement_rejected': int,
+         'frozen_branch_supported': bool,
+         # v3.2-zbw-joint only:
+         'frozen_zb_km_grid': np.ndarray (n_fz,),
+         'frozen_structures': [structure_dict | None, ...],  # len n_fz
+         'frozen_build_spec': {...}}
 
     ``structures`` is row-major: entry ``i_zb * n_w + i_w`` is the
     structure at ``(zb_km_grid[i_zb], wOcean_ppt_grid[i_w])``. Each
     surviving structure additionally carries ``zb_km_node`` (the grid
     target) alongside its existing ``Tb_K`` (now the SOLVED value) and
     ``D_iceIh_km`` (the achieved zb) fields.
+
+    ``frozen_structures`` is one node per ``frozen_zb_km_grid`` entry. Each
+    surviving frozen structure carries, on top of the standard
+    :func:`build_single_structure` fields:
+
+    ``branch`` ('frozen'), ``has_ocean`` (False), ``zb_km_node``,
+    ``zb_km_actual``, ``zb_residual_km``, ``n_liquid_layers`` (0),
+    ``rho_ice_mean_kgm3``, ``rho_interior_mean_kgm3``,
+    ``rho_rock_closure_kgm3`` (the analytic
+    ``frozen_rho_rock_from_zb`` value at this node's own achieved zb and ice
+    density), ``rho_rock_closure_residual_kgm3``, ``mass_residual_frac``,
+    ``Mtot_achieved_kg``, ``cmr2_derived`` (DIAGNOSTIC -- never a gate),
+    ``PbISet_MPa``, ``wOcean_ppt_nominal`` and ``w_is_defined`` (False).
     """
     zb_arr = np.asarray(list(zb_km_grid), dtype=np.float64)
     w_arr = np.asarray(list(wOcean_ppt_grid), dtype=np.float64)
@@ -1408,17 +1681,259 @@ def build_zbw_grid_cache(
         "schema_version": "v3.1-zbw",
         "zb_tol_km": zb_tol_km,
         "n_zb_placement_rejected": int(n_zb_reject),
-        # Ocean-branch-only (B4 scope; see docstring). A production
-        # frozen-branch grid (derived zb by mass conservation) is a
-        # separate, reviewer-blocked follow-on -- not built here.
+        # Ocean-branch-only unless a frozen axis was requested below.
         "frozen_branch_supported": False,
     }
+
+    if frozen_zb_km_grid is not None:
+        frozen_arr, frozen_structs, frozen_spec = _build_frozen_axis(
+            planet_template_module=planet_template_module,
+            frozen_zb_km_grid=frozen_zb_km_grid,
+            base_ocean_overrides=base_overrides,
+            base_bulk_overrides=base_bulk_overrides,
+            planet_overrides=planet_overrides,
+            base_do_overrides=do_overrides,
+            extrap_ocean=extrap_ocean,
+            frozen_wOcean_ppt=frozen_wOcean_ppt,
+            frozen_Cuncertainty=frozen_Cuncertainty,
+            frozen_mass_tol=frozen_mass_tol,
+            frozen_rho_closure_tol_kgm3=frozen_rho_closure_tol_kgm3,
+            frozen_zb_tol_km=frozen_zb_tol_km,
+            frozen_moi_nonconditioning_window=(
+                frozen_moi_nonconditioning_window),
+            frozen_max_iter=frozen_max_iter,
+            progress=progress,
+        )
+        cache["schema_version"] = "v3.2-zbw-joint"
+        cache["frozen_branch_supported"] = True
+        cache["frozen_zb_km_grid"] = frozen_arr
+        cache["frozen_structures"] = frozen_structs
+        cache["frozen_build_spec"] = frozen_spec
+
     _save_cache_atomic(cache, output_path)
     if progress:
-        log.info(
-            f"zb×w cache written → {output_path} "
-            f"({n_zb} zb × {n_w} w = {total} nodes: "
-            f"{n_ok} built, {n_fail} None, "
-            f"{n_zb_reject} rejected by zb_placement)"
-        )
+        msg = (f"zb×w cache written → {output_path} "
+               f"({n_zb} zb × {n_w} w = {total} ocean nodes: "
+               f"{n_ok} built, {n_fail} None, "
+               f"{n_zb_reject} rejected by zb_placement)")
+        if frozen_zb_km_grid is not None:
+            spec = cache["frozen_build_spec"]
+            msg += (f"; frozen axis {spec['n_nodes']} nodes: "
+                    f"{spec['n_built']} built, {spec['n_rejected']} None "
+                    f"(schema {cache['schema_version']})")
+        log.info(msg)
     return cache
+
+
+def _build_frozen_axis(
+    planet_template_module: str,
+    frozen_zb_km_grid: Iterable[float],
+    base_ocean_overrides: Dict[str, Any],
+    base_bulk_overrides: Dict[str, Any],
+    planet_overrides: Dict[str, Any] | None,
+    base_do_overrides: Dict[str, Any] | None,
+    extrap_ocean: bool,
+    frozen_wOcean_ppt: float | None,
+    frozen_Cuncertainty: float,
+    frozen_mass_tol: float,
+    frozen_rho_closure_tol_kgm3: float,
+    frozen_zb_tol_km: float,
+    frozen_moi_nonconditioning_window: Tuple[float, float] | None,
+    frozen_max_iter: int,
+    progress: bool,
+) -> Tuple[np.ndarray, List[Dict[str, Any] | None], Dict[str, Any]]:
+    """Build the frozen (no-ocean) zb axis of a v3.2-zbw-joint cache.
+
+    See :func:`build_zbw_grid_cache` for the mechanism, the per-node field
+    contract and invariants I-F1..I-F4 / I-F6. Split out only to keep the
+    two branches' loops legible; it is not part of the public API.
+    """
+    from PlanetProfile.Gravity.isostasy import frozen_rho_rock_from_zb
+
+    fz_arr = np.asarray(list(frozen_zb_km_grid), dtype=np.float64)
+    if fz_arr.ndim != 1 or fz_arr.size < 1:
+        raise ValueError(
+            f"frozen_zb_km_grid must be a 1-D iterable with >= 1 point, "
+            f"got {fz_arr!r}")
+    fz_arr = fz_arr[np.argsort(fz_arr)]
+
+    # Template scalars: body mass/radius for the analytic closure, and the
+    # MoI window I-F6 tests non-conditioning against.
+    if planet_template_module in sys.modules:
+        importlib.reload(sys.modules[planet_template_module])
+    else:
+        importlib.import_module(planet_template_module)
+    tmpl = sys.modules[planet_template_module].Planet
+    M_body_kg = float(tmpl.Bulk.M_kg)
+    R_body_m = float(tmpl.Bulk.R_m)
+    if frozen_moi_nonconditioning_window is None:
+        frozen_moi_nonconditioning_window = (
+            float(getattr(tmpl.Bulk, "Cmeasured", np.nan)),
+            float(getattr(tmpl.Bulk, "Cuncertainty", np.nan)))
+    w_nominal = (float(frozen_wOcean_ppt) if frozen_wOcean_ppt is not None
+                 else float(getattr(tmpl.Ocean, "wOcean_ppt", np.nan)))
+
+    frozen_ocean_overrides = {**base_ocean_overrides,
+                              "wOcean_ppt": w_nominal}
+    frozen_bulk_overrides = {
+        **base_bulk_overrides,
+        # Seafloor = shallowest admissible candidate = the ice base, so the
+        # hydrosphere is entirely ice (I-F2). See the module-level note.
+        "Dhsphere_m": 0.0,
+        "Cuncertainty": float(frozen_Cuncertainty),
+        "CuncertaintyUpper": float(frozen_Cuncertainty),
+        "CuncertaintyLower": float(frozen_Cuncertainty),
+    }
+    frozen_do_overrides = {
+        **(base_do_overrides or {}),
+        "ConstantProps": {"Inner": True, "Ocean": False, "Ice": False},
+        "Fe_CORE": False,
+        "POROUS_ROCK": False,
+        "SPECIFY_ICEI_BOTTOM_PRESSURE": True,
+        "HYDROSPHERE_THICKNESS": True,
+        # The frozen branch drives zb through PbISet_MPa, NOT through the
+        # ocean branch's ICEIh_THICKNESS root-find (measured 2.1 km miss).
+        "ICEIh_THICKNESS": False,
+    }
+
+    # Hydrostatic seed for the PbI solve: P ~ rho_ice g zb, with g = GM/R^2.
+    g_surf = _FROZEN_G * M_body_kg / R_body_m ** 2
+    rho_ice_seed = 930.0
+
+    structs: List[Dict[str, Any] | None] = [None] * fz_arr.size
+    n_built = 0
+    rejects = {"solve": 0, "I-F1_mass": 0, "I-F2_liquid": 0,
+               "I-F3_closure": 0, "I-F4_placement": 0}
+    n_pp_runs = 0
+    for i, zb_node in enumerate(fz_arr):
+        if progress:
+            log.info(f"[frozen {i + 1}/{fz_arr.size}] zb_km={zb_node:.4f}")
+        PbI_seed = rho_ice_seed * g_surf * float(zb_node) * 1e3 / 1e6
+        struct, PbI_used, n_evals = _build_frozen_node(
+            planet_template_module, float(zb_node), PbI_seed,
+            frozen_ocean_overrides, frozen_bulk_overrides, planet_overrides,
+            frozen_do_overrides, extrap_ocean,
+            solve_tol_km=0.4 * float(frozen_zb_tol_km),
+            max_iter=int(frozen_max_iter), progress=progress)
+        n_pp_runs += n_evals
+        if struct is None:
+            rejects["solve"] += 1
+            continue
+
+        # ---- invariants, in order; every failure is a HARD REJECT to None
+        zb_actual = float(struct["zb_km_actual"])
+        zb_residual = zb_actual - float(zb_node)
+        mass_res = float(struct.get("mass_residual_frac", np.nan))
+        rho_ice_mean = float(struct["rho_ice_mean_kgm3"])
+        rho_int_mean = float(struct["rho_interior_mean_kgm3"])
+        rho_closure = frozen_rho_rock_from_zb(
+            M_body_kg, R_body_m, zb_actual * 1e3, rho_ice_mean)
+        closure_residual = (rho_int_mean - rho_closure
+                            if rho_closure is not None else np.nan)
+
+        failed = None
+        if not (np.isfinite(mass_res) and abs(mass_res) <= frozen_mass_tol):
+            failed = ("I-F1_mass",
+                      f"mass_residual_frac {mass_res:+.6e} exceeds "
+                      f"{frozen_mass_tol:.1e}")
+        elif int(struct["n_liquid_layers"]) != 0:
+            failed = ("I-F2_liquid",
+                      f"{int(struct['n_liquid_layers'])} phase-0 (liquid) "
+                      "layers on a frozen node")
+        elif not (np.isfinite(closure_residual)
+                  and abs(closure_residual) <= frozen_rho_closure_tol_kgm3):
+            failed = ("I-F3_closure",
+                      f"achieved rho_interior {rho_int_mean:.3f} vs analytic "
+                      f"{rho_closure if rho_closure is None else f'{rho_closure:.3f}'}"
+                      f" kg/m^3 (residual {closure_residual:+.3f}) exceeds "
+                      f"{frozen_rho_closure_tol_kgm3:.3f} kg/m^3")
+        elif not abs(zb_residual) < frozen_zb_tol_km:
+            failed = ("I-F4_placement",
+                      f"achieved zb {zb_actual:.4f} km, residual "
+                      f"{zb_residual:+.4f} km >= tol "
+                      f"{frozen_zb_tol_km:.4f} km")
+        if failed is not None:
+            key, why = failed
+            rejects[key] += 1
+            log.warning(f"    × frozen zb={zb_node:.4f} → None — "
+                        f"{key} invariant failed: {why}")
+            continue
+
+        struct.update({
+            "branch": "frozen",
+            "has_ocean": False,
+            "zb_km_node": float(zb_node),
+            "zb_residual_km": float(zb_residual),
+            "rho_rock_closure_kgm3": float(rho_closure),
+            "rho_rock_closure_residual_kgm3": float(closure_residual),
+            # DIAGNOSTIC. Ruling 3.2: C/MR^2 is derived along the frozen
+            # bijection and reported; it never selects a structure.
+            "cmr2_derived": float(struct.get("CMR2", np.nan)),
+            "PbISet_MPa": float(PbI_used),
+            "wOcean_ppt_nominal": w_nominal,
+            "w_is_defined": False,
+        })
+        structs[i] = struct
+        n_built += 1
+        if progress:
+            log.info(
+                f"    → zb={zb_actual:.4f} km ({zb_residual:+.4f}), "
+                f"rho_ice={rho_ice_mean:.3f}, rho_rock={rho_int_mean:.3f} "
+                f"(closure {closure_residual:+.4f}), "
+                f"mass_res={mass_res:+.2e}, C/MR²={struct['cmr2_derived']:.5f}")
+
+    if n_built == 0:
+        raise RuntimeError(
+            f"All {fz_arr.size} frozen zb nodes failed; rejects={rejects}. "
+            "No frozen branch to write.")
+
+    # ---- I-F6 (build-level, both-directions non-conditioning) ------------
+    C_centre, C_half = frozen_moi_nonconditioning_window
+    cmr2_built = np.array([s["cmr2_derived"] for s in structs
+                           if s is not None], dtype=float)
+    if np.isfinite(C_centre) and np.isfinite(C_half):
+        inside = np.abs(cmr2_built - C_centre) <= C_half
+        if bool(np.all(inside)):
+            raise RuntimeError(
+                "I-F6 non-conditioning invariant FAILED: all "
+                f"{cmr2_built.size} surviving frozen nodes have derived "
+                f"C/MR² inside {C_centre:.4f} ± {C_half:.4f} "
+                f"(span {cmr2_built.min():.5f}-{cmr2_built.max():.5f}). "
+                "A frozen set that cannot leave the MoI window was SELECTED "
+                "by the MoI, which is the undeclared conditioning the "
+                "frozen-branch design ruling (F1) exists to remove. This "
+                "FAILS THE BUILD by design; it is not a node-level reject.")
+
+    spec = {
+        "mechanism": (
+            "Do.ConstantProps['Inner'] + Fe_CORE=False + POROUS_ROCK=False "
+            "(analytic constant-rho mass closure); "
+            "Do.SPECIFY_ICEI_BOTTOM_PRESSURE + Bulk.PbISet_MPa (zb control, "
+            "secant-solved per node); Do.HYDROSPHERE_THICKNESS + "
+            "Bulk.Dhsphere_m=0 (seafloor = ice base => no liquid)"),
+        "n_nodes": int(fz_arr.size),
+        "n_built": int(n_built),
+        "n_rejected": int(fz_arr.size - n_built),
+        "rejects_by_invariant": dict(rejects),
+        "n_pp_runs": int(n_pp_runs),
+        "wOcean_ppt_nominal": w_nominal,
+        "w_axis_scope": ("salinity is UNDEFINED without an ocean; the frozen "
+                         "axis is not crossed with w"),
+        "Cuncertainty": float(frozen_Cuncertainty),
+        "Cuncertainty_rationale": (
+            "ruling 3.2 documented fallback. With Dhsphere_m=0 the window "
+            "cannot bias WHICH admissible structure is selected (always the "
+            "shallowest = the ice base), only whether the intended one "
+            "survives; a node it excludes acquires liquid and is rejected by "
+            "I-F2. C/MR² is derived and recorded, never matched."),
+        "tolerances": {
+            "I-F1_mass": float(frozen_mass_tol),
+            "I-F3_rho_closure_kgm3": float(frozen_rho_closure_tol_kgm3),
+            "I-F4_zb_km": float(frozen_zb_tol_km),
+        },
+        "I-F6_window": [float(C_centre), float(C_half)],
+        "I-F6_cmr2_span": [float(cmr2_built.min()), float(cmr2_built.max())],
+        "M_body_kg": M_body_kg,
+        "R_body_m": R_body_m,
+    }
+    return fz_arr, structs, spec
