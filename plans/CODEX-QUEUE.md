@@ -20,7 +20,7 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-### C26 — Frozen-branch ruling tests C1-C5 (after the A2-A7 implementation lands) [status: queued — BLOCKED until the manager marks A2-A7 integrated]
+### C26 — Frozen-branch ruling tests C1-C5 [status: queued — UNBLOCKED 2026-08-15: A2-A7 integrated at 8c49efa1; note some C1/C2/C3/C5 coverage already exists from the implementation pass (grep tests/ first, extend rather than duplicate)]
 
 Implement the five test tasks from validation_reports/enceladus_isostasy/
 frozen_branch_DESIGN_RULING.md (copy its formulations; do NOT re-derive):
