@@ -31,7 +31,31 @@ strict-xfail. No production physics changed. Implementation `093dc971`; C23
 next.)
 Prior entries follow.
 
-Updated: 2026-08-15 (Machine A: **B2' USER RULING EXECUTED + CODE GAPS
+Updated: 2026-08-15b (Machine A, three agents: **B2' REPAIR IMPLEMENTED
+AND NUMERICALLY VERIFIED** — the Delta_rho-consistent Eq.-12 treatment
+replaces the rescinded option-A path; every adjudicated number
+reproduces (C2 bracket 25.99-27.34 km at Park values; surface-only ==
+C2=0 bit-for-bit; default path byte-identical to HEAD at 6 structures);
+pinning test moved in-commit; config records the retaken decision;
+REVIEWER SIGN-OFF PENDING (dispatched) before B2' closes. COMMIT
+HYGIENE NOTE: the repair's code+tests were swept into 5e5b9d78 (the
+design-ruling commit) via concurrently-staged files — content verified
+correct; message does not describe it; recorded here. **Sigma_model
+wiring (B15) + config-schema reconciliation DONE** (22 new tests;
+no-op bit-identical for existing campaigns; from_json now loads the
+candidate). **FROZEN-BRANCH DESIGN RULING** (reviewer): config's frozen
+branch was UNREACHABLE as written (F1: PP's argmin-MoI seafloor
+selection = undeclared conditioning collapsing the rho_rock prior);
+redesign APPROVED conditional on A1 — constant-rho route with exact
+mass closure, separate frozen arrays (v3.2 schema), analytic
+zb<->rho_rock bijection, TWO-RUN evidence-based branch comparison (no
+theta indicator), Cuncertainty ruling (prefer NO MoI gate; 0.015 if
+unavoidable; MODERATE_4's ±0.001 instruction COUNTERMANDED; ocean
+branch must DECLARE its argmin selection). A1 smoke PARTIAL: constant-
+rho solve works (rho_sil found=actual=2385, M=1.0000 M_E, no core) —
+open: no-liquid variant + exact zb binding + window bypass, folded into
+A2-A5 implementation. Suite 79 passed + 1 xfail.)
+Prior: 2026-08-15 (Machine A: **B2' USER RULING EXECUTED + CODE GAPS
 CLOSED + CODEX QUEUE DRAINED TWICE.** User adopted the reviewer
 recommendation (§0.23): option A rescinded, Delta_rho-consistent
 treatment ruled in, the Delta_rho identity now a STANDING INVARIANT
