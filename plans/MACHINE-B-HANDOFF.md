@@ -35,6 +35,21 @@ Reports: `validation_reports/titan_freegrav_{mgso4,nacl}_1m/rek2_pushforward/`.
 
 ---
 
+## 0.26 r5 VERDICT + B INSTRUCTIONS (manager, 2026-08-16)
+
+r5 = NOT RATIFIED (validation_reports/enceladus_isostasy/
+r5_ADJUDICATION.md): physics sound, defects are Machine-A wiring
+(D1-D8). B's instructions:
+1. Keep the NH3 corrected-pipeline SBC running (unaffected).
+2. WATCH FOR the D1 commit (ocean MoI window recorded+enforced) — the
+   moment it lands, START the Enceladus zb-cache build (builder proven
+   independent of the remaining repairs; build_zbw_grid_cache, config's
+   structure_cache_spec axes, frozen axis included). Do NOT wait for r6
+   to build the cache.
+3. Dataset generation waits for the D2 commit; training waits for r6.
+4. Fold the r5 B-A1/B-A2 asymmetry measurements into the run design
+   (B-A3 is repaired A-side).
+
 ## 0.25 C12 SWEEP OUTCOME — manager routing (2026-08-16)
 
 B's C12 amortized sweep: FAIL 19.5% vs <=5% (29/149 Pareto-k > 0.7),
