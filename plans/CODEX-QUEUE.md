@@ -20,6 +20,25 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
+### C26 — Frozen-branch ruling tests C1-C5 (after the A2-A7 implementation lands) [status: queued — BLOCKED until the manager marks A2-A7 integrated]
+
+Implement the five test tasks from validation_reports/enceladus_isostasy/
+frozen_branch_DESIGN_RULING.md (copy its formulations; do NOT re-derive):
+1. C1: unit tests for frozen_zb_from_mass / frozen_rho_rock_from_zb,
+   both strict modes, incl. the F5 regression (C/MR2 = 0.3350 at
+   zb 51.78/53.93/58.29 km for rho_ice 900/925/970).
+2. C2: I-F5 loop-closure test at >=3 nodes spanning 47/54/65 km,
+   tolerance 3e-3 — must FAIL if the node is selected one grid step off
+   (self-invalidating check required).
+3. C3: I-F6 both-directions test — a frozen node set entirely inside
+   CMR2 0.335±0.001 must FAIL the build.
+4. C4: None-node test — -inf log-likelihood, no nearest-node fallback
+   across a None, on BOTH cache arrays.
+5. C5: 3-node real frozen build smoke asserting I-F1..I-F4.
+Escalate per protocol 4 if any invariant fails — that is the invariant
+firing, not a test bug. Report `verified` with pytest output.
+
+
 **Manager review (2026-08-15): C22, C23, C24 ALL ACCEPTED**
 (independently re-run: invariant + placeholder tests 3/3; baseline
 suites green). The Delta_rho invariant now guards the failure mode that
