@@ -35,6 +35,17 @@ Reports: `validation_reports/titan_freegrav_{mgso4,nacl}_1m/rek2_pushforward/`.
 
 ---
 
+## 0.27 ⛔ BUILD TRIGGER RESCINDED (manager, 2026-08-16) — r6 NOT RATIFIED
+
+§0.26 item 2 is RESCINDED: do NOT start the Enceladus cache build on the
+D1 commit. r6 found the build fails grid-wide (E1: zb placement misses
+by up to 3.4 km vs the 0.125 km invariant — Tb root-find resolution +
+best_planet retaining the last iterate) and the ocean-branch cache
+lookup does not exist (E2). Full verdict:
+validation_reports/enceladus_isostasy/r6_ADJUDICATION.md. B's standing
+work: NH3 corrected-SBC only. The build trigger will be re-issued
+explicitly with the r7 ratification.
+
 ## 0.26 r5 VERDICT + B INSTRUCTIONS (manager, 2026-08-16)
 
 r5 = NOT RATIFIED (validation_reports/enceladus_isostasy/
