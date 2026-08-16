@@ -345,3 +345,229 @@ def mass_neutral_shell_density(
 
     mass_residual_frac = float(np.sum(rho_out * vol) - M_body) / M_body
     return rho_out, mass_residual_frac
+
+
+# ---------------------------------------------------------------------------
+# Frozen-branch analytic mass closure (frozen-branch design ruling, 3.1)
+# ---------------------------------------------------------------------------
+#
+# On the frozen branch there is no ocean, so at Enceladus pressures the whole
+# hydrosphere is ice Ih (basal P ~6.8 MPa is ~30x below PminHPices -- ruling
+# F4) and the body reduces to TWO uniform layers: a rock interior of radius
+# R_rock and density rho_rock, and an ice shell of thickness zb = R - R_rock
+# and density rho_ice. Total mass is then
+#
+#     M = (4 pi / 3) [ rho_rock R_rock^3 + rho_ice (R^3 - R_rock^3) ]
+#
+# which is a strictly monotone, ANALYTICALLY INVERTIBLE relation between zb
+# and rho_rock at fixed (M, R, rho_ice). That bijection is the frozen branch's
+# sampling<->build map (ruling: sample rho_rock, DERIVE zb; no iteration, and
+# C/MR^2 is derived ALONG it rather than gating it -- ruling F1/F2).
+#
+# Both functions here are PURE and analytic: no PlanetProfile call, no solver,
+# no global state. ``strict`` selects the failure mode -- ``False`` (default)
+# rejects to ``None`` for the builder's HARD-REJECT-to-None discipline,
+# ``True`` raises ``ValueError`` for callers that must not silently drop a
+# node (tests, the per-sample loop-closure check I-F5).
+
+def _frozen_reject(msg: str, strict: bool):
+    """Reject-to-None (non-strict) or raise (strict). Ruling 3.1."""
+    if strict:
+        raise ValueError(msg)
+    return None
+
+
+def frozen_zb_from_mass(
+    M_body_kg: float,
+    R_body_m: float,
+    rho_rock_kgm3: float,
+    rho_ice_kgm3: float,
+    strict: bool = False,
+) -> Optional[float]:
+    """Ice-shell thickness of a FROZEN two-layer body, from mass closure.
+
+    Inverts the two-layer mass relation exactly (no iteration)::
+
+        R_rock^3 = (3 M / (4 pi) - rho_ice R^3) / (rho_rock - rho_ice)
+        zb       = R - R_rock
+
+    This is the frozen branch's sampling->build map: ``rho_rock`` is the
+    sampled coordinate (declared U[2200, 2600] kg/m^3) and ``zb`` is
+    DERIVED, so the frozen support is fixed by the density prior rather
+    than by an arbitrary zb box edge (config
+    ``branch_model.why_reparameterized``).
+
+    Args:
+        M_body_kg: total body mass (kg), conserved EXACTLY.
+        R_body_m: surface radius (m).
+        rho_rock_kgm3: uniform interior density (kg/m^3).
+        rho_ice_kgm3: uniform ice-shell density (kg/m^3).
+        strict: ``False`` (default) returns ``None`` on any rejection;
+            ``True`` raises ``ValueError`` with the reason.
+
+    Returns:
+        Shell thickness zb in METRES, or ``None`` (non-strict) when the
+        inputs admit no physical two-layer solution.
+
+    Rejection / raise conditions:
+        - any input non-finite, or ``M_body_kg``/``R_body_m`` non-positive;
+        - ``rho_ice_kgm3 <= 0``;
+        - ``rho_rock_kgm3 <= rho_ice_kgm3`` (no differentiated solution;
+          the relation is singular at equality);
+        - mean density below ice (``3M/(4 pi) < rho_ice R^3``): the body
+          cannot be built from rock + ice at all, ``R_rock^3 < 0``;
+        - mean density above rock (``R_rock > R``, i.e. ``zb < 0``).
+
+    Verified against the ruling's F5 feasibility numbers (RESUME_NOTE
+    "deep-frozen Enceladus is feasible", M = 1.08022e20 kg, R = 252.1 km):
+    rho_ice 900 / 925 / 970 with rho_rock 2314.3 / 2334.3 / 2377.5 gives
+    zb = 51.78 / 53.93 / 58.29 km, all at C/MR^2 = 0.3350.
+    """
+    M = float(M_body_kg)
+    R = float(R_body_m)
+    rr = float(rho_rock_kgm3)
+    ri = float(rho_ice_kgm3)
+    if not all(math.isfinite(v) for v in (M, R, rr, ri)):
+        return _frozen_reject(
+            f'non-finite input: M_body_kg={M}, R_body_m={R}, '
+            f'rho_rock_kgm3={rr}, rho_ice_kgm3={ri}', strict)
+    if M <= 0.0 or R <= 0.0:
+        return _frozen_reject(
+            f'M_body_kg ({M}) and R_body_m ({R}) must be positive', strict)
+    if ri <= 0.0:
+        return _frozen_reject(
+            f'rho_ice_kgm3 ({ri}) must be positive', strict)
+    if rr <= ri:
+        return _frozen_reject(
+            f'frozen two-layer closure requires rho_rock_kgm3 ({rr}) > '
+            f'rho_ice_kgm3 ({ri}); the mass relation is singular at '
+            'equality and unphysical below it', strict)
+
+    M_over_vol = 3.0 * M / (4.0 * math.pi)      # = rho_mean * R^3
+    R3 = R ** 3
+    R_rock_cubed = (M_over_vol - ri * R3) / (rr - ri)
+    if R_rock_cubed < 0.0:
+        return _frozen_reject(
+            f'mean density {M_over_vol / R3:.6g} kg/m^3 is below the ice '
+            f'density {ri:.6g}: no rock/ice two-layer body exists', strict)
+    if R_rock_cubed > R3:
+        return _frozen_reject(
+            f'mean density {M_over_vol / R3:.6g} kg/m^3 exceeds the rock '
+            f'density {rr:.6g}: the closure returns a negative shell '
+            'thickness', strict)
+
+    zb_m = R - R_rock_cubed ** (1.0 / 3.0)
+    if not math.isfinite(zb_m):
+        return _frozen_reject('non-finite zb from mass closure', strict)
+    return float(zb_m)
+
+
+def frozen_rho_rock_from_zb(
+    M_body_kg: float,
+    R_body_m: float,
+    zb_m: float,
+    rho_ice_kgm3: float,
+    strict: bool = False,
+) -> Optional[float]:
+    """Interior density of a FROZEN two-layer body, from mass closure.
+
+    Exact inverse of :func:`frozen_zb_from_mass` at fixed
+    ``(M_body_kg, R_body_m, rho_ice_kgm3)``::
+
+        R_rock   = R - zb
+        rho_rock = [3 M / (4 pi) - rho_ice (R^3 - R_rock^3)] / R_rock^3
+
+    Used to read a grid node's zb back into the sampled coordinate
+    (cache-build parameterization closure, invariant I-F3/I-F4) and to
+    close the per-sample loop I-F5.
+
+    Args:
+        M_body_kg: total body mass (kg).
+        R_body_m: surface radius (m).
+        zb_m: ice-shell thickness (m).
+        rho_ice_kgm3: uniform ice-shell density (kg/m^3).
+        strict: ``False`` (default) returns ``None`` on rejection;
+            ``True`` raises ``ValueError``.
+
+    Returns:
+        Interior density in kg/m^3, or ``None`` (non-strict) when the
+        inputs admit no physical two-layer solution.
+
+    Rejection / raise conditions:
+        - any input non-finite, or ``M_body_kg``/``R_body_m`` non-positive;
+        - ``rho_ice_kgm3 <= 0``;
+        - ``zb_m`` outside ``(0, R_body_m)`` (a zero-thickness shell leaves
+          no shell, a full-radius shell leaves no interior and the
+          expression is singular);
+        - the implied ``rho_rock <= rho_ice`` (undifferentiated or
+          inverted density profile -- the same physical exclusion the
+          forward direction applies).
+    """
+    M = float(M_body_kg)
+    R = float(R_body_m)
+    zb = float(zb_m)
+    ri = float(rho_ice_kgm3)
+    if not all(math.isfinite(v) for v in (M, R, zb, ri)):
+        return _frozen_reject(
+            f'non-finite input: M_body_kg={M}, R_body_m={R}, zb_m={zb}, '
+            f'rho_ice_kgm3={ri}', strict)
+    if M <= 0.0 or R <= 0.0:
+        return _frozen_reject(
+            f'M_body_kg ({M}) and R_body_m ({R}) must be positive', strict)
+    if ri <= 0.0:
+        return _frozen_reject(
+            f'rho_ice_kgm3 ({ri}) must be positive', strict)
+    if not (0.0 < zb < R):
+        return _frozen_reject(
+            f'zb_m ({zb}) must lie strictly inside (0, R_body_m={R})',
+            strict)
+
+    R_rock = R - zb
+    R_rock3 = R_rock ** 3
+    rho_rock = (3.0 * M / (4.0 * math.pi)
+                - ri * (R ** 3 - R_rock3)) / R_rock3
+    if not math.isfinite(rho_rock):
+        return _frozen_reject('non-finite rho_rock from mass closure',
+                              strict)
+    if rho_rock <= ri:
+        return _frozen_reject(
+            f'zb_m ({zb}) implies rho_rock {rho_rock:.6g} kg/m^3 <= '
+            f'rho_ice {ri:.6g} kg/m^3: undifferentiated or inverted, '
+            'outside the frozen branch\'s physical domain', strict)
+    return float(rho_rock)
+
+
+def frozen_cmr2(
+    M_body_kg: float,
+    R_body_m: float,
+    zb_m: float,
+    rho_rock_kgm3: float,
+    rho_ice_kgm3: float,
+) -> float:
+    """Polar moment factor C/MR^2 of the frozen two-layer body.
+
+    ``C = (8 pi / 15) [rho_rock R_rock^5 + rho_ice (R^5 - R_rock^5)]``
+    for uniform spherical layers (the leading-order figure correction is
+    below the 1e-3 scale this quantity is used at).
+
+    DIAGNOSTIC ONLY on this branch. Per ruling 3.2 the frozen build carries
+    NO MoI gate -- C/MR^2 is recorded and reported, never used to select a
+    structure -- so this exists to make the derived value auditable (and to
+    let the I-F6 non-conditioning check measure how far the frozen set
+    spreads across the Iess window).
+
+    Returns ``nan`` on degenerate inputs rather than raising; callers that
+    need a hard reject use the two closure functions above.
+    """
+    M = float(M_body_kg)
+    R = float(R_body_m)
+    R_rock = R - float(zb_m)
+    if not all(math.isfinite(v) for v in
+               (M, R, R_rock, float(rho_rock_kgm3), float(rho_ice_kgm3))):
+        return float('nan')
+    if M <= 0.0 or R <= 0.0 or not (0.0 <= R_rock <= R):
+        return float('nan')
+    C = (8.0 * math.pi / 15.0) * (
+        float(rho_rock_kgm3) * R_rock ** 5
+        + float(rho_ice_kgm3) * (R ** 5 - R_rock ** 5))
+    return float(C / (M * R ** 2))
