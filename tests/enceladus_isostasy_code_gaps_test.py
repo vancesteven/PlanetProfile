@@ -355,17 +355,49 @@ def _smoke_isostatic_config():
                     reason='Enceladus smoke structure cache not present')
 def test_log_likelihood_isostatic_dispatch_on_real_smoke_cache():
     """Full log_likelihood dispatch (C20/C22/C30 via isostatic_hm2019)
-    against the existing, committed 3-node Enceladus smoke cache: finite
-    at the one ocean node (Tb=272.46, node 2 per RESUME_NOTE.md), hard
-    -1e30 at a frozen node (Tb=271.8, node 0) -- ocean-branch-only
-    scope."""
+    against the existing, committed 3-node Enceladus smoke cache.
+
+    SCOPE CHANGE (frozen-branch design ruling, task A5): this test
+    previously pinned ``ll_frozen == -1e30`` on the grounds that the
+    dispatch was ocean-branch-only. That premise is SUPERSEDED. The ruling
+    keeps no-ocean interiors in the posterior (user ruling) and gives them
+    a real forward model -- ``isostatic_gravity(R_b=None)``, rigid
+    uncompensated support, surface term only. A frozen node must therefore
+    produce a FINITE likelihood and be discriminated BY THE PHYSICS, not by
+    being refused a prediction. Refusing it would have been the failure
+    mode the ruling exists to remove.
+
+    Note on this fixture: the smoke cache's two frozen nodes are the
+    MASS-VIOLATING ones (-22.16% / -9.21%, MAJOR-1) and are slated for
+    re-audit or discard. They are used here only to exercise the dispatch
+    path; production frozen nodes are gated at BUILD time by invariants
+    I-F1..I-F4 and per sample by I-F5.
+    """
     runner = MCMCRunner(_smoke_isostatic_config())
     ll_ocean = runner.log_likelihood_fn(np.array([272.46, 1.0]))
     assert np.isfinite(ll_ocean)
     assert ll_ocean > -1e29
 
     ll_frozen = runner.log_likelihood_fn(np.array([271.8, 1.0]))
-    assert ll_frozen == -1e30
+    assert np.isfinite(ll_frozen)
+    assert ll_frozen > -1e29, 'frozen branch must not be refused a prediction'
+    # Discriminated by physics: the frozen structure fits the observed
+    # non-hydrostatic gravity strictly worse than the ocean structure.
+    assert ll_frozen < ll_ocean
+
+    # The frozen node really took the frozen path (no ice/ocean interface),
+    # not an accidental ocean reduction.
+    struct = runner.structure_data['structures'][0]
+    assert not np.any(np.asarray(struct['phases']) == 0)
+    theta = {'Tb_K': 271.8, 'compensation_C2': 1.0}
+    assert runner._derive_gravity_isostatic(theta) is not None
+    # compensation_C2 cannot matter with no root: C2 = 0 and C2 = 1 agree
+    # bit for bit on this branch.
+    g0 = runner._derive_gravity_isostatic({'Tb_K': 271.8,
+                                           'compensation_C2': 0.0})
+    g1 = runner._derive_gravity_isostatic({'Tb_K': 271.8,
+                                           'compensation_C2': 1.0})
+    assert g0 == g1
 
 
 # ===========================================================================

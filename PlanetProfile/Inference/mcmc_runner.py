@@ -39,6 +39,14 @@ log = logging.getLogger('PlanetProfile')
 # 2026-07-14, margin guard).
 BE_PERIOD_MATCH_TOL_HR = 0.1
 
+# Frozen-branch per-sample loop-closure tolerance (invariant I-F5,
+# frozen-branch design ruling). The sampled rho_rock is mapped to a build-space
+# zb by the analytic mass bijection and must come back unchanged when the
+# served node's reduced two-layer stack is re-closed against body mass. A
+# failure means the sample was served a node its own coordinates do not name;
+# it is REJECTED to -inf log-likelihood, never served a neighbouring node.
+_FROZEN_LOOP_CLOSURE_TOL = 3e-3
+
 
 def _parse_bind_channel(name: str):
     """Parse a Bind_ induction channel name into (label, comp, part).
@@ -1659,6 +1667,111 @@ class MCMCRunner:
         nested = meta.get('isostasy')
         return nested if isinstance(nested, dict) else {}
 
+    def _frozen_two_layer_stack(
+        self,
+        theta_dict: Dict[str, float],
+        r_m: np.ndarray,
+        rho: np.ndarray,
+        phases: np.ndarray,
+        rho_shell_override: Optional[float],
+    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        """Reduced (interior, ice shell) stack for a FROZEN-branch sample.
+
+        The frozen branch has no ice/ocean interface, so the three-layer
+        interior/ocean/shell reduction the ocean branch uses does not exist.
+        The body reduces to TWO uniform layers -- a rock interior and an ice
+        shell -- which is the same partition the analytic mass closure
+        (``isostasy.frozen_zb_from_mass``) is defined on, so the sampling
+        coordinate ``rho_rock_kgm3`` and the stack's interior density are
+        the same quantity by construction.
+
+        The EOS nuisance ``rho_ice_kgm3`` is applied MASS-NEUTRALLY with
+        ``shell_idx=1, interior_idx=0`` (the two-layer analogue of the ocean
+        branch's ``shell_idx=2, interior_idx=0``), conserving against the
+        REDUCED STACK's own mass -- never ``struct['Mtot_kg']``, which would
+        re-inject the coarse-graining residual as a bias merely by enabling
+        the nuisance.
+
+        INVARIANT I-F5 (per-sample loop closure). The sampled point entered
+        build space as ``zb = frozen_zb_from_mass(M, R, rho_rock, rho_ice)``
+        and is being read back out as the interior density that mass
+        conservation demands at the cached node's zb. Those two must agree:
+        the check is ``abs(rho_interior_new / rho_rock_sampled - 1) <=
+        3e-3``. A failure means the node the sample was served is not the
+        node its coordinates name -- grid snapping too coarse, a stale
+        cache, or a mismatched ice density -- and the sample is REJECTED
+        (``None`` -> -1e30 log-likelihood at the call site). There is NO
+        fallback to a neighbouring node: falling back would silently answer
+        a question the sample did not ask.
+
+        Returns ``(reduced_r, reduced_rho)`` or ``None`` on any reject.
+        """
+        from PlanetProfile.Gravity.isostasy import mass_neutral_shell_density
+
+        # Interior = the contiguous rock/core block at the bottom of the
+        # stack (PP phase codes: silicate 50+, iron core 100+). Read from
+        # the PHASE ARRAY, never from a thickness field.
+        interior = np.where(phases >= 50)[0]
+        if interior.size == 0:
+            return None
+        last_int = int(interior[-1])
+        if last_int >= r_m.size - 1:
+            return None  # no shell above the interior
+        if not np.all(phases[:last_int + 1] >= 50):
+            return None  # non-contiguous interior
+
+        def _vw_rho(i0, i1):
+            r_in = np.concatenate(([0.0], r_m))[i0:i1 + 1]
+            r_out = r_m[i0:i1 + 1]
+            vol = r_out ** 3 - r_in ** 3
+            good = vol > 0
+            if not np.any(good):
+                return np.nan
+            return float(np.sum(rho[i0:i1 + 1][good] * vol[good])
+                         / np.sum(vol[good]))
+
+        reduced_r = np.array([r_m[last_int], r_m[-1]])
+        reduced_rho = np.array([_vw_rho(0, last_int),
+                                _vw_rho(last_int + 1, r_m.size - 1)])
+        if not np.all(np.isfinite(reduced_rho)):
+            return None
+        if not (reduced_r[0] > 0 and reduced_r[1] > reduced_r[0]):
+            return None
+
+        _r_in = np.array([0.0, reduced_r[0]])
+        M_stack = float(np.sum(reduced_rho * (4.0 * np.pi / 3.0)
+                               * (reduced_r ** 3 - _r_in ** 3)))
+        if not np.isfinite(M_stack) or M_stack <= 0:
+            return None
+
+        # An absent override is the identity: conserving against the stack's
+        # own mass makes that an exact no-op, so I-F5 still reads the
+        # stack's interior density against the sampled rock density.
+        shell_rho = (float(rho_shell_override) if rho_shell_override is not None
+                     else float(reduced_rho[1]))
+        try:
+            reduced_rho, _ = mass_neutral_shell_density(
+                reduced_r, reduced_rho, shell_rho, M_stack,
+                shell_idx=1, interior_idx=0)
+        except ValueError:
+            return None
+
+        rho_rock_sampled = theta_dict.get('rho_rock_kgm3')
+        if rho_rock_sampled is not None:
+            rho_rock_sampled = float(rho_rock_sampled)
+            if not np.isfinite(rho_rock_sampled) or rho_rock_sampled <= 0:
+                return None
+            closure = abs(float(reduced_rho[0]) / rho_rock_sampled - 1.0)
+            if not (closure <= _FROZEN_LOOP_CLOSURE_TOL):
+                log.debug(
+                    "I-F5 loop closure FAILED: served interior density "
+                    f"{reduced_rho[0]:.4f} vs sampled rho_rock "
+                    f"{rho_rock_sampled:.4f} kg/m^3 (relative {closure:.3e} "
+                    f"> {_FROZEN_LOOP_CLOSURE_TOL:.1e}); sample rejected "
+                    "with no nearest-node fallback.")
+                return None
+        return reduced_r, reduced_rho
+
     def _derive_gravity_isostatic(
         self, theta_dict: Dict[str, float]
     ) -> Optional[Dict[Tuple[int, int], float]]:
@@ -1686,11 +1799,17 @@ class MCMCRunner:
         gravity_ref_radius_m``, Park convention) for comparison against the
         conditioned observables.
 
-        OCEAN BRANCH ONLY (module spec: "implement the ocean branch first
-        (it is invariant)"): returns None for a frozen-branch structure (no
-        phase-0 ocean layer), exactly like ``_derive_libration_deg``'s
-        current scope. The ``rho_ice_kgm3`` EOS nuisance, when present in
-        ``theta_dict``, is applied mass-neutrally
+        BOTH BRANCHES (A5). A structure with a phase-0 ocean layer takes the
+        three-layer Airy-compensated path above. A structure with NO ocean
+        layer is dispatched to :meth:`_gravity_isostatic_frozen`, which runs
+        the same two-part sum over a reduced TWO-layer stack with
+        ``isostatic_gravity(R_b=None)`` -- rigid uncompensated support. The
+        frozen branch is a real prediction here, not a rejection: it is what
+        keeps no-ocean interiors in the posterior (user ruling) while
+        letting the data discriminate them.
+
+        The ``rho_ice_kgm3`` EOS nuisance, when present in ``theta_dict``,
+        is applied mass-neutrally
         (``isostasy.mass_neutral_shell_density``) to the reduced stack
         before either sum is computed, mirroring
         ``_derive_libration_deg``'s ``rho_shell_override`` handling.
@@ -1738,7 +1857,16 @@ class MCMCRunner:
 
         ocean = np.where(phases == 0)[0]
         if ocean.size == 0:
-            return None  # frozen branch -- not yet supported (module spec)
+            # FROZEN BRANCH (A5). Rigid, UNCOMPENSATED support: there is no
+            # ice/ocean interface, so there is no Airy root and no
+            # compensation_C2 -- isostatic_gravity(R_b=None) keeps the
+            # surface term alone. That is a real physical prediction, not a
+            # fallback, and it is what lets the joint posterior discriminate
+            # the branches (config support_provenance /
+            # open_tension_airy_vs_frozen).
+            return self._gravity_isostatic_frozen(
+                theta_dict, r_m, rho, phases, H_obs_lm, R_ref_shape,
+                R_ref_gravity, finite_amplitude, omega)
         first, last = int(ocean[0]), int(ocean[-1])
         if not np.all(phases[first:last + 1] == 0):
             return None
@@ -1836,6 +1964,100 @@ class MCMCRunner:
 
         # B14 reference-radius conversion: shape convention -> gravity
         # convention, so the caller compares against Park-era observables.
+        return {lm: rescale_coeff(v, lm[0], R_ref_shape, R_ref_gravity)
+                for lm, v in C_total_shape_ref.items()}
+
+    def _gravity_isostatic_frozen(
+        self,
+        theta_dict: Dict[str, float],
+        r_m: np.ndarray,
+        rho: np.ndarray,
+        phases: np.ndarray,
+        H_obs_lm: Dict[Tuple[int, int], float],
+        R_ref_shape: float,
+        R_ref_gravity: float,
+        finite_amplitude: bool,
+        omega: float,
+    ) -> Optional[Dict[Tuple[int, int], float]]:
+        """FROZEN-branch total C_lm (A5), on the reduced two-layer stack.
+
+        Same two-part sum as the ocean branch -- hydrostatic Tricarico
+        interface-figure sum plus the observed-shape non-hydrostatic part --
+        but over (interior, ice shell) with RIGID UNCOMPENSATED support:
+        ``isostatic_gravity(R_b=None)`` keeps the surface term alone. There
+        is no ice/ocean interface, hence no Airy root, hence no
+        ``compensation_C2`` (config ``branch_model.frozen_branch.
+        not_sampled_here``); passing one here would be meaningless, so it is
+        deliberately not forwarded.
+
+        Consequence worth stating because it is a claim the campaign makes:
+        with no root, the frozen C30 is the surface term alone and is
+        therefore INDEPENDENT of zb, so the ocean branch's C30
+        shell-thickness reading does not carry over to this branch.
+
+        Returns None on any hard reject (I-F5 loop closure, non-finite
+        inputs, degenerate figure solve).
+        """
+        from PlanetProfile.Gravity.isostasy import (
+            isostatic_gravity, finite_amplitude_coeffs,
+            interface_gravity_coeff, eccentricities_to_axes,
+            triaxial_to_H2m, rescale_coeff)
+        from PlanetProfile.Gravity.Librations import compute_eccentricities
+
+        stack = self._frozen_two_layer_stack(
+            theta_dict, r_m, rho, phases, theta_dict.get('rho_ice_kgm3'))
+        if stack is None:
+            return None
+        reduced_r, reduced_rho = stack
+
+        n = reduced_r.size
+        M_body = float(np.sum(
+            reduced_rho * (4.0 * np.pi / 3.0)
+            * (reduced_r ** 3 - np.concatenate(([0.0], reduced_r[:-1])) ** 3)))
+        if not np.isfinite(M_body) or M_body <= 0:
+            return None
+
+        try:
+            ep, eq = compute_eccentricities(reduced_r, reduced_rho, omega)
+        except Exception:
+            return None
+        ep = np.asarray(ep, dtype=float)
+        eq = np.asarray(eq, dtype=float)
+        if not (np.all(np.isfinite(ep)) and np.all(np.isfinite(eq))):
+            return None
+
+        H_hyd = []
+        for i, R_i in enumerate(reduced_r):
+            a, b, c = eccentricities_to_axes(float(R_i), float(ep[i]),
+                                             float(eq[i]))
+            H20, H22 = triaxial_to_H2m(a, b, c)
+            H_hyd.append({(2, 0): H20, (2, 2): H22})
+
+        _LM = ((2, 0), (2, 2), (3, 0))
+        C_hyd = {lm: 0.0 for lm in _LM}
+        for i in range(n):
+            R_i = float(reduced_r[i])
+            drho = float(reduced_rho[i]
+                         - (reduced_rho[i + 1] if i + 1 < n else 0.0))
+            H_i = (finite_amplitude_coeffs(H_hyd[i], R_i) if finite_amplitude
+                   else H_hyd[i])
+            for lm in _LM:
+                C_hyd[lm] += interface_gravity_coeff(
+                    H_i.get(lm, 0.0), drho, R_i, lm[0], M_body, R_ref_shape)
+
+        try:
+            C_nh = isostatic_gravity(
+                H_obs_lm=H_obs_lm, H_hyd_t_lm=H_hyd[-1],
+                R_t=float(reduced_r[-1]), R_b=None,
+                rho_ice=float(reduced_rho[-1]), rho_ocean=None,
+                M_body=M_body, R_ref=R_ref_shape,
+                finite_amplitude=finite_amplitude)
+        except ValueError:
+            return None
+
+        C_total_shape_ref = {lm: C_hyd[lm] + C_nh.get(lm, 0.0) for lm in _LM}
+        if not all(np.isfinite(v) for v in C_total_shape_ref.values()):
+            return None
         return {lm: rescale_coeff(v, lm[0], R_ref_shape, R_ref_gravity)
                 for lm, v in C_total_shape_ref.items()}
 
@@ -1945,6 +2167,16 @@ class MCMCRunner:
         Returns None when the sample's structure has no contiguous
         interior/ocean/shell partition or inputs are non-finite.
 
+        FROZEN BRANCH (A5): a structure with no phase-0 layer is reduced to
+        the two-layer (interior, ice shell) stack and evaluated on
+        ``librations(..., ocean=False)`` -- the rigid oceanless branch. No
+        ocean means no decoupling, so the amplitude is the whole-body rigid
+        value; that near-zero decoupling is one of the two legs of the
+        branch discrimination. Invariant I-F5 (loop closure against the
+        sampled ``rho_rock_kgm3``) is enforced inside
+        :meth:`_frozen_two_layer_stack` and rejects to ``None`` -> -1e30 with
+        NO nearest-node fallback.
+
         Args:
             rho_shell_override: OPTIONAL EOS-nuisance override for the
                 reduced stack's outer-shell density (kg/m^3). When
@@ -1980,7 +2212,30 @@ class MCMCRunner:
 
         ocean = np.where(phases == 0)[0]
         if ocean.size == 0:
-            return None
+            # FROZEN BRANCH (A5). No ocean means no decoupled shell: the
+            # body librates as one rigid piece, which is
+            # ``librations(..., ocean=False)`` -- the Van Hoolst rigid
+            # oceanless branch, summing A/B/C over the whole reduced stack.
+            # This is the second leg of the branch discrimination (near-zero
+            # libration decoupling), and it must be a real prediction rather
+            # than a None, or the frozen branch would leave the posterior by
+            # returning -inf everywhere -- which is exactly the user ruling
+            # this design exists to honour.
+            stack = self._frozen_two_layer_stack(
+                theta_dict, r_m, rho, phases,
+                rho_shell_override if rho_shell_override is not None
+                else theta_dict.get('rho_ice_kgm3'))
+            if stack is None:
+                return None
+            reduced_r, reduced_rho = stack
+            try:
+                lib_m = librations(reduced_r, reduced_rho, omega, ecc,
+                                   rigid=True, ocean=False)
+            except Exception:
+                return None
+            if lib_m is None or not np.isfinite(lib_m):
+                return None
+            return float(np.degrees(lib_m / r_m[-1]))
         first, last = int(ocean[0]), int(ocean[-1])
         if not np.all(phases[first:last + 1] == 0):
             return None
