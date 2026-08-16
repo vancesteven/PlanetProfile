@@ -1225,6 +1225,178 @@ def build_tbw_grid_cache(
 # The window is therefore incapable of silently conditioning a SURVIVING
 # node. See build_zbw_grid_cache's frozen_Cuncertainty argument.
 
+# ---------------------------------------------------------------------------
+# D1 -- the OCEAN-branch MoI acceptance window, read from the config.
+# ---------------------------------------------------------------------------
+# r5 build blocker D1: the ocean-branch MoI window was "unspecified and
+# unenforceable" -- ``bulk_overrides`` was not a config field at all, so
+# :func:`build_zbw_grid_cache` fell through to the Enceladus template's own
+# ``Bulk.Cuncertainty = 0.001`` (PPEnceladus.py:23) no matter what the config
+# asserted. This helper makes the window a DECLARED, READ, ENFORCED config
+# quantity.
+#
+# WHAT THE WINDOW DOES ON THE OCEAN BRANCH (the structural half of the
+# derivation; mirrors the frozen branch's ruled non-conditioning argument in
+# the module comment above, but the mechanism is different):
+# PlanetProfile builds the candidate list as the silicate-radius sweep,
+# filters it to ``|C/MR^2 - Bulk.Cmeasured| <= half-width`` and then selects
+# ``argmin |C/MR^2 - Cmeasured|`` over the survivors
+# (LayerPropagators.FindInnerWithMoIAndEOS:1960-2032 for the Fe_CORE=False /
+# POROUS_ROCK path Enceladus takes; FindInnerWithMoIAndConstantRho:1600-1659
+# is the same predicate). The filtered sets are NESTED in the half-width, so:
+#
+#   * a node survives half-width H  <=>  min_i |CMR2_i - Cmeasured| <= H;
+#   * whenever it survives, the SELECTED structure is IDENTICAL for every H
+#     that admits it (the global argmin, once inside the window, stays the
+#     argmin of every wider window).
+#
+# So on the ocean branch the half-width is a pure node-ACCEPTANCE threshold.
+# It cannot bias WHICH structure a surviving node gets -- that is fixed by
+# the argmin, which is the conditioning already DECLARED in config
+# metadata.honesty_notes.cmr2_not_an_observable /
+# ocean_branch_moi_selection_declared. Narrowing the window can only DELETE
+# nodes (silently, to ``None``); widening it above the floor is inert. The
+# non-conditioning direction is therefore WIDE, not narrow -- the opposite of
+# the frozen branch, where the ruling had to pick the smallest workable
+# window because there the selection is argmin|thickness| and a too-wide
+# window admits liquid.
+#
+# The numerical half of the derivation (the measured floor) is recorded in
+# the config block itself; see metadata.bulk_overrides_provenance.
+_MOI_HALF_WIDTH_KEYS = ("Cuncertainty", "CuncertaintyUpper", "CuncertaintyLower")
+
+
+def bulk_overrides_from_config(config: Any) -> Dict[str, Any]:
+    """Resolve ``Planet.Bulk`` overrides declared by an inference config.
+
+    Accepts an ``InferenceConfig``-like object (anything with a ``metadata``
+    mapping), an already-parsed config ``dict``, or a path to the config
+    JSON. Returns the ``metadata['bulk_overrides']`` block, with one
+    expansion applied.
+
+    THE EXPANSION. PlanetProfile's MoI acceptance test reads
+    ``Bulk.CuncertaintyUpper`` / ``Bulk.CuncertaintyLower``, NOT
+    ``Bulk.Cuncertainty``. Those two are only backfilled from
+    ``Cuncertainty`` when the template left them ``None``
+    (SetupInit.py:84-87), so a config that declared ``Cuncertainty`` alone
+    would be a SILENT NO-OP against any template that sets them --
+    the same defect class as the B7 dotted-key ``ocean_overrides`` no-op
+    (config metadata.blockers_closed.B7). When the block declares
+    ``Cuncertainty`` and does not declare an explicit upper/lower, both are
+    set to the same value here so the declared window is enforced against
+    every template.
+
+    Raises ``ValueError`` when the config declares no MoI half-width at all.
+    Falling through to the template default is exactly r5 blocker D1, so it
+    is refused rather than defaulted.
+    """
+    if isinstance(config, str):
+        import json as _json
+        with open(config, "r") as fh:
+            config = _json.load(fh)
+    if isinstance(config, dict):
+        meta = config.get("metadata") or {}
+    else:
+        meta = getattr(config, "metadata", None) or {}
+    if not isinstance(meta, dict):
+        raise ValueError(
+            "bulk_overrides_from_config: config carries no metadata mapping; "
+            "cannot resolve the MoI acceptance window (r5 blocker D1)."
+        )
+    raw = meta.get("bulk_overrides")
+    if not isinstance(raw, dict) or not raw:
+        raise ValueError(
+            "bulk_overrides_from_config: config declares no "
+            "metadata['bulk_overrides'] block. The ocean-branch MoI "
+            "acceptance window MUST be declared in the config and read here "
+            "-- silently inheriting the body template's own "
+            "Bulk.Cuncertainty is r5 build blocker D1 (see "
+            "validation_reports/enceladus_isostasy/r5_ADJUDICATION.md)."
+        )
+    out = {str(k): v for k, v in raw.items()}
+    if not any(k in out for k in _MOI_HALF_WIDTH_KEYS):
+        raise ValueError(
+            "bulk_overrides_from_config: metadata['bulk_overrides'] declares "
+            f"no MoI half-width (none of {_MOI_HALF_WIDTH_KEYS} present); "
+            "got keys "
+            f"{sorted(out)}. See r5 blocker D1."
+        )
+    if "Cuncertainty" in out:
+        half = float(out["Cuncertainty"])
+        out.setdefault("CuncertaintyUpper", half)
+        out.setdefault("CuncertaintyLower", half)
+    return out
+
+
+def _template_cmeasured(planet_template_module: str) -> float | None:
+    """``Bulk.Cmeasured`` of a body template, or ``None`` if unreadable.
+
+    Diagnostic-only (the ``ocean_moi_window`` record); never gates a build,
+    so an import failure must not take a cache down with it.
+    """
+    try:
+        if planet_template_module in sys.modules:
+            tmpl = sys.modules[planet_template_module].Planet
+        else:
+            tmpl = importlib.import_module(planet_template_module).Planet
+        val = float(getattr(tmpl.Bulk, "Cmeasured", np.nan))
+        return val if np.isfinite(val) else None
+    except Exception:  # pragma: no cover - diagnostic only
+        return None
+
+
+def _moi_window_summary(
+    structures: List[Dict[str, Any] | None],
+    bulk_overrides: Dict[str, Any],
+    Cmeasured: float | None,
+) -> Dict[str, Any]:
+    """Auditable record of the ocean-branch MoI window actually applied.
+
+    Records the half-width the build ran with alongside the LARGEST achieved
+    ``|C/MR^2 - Cmeasured|`` over the surviving nodes -- the measured floor
+    below which a narrower window would have started deleting nodes. This is
+    what makes the declared window checkable at production scale instead of
+    resting on a probe (r5 blocker D1).
+    """
+    upper = bulk_overrides.get("CuncertaintyUpper",
+                               bulk_overrides.get("Cuncertainty"))
+    lower = bulk_overrides.get("CuncertaintyLower",
+                               bulk_overrides.get("Cuncertainty"))
+    devs = []
+    if Cmeasured is not None and np.isfinite(Cmeasured):
+        for s in structures:
+            if s is None:
+                continue
+            c = s.get("CMR2")
+            if c is None:
+                continue
+            c = float(c)
+            if np.isfinite(c):
+                devs.append(abs(c - float(Cmeasured)))
+    max_dev = float(max(devs)) if devs else float("nan")
+    half = float(upper) if upper is not None else float("nan")
+    return {
+        "Cmeasured": (float(Cmeasured) if Cmeasured is not None
+                      and np.isfinite(Cmeasured) else None),
+        "CuncertaintyUpper": (float(upper) if upper is not None else None),
+        "CuncertaintyLower": (float(lower) if lower is not None else None),
+        "source": bulk_overrides.get("_source", "explicit argument"),
+        "n_nodes_measured": len(devs),
+        "max_abs_cmr2_deviation": max_dev,
+        "margin": (half - max_dev) if np.isfinite(half) and np.isfinite(max_dev)
+                  else float("nan"),
+        "reading": (
+            "Ocean branch only. The half-width is a node-ACCEPTANCE "
+            "threshold, not a selection knob: PP selects argmin|CMR2 - "
+            "Cmeasured| over the in-window candidates, and those sets are "
+            "nested in the half-width, so a surviving node's structure is "
+            "identical for every half-width that admits it. "
+            "max_abs_cmr2_deviation is the measured floor -- a half-width "
+            "below it would have deleted at least one node to None."
+        ),
+    }
+
+
 _FROZEN_G = 6.674e-11
 
 # I-F2 audit (A8 item 2): the ratified window's upper edge is a CLOSED 0
@@ -1429,6 +1601,7 @@ def build_zbw_grid_cache(
     frozen_zb_tol_km: float = 0.25,
     frozen_moi_nonconditioning_window: Tuple[float, float] | None = None,
     frozen_max_iter: int = 10,
+    config: Any | None = None,
 ) -> Dict[str, Any]:
     """Build a (zb_km × wOcean_ppt) ocean grid plus an optional FROZEN zb axis.
 
@@ -1611,6 +1784,21 @@ def build_zbw_grid_cache(
         reads the template's ``Bulk.Cmeasured`` / ``Bulk.Cuncertainty``.
     frozen_max_iter
         Maximum secant iterations in the per-node ``PbISet_MPa`` solve.
+    config
+        Optional inference config (``InferenceConfig``-like object, parsed
+        dict, or path to the config JSON) supplying the OCEAN-branch
+        ``Planet.Bulk`` overrides -- above all the MoI acceptance half-width
+        -- via ``metadata['bulk_overrides']``
+        (:func:`bulk_overrides_from_config`). Without this the builder
+        inherits the body template's own ``Bulk.Cuncertainty``
+        (0.001 at Enceladus), which is r5 build blocker D1: the campaign
+        config's asserted window was unreadable and therefore
+        unenforceable. Explicit ``bulk_overrides`` entries WIN over the
+        config's, so a caller can still probe a different window; the
+        resolved window is recorded in the returned cache under
+        ``ocean_moi_window``. Raises ``ValueError`` when a config is passed
+        that declares no MoI half-width -- defaulting silently is the
+        defect.
 
     Returns
     -------
@@ -1677,7 +1865,24 @@ def build_zbw_grid_cache(
 
     base_do_overrides = dict(do_overrides or {})
     base_do_overrides["ICEIh_THICKNESS"] = True
-    base_bulk_overrides = dict(bulk_overrides or {})
+    # D1: the config's declared Bulk overrides (the MoI acceptance window)
+    # underlie any explicitly-passed ones, which win.
+    _window_source = "explicit argument"
+    if config is not None:
+        cfg_bulk = bulk_overrides_from_config(config)
+        explicit = dict(bulk_overrides or {})
+        base_bulk_overrides = {**cfg_bulk, **explicit}
+        _window_source = (
+            "config metadata['bulk_overrides']"
+            if not any(k in explicit for k in _MOI_HALF_WIDTH_KEYS)
+            else "explicit argument (overrides config "
+                 "metadata['bulk_overrides'])")
+        if progress:
+            log.info(
+                f"Bulk overrides from config: {cfg_bulk}; "
+                f"resolved: {base_bulk_overrides}")
+    else:
+        base_bulk_overrides = dict(bulk_overrides or {})
 
     n_zb, n_w = zb_arr.size, w_arr.size
     total = n_zb * n_w
@@ -1770,6 +1975,13 @@ def build_zbw_grid_cache(
         "n_zb_placement_rejected": int(n_zb_reject),
         # Ocean-branch-only unless a frozen axis was requested below.
         "frozen_branch_supported": False,
+        # D1: the MoI acceptance window this build actually ran with, plus
+        # the measured floor (largest achieved |CMR2 - Cmeasured|) that makes
+        # the declared window auditable at production scale.
+        "ocean_moi_window": _moi_window_summary(
+            structures,
+            {**base_bulk_overrides, "_source": _window_source},
+            _template_cmeasured(planet_template_module)),
     }
 
     if frozen_zb_km_grid is not None:
