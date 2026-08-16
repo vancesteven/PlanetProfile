@@ -227,10 +227,14 @@ def test_partial_love_numbers_reproduce_alma_k2():
     assert relative_error < 1e-3
 
 
-# --- B2' H&M 2019 observed-figure libration convention (opt-in) --------
+# --- B2' Delta_rho-consistent H&M figure treatment (opt-in) ------------
 #
-# See validation_reports/enceladus_isostasy/b2prime_libration_figure_convention.json
-# for the recorded measurement these tests reproduce.
+# USER RULING 2026-08-15 (plans/MACHINE-B-HANDOFF.md section 0.23): the
+# 2026-08-13 "option A" whole-difference scaling of (Bs - As) is RESCINDED
+# and repaired as a DEFECT. The adopted treatment is Delta_rho-consistent:
+# hydrostatic interior figures with the H&M Eq.-12 surface treatment.
+# Authoritative record: validation_reports/enceladus_isostasy/
+# b2prime_ADJUDICATED_drho_weighting.json.
 
 def _enceladus_b2prime_structure():
     """Mass-conserved 3-layer Enceladus structure from the B2' measurement."""
@@ -280,34 +284,93 @@ def test_h22_obs_m_matching_hydrostatic_is_a_noop():
     assert lib_scaled == pytest.approx(lib_default, rel=1e-12)
 
 
-def test_h22_obs_m_reproduces_b2prime_measurement():
-    """Observed-figure convention shifts the libration by +1.40 to +1.43 sigma_obs.
-
-    Reproduces validation_reports/enceladus_isostasy/
-    b2prime_libration_figure_convention.json at the recorded mass-conserved
-    structure (zb=25 km, D_ocean=36 km, H22_obs_m=857.0).
-    """
+def _b2prime_libration_deg(**figure_kwargs):
+    """Libration (deg) at the B2' fiducial under a figure treatment."""
     radial, rho, omega, ecc = _enceladus_b2prime_structure()
+    displacement_m = librations(radial, rho, omega, ecc, rigid=True,
+                                ocean=True, ocean_idx=1, **figure_kwargs)
+    return float(np.degrees(displacement_m / radial[-1]))
+
+
+def test_drho_consistent_treatment_reproduces_the_adjudicated_bracket():
+    """Pin the RULED Delta_rho-consistent treatment, not the rescinded one.
+
+    Reproduces b2prime_ADJUDICATED_drho_weighting.json
+    CRITICAL_2.reviewer_measurement.corrected_Eq12_C2_sweep_at_zb25_D36_
+    rho1005 at the recorded mass-conserved structure (zb = 25 km,
+    D_ocean = 36 km, rho_ocean = 1005, H22_obs_m = 857.0):
+
+        C2 = 0.0  ->  0.10054 deg  (+3.25 sigma_obs vs hydrostatic)
+        C2 = 0.5  ->  0.09814 deg  (+2.46 sigma_obs)
+        C2 = 1.0  ->  0.09576 deg  (+1.66 sigma_obs)
+
+    This test REPLACES test_h22_obs_m_reproduces_b2prime_measurement, which
+    pinned the whole-difference scaling's +1.40 to +1.43 sigma shift
+    (0.09502 deg). That treatment is RESCINDED per the user ruling of
+    2026-08-15 (plans/MACHINE-B-HANDOFF.md section 0.23): scaling the whole
+    of (Bs - As) applied an implicit, structure-dependent, sign-flipping
+    effective scale of +0.33 to -0.58 to the shell-base interface, whose
+    physical weight in Ks is Delta_rho = rho_ocean - rho_ice, not
+    -rho_ice. Every value pinned below fails against that rescinded path.
+    """
     sigma_obs_deg = 0.003
+    lib_hyd_deg = _b2prime_libration_deg()
 
-    lib_hyd_m = librations(radial, rho, omega, ecc, rigid=True, ocean=True,
-                            ocean_idx=1)
-    lib_obs_m = librations(radial, rho, omega, ecc, rigid=True, ocean=True,
-                            ocean_idx=1, H22_obs_m=857.0)
+    expected = {0.0: 0.10054, 0.5: 0.09814, 1.0: 0.09576}
+    expected_sigma = {0.0: 3.25, 0.5: 2.46, 1.0: 1.66}
 
-    lib_hyd_deg = np.degrees(lib_hyd_m / radial[-1])
-    lib_obs_deg = np.degrees(lib_obs_m / radial[-1])
+    for C2, target_deg in expected.items():
+        lib_deg = _b2prime_libration_deg(H22_obs_m=857.0,
+                                          compensation_C2=C2)
+        assert lib_deg == pytest.approx(target_deg, abs=5e-6), (
+            f'C2={C2}: libration {lib_deg:.5f} deg, adjudicated '
+            f'{target_deg:.5f} deg')
+        shift_sigma = (lib_deg - lib_hyd_deg) / sigma_obs_deg
+        assert shift_sigma == pytest.approx(expected_sigma[C2], abs=5e-3)
 
-    shift_sigma = (lib_obs_deg - lib_hyd_deg) / sigma_obs_deg
-    assert 1.40 <= shift_sigma <= 1.43
+    # The rescinded whole-difference value must NOT be reproduced.
+    assert (expected[1.0] - lib_hyd_deg) / sigma_obs_deg > 1.43
+
+
+def test_surface_only_treatment_is_the_C2_zero_limit_exactly():
+    """Eq.-12 at C2 = 0 must equal surface-only to machine precision.
+
+    The analytic limit test required by b2prime_ADJUDICATED_drho_
+    weighting.json CRITICAL_2.analytic_limit_test_the_drivers_FAIL: C2 = 0
+    means no isostatic root, so the shell base keeps its hydrostatic
+    figure and the two treatments are the same physical model. The drivers
+    behind the retracted 30.5-sigma escalation failed this limit by a
+    factor 1.75 in the Ks bracket, which is what makes it the cheapest
+    available regression on this code path.
+    """
+    surface_only_deg = _b2prime_libration_deg(H22_obs_m=857.0)
+    eq12_c2_zero_deg = _b2prime_libration_deg(H22_obs_m=857.0,
+                                               compensation_C2=0.0)
+    assert eq12_c2_zero_deg == surface_only_deg
 
 
 def test_h22_obs_m_unsupported_branch_raises():
-    """H22_obs_m is only implemented for ocean=True, rigid=True; else raise."""
+    """The figure options are only implemented for ocean=True, rigid=True."""
     radial, rho, omega, ecc = _enceladus_b2prime_structure()
     with pytest.raises(NotImplementedError):
         librations(radial, rho, omega, ecc, rigid=True, ocean=False,
                    H22_obs_m=857.0)
+    with pytest.raises(NotImplementedError):
+        librations(radial, rho, omega, ecc, rigid=True, ocean=False,
+                   compensation_C2=1.0)
+
+
+def test_compensation_C2_without_an_observed_figure_raises():
+    """C2 alone is a silent no-op physically, so it must not be accepted.
+
+    The Airy root responds to the NON-hydrostatic part of the observed
+    surface figure (H&M Eq. 12), which is identically zero when the
+    surface figure is left hydrostatic.
+    """
+    radial, rho, omega, ecc = _enceladus_b2prime_structure()
+    with pytest.raises(ValueError):
+        librations(radial, rho, omega, ecc, rigid=True, ocean=True,
+                   ocean_idx=1, compensation_C2=1.0)
 
 
 # --- rho_ice mass-neutrality fix (NEW_MAJOR_1) ---------------------------

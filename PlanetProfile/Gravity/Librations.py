@@ -4,6 +4,7 @@ import logging
 
 import numpy as np
 
+from PlanetProfile.Gravity.isostasy import airy_root, gravity_g
 from PlanetProfile.Utilities.defineStructs import Constants
 
 log = logging.getLogger('PlanetProfile')
@@ -107,7 +108,8 @@ def moi_ellps(a, b, c, rho):
     return Ai, Bi, Ci
 
 def librations(radial, rho, omega, ecc, rigid=True, ocean=True,
-                       ocean_idx=1, y1=None, rek2=None, H22_obs_m=None):
+                       ocean_idx=1, y1=None, rek2=None, H22_obs_m=None,
+                       compensation_C2=None):
     """Compute the forced libration amplitude (metres, at the surface).
 
     Figure convention (ocean=True, rigid=True branch only)
@@ -119,48 +121,90 @@ def librations(radial, rho, omega, ecc, rigid=True, ocean=True,
     the PP-native convention and is exactly what runs when ``H22_obs_m`` is
     left at its default of ``None``.
 
-    Hemingway & Mittal (2019) instead drive the shell's libration torque
-    from the body's OBSERVED (non-hydrostatic) surface triaxial figure,
-    since real icy-shell surfaces are not exactly hydrostatic. Passing
-    ``H22_obs_m`` (the observed surface H22 in metres, same convention as
-    ``PlanetProfile.Gravity.isostasy.triaxial_to_H2m``, i.e.
-    H22 = (a - b) / 6) opts into that convention: only the shell's own
-    (Bs - As) term is rescaled by the ratio observed/hydrostatic H22,
-    leaving the ocean-pressure term (Bsp_Asp), the deep-interior torque,
-    and K_int on the hydrostatic figure.
+    Hemingway & Mittal (2019) instead set the shell's OUTER figure to the
+    OBSERVED (non-hydrostatic) surface triaxial figure and obtain the
+    ice/ocean interface figure as the Airy-isostatic response to that
+    surface load (their Eq. 12, section 2.3), scaled by the compensation
+    fraction C2. Passing ``H22_obs_m`` -- with ``compensation_C2`` for the
+    isostatic root -- opts into that treatment.
 
-    Scope of the option, stated precisely: the SURFACE figure is the only
-    one that is actually observed, so it is the only one rescaled here.
-    Interior interfaces stay hydrostatic because there is no measurement to
-    replace them with -- not as an approximation of convenience. In the
-    recorded measurement's option list this is option A (adopt the H&M
-    convention) as applied to the shell; the A-vs-C distinction there
-    concerns whether INTERIOR interfaces would also be rescaled, and
-    rescaling them is not implemented and is not currently justifiable.
-    K_int is deliberately untouched: it carries the separately-adjudicated
-    8*pi/15 normalization defect whose repair is a post-campaign task that
-    must not land piecemeal (see the strict-xfail tripwire in
-    tests/librations_test.py).
+    Delta_rho weighting: the B2' defect repair (user ruling 2026-08-15)
+    -------------------------------------------------------------------
+    The shell torque telescopes exactly into H&M's Eq. 19 density-contrast
+    sum (verified to ~1e-14; standing invariant in
+    tests/libration_density_contrast_test.py)::
 
-    See validation_reports/enceladus_isostasy/b2prime_libration_figure_convention.json
-    for the quantified size of this systematic for Enceladus (~9-10%
-    super-hydrostatic surface figure -> ~+1.4 sigma_obs libration shift,
-    ~+1.10 km inferred shell thickness).
+        Ks / (3 omega^2) = rho_ice * f_top + (rho_ocean - rho_ice) * f_base
+        f_i = (4 pi / 15) a_i b_i c_i (a_i^2 - b_i^2)
+
+    so the shell-BASE interface's physical weight is the density contrast
+    Delta_rho = rho_ocean - rho_ice ~ 80-95 kg/m^3, even though in PP's
+    layer form it appears as a difference of two ~10x larger cancelling
+    terms: ``-rho_ice * f_base`` inside ``(Bs - As)`` and
+    ``+rho_ocean * f_base`` inside ``Bsp_Asp``.
+
+    The 2026-08-13 implementation scaled the whole of ``(Bs - As)``, which
+    touched only the first of those two halves and therefore applied an
+    implicit, structure-dependent, SIGN-FLIPPING effective scale of +0.33
+    to -0.58 to the base interface while claiming it stayed hydrostatic.
+    That treatment is RESCINDED. Every figure scale here is applied to the
+    interface's Delta_rho-weighted term -- to ``f_base`` wherever it
+    appears, INCLUDING ``Bsp_Asp`` -- never to a moment difference.
+    See validation_reports/enceladus_isostasy/
+    b2prime_ADJUDICATED_drho_weighting.json and
+    plans/MACHINE-B-HANDOFF.md section 0.23.
+
+    Scope, stated precisely: the surface and the shell base are the two
+    interfaces the treatment touches. Deep-interior interfaces (below the
+    ocean) stay hydrostatic, as do any interior interfaces WITHIN a
+    multi-layer shell. K_int is deliberately untouched: it carries the
+    separately-adjudicated 8*pi/15 normalization defect whose repair is a
+    post-campaign task that must not land piecemeal (see the strict-xfail
+    tripwire in tests/librations_test.py).
+
+    At the Enceladus fiducial (zb = 25 km, D_ocean = 36 km,
+    rho_ocean = 1005, H22_obs = 857 m) the treatment spans +3.25 sigma_obs
+    at C2 = 0 to +1.66 sigma_obs at C2 = 1 relative to hydrostatic, and the
+    shell thickness matching the Park libration 0.092 deg is bracketed by
+    C2 between 27.34 km (C2 = 0) and 25.99 km (C2 = 1).
 
     Parameters
     ----------
     H22_obs_m : float, optional
-        Observed surface H22 in metres. When ``None`` (default), the
-        hydrostatic figure is used everywhere and behaviour is identical
-        to leaving this parameter unset entirely. Only supported for the
+        Observed surface H22 in metres, same convention as
+        ``PlanetProfile.Gravity.isostasy.triaxial_to_H2m``, i.e.
+        H22 = (a - b) / 6. When ``None`` (default), the hydrostatic figure
+        is used everywhere and behaviour is identical to leaving this
+        parameter unset entirely. Only supported for the
         ``ocean=True, rigid=True`` branch; passing a non-default value for
         any other branch raises ``NotImplementedError``.
+    compensation_C2 : float, optional
+        Airy compensation fraction (H&M Eq. 12; C2 = 1 is pure Airy).
+        Requires ``H22_obs_m``. When ``None`` (or 0) the shell base keeps
+        its hydrostatic figure, which is the surface-only treatment and is
+        the exact C2 -> 0 limit of the Eq.-12 treatment.
     """
-    if H22_obs_m is not None and not (ocean and rigid):
+    figure_option_used = H22_obs_m is not None or compensation_C2 is not None
+    if figure_option_used and not (ocean and rigid):
         raise NotImplementedError(
-            "H22_obs_m (observed-figure libration convention) is only "
-            "implemented for the ocean=True, rigid=True (Van Hoolst et al. "
-            "2008 rigid) branch. Got ocean=%r, rigid=%r." % (ocean, rigid)
+            "The observed-figure libration convention (H22_obs_m / "
+            "compensation_C2) is only implemented for the ocean=True, "
+            "rigid=True (Van Hoolst et al. 2008 rigid) branch. Got "
+            "ocean=%r, rigid=%r." % (ocean, rigid)
+        )
+    if compensation_C2 is not None and H22_obs_m is None:
+        raise ValueError(
+            "compensation_C2 requires H22_obs_m: the Airy root (H&M "
+            "Eq. 12) responds to the NON-HYDROSTATIC part of the observed "
+            "surface figure, which is identically zero when the surface "
+            "figure is left hydrostatic."
+        )
+    if compensation_C2 is not None and len(rho) - ocean_idx - 1 != 1:
+        raise NotImplementedError(
+            "The Eq.-12 isostatic root is defined against a single shell "
+            "density; got %d layers above the ocean. Reduce the stack "
+            "first (see Gravity.LibrationModelInputs)."
+            % (len(rho) - ocean_idx - 1)
         )
 
     # Compute eccentricities of the layers, semi-major axes, and moments of
@@ -237,24 +281,63 @@ def librations(radial, rho, omega, ecc, rigid=True, ocean=True,
             Bip_Aip = 8/15*np.pi * rho[ocean_idx] * beta[0] * radial[0]**5
             Bsp_Asp = 8/15*np.pi * rho[ocean_idx] * beta[ocean_idx] * radial[ocean_idx]**5
 
-            # Optional H&M 2019 observed-figure convention: rescale only the
-            # shell's own (Bs - As) contribution by observed/hydrostatic
-            # surface H22. Defaults to 1.0 (hydrostatic, PP-native), which
-            # is byte-identical to the historical code path.
+            # Compute torques separately acting on outer shell and interior
             if H22_obs_m is None:
-                shell_figure_scale = 1.0
+                # PP-native hydrostatic figures. Byte-identical to the
+                # historical code path.
+                Ks = 3 * omega**2 * ((Bs - As) + Bsp_Asp)
             else:
-                H22_hyd_m = (a[-1] - b[-1]) / 6
-                shell_figure_scale = H22_obs_m / H22_hyd_m
+                # Delta_rho-consistent figure treatment (B2' repair; see the
+                # docstring). Split (Bs - As) into the two interfaces that
+                # carry it, so a figure rescaling acts on each interface's
+                # physical density-contrast weight rather than on the
+                # near-cancelling difference.
+                f_fig = 4/15*np.pi * a * b * c * (a**2 - b**2)
+                BmA_surface = rho[-1] * f_fig[-1]
+                BmA_base = -rho[ocean_idx+1] * f_fig[ocean_idx]
+                # Interfaces inside a multi-layer shell stay hydrostatic;
+                # this residual is identically zero for a reduced stack.
+                BmA_shell_interior = (Bs - As) - BmA_surface - BmA_base
+
+                H22_hyd_surface_m = (a[-1] - b[-1]) / 6
+                surface_figure_scale = H22_obs_m / H22_hyd_surface_m
+
+                if compensation_C2 is None:
+                    # Surface-only treatment == the C2 -> 0 Eq.-12 limit.
+                    base_figure_scale = 1.0
+                    H22_root_m = 0.0
+                else:
+                    shell_mass = (fpi * rho[ocean_idx+1:]
+                                  * (radial[ocean_idx+1:]**3
+                                     - radial[ocean_idx:-1]**3)).sum()
+                    g_t = gravity_g(m_body, radial[-1])
+                    g_b = gravity_g(m_body - shell_mass, radial[ocean_idx])
+                    H22_hyd_base_m = (a[ocean_idx] - b[ocean_idx]) / 6
+                    H22_root_m = airy_root(
+                        {(2, 2): H22_obs_m - H22_hyd_surface_m},
+                        rho[ocean_idx+1], rho[ocean_idx], g_t, g_b,
+                        compensation_C2,
+                    )[(2, 2)]
+                    base_figure_scale = ((H22_hyd_base_m + H22_root_m)
+                                         / H22_hyd_base_m)
+
                 log.debug(
-                    "librations(): H&M observed-figure convention active "
-                    "-- H22_hydrostatic=%.6g m, H22_observed=%.6g m, "
-                    "shell_figure_scale=%.6g",
-                    H22_hyd_m, H22_obs_m, shell_figure_scale,
+                    "librations(): H&M Delta_rho-consistent figure "
+                    "treatment active -- H22_hyd_surface=%.6g m, "
+                    "H22_observed=%.6g m, surface_figure_scale=%.6g, "
+                    "C2=%r, H22_airy_root=%.6g m, base_figure_scale=%.6g",
+                    H22_hyd_surface_m, H22_obs_m, surface_figure_scale,
+                    compensation_C2, H22_root_m, base_figure_scale,
                 )
 
-            # Compute torques separately acting on outer shell and interior
-            Ks = 3 * omega**2 * ((Bs - As) * shell_figure_scale + Bsp_Asp)
+                # The base scale multiplies BOTH halves of the base
+                # interface term, so the net perturbation enters at the
+                # physical Delta_rho weight.
+                Ks = 3 * omega**2 * (
+                    BmA_shell_interior
+                    + surface_figure_scale * BmA_surface
+                    + base_figure_scale * (BmA_base + Bsp_Asp)
+                )
             Kc = 3 * omega**2 * ((Bc - Ac) - Bip_Aip)
 
             # Gravitational coupling torque
