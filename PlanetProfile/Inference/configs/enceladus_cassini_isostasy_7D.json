@@ -352,10 +352,20 @@
   },
   "derived_display_only_note": "libration_deg REMOVED from this list 2026-08-13 (reviewer NEW-MINOR-2): it is a CONDITIONED OBSERVABLE and appeared here simultaneously, a live contradiction on the campaign's SOLE thickness channel — precisely the field an implementer could read as 'do not condition'. It remains a per-sample derived DISPLAY quantity too (corner-plot column + summary row per the user ruling), but that is a presentation concern and must not be encoded in a list this config otherwise uses to mean not-conditioned (as it does for the induction quantities).",
   "branch_model": {
-   "type": "explicit discrete model index",
+   "type": "two independent evidence integrals, combined post hoc at declared prior odds",
+   "type_ruling_2026_08_15": "SUPERSEDES 'explicit discrete model index'. The frozen-branch design ruling REJECTED a single-theta branch indicator: the branches are NOT NESTED (frozen 3 free parameters, ocean 5; log10_wOcean_ppt and compensation_C2 are UNDEFINED on the frozen branch, not merely unconstrained), so a discrete index inside one sampler would need a PSEUDO-PRIOR over the coordinates that exist on only one side — and the reported branch mass would then depend on that arbitrary choice. That is the C16 fragility RELOCATED, not cured. The r3 requirement that the comparison be a declared-odds model comparison rather than a continuous prior STANDS and is satisfied more strictly by the two-run protocol.",
    "prior_odds": {
     "ocean": 0.5,
     "frozen": 0.5
+   },
+   "evidence_protocol": {
+    "runs": "TWO SEPARATE nested-sampling runs, one per branch, each integrating over ITS OWN support and ITS OWN parameter set. Neither run contains a branch coordinate.",
+    "combination": "post hoc, log B = log Z_frozen - log Z_ocean; log posterior odds = log B + log(0.5/0.5) = log B",
+    "implementation": "PlanetProfile/Inference/branch_evidence.py — branch_bayes_factor / branch_comparison_from_results. The runner already records log_Z and log_Z_err from the sampler (mcmc_runner.py, InferenceResult metrics); the utility does the arithmetic and the validity checks only. The runs themselves are Machine B compute.",
+    "binding_validity_condition": "BOTH runs must condition on IDENTICAL observables with an IDENTICALLY NORMALIZED likelihood — same observable set, same sigmas, same Sigma_model inflation. Otherwise log Z_frozen - log Z_ocean contains the ratio of two different normalizing constants and the 'Bayes factor' is an artifact. branch_bayes_factor compares the two observable dicts exactly and RAISES rather than returning a number.",
+    "reporting_rule": "The frozen branch is discriminated at tens of sigma, so |log B| is expected to be large enough that the posterior odds underflow double precision. In that regime report the verdict as ONE-SIDED and do NOT quote a ratio or a probability — the magnitude is not interpretable. Conversely, if |log B| falls within 3x its combined numerical error the comparison is NOT resolved by those runs and n_effective must be raised rather than the sign quoted; the utility emits both notes.",
+    "prior_odds_are_declared": "0.5/0.5 is a DECLARATION, not a measurement. It is what makes the reported posterior odds readable as the data's contribution alone, and it is what removes the box-edge rescalability the ragged-axis version had (metadata.structure_cache_spec.branch_mass_reporting_ruling).",
+    "frozen_zb_is_not_a_posterior_axis": "On the frozen branch zb_km is a deterministic reparameterization of rho_rock (isostasy.frozen_zb_from_mass), so a 'frozen-branch posterior on zb' must be read as a posterior on rho_rock."
    },
    "ocean_branch": {
     "sampled": [
