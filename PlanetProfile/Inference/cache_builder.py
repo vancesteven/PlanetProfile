@@ -121,8 +121,23 @@ def build_single_structure(
     ``phases``, ``T_K``, ``P_MPa``, ``bulk_visc``, ``changeIndices``,
     ``n_layers``, ``layer_upper_radii``, ``layer_types``, ``region_phases``,
     ``omega``, ``eccentricity``, ``host_mass``, ``a_m``, ``R_body_m``,
-    ``Mtot_kg``, ``CMR2``, ``Tb_K``, ``rhoSil_kgm3``, ``D_hsphere_km``,
-    ``D_iceIh_km``, ``D_iceIII_km``, ``D_iceV_km``, ``D_iceVI_km``.
+    ``Mtot_kg``, ``Mtot_achieved_kg``, ``mass_residual_frac``, ``CMR2``,
+    ``Tb_K``, ``rhoSil_kgm3``, ``D_hsphere_km``, ``D_iceIh_km``,
+    ``D_iceIII_km``, ``D_iceV_km``, ``D_iceVI_km``.
+
+    Mass fields (A4), three distinct quantities that must not be conflated:
+
+    - ``Mtot_kg`` -- the TARGET, ``Planet.Bulk.M_kg`` (the measured body
+      mass PP conserves against). Semantics UNCHANGED; it is consumed as
+      the conservation target in six places including two ``Test/`` files.
+    - ``Mtot_achieved_kg`` -- the mass actually carried by this structure's
+      ``(r_m, rho)`` arrays, integrated in PlanetProfile's own OUTER-EDGE
+      layer convention (``rho[i]`` fills ``[r[i-1], r[i]]``, implicit inner
+      edge 0).
+    - ``mass_residual_frac`` -- ``Mtot_achieved_kg / Mtot_kg - 1``. The
+      solver's residual is one-signed BY DESIGN (``Silicates.py:118`` takes
+      the first profile with ``Mtot_kg <= M_kg``), so a POSITIVE value is a
+      distinct bug class, not noise.
     """
     from copy import deepcopy
 
@@ -536,6 +551,37 @@ def build_single_structure(
     # round-trip through PhaseConv would slow the per-sample heating loop.
     phase_map = {0: '0', 1: 'Ih', 2: 'II', 3: 'III', 5: 'V', 6: 'VI'}
 
+    # ------------------------------------------------------------------
+    # ACHIEVED mass (A4). ``Mtot_kg`` below is the TARGET (Planet.Bulk.M_kg,
+    # the measured body mass PP conserves against) and its semantics are
+    # DELIBERATELY UNCHANGED -- it is consumed as the conservation target in
+    # six places including two Test/ files, so it must not be repurposed
+    # (RESUME_NOTE "Not blocking the build, but owed"). The achieved mass is
+    # published alongside it under distinct names so the mass-conservation
+    # node invariant can be evaluated without re-integrating the profile at
+    # every consumer, and so a violation can never again be MASKED by the
+    # stored target (the defect behind MAJOR-1: the smoke cache's frozen
+    # nodes stored the template Mtot_kg while being -22.16% / -9.21% off).
+    #
+    # Quadrature is PlanetProfile's OWN layer convention -- OUTER-EDGE:
+    # rho[i] fills the shell [r[i-1], r[i]] with an implicit inner edge of 0
+    # (reducedPlanetModel / Geophysical.py:170). Named here because the
+    # convention swing across quadratures (~2% on one Titan node) is larger
+    # than every effect being measured, and because "an audit of existing
+    # data must adopt the convention the data was built with"
+    # (mass_conservation_revision_history v3).
+    _m_order = np.argsort(r_m)
+    _r_sorted = r_m[_m_order]
+    _rho_sorted = rho[_m_order]
+    _r_inner = np.concatenate(([0.0], _r_sorted[:-1]))
+    Mtot_achieved_kg = float(np.sum(
+        _rho_sorted * (4.0 / 3.0) * np.pi
+        * (_r_sorted ** 3 - _r_inner ** 3)))
+    _M_target = float(Planet.Bulk.M_kg)
+    mass_residual_frac = (
+        float(Mtot_achieved_kg / _M_target - 1.0)
+        if np.isfinite(_M_target) and _M_target > 0 else float("nan"))
+
     return {
         "r_m": np.ascontiguousarray(r_m),
         "rho": np.ascontiguousarray(rho),
@@ -558,7 +604,13 @@ def build_single_structure(
         "host_mass": host_mass,
         "a_m": a_m,
         "R_body_m": R_body_m,
+        # TARGET mass (unchanged semantics -- see the A4 note above).
         "Mtot_kg": Planet.Bulk.M_kg,
+        # ACHIEVED mass by outer-edge integration of this structure's own
+        # (r_m, rho), and its one-sided fractional residual against the
+        # target. New in A4; never overwrite Mtot_kg with these.
+        "Mtot_achieved_kg": Mtot_achieved_kg,
+        "mass_residual_frac": mass_residual_frac,
         "CMR2": CMR2_pp,
         "J2": float(J2_pred),
         "C22": float(C22_pred),
