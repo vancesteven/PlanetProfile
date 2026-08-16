@@ -118,8 +118,16 @@ def test_resolver_refuses_to_default_silently(meta):
 # ---------------------------------------------------------------------------
 
 def _fake_struct(zb_km, cmr2=0.3345):
-    """Minimal ocean-branch structure dict satisfying the builder's checks."""
-    r_m = np.array([1.0e5, 2.0e5, 2.521e5])
+    """Minimal ocean-branch structure dict satisfying the builder's checks.
+
+    The ice/ocean interface is placed AT ``zb_km``: the topmost liquid cell's
+    radius is what :func:`cache_builder._ocean_node_zb_km` reads as the
+    achieved shell thickness (E1). Before that repair the builder scored
+    ``D_iceIh_km``, so this fixture only had to set that scalar and its arrays
+    could disagree with it -- which is precisely the inconsistency E1 removed.
+    """
+    R_body_m = 2.521e5
+    r_m = np.array([1.0e5, R_body_m - float(zb_km) * 1e3, R_body_m])
     return {
         'r_m': r_m,
         'rho': np.array([2350.0, 1005.0, 925.0]),
@@ -129,7 +137,7 @@ def _fake_struct(zb_km, cmr2=0.3345):
         'CMR2': float(cmr2),
         'Tb_K': 272.3,
         'Mtot_kg': 1.08022e20,
-        'R_body_m': 2.521e5,
+        'R_body_m': R_body_m,
     }
 
 
@@ -158,7 +166,6 @@ def test_builder_consumes_the_config_declared_window(captured_builds, tmp_path):
         wOcean_ppt_grid=[5.0, 20.0],
         output_path=str(tmp_path / 'x.pkl'),
         config=str(CANDIDATE_CONFIG),
-        zb_tol_km=5.0,
         progress=False,
     )
     assert captured_builds, 'builder never ran a node'
@@ -189,7 +196,6 @@ def test_explicit_bulk_overrides_win_over_the_config(captured_builds, tmp_path):
         config=str(CANDIDATE_CONFIG),
         bulk_overrides={'Cuncertainty': 0.30, 'CuncertaintyUpper': 0.30,
                         'CuncertaintyLower': 0.30},
-        zb_tol_km=5.0,
         progress=False,
     )
     for kw in captured_builds:
@@ -205,7 +211,6 @@ def test_builder_without_a_config_is_unchanged(captured_builds, tmp_path):
         wOcean_ppt_grid=[5.0, 20.0],
         output_path=str(tmp_path / 'x.pkl'),
         bulk_overrides={'Cuncertainty': 0.08},
-        zb_tol_km=5.0,
         progress=False,
     )
     for kw in captured_builds:

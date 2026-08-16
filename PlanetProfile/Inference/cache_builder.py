@@ -1469,6 +1469,45 @@ def _volume_weighted(rho: np.ndarray, r_sorted: np.ndarray,
     return float(np.sum(rho[mask] * vol[mask]) / np.sum(vol[mask]))
 
 
+def _ocean_node_zb_km(struct: Dict[str, Any]) -> float:
+    """Achieved ice-shell thickness (km) of an OCEAN node, from its own arrays.
+
+    ``(R_body_m - r_top_of_ocean) / 1e3``: the depth of the ice/ocean
+    interface under the package's outer-edge radial convention, where the
+    topmost liquid cell's ``r_m`` IS that interface.
+
+    This is the quantity ``GetIceShellTFreeze`` actually root-finds on
+    (``Planet.zb_km``) -- measured equal to it to 1e-13 km on a real Enceladus
+    node (Seawater 20 ppt, target 25 km: 22.035091610841235 both ways) -- and
+    it is the shell/ocean split every downstream consumer reads out of the
+    stored ``phases`` array.
+
+    It is deliberately NOT ``D_iceIh_km``. That field sums per-layer
+    ``r_m[e-1] - r_m[s]`` and so undercounts the shell by exactly one radial
+    cell (measured 0.438-0.495 km at Enceladus, i.e. 3.5-4x the finest
+    segment's whole placement budget of 0.125 km). Reading it as the achieved
+    zb made the zb-placement invariant unsatisfiable in principle: the solver
+    drives one quantity to the target while the invariant scores a different
+    one, offset by ~0.44 km. This is the ocean-branch analogue of the choice
+    :func:`_frozen_node_fields` already made for the frozen branch, and for
+    the same measured reason. ``D_iceIh_km`` itself is UNCHANGED -- it is
+    consumed as a sampling coordinate by the Titan v5 campaigns.
+
+    Returns NaN when the structure carries no liquid cell.
+    """
+    r = np.asarray(struct.get("r_m"), dtype=float)
+    phases = np.asarray(struct.get("phases"))
+    if r.size == 0 or phases.size != r.size:
+        return float("nan")
+    order = np.argsort(r)
+    r, phases = r[order], phases[order]
+    liquid = np.flatnonzero(phases == 0)
+    if liquid.size == 0:
+        return float("nan")
+    R_body_m = float(struct.get("R_body_m", np.nan))
+    return (R_body_m - float(r[liquid[-1]])) / 1e3
+
+
 def _frozen_node_fields(struct: Dict[str, Any]) -> Dict[str, Any]:
     """Derive the frozen branch's per-node diagnostics from a built structure.
 
@@ -1712,22 +1751,34 @@ def build_zbw_grid_cache(
     (fixed to read ``Planet.Bulk.Tb_K`` post-run rather than echo the
     input -- see :func:`build_single_structure`).
 
-    Root-finding is only tolerance-bounded in TEMPERATURE space
-    (``GetIceShellTFreeze``'s internal ``xtol=Planet.TfreezeRes_K``), not
-    in zb space. At Enceladus gravity d(zb)/d(Tb) is enormous (~0.27 K
-    spans the WHOLE 5-45 km shell range per the config's own honesty
-    note), so a node can converge in T while still missing its zb target
-    by several km. This builder enforces the zb-placement invariant
-    explicitly (module spec / RESUME_NOTE ``zb_placement``): a node is
-    HARD REJECTED to ``None`` when
-    ``abs(D_iceIh_km_achieved - zb_km_target) >= zb_tol_km``.
-    ``D_iceIh_km`` (summed phase-Ih layer thickness, already computed by
-    :func:`build_single_structure`) is used as the "achieved zb" reading --
-    the existing, already-tested field for shell thickness in this
-    package; it is NOT bit-identical to PlanetProfile's own internal
-    ``Planet.zb_km`` (observed offset ~0.4 km on one probe structure,
-    plausibly the Melosh conductive-layer correction), which is not
-    exposed by :func:`build_single_structure`'s return contract.
+    Root-finding USED to be tolerance-bounded only in TEMPERATURE space
+    (``GetIceShellTFreeze``'s ``xtol=Planet.TfreezeRes_K``), not in zb
+    space. At Enceladus gravity d(zb)/d(Tb) is enormous (~0.27 K spans the
+    WHOLE 5-45 km shell range per the config's own honesty note), so a
+    node converged in T while missing its zb target by several km. Two
+    repairs (r6 blocker E1) make the placement invariant achievable:
+
+    1. ``Bulk.zbTol_km`` is now set per node to ``0.4 * zb_tol_km`` (the
+       same 0.4x convention ``_build_frozen_node`` uses), and
+       ``GetIceShellTFreeze`` DERIVES its temperature tolerance from that
+       km tolerance and the body's own measured ``|d(zb)/d(Tb)|``. The
+       shared ``TfreezeRes_K`` is untouched, so every non-zb-driven path
+       (all Titan/Europa runs, Main.py's inductogram zb path) is
+       byte-identical.
+    2. ``GetIceShellTFreeze`` returns the MINIMUM-|residual| iterate
+       rather than the last one.
+
+    The invariant itself (module spec / RESUME_NOTE ``zb_placement``) is
+    unchanged in form -- a node is HARD REJECTED to ``None`` when
+    ``abs(zb_km_actual - zb_km_target) >= zb_tol_km`` -- but the "achieved
+    zb" reading is now :func:`_ocean_node_zb_km`, the ice/ocean interface
+    depth taken from the node's own ``r_m``/``phases`` arrays. That is the
+    quantity the solver drives (equal to ``Planet.zb_km`` to 1e-13 km,
+    measured) and the shell/ocean split every downstream consumer reads.
+    The previous reading, ``D_iceIh_km``, undercounts the shell by exactly
+    one radial cell (0.438-0.495 km at Enceladus, 3.5-4x the finest
+    segment's whole 0.125 km budget), which made the invariant
+    unsatisfiable in principle no matter how well the solver converged.
 
     NOT implemented here (explicitly out of scope -- reviewer-blocked
     production physics, RESUME_NOTE.md "Blocked on reviewer sign-off"):
@@ -1823,8 +1874,9 @@ def build_zbw_grid_cache(
     ``structures`` is row-major: entry ``i_zb * n_w + i_w`` is the
     structure at ``(zb_km_grid[i_zb], wOcean_ppt_grid[i_w])``. Each
     surviving structure additionally carries ``zb_km_node`` (the grid
-    target) alongside its existing ``Tb_K`` (now the SOLVED value) and
-    ``D_iceIh_km`` (the achieved zb) fields.
+    target), ``zb_km_actual`` (the achieved shell thickness,
+    :func:`_ocean_node_zb_km`) and ``zb_residual_km``, alongside its
+    existing ``Tb_K`` (now the SOLVED value) field.
 
     ``frozen_structures`` is one node per ``frozen_zb_km_grid`` entry. Each
     surviving frozen structure carries, on top of the standard
@@ -1856,6 +1908,13 @@ def build_zbw_grid_cache(
     if zb_tol_km is None:
         zb_tol_km = float(np.min(np.diff(zb_arr)) / 2.0)
     zb_tol_km = float(zb_tol_km)
+    # E1: the Tb root-find is told, per node, the placement accuracy this
+    # build requires. Same 0.4x convention the frozen axis already uses
+    # (``_build_frozen_node(solve_tol_km=0.4 * frozen_zb_tol_km)``): solve to
+    # 40% of the invariant so the invariant is a check, not the target.
+    # Without this the root-find converges on the SHARED phase-diagram step
+    # Planet.TfreezeRes_K = 0.05 K, which at Enceladus is ~6 km of zb.
+    solve_tol_km = 0.4 * zb_tol_km
 
     base_overrides = dict(ocean_overrides or {})
     base_overrides.pop("wOcean_ppt", None)
@@ -1904,7 +1963,8 @@ def build_zbw_grid_cache(
                     ocean_overrides={**base_overrides,
                                      "wOcean_ppt": float(w_ppt)},
                     bulk_overrides={**base_bulk_overrides,
-                                    "zb_approximate_km": float(zb_km)},
+                                    "zb_approximate_km": float(zb_km),
+                                    "zbTol_km": solve_tol_km},
                     planet_overrides=planet_overrides,
                     do_overrides=base_do_overrides,
                     extrap_ocean=extrap_ocean,
@@ -1931,7 +1991,7 @@ def build_zbw_grid_cache(
                 n_fail += 1
                 continue
 
-            zb_actual_km = float(struct.get("D_iceIh_km", np.nan))
+            zb_actual_km = _ocean_node_zb_km(struct)
             zb_residual_km = zb_actual_km - float(zb_km)
             if not (np.isfinite(zb_actual_km)
                     and abs(zb_residual_km) < zb_tol_km):
