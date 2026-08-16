@@ -542,6 +542,51 @@ def iceShellTFreeze(T, Planet, Params, zb_approximate_km):
     return zb_approximate_km - result.zb_km
 
 
+#: Safety factor between the bracket-MEAN |d(zb)/d(Tb)| and the LOCAL slope at
+#: the root. Measured at Enceladus (Seawater 20 ppt, zb target 25 km): mean
+#: over the whole bracket 92 km/K, local at the solution 121-126 km/K, ratio
+#: 1.37. A factor of 10 leaves ~7x margin, and over-tightening costs nothing
+#: measurable because the zb-space early exit -- not xtol -- is what actually
+#: stops the search (each additional iterate is ~1 ms once the EOS is warm).
+_ZB_XTOL_SAFETY = 10.0
+#: Floor on the derived temperature tolerance (K). 1e-9 K maps to ~1e-7 km of
+#: shell thickness at Enceladus sensitivity, i.e. far below any tolerance that
+#: could be asked for, while staying well above float64 resolution at ~272 K.
+_ZB_XTOL_FLOOR_K = 1e-9
+
+
+def _zbDrivenXtol(solver, TlowerLimit_K, TupperLimit_K, zb_tol_km):
+    """Temperature tolerance that cannot terminate the search above ``zb_tol_km``.
+
+    The root-find's objective is a SHELL THICKNESS but scipy's ``xtol`` is a
+    TEMPERATURE. This converts one to the other using the body's own measured
+    sensitivity rather than a hard-coded constant: evaluate the residual at
+    both ends of the already-established bracket, take the mean
+    ``|d(zb)/d(Tb)|`` across it, and return
+    ``zb_tol_km / (safety * slope)``.
+
+    The two evaluations are not wasted work -- ``root_scalar``'s first two
+    calls are at the same two bracket ends -- and they populate the solver's
+    minimum-residual iterate before the search starts, so a target that is
+    only reachable at a bracket end is still served.
+
+    Raises ``StopIteration`` (handled by the caller) if a bracket end is
+    already within tolerance, and propagates ``ValueError`` from a failed ice
+    layer computation exactly as ``root_scalar`` would.
+    """
+    zb_lo = solver(TlowerLimit_K)
+    zb_hi = solver(TupperLimit_K)
+    dT = abs(TupperLimit_K - TlowerLimit_K)
+    dzb = abs(zb_hi - zb_lo)  # residuals differ by the same amount zb does
+    if not (np.isfinite(dzb) and np.isfinite(dT)) or dT <= 0 or dzb <= 0:
+        # Degenerate bracket: fall back to the tightest meaningful tolerance
+        # rather than to the shared phase-diagram step size.
+        return _ZB_XTOL_FLOOR_K
+    slope_km_per_K = dzb / dT
+    return max(float(zb_tol_km) / (_ZB_XTOL_SAFETY * slope_km_per_K),
+               _ZB_XTOL_FLOOR_K)
+
+
 def GetIceShellTFreeze(Planet, Params):
     """
     Determines the temperature at which ice transitions to water for a given ice shell thickness.
@@ -578,7 +623,10 @@ def GetIceShellTFreeze(Planet, Params):
             self.zb_tol_km = zb_tol_km
             self.best_planet = None
             self.best_T = None
+            self.best_residual = None
             self.last_residual = None
+            self.n_evals = 0
+            self.evals = []  # (T_K, zb_km) of every accepted evaluation
 
         def __call__(self, T):
             Planet_copy = deepcopy(self.Planet)
@@ -593,11 +641,24 @@ def GetIceShellTFreeze(Planet, Params):
             residual = self.zb_target_km - result.zb_km
             abs_residual = abs(residual)
 
-            # Save the best result
             self.last_residual = abs_residual
-            self.best_planet = Planet_copy
-            self.best_planet.Do.ICEIh_THICKNESS = True
-            self.best_T = T
+            self.n_evals += 1
+            self.evals.append((float(T), float(result.zb_km)))
+
+            # Retain the MINIMUM-|residual| iterate, not the last one. The
+            # root-finder's terminal iterate is whatever satisfies its
+            # TEMPERATURE tolerance; at bodies where d(zb)/d(Tb) is large
+            # (Enceladus: ~120 km per K) that is routinely NOT the iterate
+            # that lands closest to the requested shell thickness, and
+            # returning it discarded a strictly better structure the solver
+            # had already computed. Nothing outside this function reads
+            # best_T/last_residual (grep-verified), so this only changes
+            # WHICH already-computed iterate is returned.
+            if self.best_residual is None or abs_residual < self.best_residual:
+                self.best_residual = abs_residual
+                self.best_planet = Planet_copy
+                self.best_planet.Do.ICEIh_THICKNESS = True
+                self.best_T = T
 
             # Early exit condition
             if abs_residual < self.zb_tol_km:
@@ -614,13 +675,38 @@ def GetIceShellTFreeze(Planet, Params):
         log.debug(f"Established temperature bounds from phase diagram: [{TlowerLimit_K:.2f}, {TupperLimit_K:.2f}] K")
     except Exception as e:
         raise ValueError(f"Could not determine temperature bounds from phase diagram. Try lowering Planet.TfreezeLower_K, which represents the lower limit of the temperature search.")
-    solver = IceShellResidual(Planet, Params, zb_approximate_km, zb_tol_km=0.01)
+    # zb-DRIVEN CONVERGENCE (opt-in, per-Planet). Planet.Bulk.zbTol_km is the
+    # shell-thickness placement tolerance the CALLER requires, in km. When it
+    # is None (every template default, and therefore every Titan/Europa run
+    # and Main.py's inductogram zb path) this function is byte-identical to
+    # its historical behaviour: the zb early-exit uses the historical 0.01 km
+    # and the root-find's xtol is the SHARED Planet.TfreezeRes_K.
+    #
+    # Why the opt-in exists: Planet.TfreezeRes_K = 0.05 K is a phase-diagram
+    # STEP SIZE shared with GetTfreeze/SetupInit, not a zb tolerance. Using it
+    # as the xtol of a root-find whose objective lives in zb space silently
+    # converts to a zb tolerance of 0.05 K x |d(zb)/d(Tb)|, which at Enceladus
+    # gravity is ~6 km -- larger than the whole quantity being solved for on a
+    # fine grid. Tightening TfreezeRes_K itself is not an option: it is shared
+    # machinery and would move every other body's phase-diagram sampling.
+    zb_tol_km = getattr(Planet.Bulk, 'zbTol_km', None)
+    if zb_tol_km is None:
+        solver = IceShellResidual(Planet, Params, zb_approximate_km, zb_tol_km=0.01)
+    else:
+        zb_tol_km = float(zb_tol_km)
+        solver = IceShellResidual(Planet, Params, zb_approximate_km,
+                                  zb_tol_km=zb_tol_km)
     # Find the precise freezing temperature using root finding
     try:
-        sol = GetZero(solver, 
-                      bracket=[TlowerLimit_K, TupperLimit_K], 
-                      xtol=Planet.TfreezeRes_K)
-        
+        if zb_tol_km is None:
+            xtol = Planet.TfreezeRes_K
+        else:
+            xtol = _zbDrivenXtol(solver, TlowerLimit_K, TupperLimit_K,
+                                 zb_tol_km)
+        sol = GetZero(solver,
+                      bracket=[TlowerLimit_K, TupperLimit_K],
+                      xtol=xtol)
+
         T_freeze = sol.root
         log.debug(f"Computed ice shell freezing temperature: {T_freeze:.3f} K after {sol.function_calls} iterations.")
         return solver.best_planet
