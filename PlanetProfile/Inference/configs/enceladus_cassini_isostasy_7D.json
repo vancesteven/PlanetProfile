@@ -62,12 +62,6 @@
     ]
   },
   "gravity_forward_model": "isostatic_hm2019",
-  "gravity_forward_model_contract": {
-    "hydrostatic_and_nonhydrostatic_from": "single Tricarico interface-figure sum (the B13 gate path)",
-    "clairaut_radau_darwin_path": "MUST NOT be used by this forward model",
-    "gravity_j2_over_c22": "DELIBERATELY ABSENT — see metadata.critical2_gravity_path_ruling",
-    "required_unit_test": "production isostatic_hm2019 dispatch must reproduce tests/isostasy_hm2019_gate_test.py::predict() C20/C22/C30 totals at one fixed structure"
-  },
   "sampler_settings": {
     "n_effective": 8000,
     "n_active": 4096,
@@ -80,155 +74,6 @@
   "ocean_overrides": {
     "comp": "Seawater",
     "deltaT": 0.002
-  },
-  "structure_cache_spec": {
-    "grid_mode": "zb_w_2d",
-    "zb_km_grid": {
-      "lo": 5.0,
-      "hi": 70.0,
-      "nonuniform": true,
-      "segments": [
-        {
-          "lo": 5.0,
-          "hi": 20.0,
-          "step_km": 1.0,
-          "n": 15,
-          "rationale": "OCEAN branch. zb<20 km rejected at >=8 sigma by the libration alone; negligible posterior mass."
-        },
-        {
-          "lo": 20.0,
-          "hi": 22.0,
-          "step_km": 0.5,
-          "n": 4,
-          "rationale": "OCEAN branch. Transition into the posterior region."
-        },
-        {
-          "lo": 22.0,
-          "hi": 30.0,
-          "step_km": 0.25,
-          "n": 32,
-          "rationale": "OCEAN branch, POSTERIOR region (|residual| ~1-3 sigma). Both the H&M 19-24 and Park 25-29 km bands and the hybrid best fit (zb=25, shifting to 25.8 under the adopted B2' convention) live here. NOTE: this is a posterior-RESOLUTION rationale, not the Titan onset-placement criterion — see the next segment for that."
-        },
-        {
-          "lo": 30.0,
-          "hi": 42.0,
-          "step_km": 0.5,
-          "n": 24,
-          "rationale": "OCEAN branch, thinning toward the support edge."
-        },
-        {
-          "lo": 42.0,
-          "hi": 45.0,
-          "step_km": 0.25,
-          "n": 12,
-          "rationale": "OCEAN/NO-OCEAN SUPPORT EDGE at ~45 km. THIS is where the Titan gate-3 absolute-onset-placement lesson applies (reviewer NEW-MODERATE-2/3 corrected my earlier misplacement of it at 22-30 km). The edge is w-DEPENDENT (freeze-through moves with salinity), so it is a curve in (zb,w) and the fine step must hold across the w axis."
-        },
-        {
-          "lo": 47.45,
-          "hi": 65.26,
-          "step_km": 0.5,
-          "n": 37,
-          "rationale": "FROZEN branch, indexed by DERIVED zb from rho_rock ~ U[2200,2600]. Endpoints are the mass-conservation images of the declared density prior, so they are NOT box edges. Frozen nodes are discriminated at 23-45 sigma, so 0.5 km is ample."
-        }
-      ],
-      "n_total": 124,
-      "resegmented_2026_08_13": "Reviewer MODERATE-2: r2's uniform-0.25-km-below-22-km allocation spent 69 of 140 zb nodes on a region with negligible posterior mass while leaving the actual onset (zb ~ 23-30 km) in a 0.5 km segment. Re-segmented to put the 0.25 km refinement ON the binding region. CAUTION: B2' will shift the onset by +2-2.5 km, so THESE SEGMENT BOUNDARIES CANNOT BE FROZEN UNTIL B2' CLOSES — that is an independent reason B2' precedes the build.",
-      "endpoint_convention": "Segments are inclusive of BOTH endpoints; the declared n counts nodes, and adjacent segments share their boundary node (counted once). This fixes reviewer NEW-MODERATE-1: the old half-open reading left the box edge with no node, so 1.5% of the zb prior had no bracketing pair for the bilinear interpolant. The frozen segment's endpoints are now set by the density prior, not by a chosen box edge."
-    },
-    "log10_w_grid": {
-      "lo": -1.0,
-      "hi": 2.0,
-      "n": 40
-    },
-    "n_nodes_total": 4960,
-    "ragged_support_note": "The zb axis is DELIBERATELY ragged: ocean nodes cannot populate zb above ~45 km and frozen nodes cannot populate below ~47 km. Nodes unbuildable on both branches store None and leave support, per the Titan precedent. REVIEWER RULING 2026-08-13 — PARTIALLY RATIFIED: the ragged axis is ratified FOR THE BUILD (the ocean-branch posterior is provably undistorted: a uniform prior on [5,70] restricted to the ocean sub-interval is, after normalization, identical to a uniform prior on [5,45]) — CONDITIONAL on unbuildable nodes contributing exactly -inf log-likelihood with NO nearest-node fallback across a None, which must be tested. But the BRANCH-MASS RATIO is NOT ratified as drawn: see branch_mass_reporting_ruling.",
-    "branch_mass_reporting_ruling": "REQUIRED (reviewer, declined to ratify the continuous-prior version). On the frozen branch zb is NOT a free parameter: at fixed rho_ice, mass conservation makes zb <-> rho_rock a bijection (47.5 / 57.2 / 65.3 / 70.2 km at rho_rock 2200 / 2400 / 2600 / 2741). So the frozen branch has 4 free dimensions, not 5, and its prior mass — 35.4% of the box as drawn — is set ENTIRELY BY WHERE THE UPPER EDGE SITS: move hi from 70 to 80 km and frozen prior mass becomes ~44%; drop to 60 and it becomes ~21%. The reported ocean/no-ocean odds would then be linearly rescalable by an arbitrary box edge — precisely the fragile statistic the NH3 C16 saga identified (project_joint_mixture_gate_scope / the §0.20-§0.21 branch-mass work). The VERDICT survives regardless (the frozen branch is discriminated at tens of sigma, so the odds are astronomically one-sided), but the NUMBER is not interpretable. FIX: report the branch comparison as an EXPLICIT DISCRETE MODEL INDEX with declared prior odds (P(ocean) = P(frozen) = 0.5), computing each branch's evidence over its own support; and state in the config that on the frozen branch zb_km is a deterministic reparameterization of rock density, so a 'frozen-branch posterior on zb' is read as a posterior on rho_rock.",
-    "frozen_rock_density_prior_now_implicit": "Reviewer sub-finding (ii)/(iii): d(rho_rock)/d(zb) ~ 22-28 kg m^-3 km^-1 over 47-70 km, so zb ~ U[47,70] induces an approximately uniform rho_rock over ~[2196, 2741] — a defensible range with the H&M/Park 2340-2410 band interior. The problem is that it is now UNDECLARED: CRITICAL-1 removed rho_core_kgm3 ~ U[2200,2600], which was the only declared bound on rock density, so the frozen branch's density prior is implicit in a box edge. Either restore a declared rho_rock range for the frozen branch or state the induced prior explicitly. Interacts with the mass-conservation invariant above.",
-    "retry_frozen_as_no_ocean": true,
-    "record_per_node": [
-      "Tb_K",
-      "zb_km_actual",
-      "has_ocean",
-      "rho_ice_mean_kgm3",
-      "rho_ocean_mean_kgm3",
-      "sigma_ocean_Sm",
-      "mass_residual_frac",
-      "rho_interior_mean_kgm3"
-    ],
-    "mandatory_node_invariants": {
-      "mass_conservation": "REVISED 2026-08-13 (third fix to this invariant; see mass_conservation_revision_history). Use the OUTER-EDGE convention — PlanetProfile's own layer convention, rho[i] fills [r[i-1], r[i]] with implicit inner edge 0 (reducedPlanetModel / Geophysical.py:170). Gate ONE-SIDED and STEP-SCALED: require residual = M_node/M_body - 1 to lie in (-1.5 * delta_m_step, +1e-9], where delta_m_step = 4 pi r_sil^2 (rho_sil - rho_hydro) delta_r / M_body with delta_r = delta_P / (rho_hydro g(r_sil)) computed per model from that model's own delta_P, r_sil, rho_sil, rho_hydro. For Enceladus delta_m_step ~ 0.65% (Titan ~0.44%, Europa ~0.36%). HARD REJECT to None on failure.",
-      "zb_placement": "abs(zb_km_actual - zb_km_node) < grid_step_km / 2. HARD REJECT to None on failure.",
-      "why_blocking": "Reviewer MAJOR-1, reproduced by Machine B against the existing smoke cache (PlanetProfile/Test/mcmc_results/Enceladus/Cassini_smoke/enceladus_seawater_smoke_grid.pkl): integrating each node's own profile gives a mass DEFICIT of -22.16% (node 0, Tb=271.8, frozen, phases {1,50}) and -9.21% (node 1, Tb=272.1, frozen) against -0.31% (node 2, Tb=272.46, the only OCEAN node — numerical). All three nodes store Mtot_kg = 1.08022e20, the template constant, so the stored field MASKS the violation entirely. PP built and persisted the violating frozen nodes without complaint. Two consequences: (1) this config's earlier claim that interior density is 'recoverable as a DERIVED display quantity from the cache via mass conservation' is FALSE ON THE FROZEN BRANCH — deriving rho_interior from Mtot_kg minus the hydrosphere would be wrong by tens of percent, and that claim was load-bearing for the CRITICAL-1 core-parameter drop; (2) widening the zb box to 70 km does NOT fix this by itself, because the builder rejects mass-violating frozen nodes at NO zb. Without the zb_placement invariant a frozen retry requested at zb=20 but built by PP at zb_actual~47 would be stored with theta and structure disagreeing by 27 km, silently corrupting the likelihood. Suspected mechanism (reviewer, medium confidence): PP matches MoI or PHydroMax rather than mass on the NO_OCEAN_EXCEPT_INNER_ICES path. MUST be root-caused before B4, and the smoke cache's frozen nodes must be re-audited or discarded.",
-      "mass_conservation_why_the_quadrature_matters": "The first version of this invariant said only '< 1e-3 from the node's own (r_m, rho) arrays' and did NOT name the quadrature. That was UNIMPLEMENTABLE and would have emptied the cache of the ocean branch. r_m is the OUTER bound of each layer (defineStructs.py), so the natural layer-top reading assigns rho[i] to [r[i-1], r[i]] — and measured on the smoke cache that puts the ONLY physically-sound node (node 2, the ocean node) at 0.3118%, a hard reject against a 0.1% threshold, while the two mass-VIOLATING frozen nodes are at -22.16% and -9.21%. Machine B reproduced all three quadratures: layer_top -22.1582 / -9.2112 / -0.3118 %; trapezoid on 4 pi r^2 rho -21.8422 / -8.8465 / -0.0057 %; midpoint-edge -21.8482 / -8.8567 / -0.0182 %. The ocean node's apparent 0.3118% is pure shell-attribution error, not physics — the profile is internally consistent to ~2e-4. Midpoint-edge is chosen over trapezoid because it closes the total volume EXACTLY by construction (verified: +2.2e-14%), so the residual measures density inconsistency alone. Threshold 5e-4 is set from the measured good-node baseline (1.8e-4) with ~3x headroom, and it still rejects both frozen nodes by >100x.",
-      "acceptance_criteria_BOTH_DIRECTIONS": "Must FAIL the Enceladus frozen nodes (-22.158%, -9.211% outer-edge) and PASS the Enceladus ocean node (-0.312% outer-edge). Additionally, and this is the criterion the earlier versions lacked: must PASS every node of the ratified corpus, which under the outer-edge convention spans -0.001% (Titan noocean) to -0.978% (Titan NaCl). A gate that rejects ratified nodes is not a gate, it is a regression.",
-      "branch_flag_source": "has_ocean MUST be derived from the PHASE ARRAY (presence of any phase-0 liquid layer), NEVER from D_ocean_km. Verified 2026-08-13 (reviewer NEW-MINOR-3): smoke nodes 0 and 1 store D_ocean_km = 1.510 and 1.151 km while having NO phase-0 layers at all, so a D_ocean_km > 0 test would misclassify frozen nodes as ocean — and the discrete branch index depends on that classification.",
-      "mass_conservation_revision_history": "v1 (r3): 'abs(...) < 1e-3 from the node's own arrays' — UNIMPLEMENTABLE, quadrature unspecified. v2 (r4): midpoint-edge, 5e-4, two-sided — the quadrature was named, but it was the WRONG quadrature for this data and the threshold and the two-sidedness were both wrong with it. v3 (now): outer-edge (PP's actual convention), one-sided, step-scaled. WHY EACH v2 CHOICE WAS WRONG: (a) midpoint closes total volume exactly, which is right for an invariant defined on its own terms but wrong for auditing structures whose densities were ASSIGNED under the outer-edge convention — measured convention swing on one Titan node is 1.99% (outer -0.777%, mid +0.206%, inner +1.210%), which is larger than every effect being tested; (b) 5e-4 does not translate across conventions — the Enceladus OCEAN node is -0.018% under midpoint but -0.312% under outer-edge, so the v2 threshold would have rejected the one healthy node it was explicitly designed to pass; (c) two-sided is wrong because the solver's residual is one-signed BY DESIGN (Silicates.py:118 takes the first profile with Mtot_kg <= M_kg, i.e. one radial step BELOW target), so a POSITIVE residual is a distinct bug — broken mass bookkeeping — and must not be admitted by a symmetric tolerance. Corpus evidence: across ~37k structures in 17 ratified caches the max positive residual is EXACTLY 0.0000%."
-    },
-    "w_axis_scope": "The log10_w axis applies to the OCEAN branch only. Frozen nodes have no ocean, so salinity is undefined there (not merely unconstrained) and the frozen segment is built at a single nominal w with w recorded as N/A. Node count above is therefore an upper bound; the builder must not multiply frozen zb nodes by 40 salinities."
-  },
-  "isostasy": {
-    "shape_source": "tajeddine2017",
-    "H_obs_lm_m": {
-      "2,0": -3510.0,
-      "2,2": 857.0,
-      "3,0": 420.0
-    },
-    "shape_ref_radius_m": 252220.0,
-    "gravity_ref_radius_m": 256600.0,
-    "finite_amplitude": true,
-    "sigma_model_lm": {
-      "2,0": 5.3e-06,
-      "2,2": 1.7e-06,
-      "3,0": 4.4e-06
-    },
-    "sigma_model_lm_provenance": "B15 CLOSED 2026-08-13 from the PRIMARY SOURCE (papers/hemingway2019enceladus.pdf, Table 1, Tajeddine et al. 2017 block, column sigma_lm^topo*, R_ref = 252.22 km, rho_shell = 925 kg/m^3): (2,0) 5.3e-6, (2,2) 1.7e-6, (3,0) 4.4e-6. These are the model-gravity uncertainties propagated from the SHAPE model, i.e. exactly H&M's Sigma^model diagonal. VERIFIED against H&M's own Eq. 25, sigma_lm^topo* = (3 rho_shell / (R rho_bar (2l+1))) sigma_lm^topo, with the Table 1 sigma_lm^topo = 3.9 / 1.3 / 4.5 m and rho_bar = 1607.3 kg/m^3 computed from the body: reproduces 5.339 / 1.780 / 4.401 e-6. Eq. 24 cross-check also reproduces Table 1's COMBINED sigmas to three digits against the Iess gravity sigmas (35.79 / 15.89 / 23.81 vs published 35.8 / 15.9 / 23.8 e-6), which confirms the whole chain is being read correctly.",
-    "sigma_model_libration_deg": 0.00025,
-    "sigma_model_libration_provenance": "H&M 2019 section 2.6 / Eq. 26: sigma_gamma = sqrt(sigma_gamma,obs^2 + sigma_gamma,model^2) with sigma_gamma,model = 0.00025 deg for the TAJEDDINE shape model (0.004 deg for Nimmo — 16x larger, which is why Tajeddine is the primary source). VERIFIED against the primary PDF. Against this campaign's libration sigma_obs = 0.003 deg the combined value is sqrt(0.003^2 + 0.00025^2) = 0.003010 deg, a 0.35% inflation. Must be applied to the libration row because the SAME H_obs feeds both the gravity rows and the libration.",
-    "frozen_branch_support": "rigid",
-    "sigma_model_lm_discrepancy_note": "One honest discrepancy: Eq. 25 gives 1.780e-6 for (2,2) while Table 1 prints 1.7e-6 — a 4.7% difference, larger than the 0.7% and 0.02% agreement on the other two rows, and in the direction of truncation rather than rounding. The published 1.7e-6 is adopted (it is the value of record and the conservative-vs-Eq.25 difference is 0.08e-6, i.e. 0.005 sigma_obs — immaterial). Recorded rather than silently reconciled.",
-    "sigma_model_correction_of_r3": "This CLOSES the MAJOR-3 reopening and RETRACTS the second reviewer pass's claim that the values were ~2x too large. That pass independently propagated sigma_topo and got 2.59 / 0.95 / 2.28e-6, concluding the config values were 1.8-2.05x inflated. That propagation was WRONG — Eq. 25 with H&M's own rho_bar and the (2l+1) factor reproduces 5.3 / 1.7 / 4.4 to better than 1% on two of three rows, and the Eq. 24 combined-sigma cross-check independently confirms it. The provenance SENTENCE in r3 was still defective (it described the 35.8/15.9/23.8e-6 combined values as if they were the model column, and they are Iess-era OBSERVATIONAL sigmas combined per Eq. 24) — that wording is now fixed above.",
-    "sigma_model_applied_to_park_sigmas": {
-      "note": "This campaign conditions on PARK 2024 gravity sigmas, not the Iess sigmas H&M used, so the combined sigmas differ from Table 1's. Per H&M Eq. 24, sigma_lm = sqrt((sigma^grav)^2 + (sigma^topo*)^2):",
-      "C20": {
-        "sigma_obs": 3.699e-05,
-        "combined": 3.737e-05,
-        "inflation_pct": 1.02
-      },
-      "C22": {
-        "sigma_obs": 1.47e-05,
-        "combined": 1.48e-05,
-        "inflation_pct": 0.67
-      },
-      "C30": {
-        "sigma_obs": 3.342e-05,
-        "combined": 3.371e-05,
-        "inflation_pct": 0.86
-      },
-      "reading": "Sigma_model inflates the effective observational sigmas by under 1.1% on every row — negligible against the measurement errors, which vindicates H&M's own remark that the Tajeddine shape model's uncertainties are small enough not to kill the channel (Nimmo's would inflate sigma(C20) ~7x). The libration model sigma is handled separately below."
-    }
-  },
-  "derived_display_only": [
-    "sigma_ocean_Sm",
-    "B_ind_orbital_nT",
-    "B_ind_synodic_nT",
-    "A_orbital",
-    "A_synodic",
-    "Phi_orbital",
-    "Phi_synodic",
-    "D_ocean_km",
-    "cmr2"
-  ],
-  "libration_model_correction": {
-    "multiplicative_factor": 1.008,
-    "residual_frac_symmetric": 0.004,
-    "rigid": true,
-    "figure_convention": "INVALID_whole_difference_RETIRED_see_ADJUDICATION_2026_08_14",
-    "H22_obs_m": 857.0,
-    "H22_obs_provenance": "Tajeddine et al. 2017 observed surface H22 at R_ref 252.22 km, the same value used by the PASSING B13 H&M reproduction gate (tests/isostasy_hm2019_gate_test.py H_OBS[(2,2)]). USER DECISION 2026-08-13: adopt option A (the H&M observed-figure convention) for the libration. Implemented as the opt-in H22_obs_m kwarg on Gravity/Librations.py::librations(), scoped to the ocean+rigid branch; default None preserves PP's historical hydrostatic behaviour BYTE-IDENTICALLY (verified across the edit at 4 structures, all digits).",
-    "effect": "RETRACTED -- DO NOT QUOTE. The +1.4167 sigma / +1.10 km figures were produced by the invalid whole-difference scaling. Superseded by the adjudication above.",
-    "STATUS_2026_08_13": "SUSPECT — DO NOT QUOTE THE +1.10 km. B2' is REOPENED and ESCALATED; see validation_reports/enceladus_isostasy/b2prime_REOPENED_figure_coupling.json. Reading H&M sections 2.3/2.5 from the primary source shows the implemented whole-difference scaling matches NEITHER a surface-only reading NOR H&M's Eq. 12 treatment (observed surface figure PLUS the Airy-isostatic base root, which has OPPOSITE SIGN and amplification rho_ice/dRho = 11.56). Three candidate treatments give matched shell thicknesses of 24.70 (hydrostatic) / 25.80 (as implemented) / 27.34 km (surface-only), and H&M's own Eq.-12 treatment at C2=1 gives 30.5 sigma with NO zb in [12,44] km reproducing the observed libration — which more likely indicates my mapping of the Airy root into the triaxial (B-A) is inconsistent with how H&M assemble Eq. 19 than that H&M are wrong. The 2.6 km spread across treatments is comparable to the 6 km H&M-vs-Park separation this campaign exists to adjudicate, and because the libration is the SOLE thickness channel this SETS WHERE THE ANSWER LANDS. The H22_obs_m kwarg is retained and harmless (default None is byte-identical) but the whole-difference scaling is NOT adjudicated.",
-    "STATUS_2026_08_14_ADJUDICATED": "REVIEWER VERDICT: BLOCK. B2' REMAINS BLOCKING. The whole-difference scaling adopted here as 'option A / the H&M observed-figure convention' is NOT A VALID CANDIDATE TREATMENT and must be retired or repaired. Root cause: H22_obs_m scales (Bs - As), but the shell-base interface carries weight -rho_ice = -925 kg/m3 inside that difference while its PHYSICAL weight in Ks is Delta_rho = rho_ocean - rho_ice = 80-95 kg/m3 (Bsp_Asp very nearly cancels it). The identity Ks/(3 omega^2) = rho_ice*f_top + Delta_rho*f_base was verified to ~1e-14 independently by Machine B. Net effect: the shipped path applies an implicit, structure-dependent, SIGN-FLIPPING effective scale of +0.33 to -0.58 to the ice/ocean interface figure, while the Librations.py docstring asserts that interior interfaces stay hydrostatic. That is a code/docstring divergence on the campaign's SOLE thickness channel. Defensible treatments: hydrostatic and surface-only, with Delta_rho-consistent H&M Eq.-12 bracketed by C2 between 25.99 and 27.34 km. See validation_reports/enceladus_isostasy/b2prime_ADJUDICATED_drho_weighting.json.",
-    "USER_DECISION_NEEDS_RETAKING": "The recorded 'USER DECISION 2026-08-13: adopt option A (the H&M observed-figure convention)' was taken on TWO premises that are now falsified: (1) that option A implements the H&M convention -- it does not, it matches neither H&M Eq. 12 nor a surface-only reading; and (2) that interior interfaces remain hydrostatic under it -- they do not, they are attenuated to a third, annihilated, or sign-flipped depending on structure. Machine B has NOT reversed the decision unilaterally. The user must re-decide on corrected information. Note the repair also moves tests/librations_test.py::test_h22_obs_m_reproduces_b2prime_measurement, which currently pins the now-suspect +1.40-1.43 sigma shift."
   },
   "metadata": {
     "schema_version": "Enceladus Cassini isostasy-coupled 5D — FROZEN CANDIDATE r4, CHANGES-REQUIRED NOT CLEARED (Machine B, 2026-08-13)",
@@ -346,44 +191,199 @@
     ],
     "salinity_axis_is_prior_dominated": "Reviewer MINOR-2, recorded: w reaches the conditioned observables ONLY through rho_ocean, and its full 0.1->100 ppt swing is worth ~3.4 sigma in C20 and ~2.1 sigma in libration. 40 log-spaced nodes is fine (~0.1 sigma/node), but the config must state that the w POSTERIOR IS ESSENTIALLY THE PRIOR for the conditioned data — the salinity axis is carried for the conductivity DISPLAY deliverable, not because the gravity/libration data constrain it.",
     "titan_cross_check_no_escalation": "Titan's already-ratified artifacts are UNAFFECTED by the Enceladus mass-conservation defect. Measured on Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl (the REAL retry_frozen_as_no_ocean mechanism, 144 nodes): 26 frozen nodes deviate +0.206% to +0.249% (median +0.216%) and 117 ocean nodes +0.140% to +0.366% (median +0.271%) — the same quadrature-noise level, zero nodes worse than 1%. So the defect is ENCELADUS-SPECIFIC and there is NO escalation to ratified work. Open mechanistic question (recorded, not resolved): whether Titan is safe because its HP-ice frozen branch bypasses the MoI-vs-silicate-radius search or merely because its grid sits in the safe regime.",
-    "frozen_branch_feasibility_RESOLVED": "The frozen structures EXIST; the solver cannot reach them. Reviewer finding, reproduced exactly by Machine B: solving 2-layer mass AND MoI closure simultaneously at R=252.1 km, M=1.08022e20 gives zb = 51.78 / 53.93 / 58.29 km for rho_ice = 900 / 925 / 970, with rho_rock = 2314 / 2334 / 2378 — and C/MR^2 = 0.3350 in EVERY case, i.e. landing exactly on Iess 0.335 +/- 0.001, with rho_rock inside or adjacent to the H&M/Park 2340-2410 requirement. So (a) a mass-conserving deep-frozen Enceladus is fully physical, (b) the Cuncertainty widening from +/-0.001 to +/-0.08 was NOT a physics necessity — it was the accommodation that let mass-violating structures through, and (c) the '~3483 kg/m^3 required vs ~2238 actual silicate density' framing was an artifact of the solver's wrong zb (it produced ~92 km where closure is at ~54 km). MECHANISM: iSilStart = nIceI = 50 pins the mantle-radius sweep to start at the ice-Ih base and search only DEEPER. For a fully frozen column the ice base IS the seafloor, so the largest candidate radius is already the ice base and every candidate is under-mass. The iSilStart=1 retry that exists precisely to relax this is not wired for Fe_CORE=False. CONSEQUENCE FOR THE USER-RATIFIED REQUIREMENT: the no-ocean branch must be represented as BUILDABLE NODES, not as a support boundary — the user ruling stands and is physically correct. BUT the frozen segment of the current cache spec (derived zb 47.45-65.26 km) is TODAY UNBUILDABLE by this code path. That must be verified BEFORE the campaign build, not after, and it makes the two-part fix (hoist the retry, then gate) a prerequisite rather than a cleanup."
-  },
-  "derived_display_only_note": "libration_deg REMOVED from this list 2026-08-13 (reviewer NEW-MINOR-2): it is a CONDITIONED OBSERVABLE and appeared here simultaneously, a live contradiction on the campaign's SOLE thickness channel — precisely the field an implementer could read as 'do not condition'. It remains a per-sample derived DISPLAY quantity too (corner-plot column + summary row per the user ruling), but that is a presentation concern and must not be encoded in a list this config otherwise uses to mean not-conditioned (as it does for the induction quantities).",
-  "branch_model": {
-    "type": "explicit discrete model index",
-    "prior_odds": {
-      "ocean": 0.5,
-      "frozen": 0.5
+    "frozen_branch_feasibility_RESOLVED": "The frozen structures EXIST; the solver cannot reach them. Reviewer finding, reproduced exactly by Machine B: solving 2-layer mass AND MoI closure simultaneously at R=252.1 km, M=1.08022e20 gives zb = 51.78 / 53.93 / 58.29 km for rho_ice = 900 / 925 / 970, with rho_rock = 2314 / 2334 / 2378 — and C/MR^2 = 0.3350 in EVERY case, i.e. landing exactly on Iess 0.335 +/- 0.001, with rho_rock inside or adjacent to the H&M/Park 2340-2410 requirement. So (a) a mass-conserving deep-frozen Enceladus is fully physical, (b) the Cuncertainty widening from +/-0.001 to +/-0.08 was NOT a physics necessity — it was the accommodation that let mass-violating structures through, and (c) the '~3483 kg/m^3 required vs ~2238 actual silicate density' framing was an artifact of the solver's wrong zb (it produced ~92 km where closure is at ~54 km). MECHANISM: iSilStart = nIceI = 50 pins the mantle-radius sweep to start at the ice-Ih base and search only DEEPER. For a fully frozen column the ice base IS the seafloor, so the largest candidate radius is already the ice base and every candidate is under-mass. The iSilStart=1 retry that exists precisely to relax this is not wired for Fe_CORE=False. CONSEQUENCE FOR THE USER-RATIFIED REQUIREMENT: the no-ocean branch must be represented as BUILDABLE NODES, not as a support boundary — the user ruling stands and is physically correct. BUT the frozen segment of the current cache spec (derived zb 47.45-65.26 km) is TODAY UNBUILDABLE by this code path. That must be verified BEFORE the campaign build, not after, and it makes the two-part fix (hoist the retry, then gate) a prerequisite rather than a cleanup.",
+    "gravity_forward_model_contract": {
+      "hydrostatic_and_nonhydrostatic_from": "single Tricarico interface-figure sum (the B13 gate path)",
+      "clairaut_radau_darwin_path": "MUST NOT be used by this forward model",
+      "gravity_j2_over_c22": "DELIBERATELY ABSENT — see metadata.critical2_gravity_path_ruling",
+      "required_unit_test": "production isostatic_hm2019 dispatch must reproduce tests/isostasy_hm2019_gate_test.py::predict() C20/C22/C30 totals at one fixed structure"
     },
-    "ocean_branch": {
-      "sampled": [
-        "zb_km",
-        "log10_wOcean_ppt",
-        "rho_ice_kgm3",
-        "compensation_C2",
-        "libration_sys_frac"
+    "structure_cache_spec": {
+      "grid_mode": "zb_w_2d",
+      "zb_km_grid": {
+        "lo": 5.0,
+        "hi": 70.0,
+        "nonuniform": true,
+        "segments": [
+          {
+            "lo": 5.0,
+            "hi": 20.0,
+            "step_km": 1.0,
+            "n": 15,
+            "rationale": "OCEAN branch. zb<20 km rejected at >=8 sigma by the libration alone; negligible posterior mass."
+          },
+          {
+            "lo": 20.0,
+            "hi": 22.0,
+            "step_km": 0.5,
+            "n": 4,
+            "rationale": "OCEAN branch. Transition into the posterior region."
+          },
+          {
+            "lo": 22.0,
+            "hi": 30.0,
+            "step_km": 0.25,
+            "n": 32,
+            "rationale": "OCEAN branch, POSTERIOR region (|residual| ~1-3 sigma). Both the H&M 19-24 and Park 25-29 km bands and the hybrid best fit (zb=25, shifting to 25.8 under the adopted B2' convention) live here. NOTE: this is a posterior-RESOLUTION rationale, not the Titan onset-placement criterion — see the next segment for that."
+          },
+          {
+            "lo": 30.0,
+            "hi": 42.0,
+            "step_km": 0.5,
+            "n": 24,
+            "rationale": "OCEAN branch, thinning toward the support edge."
+          },
+          {
+            "lo": 42.0,
+            "hi": 45.0,
+            "step_km": 0.25,
+            "n": 12,
+            "rationale": "OCEAN/NO-OCEAN SUPPORT EDGE at ~45 km. THIS is where the Titan gate-3 absolute-onset-placement lesson applies (reviewer NEW-MODERATE-2/3 corrected my earlier misplacement of it at 22-30 km). The edge is w-DEPENDENT (freeze-through moves with salinity), so it is a curve in (zb,w) and the fine step must hold across the w axis."
+          },
+          {
+            "lo": 47.45,
+            "hi": 65.26,
+            "step_km": 0.5,
+            "n": 37,
+            "rationale": "FROZEN branch, indexed by DERIVED zb from rho_rock ~ U[2200,2600]. Endpoints are the mass-conservation images of the declared density prior, so they are NOT box edges. Frozen nodes are discriminated at 23-45 sigma, so 0.5 km is ample."
+          }
+        ],
+        "n_total": 124,
+        "resegmented_2026_08_13": "Reviewer MODERATE-2: r2's uniform-0.25-km-below-22-km allocation spent 69 of 140 zb nodes on a region with negligible posterior mass while leaving the actual onset (zb ~ 23-30 km) in a 0.5 km segment. Re-segmented to put the 0.25 km refinement ON the binding region. CAUTION: B2' will shift the onset by +2-2.5 km, so THESE SEGMENT BOUNDARIES CANNOT BE FROZEN UNTIL B2' CLOSES — that is an independent reason B2' precedes the build.",
+        "endpoint_convention": "Segments are inclusive of BOTH endpoints; the declared n counts nodes, and adjacent segments share their boundary node (counted once). This fixes reviewer NEW-MODERATE-1: the old half-open reading left the box edge with no node, so 1.5% of the zb prior had no bracketing pair for the bilinear interpolant. The frozen segment's endpoints are now set by the density prior, not by a chosen box edge."
+      },
+      "log10_w_grid": {
+        "lo": -1.0,
+        "hi": 2.0,
+        "n": 40
+      },
+      "n_nodes_total": 4960,
+      "ragged_support_note": "The zb axis is DELIBERATELY ragged: ocean nodes cannot populate zb above ~45 km and frozen nodes cannot populate below ~47 km. Nodes unbuildable on both branches store None and leave support, per the Titan precedent. REVIEWER RULING 2026-08-13 — PARTIALLY RATIFIED: the ragged axis is ratified FOR THE BUILD (the ocean-branch posterior is provably undistorted: a uniform prior on [5,70] restricted to the ocean sub-interval is, after normalization, identical to a uniform prior on [5,45]) — CONDITIONAL on unbuildable nodes contributing exactly -inf log-likelihood with NO nearest-node fallback across a None, which must be tested. But the BRANCH-MASS RATIO is NOT ratified as drawn: see branch_mass_reporting_ruling.",
+      "branch_mass_reporting_ruling": "REQUIRED (reviewer, declined to ratify the continuous-prior version). On the frozen branch zb is NOT a free parameter: at fixed rho_ice, mass conservation makes zb <-> rho_rock a bijection (47.5 / 57.2 / 65.3 / 70.2 km at rho_rock 2200 / 2400 / 2600 / 2741). So the frozen branch has 4 free dimensions, not 5, and its prior mass — 35.4% of the box as drawn — is set ENTIRELY BY WHERE THE UPPER EDGE SITS: move hi from 70 to 80 km and frozen prior mass becomes ~44%; drop to 60 and it becomes ~21%. The reported ocean/no-ocean odds would then be linearly rescalable by an arbitrary box edge — precisely the fragile statistic the NH3 C16 saga identified (project_joint_mixture_gate_scope / the §0.20-§0.21 branch-mass work). The VERDICT survives regardless (the frozen branch is discriminated at tens of sigma, so the odds are astronomically one-sided), but the NUMBER is not interpretable. FIX: report the branch comparison as an EXPLICIT DISCRETE MODEL INDEX with declared prior odds (P(ocean) = P(frozen) = 0.5), computing each branch's evidence over its own support; and state in the config that on the frozen branch zb_km is a deterministic reparameterization of rock density, so a 'frozen-branch posterior on zb' is read as a posterior on rho_rock.",
+      "frozen_rock_density_prior_now_implicit": "Reviewer sub-finding (ii)/(iii): d(rho_rock)/d(zb) ~ 22-28 kg m^-3 km^-1 over 47-70 km, so zb ~ U[47,70] induces an approximately uniform rho_rock over ~[2196, 2741] — a defensible range with the H&M/Park 2340-2410 band interior. The problem is that it is now UNDECLARED: CRITICAL-1 removed rho_core_kgm3 ~ U[2200,2600], which was the only declared bound on rock density, so the frozen branch's density prior is implicit in a box edge. Either restore a declared rho_rock range for the frozen branch or state the induced prior explicitly. Interacts with the mass-conservation invariant above.",
+      "retry_frozen_as_no_ocean": true,
+      "record_per_node": [
+        "Tb_K",
+        "zb_km_actual",
+        "has_ocean",
+        "rho_ice_mean_kgm3",
+        "rho_ocean_mean_kgm3",
+        "sigma_ocean_Sm",
+        "mass_residual_frac",
+        "rho_interior_mean_kgm3"
       ],
-      "zb_km_prior": "uniform [5, 45] — the ocean branch's OWN support; nodes above ~45 km do not exist on this branch",
-      "support_note": "restricting a uniform zb prior to the ocean sub-interval is, after normalization, identical to a uniform prior on [5,45] (reviewer-ratified: the ocean-branch posterior is undistorted by the ragged axis)"
+      "mandatory_node_invariants": {
+        "mass_conservation": "REVISED 2026-08-13 (third fix to this invariant; see mass_conservation_revision_history). Use the OUTER-EDGE convention — PlanetProfile's own layer convention, rho[i] fills [r[i-1], r[i]] with implicit inner edge 0 (reducedPlanetModel / Geophysical.py:170). Gate ONE-SIDED and STEP-SCALED: require residual = M_node/M_body - 1 to lie in (-1.5 * delta_m_step, +1e-9], where delta_m_step = 4 pi r_sil^2 (rho_sil - rho_hydro) delta_r / M_body with delta_r = delta_P / (rho_hydro g(r_sil)) computed per model from that model's own delta_P, r_sil, rho_sil, rho_hydro. For Enceladus delta_m_step ~ 0.65% (Titan ~0.44%, Europa ~0.36%). HARD REJECT to None on failure.",
+        "zb_placement": "abs(zb_km_actual - zb_km_node) < grid_step_km / 2. HARD REJECT to None on failure.",
+        "why_blocking": "Reviewer MAJOR-1, reproduced by Machine B against the existing smoke cache (PlanetProfile/Test/mcmc_results/Enceladus/Cassini_smoke/enceladus_seawater_smoke_grid.pkl): integrating each node's own profile gives a mass DEFICIT of -22.16% (node 0, Tb=271.8, frozen, phases {1,50}) and -9.21% (node 1, Tb=272.1, frozen) against -0.31% (node 2, Tb=272.46, the only OCEAN node — numerical). All three nodes store Mtot_kg = 1.08022e20, the template constant, so the stored field MASKS the violation entirely. PP built and persisted the violating frozen nodes without complaint. Two consequences: (1) this config's earlier claim that interior density is 'recoverable as a DERIVED display quantity from the cache via mass conservation' is FALSE ON THE FROZEN BRANCH — deriving rho_interior from Mtot_kg minus the hydrosphere would be wrong by tens of percent, and that claim was load-bearing for the CRITICAL-1 core-parameter drop; (2) widening the zb box to 70 km does NOT fix this by itself, because the builder rejects mass-violating frozen nodes at NO zb. Without the zb_placement invariant a frozen retry requested at zb=20 but built by PP at zb_actual~47 would be stored with theta and structure disagreeing by 27 km, silently corrupting the likelihood. Suspected mechanism (reviewer, medium confidence): PP matches MoI or PHydroMax rather than mass on the NO_OCEAN_EXCEPT_INNER_ICES path. MUST be root-caused before B4, and the smoke cache's frozen nodes must be re-audited or discarded.",
+        "mass_conservation_why_the_quadrature_matters": "The first version of this invariant said only '< 1e-3 from the node's own (r_m, rho) arrays' and did NOT name the quadrature. That was UNIMPLEMENTABLE and would have emptied the cache of the ocean branch. r_m is the OUTER bound of each layer (defineStructs.py), so the natural layer-top reading assigns rho[i] to [r[i-1], r[i]] — and measured on the smoke cache that puts the ONLY physically-sound node (node 2, the ocean node) at 0.3118%, a hard reject against a 0.1% threshold, while the two mass-VIOLATING frozen nodes are at -22.16% and -9.21%. Machine B reproduced all three quadratures: layer_top -22.1582 / -9.2112 / -0.3118 %; trapezoid on 4 pi r^2 rho -21.8422 / -8.8465 / -0.0057 %; midpoint-edge -21.8482 / -8.8567 / -0.0182 %. The ocean node's apparent 0.3118% is pure shell-attribution error, not physics — the profile is internally consistent to ~2e-4. Midpoint-edge is chosen over trapezoid because it closes the total volume EXACTLY by construction (verified: +2.2e-14%), so the residual measures density inconsistency alone. Threshold 5e-4 is set from the measured good-node baseline (1.8e-4) with ~3x headroom, and it still rejects both frozen nodes by >100x.",
+        "acceptance_criteria_BOTH_DIRECTIONS": "Must FAIL the Enceladus frozen nodes (-22.158%, -9.211% outer-edge) and PASS the Enceladus ocean node (-0.312% outer-edge). Additionally, and this is the criterion the earlier versions lacked: must PASS every node of the ratified corpus, which under the outer-edge convention spans -0.001% (Titan noocean) to -0.978% (Titan NaCl). A gate that rejects ratified nodes is not a gate, it is a regression.",
+        "branch_flag_source": "has_ocean MUST be derived from the PHASE ARRAY (presence of any phase-0 liquid layer), NEVER from D_ocean_km. Verified 2026-08-13 (reviewer NEW-MINOR-3): smoke nodes 0 and 1 store D_ocean_km = 1.510 and 1.151 km while having NO phase-0 layers at all, so a D_ocean_km > 0 test would misclassify frozen nodes as ocean — and the discrete branch index depends on that classification.",
+        "mass_conservation_revision_history": "v1 (r3): 'abs(...) < 1e-3 from the node's own arrays' — UNIMPLEMENTABLE, quadrature unspecified. v2 (r4): midpoint-edge, 5e-4, two-sided — the quadrature was named, but it was the WRONG quadrature for this data and the threshold and the two-sidedness were both wrong with it. v3 (now): outer-edge (PP's actual convention), one-sided, step-scaled. WHY EACH v2 CHOICE WAS WRONG: (a) midpoint closes total volume exactly, which is right for an invariant defined on its own terms but wrong for auditing structures whose densities were ASSIGNED under the outer-edge convention — measured convention swing on one Titan node is 1.99% (outer -0.777%, mid +0.206%, inner +1.210%), which is larger than every effect being tested; (b) 5e-4 does not translate across conventions — the Enceladus OCEAN node is -0.018% under midpoint but -0.312% under outer-edge, so the v2 threshold would have rejected the one healthy node it was explicitly designed to pass; (c) two-sided is wrong because the solver's residual is one-signed BY DESIGN (Silicates.py:118 takes the first profile with Mtot_kg <= M_kg, i.e. one radial step BELOW target), so a POSITIVE residual is a distinct bug — broken mass bookkeeping — and must not be admitted by a symmetric tolerance. Corpus evidence: across ~37k structures in 17 ratified caches the max positive residual is EXACTLY 0.0000%."
+      },
+      "w_axis_scope": "The log10_w axis applies to the OCEAN branch only. Frozen nodes have no ocean, so salinity is undefined there (not merely unconstrained) and the frozen segment is built at a single nominal w with w recorded as N/A. Node count above is therefore an upper bound; the builder must not multiply frozen zb nodes by 40 salinities."
     },
-    "frozen_branch": {
-      "sampled": [
-        "rho_rock_kgm3",
-        "rho_ice_kgm3",
-        "libration_sys_frac"
-      ],
-      "rho_rock_kgm3_prior": "uniform [2200, 2600]",
-      "zb_km": "DERIVED by mass conservation from (rho_rock, rho_ice), NOT sampled",
-      "derived_zb_range_km": [
-        47.45,
-        65.26
-      ],
-      "not_sampled_here": [
-        "log10_wOcean_ppt (no ocean -> salinity is undefined, not merely unconstrained)",
-        "compensation_C2 (no ice/ocean interface -> rigid uncompensated support; isostatic_gravity(R_b=None))"
-      ],
-      "dimensionality": "3 free parameters, vs the ocean branch's 5 — the branches are NOT nested and their evidences must each be computed over their own support"
+    "isostasy": {
+      "shape_source": "tajeddine2017",
+      "H_obs_lm_m": {
+        "2,0": -3510.0,
+        "2,2": 857.0,
+        "3,0": 420.0
+      },
+      "shape_ref_radius_m": 252220.0,
+      "gravity_ref_radius_m": 256600.0,
+      "finite_amplitude": true,
+      "sigma_model_lm": {
+        "2,0": 5.3e-06,
+        "2,2": 1.7e-06,
+        "3,0": 4.4e-06
+      },
+      "sigma_model_lm_provenance": "B15 CLOSED 2026-08-13 from the PRIMARY SOURCE (papers/hemingway2019enceladus.pdf, Table 1, Tajeddine et al. 2017 block, column sigma_lm^topo*, R_ref = 252.22 km, rho_shell = 925 kg/m^3): (2,0) 5.3e-6, (2,2) 1.7e-6, (3,0) 4.4e-6. These are the model-gravity uncertainties propagated from the SHAPE model, i.e. exactly H&M's Sigma^model diagonal. VERIFIED against H&M's own Eq. 25, sigma_lm^topo* = (3 rho_shell / (R rho_bar (2l+1))) sigma_lm^topo, with the Table 1 sigma_lm^topo = 3.9 / 1.3 / 4.5 m and rho_bar = 1607.3 kg/m^3 computed from the body: reproduces 5.339 / 1.780 / 4.401 e-6. Eq. 24 cross-check also reproduces Table 1's COMBINED sigmas to three digits against the Iess gravity sigmas (35.79 / 15.89 / 23.81 vs published 35.8 / 15.9 / 23.8 e-6), which confirms the whole chain is being read correctly.",
+      "sigma_model_libration_deg": 0.00025,
+      "sigma_model_libration_provenance": "H&M 2019 section 2.6 / Eq. 26: sigma_gamma = sqrt(sigma_gamma,obs^2 + sigma_gamma,model^2) with sigma_gamma,model = 0.00025 deg for the TAJEDDINE shape model (0.004 deg for Nimmo — 16x larger, which is why Tajeddine is the primary source). VERIFIED against the primary PDF. Against this campaign's libration sigma_obs = 0.003 deg the combined value is sqrt(0.003^2 + 0.00025^2) = 0.003010 deg, a 0.35% inflation. Must be applied to the libration row because the SAME H_obs feeds both the gravity rows and the libration.",
+      "frozen_branch_support": "rigid",
+      "sigma_model_lm_discrepancy_note": "One honest discrepancy: Eq. 25 gives 1.780e-6 for (2,2) while Table 1 prints 1.7e-6 — a 4.7% difference, larger than the 0.7% and 0.02% agreement on the other two rows, and in the direction of truncation rather than rounding. The published 1.7e-6 is adopted (it is the value of record and the conservative-vs-Eq.25 difference is 0.08e-6, i.e. 0.005 sigma_obs — immaterial). Recorded rather than silently reconciled.",
+      "sigma_model_correction_of_r3": "This CLOSES the MAJOR-3 reopening and RETRACTS the second reviewer pass's claim that the values were ~2x too large. That pass independently propagated sigma_topo and got 2.59 / 0.95 / 2.28e-6, concluding the config values were 1.8-2.05x inflated. That propagation was WRONG — Eq. 25 with H&M's own rho_bar and the (2l+1) factor reproduces 5.3 / 1.7 / 4.4 to better than 1% on two of three rows, and the Eq. 24 combined-sigma cross-check independently confirms it. The provenance SENTENCE in r3 was still defective (it described the 35.8/15.9/23.8e-6 combined values as if they were the model column, and they are Iess-era OBSERVATIONAL sigmas combined per Eq. 24) — that wording is now fixed above.",
+      "sigma_model_applied_to_park_sigmas": {
+        "note": "This campaign conditions on PARK 2024 gravity sigmas, not the Iess sigmas H&M used, so the combined sigmas differ from Table 1's. Per H&M Eq. 24, sigma_lm = sqrt((sigma^grav)^2 + (sigma^topo*)^2):",
+        "C20": {
+          "sigma_obs": 3.699e-05,
+          "combined": 3.737e-05,
+          "inflation_pct": 1.02
+        },
+        "C22": {
+          "sigma_obs": 1.47e-05,
+          "combined": 1.48e-05,
+          "inflation_pct": 0.67
+        },
+        "C30": {
+          "sigma_obs": 3.342e-05,
+          "combined": 3.371e-05,
+          "inflation_pct": 0.86
+        },
+        "reading": "Sigma_model inflates the effective observational sigmas by under 1.1% on every row — negligible against the measurement errors, which vindicates H&M's own remark that the Tajeddine shape model's uncertainties are small enough not to kill the channel (Nimmo's would inflate sigma(C20) ~7x). The libration model sigma is handled separately below."
+      }
     },
-    "why_reparameterized": "Reviewer NEW-MAJOR-2, verified numerically by Machine B 2026-08-13. Sampling zb on the frozen branch made the frozen-branch rho_rock prior an artifact of an arbitrary box edge, and the discrete index alone RELABELS that arbitrariness rather than curing it (the odds are fixed at 0.5/0.5 but each branch's EVIDENCE INTEGRAL still runs over whatever zb range was declared). Two measured symptoms: (1) box-edge dependence — the frozen fraction of a [5, hi] box is 22.7% at hi=60 km, 34.6% at hi=70, 43.3% at hi=80, so the reported branch odds would have been linearly rescalable by a choice with no physical content; (2) prior distortion — because zb <-> rho_rock is a bijection with d(rho_rock)/d(zb) ~ 22-28 kg m^-3 km^-1, a UNIFORM prior in zb is NOT uniform in rho_rock: over the induced range [2201, 2705] kg/m^3 the prior mass by density quintile is 0.280 / 0.230 / 0.192 / 0.162 / 0.138 against 0.200 for uniform, i.e. a factor 2.0 tilt FAVOURING low-density rock. Declaring rho_rock ~ U[2200,2600] and DERIVING zb fixes the frozen support at zb in [47.45, 65.26] km independently of any box edge, and puts the prior on the quantity that actually has literature constraints (H&M/Park require 2340-2410)."
+    "derived_display_only": [
+      "sigma_ocean_Sm",
+      "B_ind_orbital_nT",
+      "B_ind_synodic_nT",
+      "A_orbital",
+      "A_synodic",
+      "Phi_orbital",
+      "Phi_synodic",
+      "D_ocean_km",
+      "cmr2"
+    ],
+    "libration_model_correction": {
+      "multiplicative_factor": 1.008,
+      "residual_frac_symmetric": 0.004,
+      "rigid": true,
+      "figure_convention": "INVALID_whole_difference_RETIRED_see_ADJUDICATION_2026_08_14",
+      "H22_obs_m": 857.0,
+      "H22_obs_provenance": "Tajeddine et al. 2017 observed surface H22 at R_ref 252.22 km, the same value used by the PASSING B13 H&M reproduction gate (tests/isostasy_hm2019_gate_test.py H_OBS[(2,2)]). USER DECISION 2026-08-13: adopt option A (the H&M observed-figure convention) for the libration. Implemented as the opt-in H22_obs_m kwarg on Gravity/Librations.py::librations(), scoped to the ocean+rigid branch; default None preserves PP's historical hydrostatic behaviour BYTE-IDENTICALLY (verified across the edit at 4 structures, all digits).",
+      "effect": "RETRACTED -- DO NOT QUOTE. The +1.4167 sigma / +1.10 km figures were produced by the invalid whole-difference scaling. Superseded by the adjudication above.",
+      "STATUS_2026_08_13": "SUSPECT — DO NOT QUOTE THE +1.10 km. B2' is REOPENED and ESCALATED; see validation_reports/enceladus_isostasy/b2prime_REOPENED_figure_coupling.json. Reading H&M sections 2.3/2.5 from the primary source shows the implemented whole-difference scaling matches NEITHER a surface-only reading NOR H&M's Eq. 12 treatment (observed surface figure PLUS the Airy-isostatic base root, which has OPPOSITE SIGN and amplification rho_ice/dRho = 11.56). Three candidate treatments give matched shell thicknesses of 24.70 (hydrostatic) / 25.80 (as implemented) / 27.34 km (surface-only), and H&M's own Eq.-12 treatment at C2=1 gives 30.5 sigma with NO zb in [12,44] km reproducing the observed libration — which more likely indicates my mapping of the Airy root into the triaxial (B-A) is inconsistent with how H&M assemble Eq. 19 than that H&M are wrong. The 2.6 km spread across treatments is comparable to the 6 km H&M-vs-Park separation this campaign exists to adjudicate, and because the libration is the SOLE thickness channel this SETS WHERE THE ANSWER LANDS. The H22_obs_m kwarg is retained and harmless (default None is byte-identical) but the whole-difference scaling is NOT adjudicated.",
+      "STATUS_2026_08_14_ADJUDICATED": "REVIEWER VERDICT: BLOCK. B2' REMAINS BLOCKING. The whole-difference scaling adopted here as 'option A / the H&M observed-figure convention' is NOT A VALID CANDIDATE TREATMENT and must be retired or repaired. Root cause: H22_obs_m scales (Bs - As), but the shell-base interface carries weight -rho_ice = -925 kg/m3 inside that difference while its PHYSICAL weight in Ks is Delta_rho = rho_ocean - rho_ice = 80-95 kg/m3 (Bsp_Asp very nearly cancels it). The identity Ks/(3 omega^2) = rho_ice*f_top + Delta_rho*f_base was verified to ~1e-14 independently by Machine B. Net effect: the shipped path applies an implicit, structure-dependent, SIGN-FLIPPING effective scale of +0.33 to -0.58 to the ice/ocean interface figure, while the Librations.py docstring asserts that interior interfaces stay hydrostatic. That is a code/docstring divergence on the campaign's SOLE thickness channel. Defensible treatments: hydrostatic and surface-only, with Delta_rho-consistent H&M Eq.-12 bracketed by C2 between 25.99 and 27.34 km. See validation_reports/enceladus_isostasy/b2prime_ADJUDICATED_drho_weighting.json.",
+      "USER_DECISION_NEEDS_RETAKING": "The recorded 'USER DECISION 2026-08-13: adopt option A (the H&M observed-figure convention)' was taken on TWO premises that are now falsified: (1) that option A implements the H&M convention -- it does not, it matches neither H&M Eq. 12 nor a surface-only reading; and (2) that interior interfaces remain hydrostatic under it -- they do not, they are attenuated to a third, annihilated, or sign-flipped depending on structure. Machine B has NOT reversed the decision unilaterally. The user must re-decide on corrected information. Note the repair also moves tests/librations_test.py::test_h22_obs_m_reproduces_b2prime_measurement, which currently pins the now-suspect +1.40-1.43 sigma shift."
+    },
+    "derived_display_only_note": "libration_deg REMOVED from this list 2026-08-13 (reviewer NEW-MINOR-2): it is a CONDITIONED OBSERVABLE and appeared here simultaneously, a live contradiction on the campaign's SOLE thickness channel — precisely the field an implementer could read as 'do not condition'. It remains a per-sample derived DISPLAY quantity too (corner-plot column + summary row per the user ruling), but that is a presentation concern and must not be encoded in a list this config otherwise uses to mean not-conditioned (as it does for the induction quantities).",
+    "branch_model": {
+      "type": "explicit discrete model index",
+      "prior_odds": {
+        "ocean": 0.5,
+        "frozen": 0.5
+      },
+      "ocean_branch": {
+        "sampled": [
+          "zb_km",
+          "log10_wOcean_ppt",
+          "rho_ice_kgm3",
+          "compensation_C2",
+          "libration_sys_frac"
+        ],
+        "zb_km_prior": "uniform [5, 45] — the ocean branch's OWN support; nodes above ~45 km do not exist on this branch",
+        "support_note": "restricting a uniform zb prior to the ocean sub-interval is, after normalization, identical to a uniform prior on [5,45] (reviewer-ratified: the ocean-branch posterior is undistorted by the ragged axis)"
+      },
+      "frozen_branch": {
+        "sampled": [
+          "rho_rock_kgm3",
+          "rho_ice_kgm3",
+          "libration_sys_frac"
+        ],
+        "rho_rock_kgm3_prior": "uniform [2200, 2600]",
+        "zb_km": "DERIVED by mass conservation from (rho_rock, rho_ice), NOT sampled",
+        "derived_zb_range_km": [
+          47.45,
+          65.26
+        ],
+        "not_sampled_here": [
+          "log10_wOcean_ppt (no ocean -> salinity is undefined, not merely unconstrained)",
+          "compensation_C2 (no ice/ocean interface -> rigid uncompensated support; isostatic_gravity(R_b=None))"
+        ],
+        "dimensionality": "3 free parameters, vs the ocean branch's 5 — the branches are NOT nested and their evidences must each be computed over their own support"
+      },
+      "why_reparameterized": "Reviewer NEW-MAJOR-2, verified numerically by Machine B 2026-08-13. Sampling zb on the frozen branch made the frozen-branch rho_rock prior an artifact of an arbitrary box edge, and the discrete index alone RELABELS that arbitrariness rather than curing it (the odds are fixed at 0.5/0.5 but each branch's EVIDENCE INTEGRAL still runs over whatever zb range was declared). Two measured symptoms: (1) box-edge dependence — the frozen fraction of a [5, hi] box is 22.7% at hi=60 km, 34.6% at hi=70, 43.3% at hi=80, so the reported branch odds would have been linearly rescalable by a choice with no physical content; (2) prior distortion — because zb <-> rho_rock is a bijection with d(rho_rock)/d(zb) ~ 22-28 kg m^-3 km^-1, a UNIFORM prior in zb is NOT uniform in rho_rock: over the induced range [2201, 2705] kg/m^3 the prior mass by density quintile is 0.280 / 0.230 / 0.192 / 0.162 / 0.138 against 0.200 for uniform, i.e. a factor 2.0 tilt FAVOURING low-density rock. Declaring rho_rock ~ U[2200,2600] and DERIVING zb fixes the frozen support at zb in [47.45, 65.26] km independently of any box edge, and puts the prior on the quantity that actually has literature constraints (H&M/Park require 2340-2410)."
+    }
   }
 }
