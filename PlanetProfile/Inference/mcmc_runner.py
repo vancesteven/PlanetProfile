@@ -52,6 +52,12 @@ _FROZEN_LOOP_CLOSURE_TOL = 3e-3
 # A8). Not a physical tolerance -- see that method's inline comment.
 _ZB_SUPPORT_EPS_KM = 1e-6
 
+# Observable name -> spherical-harmonic (l, m) key for the isostatic_hm2019
+# forward model (_derive_gravity_isostatic's return dict). Shared by the
+# likelihood's dispatch and generate_sbi_dataset's arm (r5 defect D2) so the
+# training set and the MCMC target cannot drift apart.
+_ISOSTATIC_OBS_LM = {'C20': (2, 0), 'C22': (2, 2), 'C30': (3, 0)}
+
 
 def _parse_bind_channel(name: str):
     """Parse a Bind_ induction channel name into (label, comp, part).
@@ -3507,6 +3513,26 @@ class MCMCRunner:
                         continue
                     gravity_pair = (np.nan, np.nan)
 
+            # r5 defect D2: the Enceladus isostasy arm. Without it,
+            # generate_sbi_dataset could not produce the observable vector
+            # at all under gravity_forward_model='isostatic_hm2019':
+            # gravity_pair stayed None so the C20/C22 arms below fell
+            # through to the NaN default, and C30 -- wired for the
+            # LIKELIHOOD only -- had no arm anywhere, so drop_nonfinite
+            # rejected every row and the dataset came out EMPTY. Mirrors
+            # the likelihood's own dispatch (_derive_gravity_isostatic,
+            # both branches) so training data and MCMC target the same
+            # forward model.
+            iso_pred = None
+            if self._gravity_isostatic_active() and any(
+                    n in _ISOSTATIC_OBS_LM for n in obs_names):
+                iso_pred = self._derive_gravity_isostatic(theta_dict)
+                if iso_pred is None:
+                    if drop_nonfinite:
+                        n_rejected_nonfinite += 1
+                        continue
+                    iso_pred = {}
+
             xi = []
             for name in obs_names:
                 if name == 'Re_k2':
@@ -3532,6 +3558,12 @@ class MCMCRunner:
                 elif name == 'CMR2':
                     xi.append(cmr2_precomputed if cmr2_precomputed is not None
                                else self._compute_model_cmr2(theta_dict))
+                elif name in _ISOSTATIC_OBS_LM and iso_pred is not None:
+                    # D2: C20/C22/C30 from the H&M-2019 isostatic forward
+                    # model. C30 exists ONLY here -- there is no Clairaut
+                    # degree-3 pair -- which is why it needed its own arm.
+                    xi.append(float(iso_pred.get(_ISOSTATIC_OBS_LM[name],
+                                                 np.nan)))
                 elif name == 'C20' and gravity_pair is not None:
                     xi.append(gravity_pair[0])
                 elif name == 'C22' and gravity_pair is not None:
