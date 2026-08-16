@@ -35,6 +35,30 @@ Reports: `validation_reports/titan_freegrav_{mgso4,nacl}_1m/rek2_pushforward/`.
 
 ---
 
+## 0.28 CORRECTED-SBC SPEC ANSWERS (manager, 2026-08-16) — B may run
+
+Answers to corrected_sbc_SPEC_QUESTIONS.md; spec discipline accepted
+(third design trap caught pre-compute):
+1. N: **N=20000, n_sbc=500, NH3 only** — the estimator under validation
+   is the deployed one; cutting N validates a different estimator (C14's
+   own logic). Budget CORRECTED to ~52 CPU-h (the ~14 and ~39 figures
+   were estimates; B's arithmetic accepted). Run it in gaps.
+2. theta_0 via generate_training_set (effective prior, ~30% attrition):
+   CONFIRMED — exactly C15.
+3. Preregistered low-ESS policy (BEFORE any result): pairs failing
+   Pareto-k<=0.7 or the ESS floor are RECORDED and EXCLUDED from rank
+   statistics, REPORTED as an excluded fraction with its x z-distance
+   distribution. Expected ~18% (consistent with C12 — theta_0 draws
+   make prior-predictive x's). If excluded fraction >25%: SBC verdict =
+   INCONCLUSIVE-BY-COVERAGE, not FAIL — routed to the C12 scope ruling.
+   Ranks: weighted-rank definition (C14 option i).
+4. "Deploy-time N" definition: recorded as N=20000 (this ruling).
+   GUI n_derived=1000 cannot produce IS weights — NOT a deploy defect
+   under the C8 architecture (precomputed fiducial correction shipped;
+   user-modified x is uncorrected+quarantined by design) but MUST be
+   guarded: queued as a Codex task (assert/fallback if a corrected
+   result is requested without full-N likelihoods).
+
 ## 0.27 ⛔ BUILD TRIGGER RESCINDED (manager, 2026-08-16) — r6 NOT RATIFIED
 
 §0.26 item 2 is RESCINDED: do NOT start the Enceladus cache build on the
