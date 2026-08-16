@@ -387,6 +387,36 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
         rheology_constraint=None
     ),
 
+    'rho_rock_kgm3': ParameterDef(
+        id='rho_rock_kgm3',
+        label='Rock Interior Density (frozen branch)',
+        latex_label=r'$\rho_{\rm rock}$ (kg m$^{-3}$)',
+        description='FROZEN-BRANCH sampling coordinate: the uniform density '
+                    'of the rock interior of a no-ocean Enceladus. On this '
+                    'branch zb is NOT sampled -- it is DERIVED from '
+                    '(rho_rock, rho_ice) by the exact analytic two-layer '
+                    'mass closure PlanetProfile.Gravity.isostasy.'
+                    'frozen_zb_from_mass, whose inverse frozen_rho_rock_'
+                    'from_zb makes the map a bijection, so C/MR^2 is derived '
+                    'along it rather than gating it (enceladus_cassini_'
+                    'isostasy_7D.json branch_model.frozen_branch). '
+                    'Reparameterizing onto this declared prior is what '
+                    'removed the frozen-branch box-edge artifact: a uniform '
+                    'zb prior is NOT uniform in rho_rock (measured factor-2 '
+                    'tilt toward low-density rock) and the frozen prior mass '
+                    'was linearly rescalable by an arbitrary zb box edge. '
+                    'U[2200, 2600] brackets the H&M/Park requirement of '
+                    '2340-2410 kg/m^3. Serves the cache through the '
+                    'interpolating frozen dispatch (A8), never a nearest-node '
+                    'snap, so no structure rebuild is triggered per sample.',
+        category='structure',
+        default_prior='uniform',
+        default_bounds=[2200.0, 2600.0],
+        units='kg/m^3',
+        requires_structure_rebuild=False,
+        rheology_constraint=None
+    ),
+
     'D_iceIh_km': ParameterDef(
         id='D_iceIh_km',
         label='Ice Shell Thickness',

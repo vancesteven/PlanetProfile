@@ -1703,12 +1703,16 @@ class MCMCRunner:
         block verbatim), falling back to ``config.metadata['isostasy']`` --
         matching the existing convention that campaign-specific physics
         inputs like ``gravity_ref_radius_m`` live under ``metadata`` (see
-        ``_derive_gravity_pair``). NOTE: the enceladus_cassini_isostasy_7D
-        frozen-config CANDIDATE currently carries ``isostasy`` (and several
-        other blocks) as top-level JSON keys that are not yet recognized
-        ``InferenceConfig`` dataclass fields, so that exact file does not
-        parse via ``InferenceConfig.from_json`` today -- a config-schema
-        reconciliation left to ratification, out of scope here."""
+        ``_derive_gravity_pair``). CORRECTED 2026-08-16 (r5 documentation
+        item): this docstring used to say the enceladus_cassini_isostasy_7D
+        candidate "does not parse via ``InferenceConfig.from_json`` today"
+        because it carried ``isostasy`` and six sibling blocks as top-level
+        JSON keys. That was fixed by the config-schema reconciliation --
+        those blocks now live under ``metadata`` and
+        ``tests/config_schema_reconciliation_test.py`` pins that
+        ``from_json`` succeeds on the file. The top-level lookup below is
+        kept as forward compatibility for a future dataclass field, not as
+        a workaround for a broken config."""
         top = getattr(self.config, 'isostasy', None)
         if isinstance(top, dict) and top:
             return top
