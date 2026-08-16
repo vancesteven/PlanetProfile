@@ -35,6 +35,32 @@ Reports: `validation_reports/titan_freegrav_{mgso4,nacl}_1m/rek2_pushforward/`.
 
 ---
 
+## 0.25 C12 SWEEP OUTCOME — manager routing (2026-08-16)
+
+B's C12 amortized sweep: FAIL 19.5% vs <=5% (29/149 Pareto-k > 0.7),
+failures concentrated at high z-distance (failed mean z=3.48 vs passed
+1.59), driven by extreme Re/Im k2. Execution quality accepted: design
+trap caught+fixed (per-point runner rebuild — the likelihood closure
+does not track swept x), preregistered, fiducial reproduction verified
+first, routed not self-adjudicated.
+
+MANAGER NOTE: the 2026-08-11 program review PREREGISTERED exactly this
+outcome as legitimate and publishable: "corrected at the fiducial,
+uncorrected-and-quarantined elsewhere." Pending the reviewer scope
+ruling (dispatch next session): the expected disposition is SCOPE-BOUND
+— the IS correction is validated at the fiducial + within a to-be-mapped
+in-support region; outside it the GUI falls back to uncorrected +
+quarantine warning (the deploy design already does this on k/ESS floors
+automatically). Key question for the reviewer: does the failing region
+intersect the GUI-reachable x_obs_limits box, or lie beyond it? If
+beyond, deploy posture is UNCHANGED and the finding is a documented
+boundary, not a new quarantine. Fiducial validations (C3/C5.3/C10/C11/
+C13/C16) unaffected. NH3 corrected-SBC (the other background gate) can
+proceed regardless — it tests the fiducial pipeline.
+
+Enceladus remains B's foreground trigger: r5 ratification pass runs
+after A8 lands (A8 agent interrupted by session limits; resuming).
+
 ## 0.24 B2' CLOSED (reviewer sign-off, 2026-08-15) — Enceladus path is now pure production
 
 Reviewer independently re-derived the ocean+rigid branch (matched
