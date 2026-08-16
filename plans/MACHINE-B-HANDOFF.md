@@ -35,6 +35,29 @@ Reports: `validation_reports/titan_freegrav_{mgso4,nacl}_1m/rek2_pushforward/`.
 
 ---
 
+## 0.24 B2' CLOSED (reviewer sign-off, 2026-08-15) — Enceladus path is now pure production
+
+Reviewer independently re-derived the ocean+rigid branch (matched
+production to 1.4e-16), reproduced every repair number, confirmed the
+rescinded path gone and the scales on the right weights, and ruled SIGN
+OFF WITH CONDITIONS — all seven record-only, all executed (config
+B2prime_signoff_2026_08_15; git notes on 5e5b9d78; invariant-test scope
+note; libration_sys_frac freeze gate). New freeze-budget terms recorded:
+Bsp_Asp linearization (+0/-0.4 km on the C2=1 edge), C2-coupling
+zb-dependence, det(A_mat) invariant open-but-uncontaminated.
+
+**Machine B / Machine A remaining sequence to the Enceladus build:**
+1. (A) Implement the frozen-branch redesign per
+   validation_reports/enceladus_isostasy/frozen_branch_DESIGN_RULING.md
+   tasks A2-A7 (A1 core demonstrated: constant-rho mass-exact solve
+   works; finish the no-liquid variant + window bypass inside A2-A5).
+2. (Codex) C1-C5 of the ruling (solver tests, loop closure, I-F6
+   both-directions, None-node, 3-node smoke).
+3. (A) r5 reviewer ratification pass on the config candidate.
+4. (B) production cache -> 1M dataset -> n_eff=8000 3-seed references ->
+   training at the Phase-4 hold point. NH3 background gates (C12 sweep,
+   corrected SBC) fit in compute gaps as before.
+
 ## 0.23 B2' USER RULING (2026-08-15) — reviewer recommendation ADOPTED
 
 The user follows the reviewer: the 2026-08-13 "option A" observed-figure

@@ -8,6 +8,15 @@ moment difference instead of the density jump carried by an interface.
 This invariant uses the exact interface pressure term ``rho_ocean*f_base``.
 It intentionally does not test the separately documented linearized
 ``Bsp_Asp`` coefficient in the production libration branch.
+
+
+Scope note (reviewer sign-off 2026-08-15): this invariant is
+verified on the EXACT per-interface form. The production libration
+path meets it only to ~80% because Bsp_Asp is the linearized
+8pi/15 figure moment (1.8% low on rho_ocean*f_base = ~23% of
+Delta_rho). Do NOT read a pass here as certifying the production
+coefficients; that residual is a recorded freeze-budget term
+(config B2prime_signoff_2026_08_15.condition_1).
 """
 
 import numpy as np
