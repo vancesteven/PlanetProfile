@@ -47,6 +47,11 @@ BE_PERIOD_MATCH_TOL_HR = 0.1
 # it is REJECTED to -inf log-likelihood, never served a neighbouring node.
 _FROZEN_LOOP_CLOSURE_TOL = 3e-3
 
+# Floating-point boundary slack (km) for the frozen-branch zb<->rho_rock
+# bijection's out-of-support check (MCMCRunner._frozen_struct_for_theta,
+# A8). Not a physical tolerance -- see that method's inline comment.
+_ZB_SUPPORT_EPS_KM = 1e-6
+
 
 def _parse_bind_channel(name: str):
     """Parse a Bind_ induction channel name into (label, comp, part).
@@ -168,6 +173,12 @@ class MCMCRunner:
         self._use_flexible = (
             'Tb_K' in self.param_names or 'Tb_K' in self.fixed_params
             or self._samples_D_iceIh
+            # Frozen branch (A8): sampled rho_rock_kgm3 dispatches through
+            # the zb×w grid cache's frozen axis (_frozen_struct_for_theta),
+            # which needs the full grid-format cache dict passed through by
+            # _load_grid_cache below -- not the single-structure loader.
+            or 'rho_rock_kgm3' in self.param_names
+            or 'rho_rock_kgm3' in self.fixed_params
         )
 
         # Load cached structure (skip bodyname validation for Test* files).
@@ -439,8 +450,19 @@ class MCMCRunner:
         - **dict cache / single struct:** unchanged legacy behavior.
 
         Returns None when the sample must be rejected (all-None 2D corner).
+
+        - **Frozen branch (schema v3.2-zbw-joint, A8):** when the sample
+          carries ``rho_rock_kgm3`` and the loaded cache declares
+          ``frozen_branch_supported``, dispatch is routed through
+          :meth:`_frozen_struct_for_theta` instead of any Tb-keyed path
+          below -- the frozen theta space has no ``Tb_K``. Checked FIRST
+          so it never falls through to (and is never shadowed by) the
+          ocean-branch branches.
         """
         sd = self.structure_data
+        if (isinstance(sd, dict) and sd.get('frozen_branch_supported')
+                and 'rho_rock_kgm3' in theta_dict):
+            return self._frozen_struct_for_theta(theta_dict)
         Tb_sample = theta_dict.get('Tb_K')
         if is_2d_cache(sd) and Tb_sample is not None:
             from .forward_models import (_apply_bottom_temperature_2d,
@@ -662,7 +684,7 @@ class MCMCRunner:
         return label_map.get(param_name, param_name)
 
     def _load_grid_cache(self, cache_path: str) -> Dict[str, Any]:
-        """Load grid cache; accepts two formats.
+        """Load grid cache; accepts three formats.
 
         **Format A** (MCMCRunner native): ``dict[float -> structure_dict]``
         keyed by Tb_K values.
@@ -670,8 +692,18 @@ class MCMCRunner:
         **Format B** (Test50 list): ``{'Tb_K_grid': ndarray, 'structures': list}``
         as produced by Test50's ``build_or_load_structure_grid()``.
 
-        Both formats are passed through transparently; ``apply_bottom_temperature``
-        in forward_models.py handles interpolation for both.
+        **Format C** (zb×w grid, schema ``v3.1-zbw`` / ``v3.2-zbw-joint``,
+        A8): ``{'zb_km_grid': ndarray, 'wOcean_ppt_grid': ndarray,
+        'structures': list, ...}`` as produced by
+        :func:`cache_builder.build_zbw_grid_cache`, optionally carrying a
+        separate frozen axis (``frozen_zb_km_grid`` / ``frozen_structures``
+        / ``frozen_build_spec``). Passed through unmodified so
+        :meth:`_frozen_struct_for_theta` can read the frozen fields
+        directly.
+
+        All three formats are passed through transparently; ``apply_bottom_temperature``
+        in forward_models.py (Formats A/B) or ``_frozen_struct_for_theta``
+        (Format C's frozen axis) handles interpolation.
         """
         with open(cache_path, 'rb') as f:
             grid_cache = pickle.load(f)
@@ -690,6 +722,17 @@ class MCMCRunner:
             log.info(f"Grid cache loaded (list format): {len(grid_cache['structures'])} structures "
                      f"[{Tb_grid[0]:.3f} – {Tb_grid[-1]:.3f} K]")
             return grid_cache  # pass through; apply_bottom_temperature handles it
+
+        # Format C: zb×w grid cache (schema v3.1-zbw / v3.2-zbw-joint)
+        if 'zb_km_grid' in grid_cache and 'structures' in grid_cache:
+            n_frozen = len(grid_cache.get('frozen_structures') or [])
+            msg = (f"Grid cache loaded (zb×w format, schema "
+                   f"{grid_cache.get('schema_version', '?')}): "
+                   f"{len(grid_cache['structures'])} ocean structures")
+            if n_frozen:
+                msg += f", {n_frozen} frozen structures"
+            log.info(msg)
+            return grid_cache  # pass through; _frozen_struct_for_theta handles it
 
         # Format A: float-keyed dict
         first_key = next(iter(grid_cache))
@@ -1666,6 +1709,159 @@ class MCMCRunner:
         meta = getattr(self.config, 'metadata', {}) or {}
         nested = meta.get('isostasy')
         return nested if isinstance(nested, dict) else {}
+
+    def _frozen_struct_for_theta(
+        self, theta_dict: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """Interpolated frozen-branch structure for a sampled
+        ``(rho_rock_kgm3, rho_ice_kgm3)`` (A8, frozen-branch design ruling
+        follow-up).
+
+        The frozen cache (schema v3.2-zbw-joint,
+        :func:`PlanetProfile.Inference.cache_builder.build_zbw_grid_cache`)
+        stores one node per ``frozen_zb_km_grid`` entry, indexed by shell
+        thickness -- but the sampled coordinate is
+        ``(rho_rock_kgm3, rho_ice_kgm3)``, not ``zb``. This method closes
+        that gap:
+
+        1. Map the sample to build space via the analytic bijection
+           ``isostasy.frozen_zb_from_mass`` (exact, no iteration) using the
+           template mass/radius the cache was built against
+           (``frozen_build_spec['M_body_kg'/'R_body_m']``).
+        2. Locate the two bracketing nodes in ``frozen_zb_km_grid`` and
+           INTERPOLATE their stored structures 1-D linearly in zb, reusing
+           ``forward_models._blend_b_layered`` -- the SAME per-layer
+           boundary-blend + intra-layer resample the ocean branch's 2D
+           (Tb, w) dispatch already uses (module ``forward_models.py``,
+           ``_apply_bottom_temperature_2d`` / ``_blend_pair``). This is
+           deliberately never a nearest-node snap: per the design ruling a
+           quarter-step snap alone would eat ~80% of invariant I-F5's
+           margin.
+        3. At an exact node (including the grid edges) the blend weight is
+           exactly 0 or 1, so the interpolant reproduces that node's own
+           structure bit-for-bit -- no separate exact-match branch is
+           needed.
+
+        Rejects to ``None`` (no fallback) when:
+
+        - the cache has no frozen axis, or the sample lacks either density;
+        - ``frozen_zb_from_mass`` finds no physical two-layer solution;
+        - the derived zb falls OUTSIDE ``frozen_zb_km_grid``'s span
+          (out-of-support);
+        - either bracketing node is ``None`` (build-time reject) -- serving
+          the OTHER bracketing node alone would be exactly the forbidden
+          nearest-node snap;
+        - the two bracketing nodes' layer sets differ
+          (``forward_models._regions_match`` False) -- there is no defined
+          per-layer blend across a region-set change here (unlike the 2D
+          ocean dispatch, which falls back to nearest-corner for that case
+          across a genuine phase transition; the frozen axis has no
+          equivalent transition to fall back across, so this is a hard
+          reject too).
+
+        The returned structure's ``phases`` array carries ZERO phase-0
+        (liquid) cells by construction (I-F2 at build time), so the
+        downstream ``ocean.size == 0`` checks in
+        :meth:`_derive_gravity_isostatic` / :meth:`_derive_libration_deg`
+        route it to the frozen (rigid, uncompensated / ``ocean=False``)
+        forward models automatically -- this method only serves the
+        structure; the I-F5 per-sample loop-closure assert stays inside
+        :meth:`_frozen_two_layer_stack`, downstream of here, and is applied
+        to the INTERPOLATED stack this method returns.
+        """
+        sd = self.structure_data
+        grid = np.asarray(sd.get('frozen_zb_km_grid'), dtype=float)
+        structs = sd.get('frozen_structures')
+        if grid.size == 0 or not structs:
+            return None
+
+        rho_rock = theta_dict.get('rho_rock_kgm3')
+        rho_ice = theta_dict.get('rho_ice_kgm3')
+        if rho_rock is None or rho_ice is None:
+            return None
+        try:
+            rho_rock = float(rho_rock)
+            rho_ice = float(rho_ice)
+        except (TypeError, ValueError):
+            return None
+        if not (np.isfinite(rho_rock) and np.isfinite(rho_ice)):
+            return None
+
+        spec = sd.get('frozen_build_spec') or {}
+        M_body_kg = spec.get('M_body_kg')
+        R_body_m = spec.get('R_body_m')
+        if M_body_kg is None or R_body_m is None:
+            # Legacy/degraded cache without a saved build spec: fall back to
+            # any surviving node's own template fields (same values, since
+            # every node in one cache build shares one template).
+            for s in structs:
+                if s is not None:
+                    M_body_kg = s.get('Mtot_kg')
+                    R_body_m = s.get('R_body_m')
+                    break
+        if M_body_kg is None or R_body_m is None:
+            return None
+        try:
+            M_body_kg = float(M_body_kg)
+            R_body_m = float(R_body_m)
+        except (TypeError, ValueError):
+            return None
+        if not (np.isfinite(M_body_kg) and np.isfinite(R_body_m)
+                and M_body_kg > 0 and R_body_m > 0):
+            return None
+
+        from PlanetProfile.Gravity.isostasy import frozen_zb_from_mass
+        zb_m = frozen_zb_from_mass(M_body_kg, R_body_m, rho_rock, rho_ice)
+        if zb_m is None:
+            return None  # no physical two-layer solution at this sample
+        zb_km = zb_m / 1e3
+        if not np.isfinite(zb_km):
+            return None
+
+        n = grid.size
+        # Floating-point slack on the boundary only -- frozen_zb_from_mass /
+        # frozen_rho_rock_from_zb round-trip a grid edge to ~1e-13 km, not
+        # bit-exactly, so a strict compare would spuriously reject a sample
+        # that lands EXACTLY on grid[0]/grid[-1]. 1e-6 km is far above that
+        # float noise and far below any real grid spacing (0.5 km); it is
+        # not a physical out-of-support tolerance.
+        if zb_km < grid[0] - _ZB_SUPPORT_EPS_KM or zb_km > grid[-1] + _ZB_SUPPORT_EPS_KM:
+            return None  # out-of-support: outside frozen_zb_km_grid's span
+        zb_km = float(np.clip(zb_km, grid[0], grid[-1]))
+
+        from PlanetProfile.Inference.forward_models import (
+            _blend_b_layered, _regions_match, _copy_struct)
+
+        def _node(i: int) -> Optional[Dict[str, Any]]:
+            s = structs[int(i)]
+            return _copy_struct(s) if s is not None else None
+
+        if zb_km <= grid[0]:
+            return _node(0)
+        if zb_km >= grid[-1]:
+            return _node(n - 1)
+
+        idx = int(np.searchsorted(grid, zb_km, side='right'))
+        i0, i1 = idx - 1, idx
+        z0, z1 = float(grid[i0]), float(grid[i1])
+        if not (z1 > z0):
+            return _node(i0)  # degenerate (duplicate) grid spacing; defensive
+
+        t = (zb_km - z0) / (z1 - z0)
+        if t <= 0.0:
+            return _node(i0)
+        if t >= 1.0:
+            return _node(i1)
+
+        s0, s1 = structs[i0], structs[i1]
+        if s0 is None or s1 is None:
+            # A bracketing node was rejected at build time. Serving the
+            # surviving neighbour alone would be the forbidden nearest-node
+            # snap; reject instead.
+            return None
+        if not _regions_match(s0, s1):
+            return None
+        return _blend_b_layered(s0, s1, t)
 
     def _frozen_two_layer_stack(
         self,

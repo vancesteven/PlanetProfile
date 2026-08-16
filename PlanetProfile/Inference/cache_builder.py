@@ -1227,6 +1227,65 @@ def build_tbw_grid_cache(
 
 _FROZEN_G = 6.674e-11
 
+# I-F2 audit (A8 item 2): the ratified window's upper edge is a CLOSED 0
+# (mass_gate_blast_radius_audit.json's corrected signature: "EVERY residual
+# ... NEGATIVE OR ZERO, max positive exactly 0.0000%"). This epsilon is pure
+# floating-point slack on that boundary (outer-edge quadrature summing many
+# shells), not a scientific tolerance -- it is many orders below the
+# step-scaled lower edge it sits next to.
+_FROZEN_IF2_POSITIVE_EPS = 1e-9
+
+
+def _frozen_stored_mass_audit(
+    struct: Dict[str, Any], M_target_kg: float
+) -> Tuple[float, float]:
+    """Re-derive achieved mass from a frozen node's STORED ``(r_m, rho)``
+    arrays and return ``(residual_frac, step_scale_frac)`` (A8 item 2, the
+    full ruling's I-F2 -- see :func:`build_zbw_grid_cache`'s docstring for
+    the naming note).
+
+    This is an AUDIT of the arrays that actually end up in the cache file,
+    independent of ``mass_residual_frac`` (computed once, inside
+    ``build_single_structure``, from the pre-storage arrays). Uses the
+    SAME quadrature PlanetProfile's own layer convention and that field
+    use: OUTER-EDGE -- ``rho[i]`` fills the shell ``[r[i-1], r[i]]`` with an
+    implicit inner edge of 0 (``reducedPlanetModel`` / ``Geophysical.py:170``;
+    the ``Mtot_achieved_kg`` note a few hundred lines above in this module).
+    Re-deriving with the WRONG (midpoint) convention was exactly the error
+    ``mass_gate_blast_radius_audit.json`` had to retract (a fabricated
+    ~0.85% "systematic" that was pure quadrature-convention noise) --
+    "an audit of existing data must adopt the convention the data was
+    built with."
+
+    ``step_scale_frac`` is the mass of the node's own OUTERMOST stored
+    radial shell, as a fraction of ``M_target_kg``: the natural scale of
+    the solver's documented -1-radial-step bias (``Silicates.py:118``,
+    "first profile with ``Mtot_kg <= M_kg``"), and the scale
+    :func:`build_zbw_grid_cache`'s ratified one-sided step-scaled window
+    is defined against -- the acceptable range for ``residual_frac`` is
+    ``(-step_scale_frac, 0]``, per the corrected
+    ``mass_gate_blast_radius_audit.json`` signature ("EVERY residual ...
+    NEGATIVE OR ZERO ... the one-signed ``(-delta_m_step, 0]`` signature").
+
+    Returns ``(nan, nan)`` if the stored arrays are empty or ``M_target_kg``
+    is non-positive/non-finite.
+    """
+    r = np.asarray(struct.get("r_m"), dtype=float)
+    rho = np.asarray(struct.get("rho"), dtype=float)
+    if r.size == 0 or rho.size != r.size:
+        return float("nan"), float("nan")
+    if not (np.isfinite(M_target_kg) and M_target_kg > 0):
+        return float("nan"), float("nan")
+    order = np.argsort(r)
+    r_sorted = r[order]
+    rho_sorted = rho[order]
+    r_inner = np.concatenate(([0.0], r_sorted[:-1]))
+    shell_mass = rho_sorted * (4.0 / 3.0) * np.pi * (r_sorted ** 3 - r_inner ** 3)
+    Mtot_audit = float(np.sum(shell_mass))
+    residual_frac = Mtot_audit / M_target_kg - 1.0
+    step_scale_frac = float(shell_mass[-1]) / M_target_kg
+    return residual_frac, step_scale_frac
+
 
 def _volume_weighted(rho: np.ndarray, r_sorted: np.ndarray,
                      mask: np.ndarray) -> float:
@@ -1415,14 +1474,39 @@ def build_zbw_grid_cache(
       path and must not be silently kept -- that is exactly the MAJOR-1
       defect, where the smoke cache stored the template ``Mtot_kg`` while
       being -22.16% / -9.21% off.
-    - **I-F2 no liquid**, zero phase-0 layers, read from the PHASE ARRAY and
-      never from ``D_ocean_km`` (frozen smoke nodes stored ``D_ocean_km``
-      1.510 / 1.151 km with no phase-0 layers at all). This is the invariant
-      that catches a thin liquid film -- the failure mode of driving the
+    - **I-F2 stored-array mass-quadrature audit** (A8 item 2). Re-derives
+      the achieved mass from the node's own STORED ``(r_m, rho)`` arrays
+      (outer-edge shell quadrature, PlanetProfile's own convention -- see
+      :func:`_frozen_stored_mass_audit`) and gates it against the ratified
+      ONE-SIDED, STEP-SCALED window ``(-step_scale_frac, 0]``, where
+      ``step_scale_frac`` is the mass of the node's own outermost stored
+      shell as a fraction of the template mass -- the scale of the
+      solver's documented -1-radial-step bias
+      (``frozen_node_mass_violation_rootcause.json``,
+      ``mass_gate_blast_radius_audit.json``'s corrected convention). NO
+      global constant is invented here; the window is per-node and derived
+      from the node's own grid. Near-redundant with I-F1 under this
+      builder's analytic constant-rho closure (both should read ~machine
+      precision on a healthy node) but ORDERED separately because it
+      audits what is actually WRITTEN to the cache, not the field computed
+      inside ``build_single_structure`` before storage. Rejects are
+      counted in ``n_frozen_if2_rejected`` (also on the returned cache
+      dict's top level). NOTE ON LABELS: the pre-existing ``I-F2_liquid``
+      rejects-dict key below (from A2-A7) is, per the manager ruling's own
+      numbering, actually the full ruling's I-F3 ("branch flag from the
+      phase array") -- its content is unchanged and confirmed correct, but
+      a renumbering of that key was not ordered as part of this task, so
+      the two "I-F2"-prefixed labels below name genuinely different checks.
+    - **no liquid** (code label ``I-F2_liquid``, see the note just above),
+      zero phase-0 layers, read from the PHASE ARRAY and never from
+      ``D_ocean_km`` (frozen smoke nodes stored ``D_ocean_km`` 1.510 /
+      1.151 km with no phase-0 layers at all). This is the invariant that
+      catches a thin liquid film -- the failure mode of driving the
       seafloor to a target depth BELOW the ice base.
-    - **I-F3 parameterization closure**, the achieved interior density must
-      agree with ``isostasy.frozen_rho_rock_from_zb`` evaluated at the
-      node's own achieved zb and achieved mean ice density, to within
+    - **I-F3 parameterization closure** (code label ``I-F3_closure``), the
+      achieved interior density must agree with
+      ``isostasy.frozen_rho_rock_from_zb`` evaluated at the node's own
+      achieved zb and achieved mean ice density, to within
       ``frozen_rho_closure_tol_kgm3`` (default 12 kg/m^3). This is what
       makes the sampled coordinate ``rho_rock`` mean the same thing in the
       cache as it does in the prior.
@@ -1543,7 +1627,10 @@ def build_zbw_grid_cache(
          # v3.2-zbw-joint only:
          'frozen_zb_km_grid': np.ndarray (n_fz,),
          'frozen_structures': [structure_dict | None, ...],  # len n_fz
-         'frozen_build_spec': {...}}
+         'frozen_build_spec': {...},
+         # A8 item 2: count of nodes rejected by the stored-array I-F2
+         # mass-quadrature audit (mirrors frozen_build_spec's own field).
+         'n_frozen_if2_rejected': int}
 
     ``structures`` is row-major: entry ``i_zb * n_w + i_w`` is the
     structure at ``(zb_km_grid[i_zb], wOcean_ppt_grid[i_w])``. Each
@@ -1709,6 +1796,10 @@ def build_zbw_grid_cache(
         cache["frozen_zb_km_grid"] = frozen_arr
         cache["frozen_structures"] = frozen_structs
         cache["frozen_build_spec"] = frozen_spec
+        # A8 item 2: top-level mirror of frozen_spec['n_frozen_if2_rejected']
+        # (stored-array I-F2 mass-quadrature audit reject count).
+        cache["n_frozen_if2_rejected"] = int(
+            frozen_spec["n_frozen_if2_rejected"])
 
     _save_cache_atomic(cache, output_path)
     if progress:
@@ -1802,8 +1893,16 @@ def _build_frozen_axis(
 
     structs: List[Dict[str, Any] | None] = [None] * fz_arr.size
     n_built = 0
-    rejects = {"solve": 0, "I-F1_mass": 0, "I-F2_liquid": 0,
-               "I-F3_closure": 0, "I-F4_placement": 0}
+    # NOTE (A8): "I-F2_liquid" here is the code label already in place from
+    # A2-A7 and is left UNCHANGED by this task -- per the manager ruling
+    # (frozen_branch_DESIGN_RULING.md, "Implementation record + manager
+    # rulings", item 3) its content is confirmed correct but it is actually
+    # the full ruling's I-F3 ("branch flag from the phase array"); a
+    # renumbering was not ordered here, so both labels stand side by side.
+    # "I-F2_mass_quad" below is the full ruling's ACTUAL I-F2 (stored-array
+    # outer-edge mass-quadrature audit), added by this task.
+    rejects = {"solve": 0, "I-F1_mass": 0, "I-F2_mass_quad": 0,
+               "I-F2_liquid": 0, "I-F3_closure": 0, "I-F4_placement": 0}
     n_pp_runs = 0
     for i, zb_node in enumerate(fz_arr):
         if progress:
@@ -1830,12 +1929,26 @@ def _build_frozen_axis(
             M_body_kg, R_body_m, zb_actual * 1e3, rho_ice_mean)
         closure_residual = (rho_int_mean - rho_closure
                             if rho_closure is not None else np.nan)
+        # I-F2 (A8 item 2): audit the STORED (r_m, rho) arrays, independent
+        # of the mass_residual_frac field computed inside
+        # build_single_structure. See _frozen_stored_mass_audit.
+        if2_residual_frac, if2_step_scale_frac = _frozen_stored_mass_audit(
+            struct, M_body_kg)
 
         failed = None
         if not (np.isfinite(mass_res) and abs(mass_res) <= frozen_mass_tol):
             failed = ("I-F1_mass",
                       f"mass_residual_frac {mass_res:+.6e} exceeds "
                       f"{frozen_mass_tol:.1e}")
+        elif not (np.isfinite(if2_residual_frac)
+                  and np.isfinite(if2_step_scale_frac)
+                  and -if2_step_scale_frac < if2_residual_frac
+                  <= _FROZEN_IF2_POSITIVE_EPS):
+            failed = ("I-F2_mass_quad",
+                      f"stored-array mass audit residual "
+                      f"{if2_residual_frac:+.6e} outside ratified window "
+                      f"(-{if2_step_scale_frac:.6e}, "
+                      f"{_FROZEN_IF2_POSITIVE_EPS:.1e}]")
         elif int(struct["n_liquid_layers"]) != 0:
             failed = ("I-F2_liquid",
                       f"{int(struct['n_liquid_layers'])} phase-0 (liquid) "
@@ -1866,6 +1979,10 @@ def _build_frozen_axis(
             "zb_residual_km": float(zb_residual),
             "rho_rock_closure_kgm3": float(rho_closure),
             "rho_rock_closure_residual_kgm3": float(closure_residual),
+            # I-F2 stored-array mass-quadrature audit result (A8 item 2),
+            # kept for downstream auditability -- never re-gates anything.
+            "if2_mass_audit_residual_frac": float(if2_residual_frac),
+            "if2_mass_audit_step_scale_frac": float(if2_step_scale_frac),
             # DIAGNOSTIC. Ruling 3.2: C/MR^2 is derived along the frozen
             # bijection and reported; it never selects a structure.
             "cmr2_derived": float(struct.get("CMR2", np.nan)),
@@ -1915,6 +2032,12 @@ def _build_frozen_axis(
         "n_built": int(n_built),
         "n_rejected": int(fz_arr.size - n_built),
         "rejects_by_invariant": dict(rejects),
+        # A8 item 2: explicit named count of the stored-array I-F2 mass-
+        # quadrature audit rejects, mirrored onto the top-level cache dict
+        # by build_zbw_grid_cache as n_frozen_if2_rejected (same value as
+        # rejects_by_invariant['I-F2_mass_quad'], surfaced under its own
+        # name for direct access without reading through the spec).
+        "n_frozen_if2_rejected": int(rejects["I-F2_mass_quad"]),
         "n_pp_runs": int(n_pp_runs),
         "wOcean_ppt_nominal": w_nominal,
         "w_axis_scope": ("salinity is UNDEFINED without an ocean; the frozen "
@@ -1928,6 +2051,11 @@ def _build_frozen_axis(
             "I-F2. C/MR² is derived and recorded, never matched."),
         "tolerances": {
             "I-F1_mass": float(frozen_mass_tol),
+            "I-F2_mass_quad_window": (
+                "one-sided, step-scaled: (-step_scale_frac, 0] per node "
+                "(no single global constant; see "
+                "_frozen_stored_mass_audit / mass_gate_blast_radius_audit"
+                ".json's corrected signature)"),
             "I-F3_rho_closure_kgm3": float(frozen_rho_closure_tol_kgm3),
             "I-F4_zb_km": float(frozen_zb_tol_km),
         },

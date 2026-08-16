@@ -37,7 +37,8 @@ sys.path.insert(0, str(REPO))
 from PlanetProfile.Inference.parameter_registry import (  # noqa: E402
     PARAMETER_REGISTRY, validate_parameter_combination)
 from PlanetProfile.Inference.inference_core import InferenceConfig  # noqa: E402
-from PlanetProfile.Inference.mcmc_runner import MCMCRunner  # noqa: E402
+from PlanetProfile.Inference.mcmc_runner import (  # noqa: E402
+    MCMCRunner, _FROZEN_LOOP_CLOSURE_TOL)
 from PlanetProfile.Gravity.isostasy import (  # noqa: E402
     isostatic_gravity, finite_amplitude_coeffs, interface_gravity_coeff,
     eccentricities_to_axes, triaxial_to_H2m)
@@ -455,3 +456,282 @@ def test_build_zbw_grid_cache_smoke_3x2(tmp_path):
 
     # Different zb targets should not all solve to the identical Tb_K.
     assert len(solved_Tb) >= 1
+
+
+# ===========================================================================
+# A8 item 1 -- interpolating frozen-branch cache dispatch
+# (MCMCRunner._frozen_struct_for_theta, wired through _struct_for_hydrosphere).
+# ===========================================================================
+
+from PlanetProfile.Gravity.isostasy import (  # noqa: E402
+    frozen_zb_from_mass, frozen_rho_rock_from_zb)
+
+
+def _synthetic_frozen_node(zb_km, rho_ice=925.0, M_body_kg=M_ENC, R_body_m=R_REF):
+    """Minimal 3-cell frozen-branch node (1 interior cell + 2 ice-shell
+    cells), physically self-consistent at its OWN zb via the analytic
+    bijection -- the frozen analogue of ``_synthetic_ocean_struct`` above.
+    3 cells (not 2) because ``_derive_gravity_isostatic`` /
+    ``_derive_libration_deg`` both hard-require ``r_m.size >= 3``."""
+    zb_m = float(zb_km) * 1e3
+    rho_rock = frozen_rho_rock_from_zb(M_body_kg, R_body_m, zb_m, rho_ice)
+    assert rho_rock is not None
+    R_rock = R_body_m - zb_m
+    R_mid = R_rock + 0.5 * zb_m
+    return {
+        'r_m': np.array([R_rock, R_mid, R_body_m]),
+        'rho': np.array([rho_rock, rho_ice, rho_ice]),
+        'phases': np.array([50, 1, 1]),
+        'omega': OMEGA,
+        'eccentricity': 0.0047,
+        'n_layers': 2,
+        'changeIndices': np.array([0, 1, 3]),
+        'Mtot_kg': M_body_kg,
+        'R_body_m': R_body_m,
+    }
+
+
+def _frozen_dispatch_runner(grid_km, structs, M_body_kg=M_ENC, R_body_m=R_REF):
+    """_bare_runner wrapping a synthetic v3.2-zbw-joint-shaped structure_data
+    (only the frozen fields _frozen_struct_for_theta reads)."""
+    structure_data = {
+        'frozen_branch_supported': True,
+        'frozen_zb_km_grid': np.asarray(grid_km, dtype=float),
+        'frozen_structures': structs,
+        'frozen_build_spec': {'M_body_kg': M_body_kg, 'R_body_m': R_body_m},
+    }
+    return _bare_runner(_isostatic_config(), structure_data)
+
+
+def test_frozen_dispatch_exact_at_node_center():
+    """A sample whose (rho_rock, rho_ice) maps to zb == a grid node must
+    reproduce that node's own structure -- no interpolation error at a
+    node center."""
+    grid = [50.0, 55.0, 60.0]
+    structs = [_synthetic_frozen_node(z) for z in grid]
+    runner = _frozen_dispatch_runner(grid, structs)
+    node = structs[1]
+    theta = {'rho_rock_kgm3': float(node['rho'][0]),
+             'rho_ice_kgm3': float(node['rho'][1])}
+    out = runner._struct_for_hydrosphere(theta)
+    assert out is not None
+    np.testing.assert_allclose(out['r_m'], node['r_m'], rtol=1e-6)
+    np.testing.assert_allclose(out['rho'], node['rho'], rtol=1e-6)
+
+    # Edge nodes too (t clamps to 0 / 1 rather than needing a bracket on
+    # both sides).
+    for edge in (structs[0], structs[-1]):
+        theta_edge = {'rho_rock_kgm3': float(edge['rho'][0]),
+                      'rho_ice_kgm3': float(edge['rho'][1])}
+        out_edge = runner._struct_for_hydrosphere(theta_edge)
+        np.testing.assert_allclose(out_edge['r_m'], edge['r_m'], rtol=1e-6)
+        np.testing.assert_allclose(out_edge['rho'], edge['rho'], rtol=1e-6)
+
+
+def test_frozen_dispatch_mid_support_forward_quantities_finite():
+    """Off-node sample, well inside the grid's support: the interpolated
+    structure must dispatch through to finite gravity AND libration
+    predictions (A5's frozen forward models, reached via
+    _struct_for_hydrosphere)."""
+    grid = [50.0, 55.0, 60.0]
+    structs = [_synthetic_frozen_node(z) for z in grid]
+    runner = _frozen_dispatch_runner(grid, structs)
+
+    rho_rock_mid = 0.5 * (float(structs[0]['rho'][0]) + float(structs[1]['rho'][0]))
+    theta = {'rho_rock_kgm3': rho_rock_mid, 'rho_ice_kgm3': 925.0,
+             'compensation_C2': 1.0}
+
+    # Confirm the sample really is off-node (not silently snapped/rounded).
+    zb_km = frozen_zb_from_mass(M_ENC, R_REF, rho_rock_mid, 925.0) / 1e3
+    assert grid[0] < zb_km < grid[1]
+
+    g = runner._derive_gravity_isostatic(theta)
+    assert g is not None
+    assert all(np.isfinite(v) for v in g.values())
+
+    lib = runner._derive_libration_deg(theta)
+    assert lib is not None and np.isfinite(lib)
+
+
+def test_frozen_dispatch_off_node_interpolates_bracketed():
+    """An off-node sample's interpolated structure must differ from BOTH
+    bracketing nodes and, for a monotone quantity (interior/rock density),
+    lie strictly between them -- never a nearest-node snap to either."""
+    grid = [50.0, 60.0]
+    structs = [_synthetic_frozen_node(z) for z in grid]
+    runner = _frozen_dispatch_runner(grid, structs)
+
+    rho0, rho1 = float(structs[0]['rho'][0]), float(structs[1]['rho'][0])
+    rho_rock_mid = 0.5 * (rho0 + rho1)
+    theta = {'rho_rock_kgm3': rho_rock_mid, 'rho_ice_kgm3': 925.0}
+    out = runner._struct_for_hydrosphere(theta)
+    assert out is not None
+    interp_interior_rho = float(out['rho'][0])
+    assert interp_interior_rho != pytest.approx(rho0)
+    assert interp_interior_rho != pytest.approx(rho1)
+    lo, hi = sorted((rho0, rho1))
+    assert lo < interp_interior_rho < hi
+
+
+def test_frozen_dispatch_out_of_support_rejects():
+    """A sample whose derived zb falls outside frozen_zb_km_grid's span is
+    a hard reject (None), never extrapolated or clamped to an edge node."""
+    grid = [50.0, 60.0]
+    structs = [_synthetic_frozen_node(z) for z in grid]
+    runner = _frozen_dispatch_runner(grid, structs)
+
+    # rho_rock implying zb well below 50 km and well above 60 km.
+    zb_lo = frozen_zb_from_mass(M_ENC, R_REF, 2100.0, 925.0)
+    zb_hi = frozen_zb_from_mass(M_ENC, R_REF, 2580.0, 925.0)
+    assert zb_lo is not None and zb_hi is not None
+    assert zb_lo / 1e3 < grid[0]
+    assert zb_hi / 1e3 > grid[1]
+
+    assert runner._struct_for_hydrosphere(
+        {'rho_rock_kgm3': 2100.0, 'rho_ice_kgm3': 925.0}) is None
+    assert runner._struct_for_hydrosphere(
+        {'rho_rock_kgm3': 2580.0, 'rho_ice_kgm3': 925.0}) is None
+
+
+def test_frozen_dispatch_missing_bracket_node_rejects_no_snap():
+    """When one of the two bracketing nodes was itself rejected at build
+    time (None), the design ruling forbids serving the surviving neighbour
+    as a nearest-node substitute -- the sample must reject too."""
+    grid = [50.0, 55.0, 60.0]
+    structs = [_synthetic_frozen_node(z) for z in grid]
+    structs[1] = None  # build-time reject at the middle node
+    runner = _frozen_dispatch_runner(grid, structs)
+
+    # A sample landing strictly between node 0 and (missing) node 1.
+    rho_rock_mid = 0.5 * (float(_synthetic_frozen_node(50.0)['rho'][0])
+                          + float(_synthetic_frozen_node(55.0)['rho'][0]))
+    theta = {'rho_rock_kgm3': rho_rock_mid, 'rho_ice_kgm3': 925.0}
+    assert runner._struct_for_hydrosphere(theta) is None
+
+
+def test_frozen_dispatch_if5_fires_on_corrupted_interpolated_stack():
+    """I-F5 (per-sample loop closure, A5) is asserted on the INTERPOLATED
+    stack, not just on exact-node lookups. Two nodes whose stored interior
+    density does NOT vary with zb (a stand-in for a corrupted/inconsistent
+    pair of cache entries) interpolate to a density far from the sampled
+    rho_rock_kgm3 at any off-node query -- I-F5 must reject it."""
+    grid = [50.0, 60.0]
+    structs = [_synthetic_frozen_node(z) for z in grid]
+    # Corrupt: force both nodes' interior density to the SAME (wrong at
+    # zb=60) value, breaking the zb<->rho_rock bijection the interpolant
+    # relies on.
+    structs[1]['rho'][0] = structs[0]['rho'][0]
+    runner = _frozen_dispatch_runner(grid, structs)
+
+    rho_rock_query = 2350.0  # implies zb ~= 54.9 km (strictly inside [50, 60])
+    zb_km = frozen_zb_from_mass(M_ENC, R_REF, rho_rock_query, 925.0) / 1e3
+    assert grid[0] < zb_km < grid[1]
+    theta = {'rho_rock_kgm3': rho_rock_query, 'rho_ice_kgm3': 925.0,
+             'compensation_C2': 1.0}
+
+    # The dispatch itself still returns a (wrong) interpolated structure --
+    # I-F5 lives downstream, inside the forward models.
+    struct = runner._struct_for_hydrosphere(theta)
+    assert struct is not None
+    interp_interior = float(struct['rho'][0])
+    assert abs(interp_interior / rho_rock_query - 1.0) > _FROZEN_LOOP_CLOSURE_TOL
+
+    assert runner._derive_gravity_isostatic(theta) is None
+    assert runner._derive_libration_deg(theta) is None
+
+
+# ===========================================================================
+# A8 item 2 -- stored-array I-F2 mass-quadrature audit in the builder
+# (cache_builder._frozen_stored_mass_audit, wired into _build_frozen_axis).
+# ===========================================================================
+
+def test_frozen_stored_mass_audit_direct():
+    """Unit-level check of _frozen_stored_mass_audit's window arithmetic on
+    a hand-built two-shell stack: exact mass closure lands at 0 (inside the
+    closed upper edge), and a deliberately deficient stack still lands
+    inside the step-scaled window's open lower edge, but an excess (too
+    much mass) or a gross deficiency both fall outside it."""
+    from PlanetProfile.Inference.cache_builder import _frozen_stored_mass_audit
+
+    R_rock, R_surf = 190.0e3, 252.22e3
+    rho_rock, rho_ice = 2400.0, 925.0
+    M_target = (4.0 / 3.0) * np.pi * (
+        rho_rock * R_rock ** 3 + rho_ice * (R_surf ** 3 - R_rock ** 3))
+    struct = {'r_m': np.array([R_rock, R_surf]),
+             'rho': np.array([rho_rock, rho_ice])}
+
+    residual, step_scale = _frozen_stored_mass_audit(struct, M_target)
+    assert residual == pytest.approx(0.0, abs=1e-12)
+    assert step_scale > 0.0
+
+    # A deficient (too-light) reconstruction: scale the outer shell's
+    # density down slightly, still within one step's worth of mass.
+    struct_light = {'r_m': struct['r_m'],
+                    'rho': np.array([rho_rock, rho_ice * (1.0 - 0.1 * step_scale)])}
+    residual_light, _ = _frozen_stored_mass_audit(struct_light, M_target)
+    assert -step_scale < residual_light <= 0.0
+
+    # Grossly deficient: outside the window's lower edge. (Using a factor
+    # near 0.5 would tie the boundary in this minimal 2-cell struct, where
+    # the "outer shell" IS the entire ice shell -- 0.1 is unambiguous.)
+    struct_gross = {'r_m': struct['r_m'],
+                    'rho': np.array([rho_rock, rho_ice * 0.1])}
+    residual_gross, step_scale_gross = _frozen_stored_mass_audit(
+        struct_gross, M_target)
+    assert residual_gross <= -step_scale_gross
+
+    # Excess mass: outside the window's (closed-at-0) upper edge.
+    struct_excess = {'r_m': struct['r_m'],
+                     'rho': np.array([rho_rock, rho_ice * 1.5])}
+    residual_excess, _ = _frozen_stored_mass_audit(struct_excess, M_target)
+    assert residual_excess > 0.0
+
+
+@pytest.mark.slow
+def test_build_zbw_grid_cache_frozen_if2_audit_smoke(tmp_path):
+    """Real (slow) 2-node frozen-axis smoke build: I-F2 passes on every
+    surviving real node (the analytic constant-rho closure this builder
+    uses makes it near-exact, per the design ruling's own note), and a
+    synthetic corruption of one node's STORED rho array -- audited via the
+    exact same function the builder calls -- pushes the residual outside
+    the ratified window."""
+    from PlanetProfile.Inference.cache_builder import (
+        build_zbw_grid_cache, _frozen_stored_mass_audit)
+
+    out_path = tmp_path / 'enceladus_frozen_if2_smoke.pkl'
+    cache = build_zbw_grid_cache(
+        'PlanetProfile.Default.Enceladus.PPEnceladus',
+        zb_km_grid=[20.0, 25.0],
+        wOcean_ppt_grid=[5.0, 20.0],
+        output_path=str(out_path),
+        ocean_overrides={'comp': 'Seawater', 'deltaT': 0.002},
+        bulk_overrides={'Cuncertainty': 0.08},
+        zb_tol_km=5.0,
+        frozen_zb_km_grid=[50.0, 60.0],
+        progress=False,
+    )
+    assert cache['schema_version'] == 'v3.2-zbw-joint'
+    assert cache['n_frozen_if2_rejected'] == 0
+    frozen = cache['frozen_structures']
+    assert any(s is not None for s in frozen), 'frozen axis built nothing'
+
+    real_node = None
+    for s in frozen:
+        if s is None:
+            continue
+        assert 'if2_mass_audit_residual_frac' in s
+        assert 'if2_mass_audit_step_scale_frac' in s
+        residual = s['if2_mass_audit_residual_frac']
+        step_scale = s['if2_mass_audit_step_scale_frac']
+        assert -step_scale < residual <= 1e-9
+        real_node = s
+
+    # Corrupt a REAL built node's stored rho array (double every density)
+    # and re-audit with the SAME function the builder calls -- must fire.
+    assert real_node is not None
+    corrupted = dict(real_node)
+    corrupted['rho'] = np.asarray(real_node['rho'], dtype=float) * 2.0
+    M_body_kg = cache['frozen_build_spec']['M_body_kg']
+    residual_c, step_scale_c = _frozen_stored_mass_audit(corrupted, M_body_kg)
+    assert not (-step_scale_c < residual_c <= 1e-9), (
+        'I-F2 audit failed to fire on a doubled-density stored array')
