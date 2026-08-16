@@ -722,6 +722,30 @@ class MCMCRunner:
         rho_sil_bounds = tuple(rho_sil_cfg.get('bounds', (2200.0, 3500.0)))
         rho_sil_reject = bool(rho_sil_cfg.get('reject_if_outside_bounds', True))
 
+        # Sigma_model additive-variance inflation (H&M 2019 Eq. 22/24 —
+        # freeze blocker B15). A config MAY declare
+        # metadata['sigma_model_add'] = {observable_name: sigma_model}
+        # (e.g. {"C20": 5.3e-6, "C22": 1.7e-6, "C30": 4.4e-6,
+        # "libration_deg": 0.00025} for the Enceladus shape-model
+        # uncertainty). Every Gaussian term below looks its observable name
+        # up in this dict via `_inflate_sigma` and, when present, replaces
+        # sigma_obs with sqrt(sigma_obs**2 + sigma_model**2) before forming
+        # chi2 — exactly H&M's Eq. 24 combined-sigma construction (verified
+        # against the config's own precomputed combined values). Configs
+        # that do not declare the block (i.e. every existing campaign) get
+        # an empty dict, `_inflate_sigma` returns sigma_obs unchanged, and
+        # the likelihood is byte-identical to pre-B15 behavior — see
+        # tests/sigma_model_inflation_test.py::test_no_block_is_byte_identical.
+        sigma_model_add = (
+            (getattr(self.config, 'metadata', {}) or {}).get(
+                'sigma_model_add', {}) or {})
+
+        def _inflate_sigma(name, sigma_obs):
+            extra = sigma_model_add.get(name)
+            if not extra:
+                return sigma_obs
+            return float(np.sqrt(float(sigma_obs) ** 2 + float(extra) ** 2))
+
         def _expand_theta(theta):
             """Convert sampled array → full parameter dict with groups and fixed params."""
             theta_dict = dict(zip(param_names, theta))
@@ -790,24 +814,30 @@ class MCMCRunner:
             chi2 = 0.0
             if 'Re_k2' in observables:
                 obs_val, obs_err = observables['Re_k2']
+                obs_err = _inflate_sigma('Re_k2', obs_err)
                 chi2 += ((Re_k2 - obs_val) / obs_err) ** 2
             if 'Im_k2' in observables or 'abs_Im_k2' in observables:
                 key = 'Im_k2' if 'Im_k2' in observables else 'abs_Im_k2'
                 obs_val, obs_err = observables[key]
+                obs_err = _inflate_sigma(key, obs_err)
                 chi2 += ((abs(Im_k2) - obs_val) / obs_err) ** 2
             if 'k2' in observables:
                 obs_val, obs_err = observables['k2']
+                obs_err = _inflate_sigma('k2', obs_err)
                 chi2 += ((np.sqrt(Re_k2**2 + Im_k2**2) - obs_val) / obs_err) ** 2
             # h2 observables (Mazarico et al. 2023 convention).
             if 'Re_h2' in observables:
                 obs_val, obs_err = observables['Re_h2']
+                obs_err = _inflate_sigma('Re_h2', obs_err)
                 chi2 += ((Re_h2 - obs_val) / obs_err) ** 2
             if 'Im_h2' in observables or 'abs_Im_h2' in observables:
                 key = 'Im_h2' if 'Im_h2' in observables else 'abs_Im_h2'
                 obs_val, obs_err = observables[key]
+                obs_err = _inflate_sigma(key, obs_err)
                 chi2 += ((abs(Im_h2) - obs_val) / obs_err) ** 2
             if 'h2' in observables:
                 obs_val, obs_err = observables['h2']
+                obs_err = _inflate_sigma('h2', obs_err)
                 chi2 += ((np.sqrt(Re_h2**2 + Im_h2**2) - obs_val) / obs_err) ** 2
             # Gravity coefficients. v4 geodesy configs
             # (gravity_forward_model='clairaut_hydrostatic') COMPUTE the
@@ -836,6 +866,8 @@ class MCMCRunner:
                         return -1e30
                     v20, s20 = observables['C20']
                     v22, s22 = observables['C22']
+                    s20 = _inflate_sigma('C20', s20)
+                    s22 = _inflate_sigma('C22', s22)
                     rho = float(_rho)
                     det = (s20 * s22) ** 2 * (1.0 - rho ** 2)
                     r0, r1 = C20_m - v20, C22_m - v22
@@ -843,12 +875,14 @@ class MCMCRunner:
                              - 2.0 * rho * s20 * s22 * r0 * r1) / det
                     if 'J2' in observables:
                         obs_val, obs_err = observables['J2']
+                        obs_err = _inflate_sigma('J2', obs_err)
                         chi2 += ((-C20_m - obs_val) / obs_err) ** 2
                 else:
                     for _gname, _gpred in (('C20', C20_m), ('C22', C22_m),
                                            ('J2', -C20_m)):
                         if _gname in observables:
                             obs_val, obs_err = observables[_gname]
+                            obs_err = _inflate_sigma(_gname, obs_err)
                             if not np.isfinite(_gpred):
                                 return -1e30
                             chi2 += ((_gpred - obs_val) / obs_err) ** 2
@@ -879,6 +913,8 @@ class MCMCRunner:
                         return -1e30
                     v20, s20 = observables['C20']
                     v22, s22 = observables['C22']
+                    s20 = _inflate_sigma('C20', s20)
+                    s22 = _inflate_sigma('C22', s22)
                     rho = float(_rho)
                     det = (s20 * s22) ** 2 * (1.0 - rho ** 2)
                     r0, r1 = C20_m - v20, C22_m - v22
@@ -888,29 +924,34 @@ class MCMCRunner:
                     for _gname, _gpred in (('C20', C20_m), ('C22', C22_m)):
                         if _gname in observables:
                             obs_val, obs_err = observables[_gname]
+                            obs_err = _inflate_sigma(_gname, obs_err)
                             if not np.isfinite(_gpred):
                                 return -1e30
                             chi2 += ((_gpred - obs_val) / obs_err) ** 2
                 if 'C30' in observables:
                     obs_val, obs_err = observables['C30']
+                    obs_err = _inflate_sigma('C30', obs_err)
                     if not np.isfinite(C30_m):
                         return -1e30
                     chi2 += ((C30_m - obs_val) / obs_err) ** 2
             else:
                 if 'J2' in observables:
                     obs_val, obs_err = observables['J2']
+                    obs_err = _inflate_sigma('J2', obs_err)
                     pred = float(modified.get('J2', np.nan))
                     if not np.isfinite(pred):
                         return -1e30
                     chi2 += ((pred - obs_val) / obs_err) ** 2
                 if 'C22' in observables:
                     obs_val, obs_err = observables['C22']
+                    obs_err = _inflate_sigma('C22', obs_err)
                     pred = float(modified.get('C22', np.nan))
                     if not np.isfinite(pred):
                         return -1e30
                     chi2 += ((pred - obs_val) / obs_err) ** 2
                 if 'C30' in observables:
                     obs_val, obs_err = observables['C30']
+                    obs_err = _inflate_sigma('C30', obs_err)
                     pred = float(modified.get('C30', np.nan))
                     if not np.isfinite(pred):
                         return -1e30
@@ -920,12 +961,14 @@ class MCMCRunner:
             # merged Librations.py — see _derive_libration_deg).
             if 'libration_deg' in observables:
                 obs_val, obs_err = observables['libration_deg']
+                obs_err = _inflate_sigma('libration_deg', obs_err)
                 pred = self._derive_libration_deg(theta_dict)
                 if pred is None:
                     return -1e30
                 chi2 += ((pred - obs_val) / obs_err) ** 2
             if 'CMR2' in observables:
                 obs_val, obs_err = observables['CMR2']
+                obs_err = _inflate_sigma('CMR2', obs_err)
 
                 if use_derived_rho_sil:
                     # v2 path: mass-conserve rho_sil from the sampled core,
@@ -973,6 +1016,7 @@ class MCMCRunner:
                     chi2 += ((cmr2_val - obs_val) / obs_err) ** 2
             if 'Mtot_kg' in observables:
                 obs_val, obs_err = observables['Mtot_kg']
+                obs_err = _inflate_sigma('Mtot_kg', obs_err)
                 mtot_val = structure_data.get('Mtot_kg', np.nan)
                 if np.isfinite(mtot_val):
                     chi2 += ((mtot_val - obs_val) / obs_err) ** 2
@@ -1078,15 +1122,19 @@ class MCMCRunner:
                     ph_key = f'BiPhase_{label}_deg'
                     if re_key in observables:
                         v, s = observables[re_key]
+                        s = _inflate_sigma(re_key, s)
                         chi2 += ((Ae.real - v) / s) ** 2
                     if im_key in observables:
                         v, s = observables[im_key]
+                        s = _inflate_sigma(im_key, s)
                         chi2 += ((Ae.imag - v) / s) ** 2
                     if amp_key in observables:
                         v, s = observables[amp_key]
+                        s = _inflate_sigma(amp_key, s)
                         chi2 += ((abs(Ae) - v) / s) ** 2
                     if ph_key in observables:
                         v, s = observables[ph_key]
+                        s = _inflate_sigma(ph_key, s)
                         # Phase wrap into (-180, 180] before residualizing.
                         pred = float(np.degrees(np.angle(Ae)))
                         delta = ((pred - v + 180.0) % 360.0) - 180.0
@@ -1107,6 +1155,7 @@ class MCMCRunner:
                     Bind = complex(Ae) * Be_comp[bcomp]
                     pred = Bind.real if bpart == 'real' else Bind.imag
                     v, s = observables[_bkey]
+                    s = _inflate_sigma(_bkey, s)
                     chi2 += ((pred - v) / s) ** 2
 
             return -0.5 * chi2

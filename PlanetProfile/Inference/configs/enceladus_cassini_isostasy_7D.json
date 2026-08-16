@@ -384,6 +384,13 @@
         "dimensionality": "3 free parameters, vs the ocean branch's 5 — the branches are NOT nested and their evidences must each be computed over their own support"
       },
       "why_reparameterized": "Reviewer NEW-MAJOR-2, verified numerically by Machine B 2026-08-13. Sampling zb on the frozen branch made the frozen-branch rho_rock prior an artifact of an arbitrary box edge, and the discrete index alone RELABELS that arbitrariness rather than curing it (the odds are fixed at 0.5/0.5 but each branch's EVIDENCE INTEGRAL still runs over whatever zb range was declared). Two measured symptoms: (1) box-edge dependence — the frozen fraction of a [5, hi] box is 22.7% at hi=60 km, 34.6% at hi=70, 43.3% at hi=80, so the reported branch odds would have been linearly rescalable by a choice with no physical content; (2) prior distortion — because zb <-> rho_rock is a bijection with d(rho_rock)/d(zb) ~ 22-28 kg m^-3 km^-1, a UNIFORM prior in zb is NOT uniform in rho_rock: over the induced range [2201, 2705] kg/m^3 the prior mass by density quintile is 0.280 / 0.230 / 0.192 / 0.162 / 0.138 against 0.200 for uniform, i.e. a factor 2.0 tilt FAVOURING low-density rock. Declaring rho_rock ~ U[2200,2600] and DERIVING zb fixes the frozen support at zb in [47.45, 65.26] km independently of any box edge, and puts the prior on the quantity that actually has literature constraints (H&M/Park require 2340-2410)."
-    }
+    },
+    "sigma_model_add": {
+      "C20": 5.3e-06,
+      "C22": 1.7e-06,
+      "C30": 4.4e-06,
+      "libration_deg": 0.00025
+    },
+    "sigma_model_add_provenance": "Generic B15 likelihood-inflation hook (mcmc_runner._inflate_sigma). Values are re-keyed copies of isostasy.sigma_model_lm ({'2,0':5.3e-6,'2,2':1.7e-6,'3,0':4.4e-6}) and isostasy.sigma_model_libration_deg (0.00025), which are B15 CLOSED (see metadata.blockers_closed.B15) -- no new value was introduced."
   }
 }
