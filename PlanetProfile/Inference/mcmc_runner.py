@@ -1710,6 +1710,150 @@ class MCMCRunner:
         nested = meta.get('isostasy')
         return nested if isinstance(nested, dict) else {}
 
+    def _libration_model_cfg(self) -> Dict[str, Any]:
+        """The config's ``metadata['libration_model_correction']`` block.
+
+        Carries the RULED libration treatment for the Enceladus isostasy
+        campaign: the B2' figure convention (``figure_convention``,
+        ``H22_obs_m``), the deterministic +0.8% formulation-bias correction
+        (``multiplicative_factor``) and its symmetric residual
+        (``residual_frac_symmetric``, the width the sampled
+        ``libration_sys_frac`` nuisance carries). Empty dict when the config
+        declares no block -- every consumer below then reduces to
+        PlanetProfile's historical behaviour EXACTLY (factor 1.0, no figure
+        kwargs), which is what keeps every non-Enceladus config on a
+        byte-identical path.
+        """
+        meta = getattr(self.config, 'metadata', {}) or {}
+        blk = meta.get('libration_model_correction')
+        return blk if isinstance(blk, dict) else {}
+
+    def _libration_figure_kwargs(
+        self, theta_dict: Dict[str, float], lib_cfg: Dict[str, Any]
+    ) -> Dict[str, float]:
+        """Figure-convention kwargs for the OCEAN-branch ``librations()`` call.
+
+        r5 defect D3. The ruled B2' treatment (user ruling 2026-08-15,
+        ``metadata.libration_model_correction.figure_convention_ruling``;
+        validation_reports/enceladus_isostasy/
+        b2prime_ADJUDICATED_drho_weighting.json) sets the shell's OUTER
+        figure to the OBSERVED non-hydrostatic surface figure and gives the
+        ice/ocean interface the Airy-isostatic response to that load (H&M
+        Eq. 12), scaled by the SAMPLED ``compensation_C2``. It was
+        implemented in ``Librations.librations`` but never wired at either
+        production call site, so the likelihood ran the historical
+        hydrostatic convention -- worth 1.3-2.6 km on the campaign's
+        headline deliverable, with ``dlibration/dC2`` identically zero as
+        shipped.
+
+        Gated on ``figure_convention == 'drho_consistent_eq12'``: any other
+        (or absent) declaration returns ``{}`` and leaves the hydrostatic
+        path untouched, because the RESCINDED whole-difference treatment and
+        the surface-only treatment are different physics and must not be
+        selected by accident.
+
+        ``H22_obs_m`` comes from the block, falling back to the (2,2) entry
+        of ``metadata.isostasy.H_obs_lm_m`` -- the same Tajeddine 857 m the
+        gravity channel and the B13 gate use, which is what makes the shape
+        input shared between the two channels rather than duplicated.
+
+        ``compensation_C2`` is forwarded only when the sample carries it.
+        Absent (the frozen theta space, or a gravity-only config), the base
+        keeps its hydrostatic figure -- the exact C2 -> 0 limit, i.e. the
+        surface-only treatment (pinned by
+        tests/librations_test.py::test_surface_only_treatment_is_the_C2_zero
+        _limit_exactly).
+        """
+        if str(lib_cfg.get('figure_convention', '')) != 'drho_consistent_eq12':
+            return {}
+        H22 = lib_cfg.get('H22_obs_m')
+        if H22 is None:
+            iso = self._isostasy_physics_config()
+            H_obs = iso.get('H_obs_lm_m') or iso.get('H_obs_lm') or {}
+            H22 = H_obs.get('2,2', H_obs.get((2, 2)))
+        if H22 is None:
+            return {}
+        try:
+            H22 = float(H22)
+        except (TypeError, ValueError):
+            return {}
+        if not np.isfinite(H22):
+            return {}
+        out: Dict[str, float] = {'H22_obs_m': H22}
+        C2 = theta_dict.get('compensation_C2')
+        if C2 is not None:
+            try:
+                C2 = float(C2)
+            except (TypeError, ValueError):
+                return out
+            if np.isfinite(C2):
+                out['compensation_C2'] = C2
+        return out
+
+    def _apply_libration_model_budget(
+        self, lib_deg: float, theta_dict: Dict[str, float],
+        lib_cfg: Dict[str, Any]
+    ) -> Optional[float]:
+        """The libration model budget: deterministic correction x nuisance.
+
+        r5 defects D4 and D5, applied to the model prediction so they reach
+        BOTH the likelihood's chi2 and ``generate_sbi_dataset``'s observable
+        vector through the one code path::
+
+            libration_pred = libration_model
+                             * multiplicative_factor
+                             * (1 + libration_sys_frac)
+
+        D4 -- ``multiplicative_factor`` (1.008 for this campaign) is the
+        +0.8% B2 formulation-bias correction. It is a KNOWN ONE-SIDED bias,
+        not an uncertainty, so the config applies it deterministically
+        (``metadata.libration_model_correction_provenance``: a rigid-branch
+        K_int normalization defect +1.9% plus linearized ocean-pressure
+        figure moments +1.6%, cancelling the real elastic reduction -2.6%;
+        net, the shipped rigid channel reads ~+0.75-0.8% LOW). It was never
+        applied anywhere in the inference code.
+
+        D5 -- ``libration_sys_frac`` is the sampled fractional nuisance
+        carrying that correction's symmetric +/-0.4% zb-dependence residual
+        (``metadata.libration_sys_frac_rationale``: "Sampled fractional
+        nuisance ON THE MODEL LIBRATION"). It was sampled and registered but
+        never entered chi2 -- a dead parameter by the campaign's own
+        CRITICAL-1 criterion, leaving the residual it exists to marginalize
+        unmarginalized.
+
+        BRANCH SCOPE, stated because it is a choice and not a derivation:
+        both factors are applied on the FROZEN branch too. The config
+        declares ``libration_sys_frac`` as a sampled parameter of BOTH
+        branches (``metadata.branch_model.frozen_branch.sampled``), so
+        scoping the nuisance to the ocean branch would re-create exactly the
+        dead-parameter defect D5 names, on the other branch; and scoping
+        either factor by branch would add a fourth likelihood-level branch
+        asymmetry, which is the defect class D6 is. The B2 decomposition
+        that DERIVED 1.008 is nonetheless an ocean-branch derivation (K_int
+        and the ocean-pressure figure moments do not exist in the oceanless
+        rigid solve), so its transfer to the frozen branch is an assumption;
+        it is immaterial there (the frozen branch is rejected at 19-20
+        sigma on this channel, and 0.8% of a near-zero decoupled amplitude
+        is orders below that) and is flagged for reviewer ratification
+        rather than presented as settled.
+
+        Returns ``None`` (sample rejected) on a non-finite budget, matching
+        every other reject path in this method.
+        """
+        try:
+            factor = float(lib_cfg.get('multiplicative_factor', 1.0))
+        except (TypeError, ValueError):
+            return None
+        sys_frac = theta_dict.get('libration_sys_frac')
+        try:
+            s = float(sys_frac) if sys_frac is not None else 0.0
+        except (TypeError, ValueError):
+            return None
+        if not (np.isfinite(factor) and np.isfinite(s)):
+            return None
+        out = float(lib_deg) * factor * (1.0 + s)
+        return out if np.isfinite(out) else None
+
     def _frozen_struct_for_theta(
         self, theta_dict: Dict[str, Any]
     ) -> Optional[Dict[str, Any]]:
@@ -2373,11 +2517,26 @@ class MCMCRunner:
         :meth:`_frozen_two_layer_stack` and rejects to ``None`` -> -1e30 with
         NO nearest-node fallback.
 
+        CONFIG-DRIVEN LIBRATION MODEL (r5 defects D3/D4/D5). When the
+        config declares ``metadata['libration_model_correction']`` the
+        ocean-branch call runs the ruled B2' figure treatment
+        (``H22_obs_m`` + the sampled ``compensation_C2``, see
+        :meth:`_libration_figure_kwargs`) and BOTH branches' predictions
+        carry the model budget ``x multiplicative_factor x
+        (1 + libration_sys_frac)`` (see
+        :meth:`_apply_libration_model_budget`). With no such block declared
+        every one of those reduces to identity and the path is unchanged.
+
         Args:
             rho_shell_override: OPTIONAL EOS-nuisance override for the
                 reduced stack's outer-shell density (kg/m^3). When
-                ``None`` (the default), behaviour is UNCHANGED from the
-                historical path. When set, the override is applied
+                ``None``, it FALLS BACK to the sampled
+                ``theta_dict['rho_ice_kgm3']`` on both branches (r5 defect
+                D6 -- the ocean branch previously ignored the sampled
+                nuisance entirely, while the frozen branch and the gravity
+                channel both read it). When neither is present behaviour is
+                UNCHANGED from the historical path. When set, the override
+                is applied
                 MASS-NEUTRALLY via
                 :func:`PlanetProfile.Gravity.isostasy.mass_neutral_shell_density`
                 — the shell-mass delta is absorbed into the reduced
@@ -2390,6 +2549,8 @@ class MCMCRunner:
                 if the required interior density is unphysical.
         """
         from PlanetProfile.Gravity.Librations import librations
+
+        lib_cfg = self._libration_model_cfg()
 
         struct = self._struct_for_hydrosphere(theta_dict)
         if struct is None:
@@ -2431,7 +2592,14 @@ class MCMCRunner:
                 return None
             if lib_m is None or not np.isfinite(lib_m):
                 return None
-            return float(np.degrees(lib_m / r_m[-1]))
+            # D4/D5 budget applies on BOTH branches -- see
+            # _apply_libration_model_budget's BRANCH SCOPE note. No figure
+            # kwargs here: with no ice/ocean interface there is no Airy root
+            # (librations() raises NotImplementedError for ocean=False), and
+            # the frozen branch's rigid uncompensated support is the config's
+            # declared physics (metadata.isostasy.frozen_branch_support).
+            return self._apply_libration_model_budget(
+                float(np.degrees(lib_m / r_m[-1])), theta_dict, lib_cfg)
         first, last = int(ocean[0]), int(ocean[-1])
         if not np.all(phases[first:last + 1] == 0):
             return None
@@ -2455,6 +2623,19 @@ class MCMCRunner:
         if not np.all(np.isfinite(reduced_rho)):
             return None
 
+        # D6: the sampled EOS nuisance rho_ice_kgm3 must reach the OCEAN
+        # branch's libration too. Before this, rho_shell_override was
+        # reachable only by an explicit caller argument and the likelihood
+        # passed none -- so rho_ice moved the frozen branch's libration
+        # (which already read theta_dict) and the ocean branch's gravity
+        # (_derive_gravity_isostatic reads theta_dict at line ~2089) but NOT
+        # the ocean branch's libration: a branch asymmetry inside the
+        # likelihood, on the sole thickness channel. The explicit argument
+        # still wins, so the mass-neutrality unit tests that drive it
+        # directly are unaffected.
+        rho_shell_override = (
+            rho_shell_override if rho_shell_override is not None
+            else theta_dict.get('rho_ice_kgm3'))
         if rho_shell_override is not None:
             from PlanetProfile.Gravity.isostasy import (
                 mass_neutral_shell_density)
@@ -2482,14 +2663,20 @@ class MCMCRunner:
             except ValueError:
                 return None
 
+        # D3: the ruled B2' figure treatment, from the config. Empty kwargs
+        # (no block, or a different declared convention) leaves this call
+        # byte-identical to the historical hydrostatic path.
         try:
             lib_m = librations(reduced_r, reduced_rho, omega, ecc,
-                               rigid=True, ocean=True, ocean_idx=1)
+                               rigid=True, ocean=True, ocean_idx=1,
+                               **self._libration_figure_kwargs(
+                                   theta_dict, lib_cfg))
         except Exception:
             return None
         if lib_m is None or not np.isfinite(lib_m):
             return None
-        return float(np.degrees(lib_m / r_m[-1]))
+        return self._apply_libration_model_budget(
+            float(np.degrees(lib_m / r_m[-1])), theta_dict, lib_cfg)
 
     def run(self, progress_callback: Optional[Callable] = None,
             progress_jsonl_path: Optional[str] = None):
