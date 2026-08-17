@@ -14,9 +14,11 @@ pinned here:
    declares (``Bulk.zbTol_km``), leaving TfreezeRes_K -- and therefore every
    Titan/Europa path -- untouched.
 3. The builder scored the achieved zb with ``D_iceIh_km``, which undercounts
-   the shell by exactly one radial cell (measured 0.438-0.495 km at Enceladus,
-   3.5-4x the finest segment's whole 0.125 km budget). The invariant now reads
-   the ice/ocean interface depth from the node's own arrays.
+   the shell by exactly one radial cell -- ZB-DEPENDENT, approximately
+   zb/52 km (CORRECTED, r7 condition C5: ranges ~0.26-0.86 km across the
+   declared 5-45 km grid; earlier text quoted a constant 0.44-0.50 km from
+   the single zb=25 km case first probed). The invariant now reads the
+   ice/ocean interface depth from the node's own arrays.
 
 Every test here is fast and structural. The production-tolerance evidence
 (real builds through ``build_zbw_grid_cache``, one node per config grid
@@ -230,11 +232,18 @@ def test_solver_returns_the_minimum_residual_iterate(monkeypatch, bracket):
     assert abs(25.0 - R6_ZB_SEQ[3]) < 0.125
 
 
-def test_legacy_path_keeps_TfreezeRes_K_as_the_root_find_tolerance(
+def test_legacy_path_root_find_tolerance_is_unchanged(
         monkeypatch, bracket):
-    """Byte-identity guard for Titan/Europa: with zbTol_km unset, the xtol
-    handed to the root-finder is still the shared phase-diagram step, and the
-    zb early-exit is still the historical 0.01 km."""
+    """TOLERANCE-ONLY assertion for Titan/Europa (r7 condition C4 rename --
+    this was previously named/described as a full byte-identity guard, which
+    overstated what it checks). With zbTol_km unset, the xtol handed to the
+    root-finder is still the shared phase-diagram step and the zb early-exit
+    is still the historical 0.01 km -- but the RETURNED structure is not
+    byte-identical to the pre-E1 behaviour on this path either: it is now
+    always the minimum-|residual| iterate, never the last one (see
+    LayerPropagators.GetIceShellTFreeze's "CORRECTED (r7 condition C4)"
+    comment). This test intentionally does not touch that -- it is scoped
+    to the tolerance/bracket inputs only, which genuinely are unchanged."""
     seen = {}
 
     def _fake_IceLayers(Planet, Params):

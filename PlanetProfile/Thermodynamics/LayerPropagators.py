@@ -678,9 +678,26 @@ def GetIceShellTFreeze(Planet, Params):
     # zb-DRIVEN CONVERGENCE (opt-in, per-Planet). Planet.Bulk.zbTol_km is the
     # shell-thickness placement tolerance the CALLER requires, in km. When it
     # is None (every template default, and therefore every Titan/Europa run
-    # and Main.py's inductogram zb path) this function is byte-identical to
-    # its historical behaviour: the zb early-exit uses the historical 0.01 km
-    # and the root-find's xtol is the SHARED Planet.TfreezeRes_K.
+    # and Main.py's inductogram zb path) the zb early-exit uses the
+    # historical 0.01 km and the root-find's xtol is the SHARED
+    # Planet.TfreezeRes_K -- BOTH byte-identical to the historical behaviour.
+    #
+    # CORRECTED (r7 condition C4): the RETURNED structure is NOT
+    # byte-identical on this path, and never was going to be once the E1
+    # repair landed. IceShellResidual.__call__ always retains the
+    # minimum-|residual| iterate rather than the last one (see its comment
+    # below) regardless of zbTol_km, because that fix addresses a defect in
+    # WHICH already-computed iterate is returned, independent of how tight
+    # the tolerance that produced the iterates was. So every caller on the
+    # zbTol_km=None path -- every Titan/Europa run, Main.py's inductogram zb
+    # path -- now gets the best-of-the-root-find structure instead of
+    # whichever one the solver happened to evaluate last. This is a STRICT
+    # IMPROVEMENT (the returned zb is at least as close to the target as
+    # before, never worse), and it is safe for existing ratified campaigns
+    # because grep confirms no ratified cache dispatches on
+    # ``Do.ICEIh_THICKNESS`` (only this zb-driven path sets it) --
+    # Main.py's inductogram and the GUI are the only consumers, and both
+    # simply get a more accurately placed shell.
     #
     # Why the opt-in exists: Planet.TfreezeRes_K = 0.05 K is a phase-diagram
     # STEP SIZE shared with GetTfreeze/SetupInit, not a zb tolerance. Using it
