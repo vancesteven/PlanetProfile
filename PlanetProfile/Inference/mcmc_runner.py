@@ -21,6 +21,7 @@ from pathlib import Path
 
 from PlanetProfile.Inference.grid_interp_2d import (
     is_2d_cache,
+    is_zbw_cache,
     bilinear_weights,
     resolve_none_corners,
     blend_complex,
@@ -51,6 +52,13 @@ _FROZEN_LOOP_CLOSURE_TOL = 3e-3
 # bijection's out-of-support check (MCMCRunner._frozen_struct_for_theta,
 # A8). Not a physical tolerance -- see that method's inline comment.
 _ZB_SUPPORT_EPS_KM = 1e-6
+
+# The same boundary slack on the salinity axis, in log10 ppt -- the coordinate
+# the ocean-branch prior is uniform in and the one the interpolant weights in
+# (MCMCRunner._ocean_zbw_struct_for_theta, E2). 1e-9 dex is ~2e-9 relative in
+# ppt: far above float noise on a log10 round-trip, far below the production
+# grid's 0.0769 dex spacing.
+_LOGW_SUPPORT_EPS = 1e-9
 
 # Observable name -> spherical-harmonic (l, m) key for the isostatic_hm2019
 # forward model (_derive_gravity_isostatic's return dict). Shared by the
@@ -464,11 +472,22 @@ class MCMCRunner:
           below -- the frozen theta space has no ``Tb_K``. Checked FIRST
           so it never falls through to (and is never shadowed by) the
           ocean-branch branches.
+        - **Ocean branch of the zb x w cache (schema v3.1-zbw /
+          v3.2-zbw-joint, E2):** when the sample carries ``zb_km`` and the
+          cache carries a ``zb_km_grid``, dispatch is routed through
+          :meth:`_ocean_zbw_struct_for_theta` (bilinear in
+          ``(zb, log10 w)``, any None corner rejects). Checked before the
+          Tb-keyed paths, which cannot serve it: this theta space has no
+          ``Tb_K`` either -- Tb is SOLVED per node at build time -- so
+          before E2 every ocean sample fell all the way through to
+          ``return sd`` and was handed the whole cache dict.
         """
         sd = self.structure_data
         if (isinstance(sd, dict) and sd.get('frozen_branch_supported')
                 and 'rho_rock_kgm3' in theta_dict):
             return self._frozen_struct_for_theta(theta_dict)
+        if is_zbw_cache(sd) and 'zb_km' in theta_dict:
+            return self._ocean_zbw_struct_for_theta(theta_dict)
         Tb_sample = theta_dict.get('Tb_K')
         if is_2d_cache(sd) and Tb_sample is not None:
             from .forward_models import (_apply_bottom_temperature_2d,
@@ -2016,6 +2035,102 @@ class MCMCRunner:
         if not _regions_match(s0, s1):
             return None
         return _blend_b_layered(s0, s1, t)
+
+    def _ocean_zbw_struct_for_theta(
+        self, theta_dict: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """Interpolated OCEAN-branch structure for a sampled ``(zb_km, w)``
+        (r6 training blocker E2).
+
+        The ocean-branch analogue of :meth:`_frozen_struct_for_theta`. The
+        zb x w cache (schema ``v3.1-zbw`` / ``v3.2-zbw-joint``,
+        :func:`PlanetProfile.Inference.cache_builder.build_zbw_grid_cache`)
+        stores one node per ``(zb_km_grid[i], wOcean_ppt_grid[j])``, row-major
+        at flat index ``i * n_w + j``. Its FROZEN axis got a lookup when A8
+        landed; its OCEAN axis never did, so ``_struct_for_hydrosphere`` fell
+        through every ocean sample to ``return sd`` -- handing the whole cache
+        dict back as if it were a structure. Nothing downstream finds ``r_m``
+        in that dict, so every ocean sample rejected to ``-inf`` and no
+        training run could have produced a posterior.
+
+        Interpolation is BILINEAR in ``(zb, log10 w)``, through the same two
+        shared pieces every other 2-D cache axis pair uses:
+        :func:`grid_interp_2d.bilinear_weights` for the corners and weights
+        (linear on the first axis, log10 on the salinity axis -- the salinity
+        grid is log-spaced and the sampled coordinate is
+        ``log10_wOcean_ppt``, so weighting in ppt would tilt the interpolant)
+        and :func:`forward_models.blend_bilinear_corners` for the per-layer
+        boundary blend + intra-layer resample.
+
+        Rejects to ``None`` (NO fallback) when:
+
+        - the cache has no ocean axis, or the sample carries no ``zb_km``;
+        - ``zb`` or ``w`` falls outside the built grid's span
+          (out-of-support);
+        - ANY of the four bracketing corners is ``None``.
+
+        That last rule is where this deliberately differs from the (Tb, w)
+        v3.0 path, which renormalizes over the surviving corners. Two reasons.
+        (i) It is the rule already ruled for this campaign's other branch: a
+        rejected build-time node means the sample's own coordinates were never
+        built, and serving its neighbours instead silently answers a question
+        the sample did not ask -- the frozen branch rejects for exactly this
+        reason, and the r3 ratification of the ragged axis was made
+        conditional on a ``-inf``/no-fallback test. (ii) The renormalizing
+        rule degrades toward the nearest built node, which on a zb axis is a
+        SHELL-THICKNESS snap on the campaign's sole thickness channel.
+        A support region that cannot be built must be declared and excluded,
+        never silently interpolated across.
+        """
+        sd = self.structure_data
+        if not is_zbw_cache(sd):
+            return None
+        zb_grid = np.asarray(sd.get('zb_km_grid'), dtype=float)
+        w_grid = np.asarray(sd.get('wOcean_ppt_grid'), dtype=float)
+        structs = sd.get('structures')
+        if zb_grid.size == 0 or w_grid.size == 0 or not structs:
+            return None
+
+        zb_km = theta_dict.get('zb_km')
+        if zb_km is None:
+            return None
+        try:
+            zb_km = float(zb_km)
+            w_ppt = float(wOcean_ppt_from_theta(theta_dict))
+        except (KeyError, TypeError, ValueError):
+            return None
+        if not (np.isfinite(zb_km) and np.isfinite(w_ppt) and w_ppt > 0):
+            return None
+
+        # Out-of-support -> reject. The float slack is the same
+        # boundary-noise allowance the frozen axis uses (_ZB_SUPPORT_EPS_KM),
+        # not a physical tolerance: a sample landing exactly on a box edge
+        # must be servable, and a strict compare would reject it on float
+        # noise. On the salinity axis the equivalent slack is applied in
+        # log10 w, the coordinate the prior is uniform in.
+        if (zb_km < zb_grid[0] - _ZB_SUPPORT_EPS_KM
+                or zb_km > zb_grid[-1] + _ZB_SUPPORT_EPS_KM):
+            return None
+        logw = np.log10(w_ppt)
+        logw_grid = np.log10(w_grid)
+        if (logw < logw_grid[0] - _LOGW_SUPPORT_EPS
+                or logw > logw_grid[-1] + _LOGW_SUPPORT_EPS):
+            return None
+
+        corners, weights = bilinear_weights(zb_grid, w_grid, zb_km, w_ppt)
+        if any(structs[c] is None for c in corners):
+            return None  # an unbuilt bracketing corner: declared reject
+
+        from PlanetProfile.Inference.forward_models import (
+            blend_bilinear_corners)
+        out = blend_bilinear_corners(structs, corners, weights, w_grid.size)
+        # Sampled coordinates, for downstream hooks and diagnostics. The grid
+        # arrays and the `structures` list are deliberately NOT copied onto
+        # the returned structure: handing cache containers back as structure
+        # fields is what made defect E2 look like a working path.
+        out['zb_km_sampled'] = zb_km
+        out['wOcean_ppt_sampled'] = w_ppt
+        return out
 
     def _frozen_two_layer_stack(
         self,

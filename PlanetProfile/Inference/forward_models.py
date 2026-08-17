@@ -11,7 +11,7 @@ Author: PlanetProfile Team
 Date: 2026-04-29
 """
 import numpy as np
-from typing import Dict, Tuple, Optional, Any, List
+from typing import Dict, Tuple, Optional, Any, List, Sequence
 import logging
 
 from PlanetProfile.Inference.grid_interp_2d import (
@@ -449,6 +449,76 @@ def _copy_struct(s: Dict[str, Any]) -> Dict[str, Any]:
     return {k: (v.copy() if isinstance(v, np.ndarray) else v) for k, v in s.items()}
 
 
+def blend_bilinear_corners(
+    structs: Sequence[Optional[Dict[str, Any]]],
+    kept_corners: Sequence[int],
+    kept_w: Sequence[float],
+    n_w: int,
+) -> Dict[str, Any]:
+    """Combine already-resolved bilinear corners into one structure dict.
+
+    The corner-combination half of a 2-D structural interpolation, shared by
+    every 2-D cache axis pair so there is ONE blend rule rather than one per
+    grid mode: the (Tb, w) v3.0 path (:func:`_apply_bottom_temperature_2d`)
+    and the (zb, w) v3.1-zbw ocean path
+    (``MCMCRunner._ocean_zbw_struct_for_theta``) both call it.
+
+    Corners are grouped into rows by ``flat_index // n_w`` (the slow axis),
+    the two w-corners of each row are blended first, then the (at most two)
+    row results are blended across the slow axis. Grouping this way keeps
+    the w-blends -- same region set under monotone freezing -- separate from
+    the slow-axis blend. Within a pair, ``_blend_b_layered`` is used when the
+    region sets match and the higher-weight corner is taken when they do not
+    (the across-transition nearest-neighbour rule the 1-D path uses).
+
+    ``kept_corners`` must be non-empty and every entry must index a non-None
+    structure; deciding what to do about ``None`` corners is the CALLER's
+    policy and deliberately not encoded here -- the (Tb, w) path renormalizes
+    over the survivors, the (zb, w) ocean path rejects the sample outright.
+    """
+    def _blend_pair(cA, wA, cB, wB):
+        """Blend two corners by their (already-normalized-within-pair) weights."""
+        sA, sB = structs[cA], structs[cB]
+        tot = wA + wB
+        if tot <= 0:
+            return _copy_struct(sA)
+        frac_B = wB / tot
+        if _regions_match(sA, sB):
+            return _blend_b_layered(sA, sB, frac_B)
+        # across-transition: nearest (higher-weight) corner
+        return _copy_struct(sA if wA >= wB else sB)
+
+    if len(kept_corners) == 1:
+        return _copy_struct(structs[kept_corners[0]])
+    if len(kept_corners) == 2:
+        return _blend_pair(kept_corners[0], kept_w[0],
+                           kept_corners[1], kept_w[1])
+
+    rows: Dict[int, list] = {}
+    for c, wt in zip(kept_corners, kept_w):
+        rows.setdefault(c // n_w, []).append((c, wt))
+    row_structs = []
+    row_weights = []
+    for _i_slow, members in rows.items():
+        if len(members) == 1:
+            (c, wt), = members
+            row_structs.append(_copy_struct(structs[c]))
+            row_weights.append(wt)
+        else:
+            (cA, wA), (cB, wB) = members[0], members[1]
+            row_structs.append(_blend_pair(cA, wA, cB, wB))
+            row_weights.append(wA + wB)
+    if len(row_structs) == 1:
+        return row_structs[0]
+    sA, sB = row_structs[0], row_structs[1]
+    wA, wB = row_weights[0], row_weights[1]
+    tot = wA + wB
+    frac_B = 0.0 if tot <= 0 else wB / tot
+    if _regions_match(sA, sB):
+        return _blend_b_layered(sA, sB, frac_B)
+    return sA if wA >= wB else sB
+
+
 def _apply_bottom_temperature_2d(
     theta_dict: Dict[str, float], structure_data: Dict[str, Any]
 ) -> Dict[str, Any]:
@@ -479,56 +549,7 @@ def _apply_bottom_temperature_2d(
             "sample sits in an unbuilt corner — reject."
         )
     kept_corners, kept_w = resolved
-
-    def _blend_pair(cA, wA, cB, wB):
-        """Blend two corners by their (already-normalized-within-pair) weights."""
-        sA, sB = structs[cA], structs[cB]
-        tot = wA + wB
-        if tot <= 0:
-            return _copy_struct(sA)
-        frac_B = wB / tot
-        if _regions_match(sA, sB):
-            return _blend_b_layered(sA, sB, frac_B)
-        # across-transition: nearest (higher-weight) corner
-        return _copy_struct(sA if wA >= wB else sB)
-
-    if len(kept_corners) == 1:
-        out = _copy_struct(structs[kept_corners[0]])
-    elif len(kept_corners) == 2:
-        out = _blend_pair(kept_corners[0], kept_w[0],
-                          kept_corners[1], kept_w[1])
-    else:
-        # 3 or 4 corners: blend within each Tb row (corners share i_Tb when
-        # their flat index // n_w matches), then blend the row results by
-        # their summed weights. Grouping by i_Tb keeps w-blends (same region
-        # set, monotic freezing) separate from the Tb-blend.
-        n_w = w_grid.size
-        rows: Dict[int, list] = {}
-        for c, wt in zip(kept_corners, kept_w):
-            rows.setdefault(c // n_w, []).append((c, wt))
-        row_structs = []
-        row_weights = []
-        for i_Tb, members in rows.items():
-            if len(members) == 1:
-                (c, wt), = members
-                row_structs.append(_copy_struct(structs[c]))
-                row_weights.append(wt)
-            else:
-                (cA, wA), (cB, wB) = members[0], members[1]
-                row_structs.append(_blend_pair(cA, wA, cB, wB))
-                row_weights.append(wA + wB)
-        # blend the (≤2) row results across Tb
-        if len(row_structs) == 1:
-            out = row_structs[0]
-        else:
-            sA, sB = row_structs[0], row_structs[1]
-            wA, wB = row_weights[0], row_weights[1]
-            tot = wA + wB
-            frac_B = 0.0 if tot <= 0 else wB / tot
-            if _regions_match(sA, sB):
-                out = _blend_b_layered(sA, sB, frac_B)
-            else:
-                out = sA if wA >= wB else sB
+    out = blend_bilinear_corners(structs, kept_corners, kept_w, w_grid.size)
 
     # Carry grid references + sampled values for downstream hooks.
     out['Tb_K_grid'] = Tb_grid

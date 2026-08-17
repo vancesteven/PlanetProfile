@@ -66,6 +66,23 @@ def is_2d_cache(structure_data) -> bool:
     )
 
 
+def is_zbw_cache(structure_data) -> bool:
+    """True if ``structure_data`` is a v3.1-zbw / v3.2-zbw-joint (zb x w) cache.
+
+    The OCEAN half of the zb x w cache (:func:`cache_builder
+    .build_zbw_grid_cache`). ``zb_km_grid`` is the discriminant against the
+    v3.0 (Tb, w) cache, which carries ``Tb_K_grid`` instead: the zb-keyed
+    cache has no Tb axis at all, since Tb is SOLVED per node and recorded as
+    an output.
+    """
+    return (
+        isinstance(structure_data, dict)
+        and "zb_km_grid" in structure_data
+        and "wOcean_ppt_grid" in structure_data
+        and "structures" in structure_data
+    )
+
+
 def bilinear_weights(
     Tb_grid: np.ndarray,
     w_grid: np.ndarray,
