@@ -277,6 +277,168 @@ def test_zb_driven_path_tightens_the_tolerance_by_three_orders(monkeypatch,
     assert seen['xtol'] < 0.05 / 1000.0
 
 
+# ---------------------------------------------------------------------------
+# r7 condition C2 -- two-sided enforcement of the declared
+# ocean_reachability_restriction (config metadata.structure_cache_spec.
+# ocean_reachability_restriction.table, mapped by r7 condition C1).
+# ---------------------------------------------------------------------------
+
+def _synthetic_restriction_config(zb_min_km=10.0):
+    """A minimal config declaring a constant zb_min(w) = zb_min_km.
+
+    Two identical-zb_min rows (spanning w = 1..100 ppt, the same log10-w
+    range the real 40-point table spans) are enough to exercise the
+    log-linear interpolation without needing the full production table.
+    ``bulk_overrides`` must be present too -- ``build_zbw_grid_cache``
+    resolves the D1 MoI window from ``config`` unconditionally whenever one
+    is passed.
+    """
+    return {
+        'metadata': {
+            'bulk_overrides': {'Cuncertainty': 0.08},
+            'structure_cache_spec': {
+                'ocean_reachability_restriction': {
+                    'table': [
+                        {'w_ppt': 1.0, 'zb_min_km': zb_min_km},
+                        {'w_ppt': 100.0, 'zb_min_km': zb_min_km},
+                    ],
+                },
+            },
+        },
+    }
+
+
+def _fake_build_with_failures(fail_at_zb=(), fail_at_zb_w=()):
+    """``build_single_structure`` fake: raises when the node's zb is in
+    ``fail_at_zb`` OR (zb, w) is in ``fail_at_zb_w``, otherwise returns a
+    well-placed node (matching the mechanism-1/2 tests' exception path for
+    a genuinely-unreachable thin-shell corner)."""
+    def _fake(module, Tb_K, **kwargs):
+        zb = kwargs['bulk_overrides']['zb_approximate_km']
+        w = kwargs['ocean_overrides']['wOcean_ppt']
+        if zb in fail_at_zb or (zb, w) in fail_at_zb_w:
+            raise ValueError(
+                "Root finding for corresponding Tb_K to achieve a given "
+                "zb_approximate_km failed ... f(a) and f(b) must have "
+                "different signs")
+        return _struct(zb)
+    return _fake
+
+
+def test_reachability_restriction_none_inside_declared_region_passes(
+        monkeypatch, tmp_path):
+    """A None at zb=5 (< the declared zb_min=10) is exactly what the
+    restriction PREDICTS -- the build must complete normally."""
+    monkeypatch.setattr(cache_builder, 'build_single_structure',
+                        _fake_build_with_failures(fail_at_zb={5.0}))
+    monkeypatch.setattr(cache_builder, '_save_cache_atomic',
+                        lambda cache, path: None)
+    cache = build_zbw_grid_cache(
+        'PlanetProfile.Default.Enceladus.PPEnceladus',
+        zb_km_grid=[5.0, 15.0], wOcean_ppt_grid=[1.0, 100.0],
+        output_path=str(tmp_path / 'x.pkl'),
+        config=_synthetic_restriction_config(zb_min_km=10.0),
+        progress=False,
+    )
+    # Row-major: zb=5 is i_zb=0 (both w -> None), zb=15 is i_zb=1 (both built).
+    assert cache['structures'][0] is None and cache['structures'][1] is None
+    assert cache['structures'][2] is not None
+    assert cache['structures'][3] is not None
+    assert cache['ocean_reachability_restriction_table'] is not None
+    assert cache['ocean_none_reasons'][0] == 'build_exception'
+
+
+def test_reachability_restriction_none_outside_declared_region_fails_build(
+        monkeypatch, tmp_path):
+    """A synthetic None at (zb=15, w=1) (zb >= the declared zb_min=10, i.e.
+    predicted REACHABLE) is unexplained by the restriction -- the build
+    must FAIL. zb=5 (both w) is also None, but that side is EXPECTED (it
+    is inside the declared restriction) and must not by itself cause the
+    failure -- the other (zb=15, w=100) node stays built, so this isolates
+    the one genuine violation."""
+    monkeypatch.setattr(
+        cache_builder, 'build_single_structure',
+        _fake_build_with_failures(fail_at_zb={5.0},
+                                  fail_at_zb_w={(15.0, 1.0)}))
+    monkeypatch.setattr(cache_builder, '_save_cache_atomic',
+                        lambda cache, path: None)
+    with pytest.raises(RuntimeError, match='ocean_reachability_restriction'):
+        build_zbw_grid_cache(
+            'PlanetProfile.Default.Enceladus.PPEnceladus',
+            zb_km_grid=[5.0, 15.0], wOcean_ppt_grid=[1.0, 100.0],
+            output_path=str(tmp_path / 'x.pkl'),
+            config=_synthetic_restriction_config(zb_min_km=10.0),
+            progress=False,
+        )
+
+
+def test_reachability_restriction_built_inside_declared_region_fails_build(
+        monkeypatch, tmp_path):
+    """The OTHER side of two-sided: a node at zb=5 (< the declared
+    zb_min=10, predicted UNREACHABLE) that builds anyway means the declared
+    table is stale -- the build must FAIL, not silently accept it."""
+    monkeypatch.setattr(cache_builder, 'build_single_structure',
+                        _fake_build_with_failures(fail_at_zb=set()))
+    monkeypatch.setattr(cache_builder, '_save_cache_atomic',
+                        lambda cache, path: None)
+    with pytest.raises(RuntimeError, match='ocean_reachability_restriction'):
+        build_zbw_grid_cache(
+            'PlanetProfile.Default.Enceladus.PPEnceladus',
+            zb_km_grid=[5.0, 15.0], wOcean_ppt_grid=[1.0, 100.0],
+            output_path=str(tmp_path / 'x.pkl'),
+            config=_synthetic_restriction_config(zb_min_km=10.0),
+            progress=False,
+        )
+
+
+def test_reachability_restriction_no_config_means_no_enforcement(
+        monkeypatch, tmp_path):
+    """Backwards compatibility: without a config carrying the table, an
+    unexplained None anywhere does NOT fail the build (existing callers --
+    other bodies, pre-C1 tests -- are unaffected)."""
+    monkeypatch.setattr(cache_builder, 'build_single_structure',
+                        _fake_build_with_failures(fail_at_zb={15.0}))
+    monkeypatch.setattr(cache_builder, '_save_cache_atomic',
+                        lambda cache, path: None)
+    cache = build_zbw_grid_cache(
+        'PlanetProfile.Default.Enceladus.PPEnceladus',
+        zb_km_grid=[5.0, 15.0], wOcean_ppt_grid=[1.0, 100.0],
+        output_path=str(tmp_path / 'x.pkl'),
+        bulk_overrides={'Cuncertainty': 0.08},
+        progress=False,
+    )
+    assert cache['ocean_reachability_restriction_table'] is None
+    assert cache['structures'][2] is None  # zb=15, w=1 -- the forced None
+
+
+def test_reachability_zb_min_interp_is_log_linear_and_clamped():
+    table = [
+        {'w_ppt': 1.0, 'zb_min_km': 10.0},
+        {'w_ppt': 100.0, 'zb_min_km': 4.0},
+    ]
+    # w=10 ppt is the log-midpoint of [1, 100] -> the linear-in-log10(w)
+    # midpoint of [10.0, 4.0].
+    mid = cache_builder._reachability_zb_min_interp(10.0, table)
+    assert mid == pytest.approx(7.0)
+    # Clamped, not extrapolated, past either end.
+    assert cache_builder._reachability_zb_min_interp(0.001, table) == \
+        pytest.approx(10.0)
+    assert cache_builder._reachability_zb_min_interp(1000.0, table) == \
+        pytest.approx(4.0)
+
+
+def test_ocean_reachability_restriction_from_config_none_cases():
+    from PlanetProfile.Inference.cache_builder import (
+        ocean_reachability_restriction_from_config)
+    assert ocean_reachability_restriction_from_config(None) is None
+    assert ocean_reachability_restriction_from_config({'metadata': {}}) \
+        is None
+    assert ocean_reachability_restriction_from_config(
+        {'metadata': {'structure_cache_spec': {}}}) is None
+    assert ocean_reachability_restriction_from_config(
+        _synthetic_restriction_config()) is not None
+
+
 def test_zb_driven_path_reaches_production_tolerance_with_real_brentq(
         monkeypatch, bracket):
     """End-to-end with scipy's actual root-finder on a smooth, convex zb(Tb)

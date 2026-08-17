@@ -345,7 +345,264 @@
     "branch_flag_source": "has_ocean MUST be derived from the PHASE ARRAY (presence of any phase-0 liquid layer), NEVER from D_ocean_km. Verified 2026-08-13 (reviewer NEW-MINOR-3): smoke nodes 0 and 1 store D_ocean_km = 1.510 and 1.151 km while having NO phase-0 layers at all, so a D_ocean_km > 0 test would misclassify frozen nodes as ocean — and the discrete branch index depends on that classification.",
     "mass_conservation_revision_history": "v1 (r3): 'abs(...) < 1e-3 from the node's own arrays' — UNIMPLEMENTABLE, quadrature unspecified. v2 (r4): midpoint-edge, 5e-4, two-sided — the quadrature was named, but it was the WRONG quadrature for this data and the threshold and the two-sidedness were both wrong with it. v3 (now): outer-edge (PP's actual convention), one-sided, step-scaled. WHY EACH v2 CHOICE WAS WRONG: (a) midpoint closes total volume exactly, which is right for an invariant defined on its own terms but wrong for auditing structures whose densities were ASSIGNED under the outer-edge convention — measured convention swing on one Titan node is 1.99% (outer -0.777%, mid +0.206%, inner +1.210%), which is larger than every effect being tested; (b) 5e-4 does not translate across conventions — the Enceladus OCEAN node is -0.018% under midpoint but -0.312% under outer-edge, so the v2 threshold would have rejected the one healthy node it was explicitly designed to pass; (c) two-sided is wrong because the solver's residual is one-signed BY DESIGN (Silicates.py:118 takes the first profile with Mtot_kg <= M_kg, i.e. one radial step BELOW target), so a POSITIVE residual is a distinct bug — broken mass bookkeeping — and must not be admitted by a symmetric tolerance. Corpus evidence: across ~37k structures in 17 ratified caches the max positive residual is EXACTLY 0.0000%."
    },
-   "w_axis_scope": "The log10_w axis applies to the OCEAN branch only. Frozen nodes have no ocean, so salinity is undefined there (not merely unconstrained) and the frozen segment is built at a single nominal w with w recorded as N/A. Node count above is therefore an upper bound; the builder must not multiply frozen zb nodes by 40 salinities."
+   "w_axis_scope": "The log10_w axis applies to the OCEAN branch only. Frozen nodes have no ocean, so salinity is undefined there (not merely unconstrained) and the frozen segment is built at a single nominal w with w recorded as N/A. Node count above is therefore an upper bound; the builder must not multiply frozen zb nodes by 40 salinities.",
+   "ocean_reachability_restriction": {
+    "status": "MEASURED 2026-08-16 (r7 condition C1, pre-build blocking, CLOSED). Read this BEFORE running build_zbw_grid_cache: not every (zb, w) cell inside the declared zb_km_grid x log10_w_grid box is buildable, and this is a THIRD, SEPARATE restriction from (a) the zb_placement invariant (mandatory_node_invariants.zb_placement) and (b) the ~45 km ocean/no-ocean PHYSICAL edge already declared on zb_km_grid's 42-45 km segment. For thin shells at some salinities the root-find TARGET zb is unreachable within the temperature bracket GetTfreeze establishes, and PlanetProfile raises before it ever builds a structure to reject.",
+    "mechanism": "GetIceShellTFreeze (PlanetProfile/Thermodynamics/LayerPropagators.py) brackets its Tb_K root-find between TlowerLimit_K and TupperLimit_K, each located by GetTfreeze at Planet.TfreezeRes_K = 0.05 K -- a phase-diagram STEP SIZE, not a placement tolerance (tests/enceladus_zb_placement_test.py mechanism 2). The shell thickness achieved AT those two bracket ends (not at the root, since a root may not exist) brackets the reachable zb range for that w: zb_min is the thinner shell at the warmer end (TupperLimit_K), zb_max the thicker shell at the colder end (TlowerLimit_K). A requested zb below zb_min(w) is UNREACHABLE: the residual (target - achieved) keeps the same sign across the whole bracket and scipy's brentq raises 'f(a) and f(b) must have different signs' before ever converging -- the same thin-shell corner failure independently recorded in bulk_overrides_provenance ((5,0.1), (5,5), (5,20), (7,5), (7,20), (10,5) failing to build). zb_max is consistently ~135-139 km, far above the ocean branch's own 45 km support edge, so this mechanism imposes NO upper restriction inside [5,45] km -- the near-45-km edge is the separate, already-declared PHYSICAL boundary, not this one.",
+    "procedure": "One build_single_structure probe at zb_approximate_km = 1.0 (deliberately below every w's reachable minimum) per w node, with Do.ICEIh_THICKNESS=True and Bulk.zbTol_km set (0.01 km; the value is immaterial since the target never becomes reachable inside the bracket). zb_min/zb_max are read off the two bracket-end evaluations GetIceShellTFreeze's IceShellResidual records in its internal .evals list (the same (T_K, zb_km) log the E1 repair added, LayerPropagators.py:629/646) before scipy's brentq raises on the same-sign bracket. Run against the exact production ocean_overrides ({comp: Seawater, deltaT: 0.002}) and the exact production w grid (w = 10**linspace(-1, 2, 40)).",
+    "boundary_uncertainty_km": 6.3,
+    "boundary_uncertainty_note": "The reported zb_min values are DETERMINISTIC reads of GetTfreeze's own bracket endpoints and reproduce bit-for-bit given the same code and inputs -- this is not a run-to-run uncertainty. It is a QUANTIZATION caveat on where the boundary sits PHYSICALLY: TupperLimit_K/TlowerLimit_K are themselves only located to within TfreezeRes_K = 0.05 K by GetTfreeze, and |d(zb)/d(Tb)| ~ 120-126 km/K at Enceladus (measured, tests/enceladus_zb_placement_test.py R6_T_SEQ/R6_ZB_SEQ), so the true continuous reachability edge could sit up to ~0.05 * 126 = 6.3 km from the reported zb_min in principle. This does NOT prevent exact reproduction of a given measurement -- it bounds distance from an idealized continuous boundary, not repeatability of this deterministic measurement, which is why the spot-value verification below shows exact agreement rather than agreement to +/-6.3 km.",
+    "not_a_physical_support_edge": "This is a MODEL-REACHABILITY RESTRICTION, NOT A PHYSICAL SUPPORT EDGE. It is a property of where GetTfreeze's temperature-bracket search starts and ends (Planet.PfreezeLower_MPa/PfreezeUpper_MPa, Planet.TfreezeLower_K/TfreezeUpper_K), not a statement that shells thinner than zb_min(w) cannot physically exist at that salinity.",
+    "no_posterior_mass_cross_reference": "The whole restricted band sits inside the region the libration alone already rejects at >=8 sigma (zb_km_grid.segments' zb<20 km segment rationale): across all 40 w nodes zb_min never exceeds ~12.8 km, well inside the negligible-posterior-mass region below ~18 km. So C1 changes what the CACHE can store, not what the POSTERIOR can weigh.",
+    "excluded_fraction_definition": "excluded_fraction_pct(w) = max(0, zb_min(w) - 5.0) / 27.0 * 100, i.e. the unreachable slice of the [5, 45] km ocean zb support expressed as a percentage of the 27 km posterior-relevant portion of that support (45 - 18, the ~8-sigma cutoff above). 0% where zb_min(w) <= 5 km (fully reachable from the grid's own lower edge).",
+    "excluded_fraction_band_reviewer_spot_check": "8.9-24%, this adjudication's originally quoted band from a 7-point spot check (w = 0.1/1/5/10/20/50/100 ppt) using this same definition: w=10 gives the ~8.9% low end (zb_min 7.4325 km) and w=5 the ~24% high end (zb_min 11.5517 km), both reproduced exactly below.",
+    "excluded_fraction_band_measured_full_grid": "0-28.76%, measured across all 40 production w nodes -- WIDER than the 7-point spot check, which undersampled the peak. The true peak (28.76%, zb_min 12.7643 km) falls at w=0.4924 ppt, between the spot check's w=0.1 and w=1 nodes. 31 of 40 w nodes have nonzero exclusion; 9 are fully reachable from zb=5 km. Non-monotone in w with a broad plateau roughly across the 0.5-5 ppt decade (24-29% exclusion) before falling off toward both salinity extremes -- consistent with the adjudication's 'peak near 5 ppt' description, refined by the full mapping to a plateau rather than a single point. THIS FULL-GRID MEASUREMENT SUPERSEDES the 7-point spot-check band as the authoritative figure for the declared restriction; the spot-check band is retained above because the adjudication quotes it verbatim.",
+    "verification_against_reviewer_spot_values": "Reproduced EXACTLY (same repaired code path, deterministic): zb_min = 5.6385 / 9.1812 / 11.5517 / 7.4325 / 8.4151 / 9.4934 / 2.8437 km at w = 0.1/1/5/10/20/50/100 ppt against the adjudication's quoted 5.64/9.18/11.55/7.43/8.42/9.49/2.84 km. No discrepancy up to the 6.3 km quantization caveat appears -- per boundary_uncertainty_note this is expected, since that caveat bounds distance from an idealized continuous edge, not repeatability of this deterministic measurement.",
+    "table_w_ppt_grid": "w = 10 ** numpy.linspace(-1.0, 2.0, 40), the exact production ocean-branch salinity grid (MACHINE B BUILD INSTRUCTIONS / log10_w_grid).",
+    "table": [
+     {
+      "w_ppt": 0.1,
+      "zb_min_km": 5.6385,
+      "zb_max_km": 139.0492,
+      "excluded_fraction_pct": 2.36
+     },
+     {
+      "w_ppt": 0.1194,
+      "zb_min_km": 5.4955,
+      "zb_max_km": 138.9913,
+      "excluded_fraction_pct": 1.84
+     },
+     {
+      "w_ppt": 0.1425,
+      "zb_min_km": 5.3251,
+      "zb_max_km": 138.9222,
+      "excluded_fraction_pct": 1.2
+     },
+     {
+      "w_ppt": 0.1701,
+      "zb_min_km": 5.1221,
+      "zb_max_km": 138.8399,
+      "excluded_fraction_pct": 0.45
+     },
+     {
+      "w_ppt": 0.2031,
+      "zb_min_km": 4.8804,
+      "zb_max_km": 138.7418,
+      "excluded_fraction_pct": 0.0
+     },
+     {
+      "w_ppt": 0.2424,
+      "zb_min_km": 4.5926,
+      "zb_max_km": 138.6247,
+      "excluded_fraction_pct": 0.0
+     },
+     {
+      "w_ppt": 0.2894,
+      "zb_min_km": 4.2499,
+      "zb_max_km": 138.4852,
+      "excluded_fraction_pct": 0.0
+     },
+     {
+      "w_ppt": 0.3455,
+      "zb_min_km": 3.8419,
+      "zb_max_km": 138.3188,
+      "excluded_fraction_pct": 0.0
+     },
+     {
+      "w_ppt": 0.4125,
+      "zb_min_km": 3.3562,
+      "zb_max_km": 138.1203,
+      "excluded_fraction_pct": 0.0
+     },
+     {
+      "w_ppt": 0.4924,
+      "zb_min_km": 12.7643,
+      "zb_max_km": 137.8833,
+      "excluded_fraction_pct": 28.76
+     },
+     {
+      "w_ppt": 0.5878,
+      "zb_min_km": 12.088,
+      "zb_max_km": 137.6004,
+      "excluded_fraction_pct": 26.25
+     },
+     {
+      "w_ppt": 0.7017,
+      "zb_min_km": 11.2827,
+      "zb_max_km": 137.2623,
+      "excluded_fraction_pct": 23.27
+     },
+     {
+      "w_ppt": 0.8377,
+      "zb_min_km": 10.3236,
+      "zb_max_km": 136.8582,
+      "excluded_fraction_pct": 19.72
+     },
+     {
+      "w_ppt": 1.0,
+      "zb_min_km": 9.1812,
+      "zb_max_km": 136.3745,
+      "excluded_fraction_pct": 15.49
+     },
+     {
+      "w_ppt": 1.1938,
+      "zb_min_km": 7.8201,
+      "zb_max_km": 135.7948,
+      "excluded_fraction_pct": 10.44
+     },
+     {
+      "w_ppt": 1.4251,
+      "zb_min_km": 6.1978,
+      "zb_max_km": 139.268,
+      "excluded_fraction_pct": 4.44
+     },
+     {
+      "w_ppt": 1.7013,
+      "zb_min_km": 4.2634,
+      "zb_max_km": 138.4825,
+      "excluded_fraction_pct": 0.0
+     },
+     {
+      "w_ppt": 2.0309,
+      "zb_min_km": 11.9555,
+      "zb_max_km": 137.536,
+      "excluded_fraction_pct": 25.76
+     },
+     {
+      "w_ppt": 2.4245,
+      "zb_min_km": 9.2472,
+      "zb_max_km": 136.3927,
+      "excluded_fraction_pct": 15.73
+     },
+     {
+      "w_ppt": 2.8943,
+      "zb_min_km": 6.0086,
+      "zb_max_km": 139.1807,
+      "excluded_fraction_pct": 3.74
+     },
+     {
+      "w_ppt": 3.4551,
+      "zb_min_km": 12.1275,
+      "zb_max_km": 137.5969,
+      "excluded_fraction_pct": 26.4
+     },
+     {
+      "w_ppt": 4.1246,
+      "zb_min_km": 7.56,
+      "zb_max_km": 135.661,
+      "excluded_fraction_pct": 9.48
+     },
+     {
+      "w_ppt": 4.9239,
+      "zb_min_km": 12.0672,
+      "zb_max_km": 137.5587,
+      "excluded_fraction_pct": 26.17
+     },
+     {
+      "w_ppt": 5.878,
+      "zb_min_km": 5.5735,
+      "zb_max_km": 138.9773,
+      "excluded_fraction_pct": 2.12
+     },
+     {
+      "w_ppt": 7.017,
+      "zb_min_km": 7.8009,
+      "zb_max_km": 135.7351,
+      "excluded_fraction_pct": 10.37
+     },
+     {
+      "w_ppt": 8.3768,
+      "zb_min_km": 8.5194,
+      "zb_max_km": 136.0262,
+      "excluded_fraction_pct": 13.03
+     },
+     {
+      "w_ppt": 10.0,
+      "zb_min_km": 7.4325,
+      "zb_max_km": 135.5437,
+      "excluded_fraction_pct": 9.01
+     },
+     {
+      "w_ppt": 11.9378,
+      "zb_min_km": 4.1612,
+      "zb_max_km": 138.3326,
+      "excluded_fraction_pct": 0.0
+     },
+     {
+      "w_ppt": 14.251,
+      "zb_min_km": 8.2644,
+      "zb_max_km": 135.8433,
+      "excluded_fraction_pct": 12.09
+     },
+     {
+      "w_ppt": 17.0125,
+      "zb_min_km": 9.1836,
+      "zb_max_km": 136.1942,
+      "excluded_fraction_pct": 15.49
+     },
+     {
+      "w_ppt": 20.3092,
+      "zb_min_km": 6.2642,
+      "zb_max_km": 139.0608,
+      "excluded_fraction_pct": 4.68
+     },
+     {
+      "w_ppt": 24.2446,
+      "zb_min_km": 8.6313,
+      "zb_max_km": 135.8365,
+      "excluded_fraction_pct": 13.45
+     },
+     {
+      "w_ppt": 28.9427,
+      "zb_min_km": 5.2828,
+      "zb_max_km": 138.4959,
+      "excluded_fraction_pct": 1.05
+     },
+     {
+      "w_ppt": 34.5511,
+      "zb_min_km": 4.8544,
+      "zb_max_km": 138.1891,
+      "excluded_fraction_pct": 0.0
+     },
+     {
+      "w_ppt": 41.2463,
+      "zb_min_km": 5.6373,
+      "zb_max_km": 138.3246,
+      "excluded_fraction_pct": 2.36
+     },
+     {
+      "w_ppt": 49.2388,
+      "zb_min_km": 5.3822,
+      "zb_max_km": 137.957,
+      "excluded_fraction_pct": 1.42
+     },
+     {
+      "w_ppt": 58.7802,
+      "zb_min_km": 10.924,
+      "zb_max_km": 135.7805,
+      "excluded_fraction_pct": 21.94
+     },
+     {
+      "w_ppt": 70.1704,
+      "zb_min_km": 8.3357,
+      "zb_max_km": 138.2329,
+      "excluded_fraction_pct": 12.35
+     },
+     {
+      "w_ppt": 83.7678,
+      "zb_min_km": 11.4284,
+      "zb_max_km": 138.685,
+      "excluded_fraction_pct": 23.81
+     },
+     {
+      "w_ppt": 100.0,
+      "zb_min_km": 2.8437,
+      "zb_max_km": 137.8281,
+      "excluded_fraction_pct": 0.0
+     }
+    ],
+    "consumed_by": "cache_builder.build_zbw_grid_cache reads this table via the r7 condition C2 enforcement (ocean_reachability_restriction_from_config / _reachability_zb_min_interp) when a config= is supplied: it log-linearly interpolates zb_min(w) between these 40 rows and FAILS the build (two-sided) if a node predicted-excluded by this table built anyway, or if a node predicted-reachable came back None for a reason other than the separately-declared near-45-km physical no-ocean edge. See mandatory_node_invariants for the unrelated zb_placement invariant this restriction does not replace."
+   }
   },
   "isostasy": {
    "shape_source": "tajeddine2017",
@@ -429,7 +686,8 @@
     "binding_validity_condition": "BOTH runs must condition on IDENTICAL observables with an IDENTICALLY NORMALIZED likelihood — same observable set, same sigmas, same Sigma_model inflation. Otherwise log Z_frozen - log Z_ocean contains the ratio of two different normalizing constants and the 'Bayes factor' is an artifact. branch_bayes_factor compares the two observable dicts exactly and RAISES rather than returning a number.",
     "reporting_rule": "The frozen branch is discriminated at tens of sigma, so |log B| is expected to be large enough that the posterior odds underflow double precision. In that regime report the verdict as ONE-SIDED and do NOT quote a ratio or a probability — the magnitude is not interpretable. Conversely, if |log B| falls within 3x its combined numerical error the comparison is NOT resolved by those runs and n_effective must be raised rather than the sign quoted; the utility emits both notes.",
     "prior_odds_are_declared": "0.5/0.5 is a DECLARATION, not a measurement. It is what makes the reported posterior odds readable as the data's contribution alone, and it is what removes the box-edge rescalability the ragged-axis version had (metadata.structure_cache_spec.branch_mass_reporting_ruling).",
-    "frozen_zb_is_not_a_posterior_axis": "On the frozen branch zb_km is a deterministic reparameterization of rho_rock (isostasy.frozen_zb_from_mass), so a 'frozen-branch posterior on zb' must be read as a posterior on rho_rock."
+    "frozen_zb_is_not_a_posterior_axis": "On the frozen branch zb_km is a deterministic reparameterization of rho_rock (isostasy.frozen_zb_from_mass), so a 'frozen-branch posterior on zb' must be read as a posterior on rho_rock.",
+    "reachability_normalization_validity_condition": "REQUIRED 2026-08-16 (r7 condition C3, pre-build blocking, CLOSED) -- a VALIDITY CONDITION that must be applied BEFORE any log B is quoted, same standing as binding_validity_condition above and folded into the same B-A2 run-design item (realized cmr2 + BOTH exclusions reported separately). The ocean branch's nested-sampling run integrates over the (zb, w) support that the DELIVERED cache actually populated; per structure_cache_spec.ocean_reachability_restriction a nonzero fraction f_excluded of that declared box has no built node at all (measured 0-28.76% across the 40 w nodes, C1), independent of and additional to the ragged-zb-axis normalization already covered by ragged_support_note. Exactly as restricting a uniform zb prior to the ocean sub-interval stays a valid normalized density only after dividing by the sub-interval's own prior mass (ragged_support_note), restricting it further to the reachability-restricted subset requires a SECOND normalization: log Z_ocean_normalized = log Z_ocean_as_integrated + log(1/(1 - f_excluded)), with f_excluded measured from the DELIVERED CACHE'S OWN None mask (the empirical fraction of (zb, w) grid cells storing None on the ocean branch), never from the C1 table's prediction -- the table predicts, the cache's None mask is what was actually integrated over. TRIGGER: the campaign's own standing rule is that this normalization is applied whenever f_excluded > 5%; C1 measured 0-28.76% with most populated w nodes above 5%, so the trigger IS FIRED and the normalization is MANDATORY here, not optional. REPORTING: MoI-window exclusions (ocean_moi_window; per ocean_branch_moi_selection_declared this window is measured non-binding at Enceladus, so its exclusion count is expected to be ~0, but it must still be read off the delivered cache and stated) and reachability exclusions (this condition) are DISTINCT MECHANISMS with different physical content and MUST be reported as SEPARATE LINES, never summed into one opaque f_excluded -- summing them would make it impossible to tell whether an odds shift comes from a structural MoI-selection conditioning (ocean_branch_moi_selection_declared) or from the reachability restriction's box-shrinkage (this condition). Implementation is a future PlanetProfile/Inference/branch_evidence.py task (this config records the requirement; it is NOT wired into branch_bayes_factor / branch_comparison_from_results yet -- consistent with this config's own NOT RATIFIED / NEVER RUN status)."
    },
    "ocean_branch": {
     "sampled": [

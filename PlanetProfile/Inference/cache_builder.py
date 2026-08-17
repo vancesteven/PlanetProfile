@@ -1328,6 +1328,65 @@ def bulk_overrides_from_config(config: Any) -> Dict[str, Any]:
     return out
 
 
+def ocean_reachability_restriction_from_config(
+        config: Any) -> List[Dict[str, Any]] | None:
+    """Resolve the declared ocean model-reachability restriction table.
+
+    Accepts the same ``config`` forms as :func:`bulk_overrides_from_config`
+    (``InferenceConfig``-like object, parsed dict, or path to the config
+    JSON). Returns the ``metadata['structure_cache_spec']
+    ['ocean_reachability_restriction']['table']`` list of ``{w_ppt,
+    zb_min_km, ...}`` rows (r7 condition C1's 40-point mapping), or
+    ``None`` when the config carries no such declaration.
+
+    ``None`` is a normal, non-error outcome (unlike
+    :func:`bulk_overrides_from_config`, which raises): most callers of
+    :func:`build_zbw_grid_cache` pass no ``config`` at all, or a
+    pre-C1/non-Enceladus config, and the two-sided reachability
+    enforcement (r7 condition C2) is simply skipped for them -- there is
+    nothing to enforce.
+    """
+    if config is None:
+        return None
+    if isinstance(config, str):
+        import json as _json
+        with open(config, "r") as fh:
+            config = _json.load(fh)
+    if isinstance(config, dict):
+        meta = config.get("metadata") or {}
+    else:
+        meta = getattr(config, "metadata", None) or {}
+    if not isinstance(meta, dict):
+        return None
+    spec = meta.get("structure_cache_spec")
+    if not isinstance(spec, dict):
+        return None
+    restriction = spec.get("ocean_reachability_restriction")
+    if not isinstance(restriction, dict):
+        return None
+    table = restriction.get("table")
+    if not isinstance(table, list) or not table:
+        return None
+    return table
+
+
+def _reachability_zb_min_interp(
+        w_ppt: float, table: List[Dict[str, Any]]) -> float:
+    """Interpolate the declared reachability floor zb_min(w).
+
+    Log-linear in ``w`` (the declared table is sampled on ``w =
+    10**linspace(-1, 2, 40)``, the same log-uniform axis the ocean branch
+    prior draws on, so log-linear interpolation is the natural continuous
+    extension of the 40 measured points), clamped at the table's own
+    endpoints -- no extrapolation past the measured salinity range.
+    """
+    rows = sorted(table, key=lambda r: float(r["w_ppt"]))
+    log_w = np.log10(np.asarray([float(r["w_ppt"]) for r in rows]))
+    zb_min = np.asarray([float(r["zb_min_km"]) for r in rows])
+    lw = np.log10(max(float(w_ppt), 1e-300))
+    return float(np.interp(lw, log_w, zb_min))
+
+
 def _template_cmeasured(planet_template_module: str) -> float | None:
     """``Bulk.Cmeasured`` of a body template, or ``None`` if unreadable.
 
@@ -1484,11 +1543,14 @@ def _ocean_node_zb_km(struct: Dict[str, Any]) -> float:
 
     It is deliberately NOT ``D_iceIh_km``. That field sums per-layer
     ``r_m[e-1] - r_m[s]`` and so undercounts the shell by exactly one radial
-    cell (measured 0.438-0.495 km at Enceladus, i.e. 3.5-4x the finest
-    segment's whole placement budget of 0.125 km). Reading it as the achieved
-    zb made the zb-placement invariant unsatisfiable in principle: the solver
-    drives one quantity to the target while the invariant scores a different
-    one, offset by ~0.44 km. This is the ocean-branch analogue of the choice
+    cell -- ZB-DEPENDENT, approximately zb/52 (CORRECTED, r7 condition C5:
+    measured 0.20-0.81 km at zb=10/20/25/35/42 km, i.e. ~0.26-0.86 km
+    across the declared 5-45 km grid; earlier text quoted a constant
+    0.44-0.50 km from the single zb=25 km case first probed). Reading it as
+    the achieved zb made the zb-placement invariant unsatisfiable in
+    principle: the solver drives one quantity to the target while the
+    invariant scores a different one, offset by that same zb-dependent
+    amount. This is the ocean-branch analogue of the choice
     :func:`_frozen_node_fields` already made for the frozen branch, and for
     the same measured reason. ``D_iceIh_km`` itself is UNCHANGED -- it is
     consumed as a sampling coordinate by the Titan v5 campaigns.
@@ -1776,9 +1838,11 @@ def build_zbw_grid_cache(
     quantity the solver drives (equal to ``Planet.zb_km`` to 1e-13 km,
     measured) and the shell/ocean split every downstream consumer reads.
     The previous reading, ``D_iceIh_km``, undercounts the shell by exactly
-    one radial cell (0.438-0.495 km at Enceladus, 3.5-4x the finest
-    segment's whole 0.125 km budget), which made the invariant
-    unsatisfiable in principle no matter how well the solver converged.
+    one radial cell -- ZB-DEPENDENT, approximately zb/52 (CORRECTED, r7
+    condition C5: ~0.26-0.86 km across the declared 5-45 km grid, not the
+    constant 0.44-0.50 km earlier text quoted from a single zb=25 km case),
+    which made the invariant unsatisfiable in principle no matter how well
+    the solver converged.
 
     NOT implemented here (explicitly out of scope -- reviewer-blocked
     production physics, RESUME_NOTE.md "Blocked on reviewer sign-off"):
@@ -1850,6 +1914,21 @@ def build_zbw_grid_cache(
         ``ocean_moi_window``. Raises ``ValueError`` when a config is passed
         that declares no MoI half-width -- defaulting silently is the
         defect.
+
+        Also supplies (r7 condition C2), when present, the declared ocean
+        model-reachability restriction table via
+        ``metadata['structure_cache_spec']['ocean_reachability_restriction']
+        ['table']`` (:func:`ocean_reachability_restriction_from_config`,
+        the 40-point mapping from r7 condition C1). When that table is
+        present the build enforces it TWO-SIDED against every (zb, w)
+        node -- ``RuntimeError`` if a node the table predicts unreachable
+        built anyway, or if a node it predicts reachable came back
+        ``None`` for a reason other than the separately-declared
+        near-45-km physical no-ocean edge -- and records the table plus
+        a per-node None-reason list on the returned cache under
+        ``ocean_reachability_restriction_table`` / ``ocean_none_reasons``.
+        A config without that block (or no config at all) skips this
+        check entirely; existing callers are unaffected.
 
     Returns
     -------
@@ -1946,6 +2025,13 @@ def build_zbw_grid_cache(
     n_zb, n_w = zb_arr.size, w_arr.size
     total = n_zb * n_w
     structures: List[Dict[str, Any] | None] = [None] * total
+    # r7 condition C2: WHY each ocean node came back None, so the two-sided
+    # reachability-restriction check below can tell a legitimate near-45-km
+    # freeze-through None (a DIFFERENT, already-declared physical edge --
+    # structure_cache_spec.zb_km_grid's 42-45 km segment) apart from a None
+    # this restriction is supposed to explain. Never gates anything by
+    # itself; diagnostic bookkeeping only.
+    none_reasons: List[str | None] = [None] * total
     n_ok = 0
     n_fail = 0
     n_zb_reject = 0
@@ -1975,6 +2061,7 @@ def build_zbw_grid_cache(
                     f"{type(exc).__name__}: {exc}"
                 )
                 structures[flat] = None
+                none_reasons[flat] = "build_exception"
                 n_fail += 1
                 continue
 
@@ -1982,12 +2069,16 @@ def build_zbw_grid_cache(
             if not has_ocean:
                 # Ocean-branch-only builder (see docstring): a frozen
                 # result at a requested zb is out of scope, not a failure
-                # to retry.
+                # to retry. This is the SEPARATE, already-declared physical
+                # ocean/no-ocean edge (structure_cache_spec.zb_km_grid's
+                # 42-45 km segment) -- not the C1/C2 reachability
+                # restriction, which lives entirely below ~13 km.
                 log.warning(
                     f"    × (zb={zb_km:.4f}, w={w_ppt:.4f}) → None — "
                     f"no phase-0 layer (frozen; ocean-branch-only builder)"
                 )
                 structures[flat] = None
+                none_reasons[flat] = "no_ocean_frozen_edge"
                 n_fail += 1
                 continue
 
@@ -2002,6 +2093,7 @@ def build_zbw_grid_cache(
                     f"km >= tol {zb_tol_km:.4f} km"
                 )
                 structures[flat] = None
+                none_reasons[flat] = "zb_placement_reject"
                 n_zb_reject += 1
                 n_fail += 1
                 continue
@@ -2025,6 +2117,62 @@ def build_zbw_grid_cache(
             f"All {total} (zb, w) nodes failed; no cache to write."
         )
 
+    # r7 condition C2 (pre-build blocking): TWO-SIDED enforcement of the
+    # declared ocean model-reachability restriction (config
+    # metadata.structure_cache_spec.ocean_reachability_restriction, mapped
+    # by r7 condition C1). Only runs when a ``config`` supplying that table
+    # is passed -- older callers, other bodies, and tests that build small
+    # synthetic grids without a config are unaffected (byte-identical).
+    #
+    # Per the r6 corner-nodes ruling ("declared support restriction, never
+    # a silent None"), every ocean-branch None outside the declared
+    # restriction must be a build failure, not a quiet gap in the cache --
+    # and symmetrically, a node the restriction predicts UNREACHABLE must
+    # not have quietly built, since that means the declared table is stale.
+    # A near-45-km freeze-through None (``no_ocean_frozen_edge``) is exempt
+    # from the "must build outside" direction: it is explained by the
+    # SEPARATE, already-declared physical ocean/no-ocean edge, not by this
+    # restriction, which C1 measured to live entirely below ~13 km.
+    reachability_table = ocean_reachability_restriction_from_config(config)
+    if reachability_table is not None:
+        violations: List[str] = []
+        for i_zb, zb_km in enumerate(zb_arr):
+            for i_w, w_ppt in enumerate(w_arr):
+                flat = i_zb * n_w + i_w
+                zb_min_declared = _reachability_zb_min_interp(
+                    float(w_ppt), reachability_table)
+                declared_excluded = float(zb_km) < zb_min_declared
+                built = structures[flat] is not None
+                if declared_excluded and built:
+                    zb_actual = structures[flat].get("zb_km_actual",
+                                                       float("nan"))
+                    violations.append(
+                        f"(zb={zb_km:.4f}, w={w_ppt:.4f}) BUILT "
+                        f"(zb_actual={zb_actual:.4f}) but the declared "
+                        f"restriction predicts UNREACHABLE below "
+                        f"zb_min={zb_min_declared:.4f} km -- the declared "
+                        f"table is stale (under-restrictive)")
+                elif (not declared_excluded and not built
+                      and none_reasons[flat] != "no_ocean_frozen_edge"):
+                    violations.append(
+                        f"(zb={zb_km:.4f}, w={w_ppt:.4f}) is None "
+                        f"({none_reasons[flat]}) but the declared "
+                        f"restriction predicts REACHABLE "
+                        f"(zb_min={zb_min_declared:.4f} km) -- an "
+                        f"unexplained ocean-branch None")
+        if violations:
+            raise RuntimeError(
+                "ocean_reachability_restriction violated (r7 condition "
+                f"C2, two-sided enforcement): {len(violations)} node(s) "
+                "disagree with the config-declared restriction table "
+                "(metadata.structure_cache_spec."
+                "ocean_reachability_restriction). Every None on the ocean "
+                "branch must be explained by either this restriction or "
+                "the separate near-45-km physical no-ocean edge (r6 "
+                "corner-nodes ruling: 'declared support restriction, "
+                "never silent None'). First few: " + "; ".join(
+                    violations[:5]))
+
     cache = {
         "zb_km_grid": zb_arr,
         "wOcean_ppt_grid": w_arr,
@@ -2042,6 +2190,15 @@ def build_zbw_grid_cache(
             structures,
             {**base_bulk_overrides, "_source": _window_source},
             _template_cmeasured(planet_template_module)),
+        # r7 condition C2: the declared reachability restriction this build
+        # was checked against (verbatim, from the config), plus the
+        # per-node reason bookkeeping the two-sided check used -- so a
+        # later audit of a saved cache can re-derive which Nones the
+        # restriction explains without re-running the build. ``None``
+        # when no config (or a config without the C1 table) was supplied,
+        # i.e. the two-sided check above did not run.
+        "ocean_reachability_restriction_table": reachability_table,
+        "ocean_none_reasons": none_reasons,
     }
 
     if frozen_zb_km_grid is not None:
