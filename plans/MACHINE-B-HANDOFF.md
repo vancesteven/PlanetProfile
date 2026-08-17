@@ -59,6 +59,17 @@ Answers to corrected_sbc_SPEC_QUESTIONS.md; spec discipline accepted
    guarded: queued as a Codex task (assert/fallback if a corrected
    result is requested without full-N likelihoods).
 
+## 0.29 r7: RATIFIED WITH CONDITIONS — BUILD AUTHORIZED after C1-C3 (2026-08-16)
+
+Supersedes the §0.27 rescind. Full verdict + B's exact build
+instructions + acceptance gates:
+validation_reports/enceladus_isostasy/r7_ADJUDICATION.md. Machine A is
+executing C1-C3 now (mapping + builder assert + evidence-protocol
+record); the moment the C1-C3 commit lands, B RUNS THE BUILD per the
+r7 instructions (ocean ~19.5 h serial — parallelize by zb segment;
+frozen ~35 min), reports the acceptance gates, then the two-run
+reference protocol. NH3 corrected-SBC continues in gaps per §0.28.
+
 ## 0.27 ⛔ BUILD TRIGGER RESCINDED (manager, 2026-08-16) — r6 NOT RATIFIED
 
 §0.26 item 2 is RESCINDED: do NOT start the Enceladus cache build on the
