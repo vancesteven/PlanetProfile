@@ -251,7 +251,8 @@
       "lo": 42.0,
       "hi": 45.0,
       "step_km": 0.25,
-      "n": 12,
+      "n": 13,
+      "n_corrected_2026_08_17": "CORRECTED (manager ruling, §0.30 plans/MACHINE-B-HANDOFF.md): 12 -> 13. Per this axis's own endpoint_convention (segments inclusive of BOTH endpoints), (45.0-42.0)/0.25 + 1 = 13 nodes, ending at 45.0 km itself -- the r7 build instruction's '12' was an arithmetic slip against its own declared convention, not a deliberate half-open reading. Caught by Machine B's --dry-run axis-vs-config verification in plans/scripts/enceladus_zbw_production_build.py before any compute was spent (validation_reports/enceladus_isostasy/r7_build_axis_ambiguity.md); ruled here rather than left ambiguous, since dropping the 45.0 km node would blind the campaign at exactly the ocean/no-ocean support edge this segment exists to resolve.",
       "rationale": "OCEAN/NO-OCEAN SUPPORT EDGE at ~45 km. THIS is where the Titan gate-3 absolute-onset-placement lesson applies (reviewer NEW-MODERATE-2/3 corrected my earlier misplacement of it at 22-30 km). The edge is w-DEPENDENT (freeze-through moves with salinity), so it is a curve in (zb,w) and the fine step must hold across the w axis."
      },
      {
@@ -262,8 +263,9 @@
       "REMOVED_2026_08_15": "This segment is DELETED from zb_km_grid by the frozen-branch design ruling (task A7) and relocated to structure_cache_spec.frozen_zb_km_grid. It is retained here, inert, only so the change is legible against the r4 record — the builder does not read it. Two reasons it had to move: (i) the frozen branch is NOT on the ocean branch's axis at all — the cache carries SEPARATE frozen arrays (schema v3.2-zbw-joint), because splicing the two supports onto one ragged axis made the reported branch odds linearly rescalable by an arbitrary box edge; (ii) its endpoints were computed at rho_ice = 925 ONLY, so they understated the true support (ruling F6). The ocean zb axis now ends at 45.0 km, which is its own physical support edge."
      }
     ],
-    "n_total": 87,
-    "n_total_note": "OCEAN branch only, same endpoint-sharing convention as before (r4's 124 was 87 ocean + 37 frozen on one axis). The frozen nodes are counted separately under frozen_zb_km_grid.",
+    "n_total": 88,
+    "n_total_note": "OCEAN branch only, same endpoint-sharing convention as before (r4's 124 was 87 ocean + 37 frozen on one axis; that count is now stale -- see n_total_corrected_2026_08_17). The frozen nodes are counted separately under frozen_zb_km_grid.",
+    "n_total_corrected_2026_08_17": "87 -> 88 (manager ruling §0.30), matching the last segment's n: 12 -> 13 correction above. 15+4+32+24+13 = 88 nodes spanning [5.0, 45.0] km inclusive, de-duplicating the 4 shared boundary nodes at 20/22/30/42 km per endpoint_convention.",
     "resegmented_2026_08_13": "Reviewer MODERATE-2: r2's uniform-0.25-km-below-22-km allocation spent 69 of 140 zb nodes on a region with negligible posterior mass while leaving the actual onset (zb ~ 23-30 km) in a 0.5 km segment. Re-segmented to put the 0.25 km refinement ON the binding region. CAUTION: B2' will shift the onset by +2-2.5 km, so THESE SEGMENT BOUNDARIES CANNOT BE FROZEN UNTIL B2' CLOSES — that is an independent reason B2' precedes the build.",
     "endpoint_convention": "Segments are inclusive of BOTH endpoints; the declared n counts nodes, and adjacent segments share their boundary node (counted once). This fixes reviewer NEW-MODERATE-1: the old half-open reading left the box edge with no node, so 1.5% of the zb prior had no bracketing pair for the bilinear interpolant. The frozen segment's endpoints are now set by the density prior, not by a chosen box edge."
    },

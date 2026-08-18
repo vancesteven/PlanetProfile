@@ -12,11 +12,21 @@ enceladus_ocean_zbw_lookup_test.py, enceladus_moi_window_test.py) run
 before this build was launched.
 
 Per r7's literal build instructions (validation_reports/
-enceladus_isostasy/r7_ADJUDICATION.md, "MACHINE B BUILD INSTRUCTIONS"):
+enceladus_isostasy/r7_ADJUDICATION.md, "MACHINE B BUILD INSTRUCTIONS"),
+AS CORRECTED by the manager's endpoint ruling (plans/MACHINE-B-HANDOFF.md
+§0.30, 2026-08-17): the axis is INCLUSIVE of both endpoints (the
+config's own endpoint_convention field, and r7's own text), so the last
+segment is 13 nodes (not 12) and the total is 88 (not 87) -- r7's "87"
+was an arithmetic slip against its own declared convention. Caught by
+this script's --dry-run check BEFORE any compute was spent
+(validation_reports/enceladus_isostasy/r7_build_axis_ambiguity.md);
+ruled in validation_reports/enceladus_isostasy's §0.30 entry. The config
+itself (metadata.structure_cache_spec.zb_km_grid) has been corrected to
+n_total=88 / last-segment n=13 in the same commit as this fix.
 - zb segmented axis: 5-20@1.0 / 20-22@0.5 / 22-30@0.25 / 30-42@0.5 /
-  42-45@0.25 = 87 nodes (matches the config's own
-  metadata.structure_cache_spec.zb_km_grid.n_total == 87, verified
-  below before the build starts).
+  42-45@0.25 INCLUSIVE = 88 nodes ending at 45.0 km (matches the
+  corrected metadata.structure_cache_spec.zb_km_grid.n_total == 88,
+  verified below before the build starts).
 - w = 10**linspace(-1, 2, 40) (matches
   metadata.structure_cache_spec.log10_w_grid {lo:-1, hi:2, n:40}).
 - ocean_overrides = {comp: Seawater, deltaT: 0.002} (config's own
@@ -75,11 +85,18 @@ FROZEN_MAX_ITER = 10
 
 
 def _zb_axis():
-    segs = [(5.0, 1.0, 15), (20.0, 0.5, 4), (22.0, 0.25, 32),
-            (30.0, 0.5, 24), (42.0, 0.25, 12)]
+    """Inclusive-endpoint construction per §0.30: adjacent segments share
+    their boundary node (counted once), and the final segment INCLUDES
+    its hi=45.0 km endpoint -- the ocean/no-ocean support edge this axis
+    exists to resolve. 15+4+32+24+13 = 88 nodes spanning [5.0, 45.0] km,
+    matching the config's corrected structure_cache_spec.zb_km_grid."""
+    segs = [(5.0, 20.0, 1.0), (20.0, 22.0, 0.5), (22.0, 30.0, 0.25),
+            (30.0, 42.0, 0.5), (42.0, 45.0, 0.25)]
     zb = []
-    for lo, step, n in segs:
+    for lo, hi, step in segs:
+        n = int(round((hi - lo) / step))
         zb.extend(lo + step * i for i in range(n))
+    zb.append(segs[-1][1])  # final segment's hi endpoint, inclusive
     return np.asarray(zb, dtype=float)
 
 
