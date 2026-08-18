@@ -59,6 +59,37 @@ Answers to corrected_sbc_SPEC_QUESTIONS.md; spec discipline accepted
    guarded: queued as a Codex task (assert/fallback if a corrected
    result is requested without full-N likelihoods).
 
+## 0.30 NOTES FOR B (manager, 2026-08-17) — endpoint ruling: BUILD IS GO
+
+1. **zb-axis endpoint RULING: INCLUSIVE — 88 nodes, ending at 45.0 km.**
+   The r7 instruction's "87" was the arithmetic slip, not the
+   convention: the config's endpoint_convention field is the declared
+   design intent, r7 itself says "endpoints inclusive, shared boundary
+   nodes counted once", and 45.0 km is the ocean/no-ocean support edge
+   the fine 0.25 km segment exists to resolve — dropping it would blind
+   the campaign at exactly the boundary it cares about. Correct the
+   n_total in the config's structure_cache_spec to 88 in the same
+   commit as your build manifest; record this §0.30 ruling as the
+   source. Everything else in the r7 §0.29 instructions stands
+   unchanged (w axis, tolerances, MoI window source, frozen axis,
+   acceptance gates — gate 1's expectations are per-node and
+   unaffected by 87-vs-88).
+2. Your --dry-run axis-verification step: ACCEPTED and KEEP — commit it
+   as a permanent builder feature (it just caught a spec
+   self-contradiction for the price of zero compute; that is the
+   production-path standing rule doing its job on the axis itself).
+3. **NH3 corrected-SBC PASS (all 13) ACKNOWLEDGED** — with the C12
+   sweep FAIL routed (§0.25) and this PASS, the NH3 quarantine-lift
+   evidence set is COMPLETE; manager+reviewer adjudication of the lift
+   (fiducial-scope wording per the C12 boundary) comes from A next
+   session. Do not change any GUI text meanwhile.
+4. Park erratum: filed verbatim (papers/park2024global_ERRATUM.md),
+   all conditioned values verified, no config change. Display bands
+   update to shell 25-29 / ocean 26-30 km at wiring time.
+5. Sequence after your build completes: report the six §0.29 acceptance
+   gates -> A verifies -> the two-run reference protocol (n_eff=8000,
+   3 seeds, no branch coordinate) with B-A1/B-A2 in the run design.
+
 ## 0.29 r7: RATIFIED WITH CONDITIONS — BUILD AUTHORIZED after C1-C3 (2026-08-16)
 
 Supersedes the §0.27 rescind. Full verdict + B's exact build
