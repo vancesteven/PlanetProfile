@@ -27,6 +27,8 @@ def ElecConduct(Planet, Params):
             indsMixedClathrateIhwet, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund, \
             indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
             indsFe = GetPhaseIndices(Planet.phase)
+        if Planet.Crust.enabled:
+            indsSil = indsSil[Planet.material[indsSil] == Constants.materialMantle]
 
         if Params.CALC_CONDUCT:
             # Make sure the necessary EOSs have been loaded (mainly only important in parallel ExploreOgram runs)

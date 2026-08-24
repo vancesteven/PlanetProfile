@@ -23,6 +23,16 @@ def SeismicCalcs(Planet, Params):
     Planet.Seismic.VP_kms, Planet.Seismic.VS_kms, Planet.Seismic.QS, Planet.Seismic.KS_GPa, \
         Planet.Seismic.GS_GPa = (np.zeros(Planet.Steps.nTotal) for _ in range(5))
 
+    if Planet.Crust.enabled:
+        indsCrust = np.where(Planet.material == Constants.materialCrust)[0]
+        Planet.Cp_JkgK[indsCrust] = np.nan
+        Planet.alpha_pK[indsCrust] = np.nan
+        Planet.Seismic.VP_kms[indsCrust] = np.nan
+        Planet.Seismic.VS_kms[indsCrust] = np.nan
+        Planet.Seismic.QS[indsCrust] = np.nan
+        Planet.Seismic.KS_GPa[indsCrust] = np.nan
+        Planet.Seismic.GS_GPa[indsCrust] = np.nan
+
     if Params.CALC_SEISMIC and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)):
         # Make sure the necessary EOSs have been loaded (mainly only important in parallel ExploreOgram runs)
         if not (Planet.Do.NO_H2O or Planet.Do.NO_OCEAN) and Planet.Ocean.EOS.key not in EOSlist.loaded.keys():
@@ -35,6 +45,8 @@ def SeismicCalcs(Planet, Params):
             indsMixedClathrateIhwet, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund, \
             indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
             indsFe = GetPhaseIndices(Planet.phase)
+        if Planet.Crust.enabled:
+            indsSil = indsSil[Planet.material[indsSil] == Constants.materialMantle]
 
         # Get seismic properties of all ice layers, starting with dry phases
         indsAllI = np.concatenate((indsI, indsIwet))

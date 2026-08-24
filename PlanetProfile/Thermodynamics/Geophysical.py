@@ -677,6 +677,85 @@ def PropagateAdiabaticPorousFilledIce(Planet, Params, iStart, iEnd, EOS, EOSpore
     return Planet, phasePore
 
 
+def MohoBoundaryTolerance_m(rOuter_m, rInner_m, rMoho_m):
+    """Absolute comparison tolerance for matching a Moho to a legacy boundary.
+
+    Eight float64 epsilons at the largest radial scale are allowed. Relative
+    tolerance is deliberately zero so the documented rule cannot grow beyond
+    this small roundoff allowance.
+    """
+    scale_m = max(abs(rOuter_m), abs(rInner_m), abs(rMoho_m), 1.0)
+    return 8 * np.finfo(np.float64).eps * scale_m
+
+
+def BuildMohoAwareSilicateGrid(rOuter_m, rInner_m, nShells, rMoho_m):
+    """Insert the Moho into the exact legacy grid without moving boundaries.
+
+    An already aligned Moho retains the legacy array byte-for-byte. Otherwise,
+    exactly one boundary and one shell are added at the requested Moho radius;
+    every legacy boundary is preserved bit-for-bit.
+    """
+    if nShells < 2:
+        raise ValueError('At least two silicate shells are required for an explicit crust.')
+    if not all(np.isfinite(value) for value in (rOuter_m, rInner_m, rMoho_m)):
+        raise ValueError('Silicate and Moho radii must be finite.')
+    if not rInner_m < rMoho_m < rOuter_m:
+        raise ValueError('The Moho must lie strictly between the silicate outer and inner radii.')
+
+    legacy_m = np.linspace(rOuter_m, rInner_m, nShells + 1)
+    if not np.all(np.isfinite(legacy_m)) or not np.all(np.diff(legacy_m) < 0):
+        raise ValueError('Legacy silicate boundaries must be finite, unique, and strictly descending.')
+
+    tolerance_m = MohoBoundaryTolerance_m(rOuter_m, rInner_m, rMoho_m)
+    aligned = np.flatnonzero(np.isclose(legacy_m, rMoho_m, rtol=0.0, atol=tolerance_m))
+    if aligned.size > 1:
+        raise ValueError('The Moho matches more than one legacy silicate boundary.')
+    if aligned.size == 1:
+        grid_m = legacy_m.copy()
+    else:
+        crossing = np.flatnonzero(
+            np.logical_and(legacy_m[:-1] > rMoho_m, rMoho_m > legacy_m[1:])
+        )
+        if crossing.size != 1:
+            raise ValueError('The Moho must intersect exactly one legacy silicate shell.')
+        insertAt = int(crossing[0] + 1)
+        grid_m = np.insert(legacy_m, insertAt, rMoho_m)
+        if not np.array_equal(np.delete(grid_m, insertAt), legacy_m):
+            raise ValueError('Moho insertion changed a pre-existing silicate boundary.')
+
+    if np.unique(grid_m).size != grid_m.size or not np.all(np.diff(grid_m) < 0):
+        raise ValueError('Moho-aware silicate boundaries must be unique and strictly descending.')
+    GetSilicateMaterialMask(grid_m[None, :], rMoho_m)
+    return grid_m
+
+
+def GetSilicateMaterialMask(rSil_m, rMoho_m):
+    """Return crust/mantle material IDs and reject any Moho-straddling shell."""
+    rSil_m = np.asarray(rSil_m, dtype=float)
+    if rSil_m.ndim != 2 or rSil_m.shape[1] < 3:
+        raise ValueError('Silicate boundaries must be a 2D array with at least two shells.')
+    if not np.all(np.isfinite(rSil_m)) or not np.all(np.diff(rSil_m, axis=1) < 0):
+        raise ValueError('Silicate boundaries must be finite, unique, and strictly descending.')
+    rOuter_m = rSil_m[:, :-1]
+    rInner_m = rSil_m[:, 1:]
+    tolerance_m = MohoBoundaryTolerance_m(
+        np.max(rOuter_m), np.min(rInner_m), rMoho_m
+    )
+    straddles = np.logical_and(
+        rOuter_m > rMoho_m + tolerance_m,
+        rInner_m < rMoho_m - tolerance_m,
+    )
+    if np.any(straddles):
+        raise ValueError('A silicate shell straddles the Moho; exact shell splitting failed.')
+    isCrust = rInner_m >= rMoho_m - tolerance_m
+    isMantle = rOuter_m <= rMoho_m + tolerance_m
+    if np.any(isCrust == isMantle):
+        raise ValueError('Every silicate shell must be assigned uniquely to crust or mantle.')
+    if not np.any(isCrust) or not np.any(isMantle):
+        raise ValueError('Explicit crust models require at least one crust and one mantle shell.')
+    return np.where(isCrust, Constants.materialCrust, Constants.materialMantle).astype(np.int8)
+
+
 def PropagateConductionProfilesSolid(Planet, Params, nProfiles, profRange, rSilEnd_m):
     """ Same as PropagateConductionSolid, but for silicate layers, for which we calculate
         a number of conductive profiles simultaneously as part of MoI matching.
@@ -714,7 +793,7 @@ def PropagateConductionProfilesSolid(Planet, Params, nProfiles, profRange, rSilE
     # Initialize output arrays and working arrays
     Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, kThermSil_WmK, MLayerSil_kg, MAboveSil_kg, \
     MHydro_kg, gSil_ms2, phiSil_frac, HtidalSil_Wm3, KSsil_GPa, GSsil_GPa, \
-    Ppore_MPa, rhoPore_kgm3, phasePore, qTop_Wm2, fn_g_ms2 \
+    Ppore_MPa, rhoPore_kgm3, phasePore, materialSil, qTop_Wm2, fn_g_ms2 \
         = InitSil(Planet, Params, nProfiles, profRange, rSilEnd_m)
 
     # Calculate initial values based on matrix properties since we're not modeling porosity
@@ -725,7 +804,7 @@ def PropagateConductionProfilesSolid(Planet, Params, nProfiles, profRange, rSilE
     Psil_MPa, Tsil_K, rhoSil_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, \
     HtidalSil_Wm3, kThermSil_WmK = SilRecursionSolid(Planet, Params,
         Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, kThermSil_WmK, MLayerSil_kg, MAboveSil_kg,
-        gSil_ms2, HtidalSil_Wm3, KSsil_GPa, GSsil_GPa, qTop_Wm2, fn_g_ms2)
+        gSil_ms2, HtidalSil_Wm3, KSsil_GPa, GSsil_GPa, materialSil, qTop_Wm2, fn_g_ms2)
 
     return Planet, Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, MLayerSil_kg, MAboveSil_kg, \
            gSil_ms2, phiSil_frac, HtidalSil_Wm3, kThermSil_WmK, Ppore_MPa, rhoSil_kgm3, \
@@ -742,7 +821,7 @@ def PropagateConductionProfilesPorous(Planet, Params, nProfiles, profRange, rSil
     # with top-layer values
     Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, kThermSil_WmK, MLayerSil_kg, MAboveSil_kg, \
     MHydro_kg, gSil_ms2, phiSil_frac, HtidalSil_Wm3, KSsil_GPa, GSsil_GPa, \
-    Ppore_MPa, rhoPore_kgm3, phasePore, qTop_Wm2, fn_g_ms2 \
+    Ppore_MPa, rhoPore_kgm3, phasePore, materialSil, qTop_Wm2, fn_g_ms2 \
         = InitSil(Planet, Params, nProfiles, profRange, rSilEnd_m)
 
     # Initialize porosity-specific arrays
@@ -782,23 +861,63 @@ def InitSil(Planet, Params, nProfiles, profRange, rSilEnd_m):
                 but it avoids some dramatic blow-up problems in intermediate steps and isn't super far off reality.
     """
 
+    # Assign ocean-bottom options as silicate-top values. The disabled path is
+    # the legacy grid construction byte-for-byte. The explicit-crust path is
+    # restricted by SetupInit to one waterless profile.
+    if Planet.Crust.enabled:
+        rMoho_m = Planet.Bulk.R_m - Planet.Crust.thickness_m
+        if Planet.Crust.legacy_n_sil_max is None:
+            Planet.Crust.legacy_n_sil_max = int(Planet.Steps.nSilMax)
+        legacyNSilMax = Planet.Crust.legacy_n_sil_max
+        rSil_m = np.array([
+            BuildMohoAwareSilicateGrid(
+                Planet.r_m[i + Planet.Steps.iSilStart], rSilEnd_m,
+                legacyNSilMax, rMoho_m
+            )
+            for i in profRange
+        ])
+        shellCounts = np.array([bounds.size - 1 for bounds in rSil_m], dtype=int)
+        if np.unique(shellCounts).size != 1:
+            raise ValueError('All explicit-crust profiles must have the same silicate shell count.')
+        Planet.Steps.nSilMax = int(shellCounts[0])
+        Planet.Crust.working_n_sil_max = Planet.Steps.nSilMax
+        Planet.Crust.moho_boundary_inserted = Planet.Steps.nSilMax == legacyNSilMax + 1
+        if Planet.Steps.nSilMax not in (legacyNSilMax, legacyNSilMax + 1):
+            raise ValueError('Moho-aware grid must add either zero or one silicate shell.')
+        materialSil = GetSilicateMaterialMask(rSil_m, rMoho_m)
+    else:
+        rSil_m = np.array([np.linspace(Planet.r_m[i+Planet.Steps.iSilStart], rSilEnd_m, Planet.Steps.nSilMax+1) for i in profRange])
+        materialSil = np.full((nProfiles, Planet.Steps.nSilMax), Constants.materialMantle, dtype=np.int8)
+
     Psil_MPa, Tsil_K, rhoSil_kgm3, kThermSil_WmK, MLayerSil_kg, MAboveSil_kg, gSil_ms2, \
     phiSil_frac, HtidalSil_Wm3, Ppore_MPa, rhoPore_kgm3, KSsil_GPa, GSsil_GPa \
         = (np.zeros((nProfiles, Planet.Steps.nSilMax)) for _ in range(13))
     phasePore = np.zeros((nProfiles, Planet.Steps.nSilMax), dtype=np.int64)
 
-    # Assign ocean-bottom options as silicate-top values
-    rSil_m = np.array([np.linspace(Planet.r_m[i+Planet.Steps.iSilStart], rSilEnd_m, Planet.Steps.nSilMax+1) for i in profRange])
+    Planet.Crust.material_mask = materialSil
     Psil_MPa[:,0] = [Planet.P_MPa[i+Planet.Steps.iSilStart] for i in profRange]
     Tsil_K[:,0] = [Planet.T_K[i+Planet.Steps.iSilStart] for i in profRange]
-    if Planet.Do.ConstantProps['Inner'] and not Planet.Do.Fe_CORE:
+    if Planet.Crust.enabled:
+        isCrust = materialSil[:, 0] == Constants.materialCrust
+        isMantle = np.logical_not(isCrust)
+        rhoSil_kgm3[isCrust, 0] = Planet.Crust.bulk_density_kgm3
+        kThermSil_WmK[isCrust, 0] = Planet.Crust.thermal_conductivity_WmK
+        KSsil_GPa[isCrust, 0] = np.nan
+        GSsil_GPa[isCrust, 0] = np.nan
+        if np.any(isMantle):
+            rhoSil_kgm3[isMantle, 0] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[isMantle, 0], Tsil_K[isMantle, 0])
+            kThermSil_WmK[isMantle, 0] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[isMantle, 0], Tsil_K[isMantle, 0])
+            _, _, KSsil_GPa[isMantle, 0], GSsil_GPa[isMantle, 0] = \
+                Planet.Sil.EOS.fn_Seismic(Psil_MPa[isMantle, 0], Tsil_K[isMantle, 0])
+    elif Planet.Do.ConstantProps['Inner'] and not Planet.Do.Fe_CORE:
         # If we are doing constant inner density and no core, we need to set the density to that calculated
         rhoSil_kgm3[:,0] = Planet.Sil.rhoNoCore_kgm3
     else:
         # If we are doing constant inner density w/ core or EOS-based sil, then sil density is specified by user/EOS and we set it up in EOS already
         rhoSil_kgm3[:,0] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,0], Tsil_K[:,0])
-    kThermSil_WmK[:,0] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,0], Tsil_K[:,0])
-    _, _, KSsil_GPa[:,0], GSsil_GPa[:,0] = Planet.Sil.EOS.fn_Seismic(Psil_MPa[:,0], Tsil_K[:,0])
+    if not Planet.Crust.enabled:
+        kThermSil_WmK[:,0] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,0], Tsil_K[:,0])
+        _, _, KSsil_GPa[:,0], GSsil_GPa[:,0] = Planet.Sil.EOS.fn_Seismic(Psil_MPa[:,0], Tsil_K[:,0])
     gSil_ms2[:,0] = [Planet.g_ms2[i+Planet.Steps.iSilStart] for i in profRange]
 
     MHydro_kg = np.array([np.sum(Planet.MLayer_kg[:i]) for i in range(Planet.Steps.iSilStart, Planet.Steps.iSilStart + nProfiles)])
@@ -830,7 +949,7 @@ def InitSil(Planet, Params, nProfiles, profRange, rSilEnd_m):
 
     return Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, kThermSil_WmK, MLayerSil_kg, MAboveSil_kg, \
            MHydro_kg, gSil_ms2, phiSil_frac, HtidalSil_Wm3, KSsil_GPa, GSsil_GPa, \
-           Ppore_MPa, rhoPore_kgm3, phasePore, qTop_Wm2, fn_g_ms2
+           Ppore_MPa, rhoPore_kgm3, phasePore, materialSil, qTop_Wm2, fn_g_ms2
 
 
 def InitPorous(Planet, Params, nProfiles, rSil_m0, rSil_m1, Psil_MPa0, Tsil_K0, gSil_ms20, kThermSil_WmK0,
@@ -925,7 +1044,7 @@ def InitPorous(Planet, Params, nProfiles, rSil_m0, rSil_m1, Psil_MPa0, Tsil_K0, 
 
 def SilRecursionSolid(Planet, Params,
     Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, kThermSil_WmK, MLayerSil_kg, MAboveSil_kg,
-    gSil_ms2, HtidalSil_Wm3, KSsil_GPa, GSsil_GPa, qTop_Wm2, fn_g_ms2):
+    gSil_ms2, HtidalSil_Wm3, KSsil_GPa, GSsil_GPa, materialSil, qTop_Wm2, fn_g_ms2):
     """ Propagate a conductive profile down through all silicate profiles.
         In this case, we have different "knowns" than in the ice shell. There,
         we assumed the bottom melting temperature, which gave us the bottom pressure
@@ -978,16 +1097,29 @@ def SilRecursionSolid(Planet, Params,
             Tsil_K[:,j], qTop_Wm2 = ConductiveTemperature(Tsil_K[:,j-1], rSil_m[:,j-1], rSil_m[:,j],
                         kThermSil_WmK[:,j-1], rhoSil_kgm3[:,j-1], Planet.Sil.Qrad_Wkg, HtidalSil_Wm3[:,j-1],
                         qTop_Wm2)
-        if Planet.Do.ConstantProps['Inner'] and not Planet.Do.Fe_CORE:
+        if Planet.Crust.enabled:
+            isCrust = materialSil[:, j] == Constants.materialCrust
+            isMantle = np.logical_not(isCrust)
+            rhoSil_kgm3[isCrust, j] = Planet.Crust.bulk_density_kgm3
+            kThermSil_WmK[isCrust, j] = Planet.Crust.thermal_conductivity_WmK
+            KSsil_GPa[isCrust, j] = np.nan
+            GSsil_GPa[isCrust, j] = np.nan
+            if np.any(isMantle):
+                rhoSil_kgm3[isMantle, j] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[isMantle, j], Tsil_K[isMantle, j])
+                kThermSil_WmK[isMantle, j] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[isMantle, j], Tsil_K[isMantle, j])
+                _, _, KSsil_GPa[isMantle, j], GSsil_GPa[isMantle, j] = \
+                    Planet.Sil.EOS.fn_Seismic(Psil_MPa[isMantle, j], Tsil_K[isMantle, j])
+        elif Planet.Do.ConstantProps['Inner'] and not Planet.Do.Fe_CORE:
             # If we are doing constant inner density and no core, we need to set the density to that calculated
             rhoSil_kgm3[:,j] = Planet.Sil.rhoNoCore_kgm3
         else:
             # If we are doing constant inner density, then sil density is specified by user and we set it up in EOS already
             rhoSil_kgm3[:,j] = Planet.Sil.EOS.fn_rho_kgm3(Psil_MPa[:,j], Tsil_K[:,j])
-        kThermSil_WmK[:,j] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,j], Tsil_K[:,j])
-        # Get KS and GS now as they are needed for Htidal calculation;
-        # we will calculate them again later along with other seismic calcs
-        _, _, KSsil_GPa[:,j], GSsil_GPa[:,j] = Planet.Sil.EOS.fn_Seismic(Psil_MPa[:,j], Tsil_K[:,j])
+        if not Planet.Crust.enabled:
+            kThermSil_WmK[:,j] = Planet.Sil.EOS.fn_kTherm_WmK(Psil_MPa[:,j], Tsil_K[:,j])
+            # Get KS and GS now as they are needed for Htidal calculation;
+            # we will calculate them again later along with other seismic calcs
+            _, _, KSsil_GPa[:,j], GSsil_GPa[:,j] = Planet.Sil.EOS.fn_Seismic(Psil_MPa[:,j], Tsil_K[:,j])
         # Calculate gravity using absolute values, as we will use MAboveSil to check for exceeding body mass later.
         gSil_ms2[:,j] = fn_g_ms2(MAboveSil_kg[:,j], rSil_m[:,j])
 

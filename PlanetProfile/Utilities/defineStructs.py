@@ -676,6 +676,38 @@ class LateralSubstruct:
         self.massResidual_frac = None  # Fractional mass residual
 
 
+""" Optional explicit crust for waterless structure-only models """
+class CrustSubstruct:
+
+    def __init__(self):
+        # This mode is deliberately disabled by default so historical models
+        # retain the legacy single-silicate-material path.
+        self.enabled = False
+        self.thickness_m = None
+        self.bulk_density_kgm3 = None
+        self.thermal_conductivity_WmK = None
+        self.bulk_density_includes_porosity = False
+        self.structure_only = True
+        self.radiogenic_mode = 'fixed_specific_rate'
+        self.mode_status = 'STRUCTURE_ONLY_CRUST_MODE'
+        self.seismic_status = 'CRUST_SEISMIC_PROPERTIES_UNAVAILABLE'
+        self.implementation_status = 'R2_EXPLICIT_CRUST_PATCH_IMPLEMENTED_NOT_EXECUTED'
+        # Material IDs occupy a separate namespace from phase IDs.
+        self.material_id = 2
+
+        # Derived structural diagnostics. The working mask has shape
+        # (nProfiles, Steps.nSilMax); final layer labels live in
+        # Planet.material.
+        self.legacy_n_sil_max = None
+        self.working_n_sil_max = None
+        self.moho_boundary_inserted = None
+        self.material_mask = None
+        self.candidate_silicate_mass_kg = None
+        self.candidate_integrated_radiogenic_power_W = None
+        self.selected_silicate_mass_kg = None
+        self.selected_integrated_radiogenic_power_W = None
+
+
 """ Main body profile info--settings and variables """
 class PlanetStruct:
 
@@ -693,6 +725,7 @@ class PlanetStruct:
         self.Steps = StepsSubstruct()
         self.Ocean = OceanSubstruct()
         self.Sil = SilSubstruct()
+        self.Crust = CrustSubstruct()
         self.Core = CoreSubstruct()
         self.Seismic = SeismicSubstruct()
         self.Reduced = ReducedPlanetStruct()
@@ -720,6 +753,7 @@ class PlanetStruct:
         """ Derived quantities (assigned during PlanetProfile runs) """
         # Layer arrays
         self.phase = None  # Phase of the layer input as an integer: ocean=0, ice I through VI are 1 through 6, clathrate=Constants.phaseClath, silicates=Constants.phaseSil, iron=Constants.phaseFe.
+        self.material = None  # Structural material ID in a namespace independent of mineral/phase IDs.
         self.r_m = None  # Distance from center of body to the outer bound of current layer in m
         self.z_m = None  # Distance from surface of body to the outer bound of current layer in m
         self.T_K = None  # Temperature of each layer in K
@@ -3561,6 +3595,13 @@ class ConstantsStruct:
         self.phaseFeSolid = 105  # Phase ID for solid iron core material
         self.phaseFeS = 110  # Phase ID for liquid FeS
         self.phaseFeSsolid = 115  # Phase ID for solid FeS
+        # Structural material IDs are intentionally separate from phase IDs,
+        # so explicit crust labels cannot collide with mineral/pore phase ranges.
+        self.materialUnknown = 0
+        self.materialHydrosphere = 1
+        self.materialCrust = 2
+        self.materialMantle = 3
+        self.materialCore = 4
         self.sigmaClath_Sm = 5e-5  # Roughly fixed conductivity in the range 260-281 K, as reported by Stern et al. (2021): https://doi.org/10.1029/2021GL093475
         self.sigmaCO2Clath_Sm = 6.5e-4  # Also from Stern et al. (2021), at 273 K and 25% gas-filled porosity
         self.EactCO2Clath_kJmol = 46.5  # Also from Stern et al. (2021)

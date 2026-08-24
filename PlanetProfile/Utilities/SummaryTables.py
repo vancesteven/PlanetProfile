@@ -143,6 +143,8 @@ def GetLayerMeans(PlanetList, Params):
         if Planet.Do.VALID:
             # Inner layer means
             iSil = np.logical_and(Planet.phase >= Constants.phaseSil, Planet.phase < Constants.phaseSil + 10)
+            if Planet.Crust.enabled:
+                iSil = np.logical_and(iSil, Planet.material == Constants.materialMantle)
             if Planet.Do.POROUS_ROCK:
                 Planet.dzSilPorous_km = (Planet.Sil.Rmean_m -
                     np.max(Planet.r_m[:-1][np.logical_and(iSil, Planet.phi_frac < Planet.Sil.phiMin_frac)],

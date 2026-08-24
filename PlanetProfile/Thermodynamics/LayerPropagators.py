@@ -1298,6 +1298,31 @@ def InnerLayers(Planet, Params):
     Timing.printFunctionTimeDifference('InnerLayers()', time.time())
     return Planet
 
+
+def AssignLayerMaterials(Planet, iSilStart, iCoreStart, iCoreEnd):
+    """Assign independent structural material IDs after final profile selection."""
+    if Planet.Crust.enabled:
+        materialSil = Planet.Crust.material_mask[0, :Planet.Steps.nSil]
+        if np.size(materialSil) != Planet.Steps.nSil:
+            raise ValueError('Explicit-crust material mask does not match the selected silicate layers.')
+        Planet.material[iSilStart:iCoreStart] = materialSil
+        indsCrust = np.where(Planet.material == Constants.materialCrust)[0]
+        Planet.Cp_JkgK[indsCrust] = np.nan
+        Planet.alpha_pK[indsCrust] = np.nan
+    else:
+        Planet.material[iSilStart:iCoreStart] = Constants.materialMantle
+    Planet.material[iCoreStart:iCoreEnd] = Constants.materialCore
+    return Planet
+
+
+def ReportIntegratedRadiogenicPower(Planet, candidateSilicateMass_kg):
+    """Record power implied by fixed Sil.Qrad_Wkg without modifying that rate."""
+    masses_kg = np.asarray(candidateSilicateMass_kg, dtype=float)
+    Planet.Crust.candidate_silicate_mass_kg = masses_kg
+    Planet.Crust.candidate_integrated_radiogenic_power_W = Planet.Sil.Qrad_Wkg * masses_kg
+    return Planet.Crust.candidate_integrated_radiogenic_power_W
+
+
 def SelfConsistentInnerLayer(Planet, Params):
     """ Geophysical and thermodynamic calculations for silicate and core layers
         Calculates state variables of the layer with each pressure step
@@ -1372,6 +1397,7 @@ def SelfConsistentInnerLayer(Planet, Params):
         Planet.T_K = np.concatenate((Planet.T_K[:Planet.Steps.nHydro], extend))
         Planet.r_m = np.concatenate((Planet.r_m[:Planet.Steps.nHydro], extend, [0.0]))
         Planet.phase = np.concatenate((Planet.phase[:Planet.Steps.nHydro], extend.astype(np.int64)))
+        Planet.material = np.concatenate((Planet.material[:Planet.Steps.nHydro], extend.astype(np.int8)))
         Planet.rho_kgm3 = np.concatenate((Planet.rho_kgm3[:Planet.Steps.nHydro], extend))
         Planet.Cp_JkgK = np.concatenate((Planet.Cp_JkgK[:Planet.Steps.nHydro], extend))
         Planet.alpha_pK = np.concatenate((Planet.alpha_pK[:Planet.Steps.nHydro], extend))
@@ -1406,6 +1432,7 @@ def SelfConsistentInnerLayer(Planet, Params):
         # Assign phase values for silicates and core
         Planet.phase[iOS:iSC] = Constants.phaseSil + phasePore
         Planet.phase[iSC:iCC] = Constants.phaseFe
+        Planet = AssignLayerMaterials(Planet, iOS, iSC, iCC)
 
         # Record ocean layer thickness and properties
         Planet.phiSeafloor_frac = Planet.phi_frac[iOS]
@@ -1948,6 +1975,12 @@ def FindInnerWithMoIAndEOS(Planet, Params):
 
         C_kgm2 = np.zeros(Planet.Steps.nHydroMax)
 
+    if Planet.Crust.enabled:
+        candidateSilicateMass_kg = np.array([
+            np.sum(MLayerSil_kg[i, :nSilFinal[i]]) for i in indsSilValid
+        ])
+        ReportIntegratedRadiogenicPower(Planet, candidateSilicateMass_kg)
+
     # Find contribution to axial moment of inertia C from each silicate layer
     dCfromSil_kgm2 = 8*np.pi/15 * rhoSil_kgm3 * (rSil_m[:,:-1]**5 - rSil_m[:,1:]**5)
 
@@ -2069,6 +2102,9 @@ def FindInnerWithMoIAndEOS(Planet, Params):
 
         # Fill core/mantle trade arrays and set mean values consistent with MoI
         MtotSil_kg = np.sum(MLayerSil_kg[iCMR2sil,:nSilFinal[iCMR2sil]])
+        if Planet.Crust.enabled:
+            Planet.Crust.selected_silicate_mass_kg = MtotSil_kg
+            Planet.Crust.selected_integrated_radiogenic_power_W = Planet.Sil.Qrad_Wkg * MtotSil_kg
         VtotSil_m3 = 4/3*np.pi * (rSil_m[iCMR2sil,0]**3 - rSil_m[iCMR2sil,nSilFinal[iCMR2sil]]**3)
         Planet.Sil.rhoMean_kgm3 = MtotSil_kg / VtotSil_m3
         Planet.Sil.rhoTrade_kgm3 = np.array([np.sum(MLayerSil_kg[i,:nSilFinal[i]]) / (4/3*np.pi * (rSil_m[i,0]**3 - rSil_m[i,nSilFinal[i]-1]**3)) for i in CMR2indsSil])

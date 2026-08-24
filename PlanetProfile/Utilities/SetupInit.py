@@ -184,6 +184,9 @@ def SetupInit(Planet, Params):
         elif Planet.Sil.wPore_ppt is None:
             Planet.Sil.wPore_ppt = Planet.Ocean.wOcean_ppt
 
+    if Planet.Crust.enabled:
+        ValidateStructureOnlyCrust(Planet)
+
     # Get filenames for saving/loading
     Planet, Params.DataFiles, Params.FigureFiles = SetupFilenames(Planet, Params)
         
@@ -484,6 +487,50 @@ def SetupInit(Planet, Params):
     return Planet, Params
 
 
+def ValidateStructureOnlyCrust(Planet):
+    """Validate the deliberately narrow explicit-crust structural mode.
+
+    This first implementation is restricted to the non-porous, waterless,
+    EOS-mantle plus iron-core path required by the controlled lunar R2
+    experiments. It does not provide a crust thermodynamic or elastic EOS.
+    """
+    crust = Planet.Crust
+    if not crust.structure_only:
+        raise ValueError('Crust.enabled currently requires Crust.structure_only = True.')
+    if not Planet.Do.NO_H2O:
+        raise ValueError('STRUCTURE_ONLY_CRUST_MODE currently supports only Do.NO_H2O bodies.')
+    if not Planet.Do.Fe_CORE:
+        raise ValueError('STRUCTURE_ONLY_CRUST_MODE currently requires Do.Fe_CORE = True.')
+    if Planet.Do.POROUS_ROCK:
+        raise ValueError('STRUCTURE_ONLY_CRUST_MODE does not support Do.POROUS_ROCK.')
+    if Planet.Do.ConstantProps['Inner']:
+        raise ValueError('STRUCTURE_ONLY_CRUST_MODE requires the EOS-based inner-layer path.')
+    if crust.radiogenic_mode != 'fixed_specific_rate':
+        raise ValueError("Crust.radiogenic_mode must be 'fixed_specific_rate'.")
+    if crust.bulk_density_includes_porosity is not True:
+        raise ValueError('Crust.bulk_density_includes_porosity must be True; no porosity correction is applied.')
+    if crust.material_id != Constants.materialCrust:
+        raise ValueError(f'Crust.material_id must equal Constants.materialCrust ({Constants.materialCrust}).')
+    if Planet.Steps.nSilMax is None or Planet.Steps.nSilMax < 2:
+        raise ValueError('Steps.nSilMax must be at least 2 for an explicit crust and mantle.')
+
+    required_positive = {
+        'Crust.thickness_m': crust.thickness_m,
+        'Crust.bulk_density_kgm3': crust.bulk_density_kgm3,
+        'Crust.thermal_conductivity_WmK': crust.thermal_conductivity_WmK,
+    }
+    for name, value in required_positive.items():
+        if value is None or not np.isfinite(value) or value <= 0:
+            raise ValueError(f'{name} must be finite and greater than zero.')
+    if crust.thickness_m >= Planet.Bulk.R_m:
+        raise ValueError('Crust.thickness_m must be smaller than Bulk.R_m.')
+    if Planet.Sil.Qrad_Wkg is None or not np.isfinite(Planet.Sil.Qrad_Wkg):
+        raise ValueError('Sil.Qrad_Wkg must be finite in STRUCTURE_ONLY_CRUST_MODE.')
+
+    log.warning('STRUCTURE_ONLY_CRUST_MODE: crust Cp, alpha, seismic properties, electrical conductivity, '
+                'and viscosity are unavailable and will remain NaN. This mode is not a crust EOS.')
+
+
 def SetupInversion(Params):
 
     # Ensure configPP/Params toggles are set as needed
@@ -719,6 +766,7 @@ def SetupLayers(Planet):
     nStepsForArrays = Planet.Steps.nHydroMax
     
     Planet.phase = np.zeros(nStepsForArrays, dtype=np.int64)
+    Planet.material = np.full(nStepsForArrays, Constants.materialHydrosphere, dtype=np.int8)
     Planet.P_MPa, Planet.T_K, Planet.r_m, Planet.rho_kgm3, \
         Planet.Cp_JkgK, Planet.alpha_pK, Planet.g_ms2, Planet.phi_frac, \
         Planet.sigma_Sm, Planet.z_m, Planet.MLayer_kg, Planet.VLayer_m3, Planet.kTherm_WmK, \

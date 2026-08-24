@@ -10,6 +10,24 @@ import numpy as np
 import os
 
 
+def _material_columns(Planet):
+    """Return stable material IDs/names without changing the legacy text format."""
+    nTotal = Planet.Steps.nTotal
+    material = getattr(Planet, 'material', None)
+    if material is None or np.size(material) < nTotal:
+        material = np.zeros(nTotal, dtype=np.int8)
+    else:
+        material = np.asarray(material[:nTotal], dtype=np.int8)
+    names = {
+        0: 'unknown',
+        1: 'hydrosphere',
+        2: 'crust',
+        3: 'mantle',
+        4: 'core',
+    }
+    return material, np.array([names.get(int(value), 'unknown') for value in material])
+
+
 def WriteProfileCSV(Planet, Params, outputPath=None, precision=8):
     """
     Write profile data to CSV format with reasonable precision.
@@ -56,6 +74,10 @@ def WriteProfileCSV(Planet, Params, outputPath=None, precision=8):
         'Htidal_Wm3': Planet.Htidal_Wm3[:Planet.Steps.nTotal],
         'eta_Pas': Planet.eta_Pas[:Planet.Steps.nTotal]
     }
+    if Planet.Crust.enabled:
+        material_id, material = _material_columns(Planet)
+        data['material_id'] = material_id
+        data['material'] = material
 
     df = pd.DataFrame(data)
 
@@ -116,6 +138,10 @@ def WriteProfileSpreadsheet(Planet, Params, outputPath=None):
         'Htidal_Wm3': Planet.Htidal_Wm3[:Planet.Steps.nTotal],
         'eta_Pas': Planet.eta_Pas[:Planet.Steps.nTotal]
     }
+    if Planet.Crust.enabled:
+        material_id, material = _material_columns(Planet)
+        data['material_id'] = material_id
+        data['material'] = material
     df_profile = pd.DataFrame(data)
 
     # Create metadata sheet

@@ -975,6 +975,8 @@ def PlotPvTPerpleX(PlanetList, Params):
         # Get pressure and temperature bounds and eval pts and set title
         iSil = np.logical_and(Planet.phase >= Constants.phaseSil,
                               Planet.phase < Constants.phaseSil + 10)
+        if Planet.Crust.enabled:
+            iSil = np.logical_and(iSil, Planet.material == Constants.materialMantle)
         if INCLUDING_CORE:
             if Params.TITLES:
                 fig.suptitle(f'{Planet.name}{FigLbl.PvTtitleCore}')

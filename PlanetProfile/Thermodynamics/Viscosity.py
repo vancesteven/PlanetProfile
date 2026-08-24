@@ -2,7 +2,7 @@ import numpy as np
 import logging
 import scipy.interpolate as spi
 from PlanetProfile.Thermodynamics.HydroEOS import GetPlanetOceanEOS
-from PlanetProfile.Utilities.defineStructs import EOSlist, Timing
+from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, Timing
 import time
 from PlanetProfile.Utilities.Indexing import GetPhaseIndices
 
@@ -22,6 +22,8 @@ def ViscosityCalcs(Planet, Params):
             indsMixedClathrateIhwet, indsMixedClathrateIIund, indsMixedClathrateIIIund, indsMixedClathrateVund, indsMixedClathrateVIund, \
             indsSil, indsSilLiq, indsSilI, indsSilII, indsSilIII, indsSilV, indsSilVI, \
             indsFe = GetPhaseIndices(Planet.phase)
+        if Planet.Crust.enabled:
+            indsSil = indsSil[Planet.material[indsSil] == Constants.materialMantle]
 
         if Params.CALC_VISCOSITY:
             # Make sure the necessary EOSs have been loaded (mainly only important in parallel ExploreOgram runs)
