@@ -11,6 +11,53 @@ from PlanetProfile.Thermodynamics.ConstantEOS import GetConstantEOS
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
+# Introspection bypass for EOS-domain enforcement.
+#
+# A few places probe an EOS with sentinel arguments (P=0, T=0) purely to
+# discover its TYPE or its zero-porosity value -- notably GetphiCalc, which
+# calls fn_phiEOS_frac(0, 0) to distinguish a real porosity EOS from a
+# ReturnZeros stand-in. Those sentinels are outside every real table domain by
+# construction and are not scientific evaluations, so they must not trip a
+# strict EOS-domain policy.
+#
+# This bypass is deliberately narrow: it is enabled only inside the
+# EOSIntrospection() context manager, never for a property evaluation on a
+# physical (P, T) node.
+_EOS_INTROSPECTION_DEPTH = 0
+
+
+class EOSIntrospection:
+    """Temporarily suspend EOS-domain enforcement for sentinel/type probes."""
+
+    def __enter__(self):
+        global _EOS_INTROSPECTION_DEPTH
+        _EOS_INTROSPECTION_DEPTH += 1
+        return self
+
+    def __exit__(self, *exc):
+        global _EOS_INTROSPECTION_DEPTH
+        _EOS_INTROSPECTION_DEPTH -= 1
+        return False
+
+
+def EOSIntrospectionActive():
+    return _EOS_INTROSPECTION_DEPTH > 0
+
+
+def ResolveEOSdomainPolicy(Planet, Params):
+    """Per-body EOS-domain policy, falling back to the global default.
+
+    A body configuration may demand a stricter policy than the run-wide
+    default (e.g. a lunar model that must fail rather than silently saturate
+    at the edge of its Perple_X table). Planet.Do.EOS_DOMAIN_POLICY = None
+    means inherit Params.EOS_DOMAIN_POLICY.
+    """
+    bodyPolicy = getattr(getattr(Planet, 'Do', None), 'EOS_DOMAIN_POLICY', None)
+    if bodyPolicy is not None:
+        return bodyPolicy
+    return getattr(Params, 'EOS_DOMAIN_POLICY', 'legacy_clamp')
+
+
 def GetPlanetInnerEOS(Planet, Params, Fe_EOS = False):
     if Fe_EOS:
         if Planet.Do.ConstantProps['Inner']:
@@ -20,7 +67,7 @@ def GetPlanetInnerEOS(Planet, Params, Fe_EOS = False):
                                       kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
                                       wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
                                       TviscTrans_K=Planet.Core.TviscTrans_K,
-                                      EOSdomainPolicy=getattr(Params, 'EOS_DOMAIN_POLICY', 'legacy_clamp'))
+                                      EOSdomainPolicy=ResolveEOSdomainPolicy(Planet, Params))
     else:
         if Planet.Do.ConstantProps['Inner']:
             innerEOSWrapper = GetConstantEOS(Planet.Sil.ConstantProps, EOStype='inner', EOScomp='Sil')
@@ -32,7 +79,7 @@ def GetPlanetInnerEOS(Planet, Params, Fe_EOS = False):
                         EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas,
                         etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
                         TviscTrans_K=Planet.Sil.TviscTrans_K,
-                        EOSdomainPolicy=getattr(Params, 'EOS_DOMAIN_POLICY', 'legacy_clamp'))
+                        EOSdomainPolicy=ResolveEOSdomainPolicy(Planet, Params))
     return innerEOSWrapper
 
 
@@ -357,9 +404,14 @@ class PerplexEOSStruct:
         query can warn or raise instead of being silently saturated to the
         table edge. Clamping behavior itself is unchanged.
         """
+        policy = getattr(self, 'EOSdomainPolicy', 'legacy_clamp')
+        if EOSIntrospectionActive():
+            # Sentinel/type probe, not a physical evaluation -- fall back to
+            # the historical clamp so introspection cannot trip a strict policy.
+            policy = 'legacy_clamp'
         return EnforceEOSDomain(
             P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax,
-            policy=getattr(self, 'EOSdomainPolicy', 'legacy_clamp'),
+            policy=policy,
             CLAMP=not self.EXTRAP,
             EOSname=f'{"core" if getattr(self, "Fe_EOS", False) else "silicate"} EOS {self.comp}')
 
@@ -482,14 +534,20 @@ class GetphiCalc:
     def __init__(self, phiMax_frac, fn_phiEOS_frac, phiMin_frac):
         self.phiMin_frac = phiMin_frac
         self.phiMax_frac = phiMax_frac
-        if type(fn_phiEOS_frac(0,0)) == ReturnZeros:
+        # These (0, 0) calls are sentinel probes, not evaluations at a physical
+        # state; suspend EOS-domain enforcement around them.
+        with EOSIntrospection():
+            isZeros = type(fn_phiEOS_frac(0, 0)) == ReturnZeros
+        if isZeros:
             self.multFactor = 1.0
             # For some reason, binding a ReturnZeros func as a method requires an extra dummy call
-            self.fn_phiEOS_frac = fn_phiEOS_frac(0, 0)
+            with EOSIntrospection():
+                self.fn_phiEOS_frac = fn_phiEOS_frac(0, 0)
             self.EOSphiMax_frac = 0
             self.ZEROS = True
         else:
-            self.EOSphiMax_frac = np.squeeze(fn_phiEOS_frac(0, 0))
+            with EOSIntrospection():
+                self.EOSphiMax_frac = np.squeeze(fn_phiEOS_frac(0, 0))
             if self.EOSphiMax_frac == 0:
                 self.multFactor = 1
             else:

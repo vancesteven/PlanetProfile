@@ -33,7 +33,24 @@ mtpContext = mtp.get_context(mtpType)
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
+def ValidatePrescribedSilicateT(Planet):
+    """Fail fast if prescribed-silicate-T mode is enabled but not usable."""
+    if not Planet.Do.PRESCRIBED_SILICATE_T:
+        return
+    if Planet.Sil.T_of_z_K is None:
+        raise ValueError('Do.PRESCRIBED_SILICATE_T is True but Sil.T_of_z_K is not set. '
+                         'Supply a callable T_K = f(depth_m).')
+    if not callable(Planet.Sil.T_of_z_K):
+        raise ValueError('Sil.T_of_z_K must be callable as T_K = f(depth_m).')
+    if Planet.Do.POROUS_ROCK:
+        raise ValueError('PRESCRIBED_SILICATE_T is not implemented for Do.POROUS_ROCK; '
+                         'the porous silicate recursion still propagates its own temperature.')
+    if Planet.Do.ConstantProps['Inner']:
+        raise ValueError('PRESCRIBED_SILICATE_T requires the EOS-based inner-layer path.')
+
+
 def SetupInit(Planet, Params):
+    ValidatePrescribedSilicateT(Planet)
     # Set timer start
     Planet.profileStartTime = time.time()
     # Print version number

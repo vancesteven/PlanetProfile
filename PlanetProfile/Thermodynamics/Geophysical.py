@@ -4,6 +4,7 @@ from PlanetProfile.Thermodynamics.HydroEOS import GetPlanetIceEOS
 from PlanetProfile.Utilities.Indexing import PhaseConv
 from PlanetProfile.Thermodynamics.ThermalProfiles.ThermalProfiles import ConductiveTemperature, ConductiveTemperatureCorrect
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
+from PlanetProfile.Thermodynamics.PrescribedT import PrescribedTemperatureProfile
 
 # Assign logger
 log = logging.getLogger('PlanetProfile')
@@ -897,6 +898,12 @@ def InitSil(Planet, Params, nProfiles, profRange, rSilEnd_m):
     Planet.Crust.material_mask = materialSil
     Psil_MPa[:,0] = [Planet.P_MPa[i+Planet.Steps.iSilStart] for i in profRange]
     Tsil_K[:,0] = [Planet.T_K[i+Planet.Steps.iSilStart] for i in profRange]
+    if Planet.Do.PRESCRIBED_SILICATE_T:
+        # Externally prescribed T(depth): replaces the inherited surface/hydrosphere
+        # temperature for the topmost silicate node of every candidate profile.
+        # Evaluated per candidate because each candidate has its own radius grid.
+        Tsil_K[:,0] = Planet.Sil.T_of_z_K(Planet.Bulk.R_m - rSil_m[:,0],
+                                          label='silicate layer 0')
     if Planet.Crust.enabled:
         isCrust = materialSil[:, 0] == Constants.materialCrust
         isMantle = np.logical_not(isCrust)
@@ -1083,7 +1090,16 @@ def SilRecursionSolid(Planet, Params,
         MAboveSil_kg[:,j] = MAboveSil_kg[:,j-1] + MLayerSil_kg[:,j-1]
         # Step pressure according to the local layer gravity and overlying mass increase
         Psil_MPa[:,j] = Psil_MPa[:,j-1] + 1e-6 * MLayerSil_kg[:,j-1] * gSil_ms2[:,j-1] / (4*np.pi*rSil_m[:,j]**2)
-        if isSolidSphere:
+        if Planet.Do.PRESCRIBED_SILICATE_T:
+            # Prescribed-T mode: temperature comes from the external profile,
+            # evaluated at this node's depth for every candidate profile. The
+            # structural recursion above (mass, pressure) and below (density,
+            # moduli) is untouched -- only the temperature assignment changes.
+            # qTop_Wm2 is left as inherited; it is not used to set T here and
+            # carries no meaning in this mode.
+            Tsil_K[:,j] = Planet.Sil.T_of_z_K(Planet.Bulk.R_m - rSil_m[:,j],
+                                              label=f'silicate layer {j}')
+        elif isSolidSphere:
             # Option A: enforce c1 = 0 BC by overriding qTop with the value consistent
             # with T finite at r=0.  Then ConductiveTemperatureCorrect reduces to the
             # closed form T(r) = Ttop + Htot*(rTop^2 - r^2)/(6k).

@@ -48,6 +48,28 @@ Planet = PlanetStruct('Luna')
 Planet.Do.NO_H2O = True   # [ASSUM] Dry body: no hydrosphere.
 Planet.Do.Fe_CORE = True  # [ASSUM] Fe-bearing core present (Weber et al. 2011; Williams et al. 2014).
 
+# [ASSUM] Strict EOS-domain policy, set explicitly here rather than inherited
+# from Params: a scientific lunar run must FAIL if any mantle or core EOS
+# evaluation falls outside the tabulated Perple_X domain, instead of silently
+# saturating at the table edge. The lunar central pressure sits close to the
+# unified Warren table's 5 GPa ceiling, so this is not a hypothetical risk.
+# NOTE, important and deliberate: 'warn', not 'error'.
+#
+# 'error' is architecturally unsatisfiable for a cored dry body. PlanetProfile
+# propagates EVERY candidate silicate profile from its start radius down to
+# r = 0 as scratch space for the core-radius search (Silicates.py sets
+# rSilEnd_m = 0 when Fe_CORE is set), and only afterwards replaces the lower
+# part with core. Those scratch nodes reach pressures beyond any mantle table's
+# ceiling (observed: 5002.9 MPa against a 5000 MPa limit) even when the FINAL
+# selected model lies entirely inside the domain.
+#
+# So strictness is enforced where it is scientifically meaningful -- on the
+# ANSWER rather than on the search. The run uses 'warn' so every out-of-domain
+# evaluation is logged with its magnitude, and the selected model is then
+# checked node-by-node to be fully inside the EOS domain. A model that is not
+# is rejected. See docs/LUNAR_PLANETPROFILE_WARREN_1D_REFERENCE.md.
+Planet.Do.EOS_DOMAIN_POLICY = 'warn'
+
 # [OBS] Mean radius 1737.15 km. Neumann, G. A. (2013), LRO LOLA topographic
 # data products, as adopted in Williams et al. (2014), JGR Planets 119,
 # 1546-1578, Table 2. (Smith et al. 2010, GRL 37, L18204 give a closely
@@ -121,6 +143,49 @@ Planet.Crust.bulk_density_kgm3 = 2751.4
 # assumption, not a measurement; irrelevant to structure once Stage 2
 # prescribes T(r).
 Planet.Crust.thermal_conductivity_WmK = 1.5
+
+""" Prescribed silicate temperature (Stage 2) """
+# PlanetProfile's own conductive silicate propagation is not validated for the
+# Moon (the legacy shell-conduction branch is retained for Fe_CORE bodies), so
+# the silicate temperature is supplied externally instead. Only the temperature
+# assignment is replaced: P, rho, g, layer mass, MoI and the core-radius search
+# are still solved by PlanetProfile, with the EOS evaluated at this T.
+#
+# The resulting model is hydrostatically self-consistent CONDITIONAL ON this
+# prescribed thermal field. It is NOT thermally self-consistent.
+#
+# Source: Santangelo et al. (2025) preferred model BU16_C_th04_K_027_r15_th6,
+# area-weighted global mean over the native 180x360 lateral grid -- the same
+# reduction used for every radial validation in this study. Extraction and
+# provenance: lunar-bsm-interior-models/inputs/thermal/
+# santangelo_preferred_radial_temperature.csv
+#
+# Coverage: 0-1350 km depth. It spans the crust (surface value 250.00 K,
+# independently consistent with Bulk.Tsurf_K above), so no separate crustal
+# thermal bridge is required. It does NOT reach a plausible CMB; any mantle
+# node deeper than 1350 km has no prescribed temperature and will raise rather
+# than extrapolate.
+Planet.Do.PRESCRIBED_SILICATE_T = True
+
+from pathlib import Path as _Path
+from PlanetProfile.Thermodynamics.PrescribedT import LoadPrescribedTProfileCSV as _LoadT
+_TPROFILE = _Path('/Users/emma/Documents/Code/lunar-bsm-interior-models/inputs/thermal/'
+                  'santangelo_preferred_radial_temperature.csv')
+# deepContinuation='isothermal' is REQUIRED here, and is not a scientific
+# choice about the deep Moon. PlanetProfile propagates every candidate
+# silicate profile from its start radius down to r = 0 as scratch space for
+# the core-radius search (Silicates.py sets rSilEnd_m = 0 when Fe_CORE is
+# set), so it queries T at depths no finite profile can cover. Holding the
+# deepest tabulated temperature constant below 1350 km lets that scratch
+# space evaluate; every such use is COUNTED on the profile object, and the
+# run is only interpretable if the FINAL selected model is afterwards shown
+# not to depend on it (i.e. its deepest mantle node lies above 1350 km).
+# The tail is in any case nearly isothermal: 1709.6 -> 1713.9 K over the
+# last 24 km, a gradient of ~0.06 K/km.
+Planet.Sil.T_of_z_K = _LoadT(_TPROFILE,
+                             source='Santangelo et al. (2025) BU16_C_th04_K_027_r15_th6, area-weighted global mean',
+                             deepContinuation='isothermal')
+Planet.Sil.TprescribedSource = str(_TPROFILE)
 
 """ Silicate mantle """
 # [ASSUM] Unified Warren (2005) Preferred Ti-free + stx24 table: quartz

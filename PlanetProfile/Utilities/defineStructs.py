@@ -136,6 +136,18 @@ class BulkSubstruct():
 class DoSubstruct:
     def __init__(self):
         self.VALID = True  # Whether this profile is physically possible
+        # Per-body EOS-domain policy override: None means inherit
+        # Params.EOS_DOMAIN_POLICY. Set to 'legacy_clamp', 'warn' or 'error'
+        # in a body configuration when that body's science requires a
+        # stricter policy than the global default.
+        self.EOS_DOMAIN_POLICY = None
+        # Use an externally prescribed silicate temperature profile instead of
+        # PlanetProfile's own conductive/adiabatic silicate propagation. The
+        # structural recursion (P, rho, g, mass, MoI, core radius) is unchanged;
+        # only the temperature assignment in the silicate layers is replaced.
+        # Requires Sil.T_of_z_K to be set. Generic: not specific to any body
+        # or any thermal dataset.
+        self.PRESCRIBED_SILICATE_T = False
         self.Fe_CORE = False  # Whether to model an iron core for this body
         self.ConstantProps = {'Ocean': False, 'Ice': False, 'Inner': False}  # Whether to use constant thermodynamic properties for each layer type instead of geochemical EOS
         self.CustomEOS = {'Ocean': False, 'OceanMelt': False, 'Pore': False}  # Whether to use a user-supplied OceanEOSBase instance for each EOS context. Set the corresponding slot (Ocean.EOS, Ocean.EOSmelt, Sil.poreEOS) before setting flag to True.
@@ -331,6 +343,13 @@ class SilSubstruct:
         self.HtidalMax_Wm3 = 1e-7  # Maximum average tidal heating to stop MoI search
         self.deltaHtidal_logUnits = 1/3  # Step size by which to increment Htidal_Wm3 for finding MoI match with no core.
         self.kTherm_WmK = None  # Constant thermal conductivity to set for a specific body (overrides Constants.kThermSil_WmK)
+        # Externally prescribed silicate temperature, used only when
+        # Do.PRESCRIBED_SILICATE_T is True. Callable T_K = f(depth_m) taking
+        # depth below the surface in m. Must raise on out-of-range input --
+        # silent thermal extrapolation is not permitted.
+        self.T_of_z_K = None
+        # Provenance string for the prescribed profile, recorded in output.
+        self.TprescribedSource = None
         self.etaRock_Pas = None # Assumed viscosities of rock - Overrides Constants.etaRock_Pas if specified
         self.TviscTrans_K = None # Transition temperatures for rock to go from one viscosity value to another - Overrides Constants.TviscRock_K if specified
         self.kThermCMB_WmK = None  # Constant thermal conductivity to use for determining core-mantle boundary thermal boundary layer thickness when convection is happening
