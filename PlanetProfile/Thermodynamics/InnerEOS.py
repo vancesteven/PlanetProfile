@@ -5,7 +5,7 @@ from scipy.io import loadmat
 from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator, interp1d as Interp1D, griddata as GridData
 from PlanetProfile import _ROOT, _PERPLEXCACHE
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, ConstantPropsStruct
-from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnZeros, EOSwrapper
+from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnZeros, EOSwrapper, EnforceEOSDomain
 from PlanetProfile.Thermodynamics.ConstantEOS import GetConstantEOS
 
 # Assign logger
@@ -19,7 +19,8 @@ def GetPlanetInnerEOS(Planet, Params, Fe_EOS = False):
             innerEOSWrapper = GetInnerEOS(Planet.Core.coreEOS, EOSinterpMethod=Params.lookupInterpMethod, Fe_EOS=True,
                                       kThermConst_WmK=Planet.Core.kTherm_WmK, EXTRAP=Params.EXTRAP_Fe,
                                       wFeCore_ppt=Planet.Core.wFe_ppt, wScore_ppt=Planet.Core.wS_ppt, etaSilFixed_Pas=Planet.Sil.etaRock_Pas, etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
-                                      TviscTrans_K=Planet.Core.TviscTrans_K)
+                                      TviscTrans_K=Planet.Core.TviscTrans_K,
+                                      EOSdomainPolicy=getattr(Params, 'EOS_DOMAIN_POLICY', 'legacy_clamp'))
     else:
         if Planet.Do.ConstantProps['Inner']:
             innerEOSWrapper = GetConstantEOS(Planet.Sil.ConstantProps, EOStype='inner', EOScomp='Sil')
@@ -30,23 +31,30 @@ def GetPlanetInnerEOS(Planet, Params, Fe_EOS = False):
                         Pclosure_MPa=Planet.Sil.Pclosure_MPa, phiMin_frac=Planet.Sil.phiMin_frac,
                         EXTRAP=Params.EXTRAP_SIL, etaSilFixed_Pas=Planet.Sil.etaRock_Pas,
                         etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
-                        TviscTrans_K=Planet.Sil.TviscTrans_K)
+                        TviscTrans_K=Planet.Sil.TviscTrans_K,
+                        EOSdomainPolicy=getattr(Params, 'EOS_DOMAIN_POLICY', 'legacy_clamp'))
     return innerEOSWrapper
 
 
 def GetInnerEOS(EOSfname, EOSinterpMethod='nearest', nHeaders=13, Fe_EOS=False, kThermConst_WmK=None,
                 HtidalConst_Wm3=0, porosType=None, phiTop_frac=0, Pclosure_MPa=350, phiMin_frac=None,
-                EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None, etaSilFixed_Pas=None, etaCoreFixed_Pas=None, TviscTrans_K=None):
+                EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None, etaSilFixed_Pas=None, etaCoreFixed_Pas=None, TviscTrans_K=None,
+                EOSdomainPolicy='legacy_clamp'):
     innerEOS = PerplexEOSStruct(EOSfname, EOSinterpMethod=EOSinterpMethod, nHeaders=nHeaders,
                                 Fe_EOS=Fe_EOS, kThermConst_WmK=kThermConst_WmK,
                                 HtidalConst_Wm3=HtidalConst_Wm3, porosType=porosType,
                                 phiTop_frac=phiTop_frac, Pclosure_MPa=Pclosure_MPa,
                                 phiMin_frac=phiMin_frac, EXTRAP=EXTRAP,
                                 wFeCore_ppt=wFeCore_ppt, wScore_ppt=wScore_ppt,
-                                etaSilFixed_Pas=etaSilFixed_Pas, etaCoreFixed_Pas=etaCoreFixed_Pas, TviscTrans_K=TviscTrans_K)
+                                etaSilFixed_Pas=etaSilFixed_Pas, etaCoreFixed_Pas=etaCoreFixed_Pas, TviscTrans_K=TviscTrans_K,
+                                EOSdomainPolicy=EOSdomainPolicy)
     if innerEOS.ALREADY_LOADED:
         log.debug(f'{innerEOS.comp} EOS already loaded. Reusing existing EOS.')
         innerEOS = EOSlist.loaded[innerEOS.EOSlabel]
+        # The domain policy is a runtime behavior, not a property of the
+        # tabulated data, so it is deliberately excluded from EOSlabel. Re-apply
+        # it here so a cached EOS never carries a stale policy.
+        innerEOS.EOSdomainPolicy = EOSdomainPolicy
 
     # Ensure each EOSlabel is included in EOSlist, in case we have reused EOSs with
     # e.g. a smaller range that can reuse the larger-range already-loaded EOS.
@@ -63,8 +71,11 @@ class PerplexEOSStruct:
     """
     def __init__(self, EOSfname, EOSinterpMethod='nearest', nHeaders=13, Fe_EOS=False, kThermConst_WmK=None,
                  HtidalConst_Wm3=0, porosType=None, phiTop_frac=0, Pclosure_MPa=350, phiMin_frac=None,
-                 EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None, etaSilFixed_Pas=None, etaCoreFixed_Pas=None, TviscTrans_K=None):
+                 EXTRAP=False, wFeCore_ppt=None, wScore_ppt=None, etaSilFixed_Pas=None, etaCoreFixed_Pas=None, TviscTrans_K=None, EOSdomainPolicy='legacy_clamp'):
         self.comp = EOSfname[:-4]
+        # EOS-domain policy: 'legacy_clamp' (historical, silent), 'warn', or 'error'.
+        # Stored on the instance so it is available to every fn_* property call.
+        self.EOSdomainPolicy = EOSdomainPolicy
         self.EOSlabel = f'comp{self.comp}interp{EOSinterpMethod}kTherm{kThermConst_WmK}' + \
                 f'Htidal{HtidalConst_Wm3}poros{porosType}phi{phiTop_frac}' + \
                 f'Pclose{Pclosure_MPa}phiMin{phiMin_frac}extrap{EXTRAP}' + \
@@ -339,6 +350,19 @@ class PerplexEOSStruct:
             EOSlist.loaded[self.EOSlabel] = self
             EOSlist.ranges[self.EOSlabel] = self.rangeLabel
 
+    def _EnforceDomain(self, P_MPa, T_K):
+        """Apply this EOS's domain policy before any property evaluation.
+
+        Replaces the bare ResetNearestExtrap call so that an out-of-domain
+        query can warn or raise instead of being silently saturated to the
+        table edge. Clamping behavior itself is unchanged.
+        """
+        return EnforceEOSDomain(
+            P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax,
+            policy=getattr(self, 'EOSdomainPolicy', 'legacy_clamp'),
+            CLAMP=not self.EXTRAP,
+            EOSname=f'{"core" if getattr(self, "Fe_EOS", False) else "silicate"} EOS {self.comp}')
+
     def fn_porosCorrect(self, propBulk, propPore, phi, J):
         # Combine pore fluid properties with matrix properties in accordance with
         # Yu et al. (2016): http://dx.doi.org/10.1016/j.jrmge.2015.07.004
@@ -346,35 +370,28 @@ class PerplexEOSStruct:
 
     def fn_rho_kgm3(self, P_MPa, T_K, grid=False):
         # Limit extrapolation to use nearest value from evaluated fit if desired
-        if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        P_MPa, T_K = self._EnforceDomain(P_MPa, T_K)
         return self.ufn_rho_kgm3(P_MPa, T_K, grid=grid)
     def fn_Cp_JkgK(self, P_MPa, T_K, grid=False):
-        if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        P_MPa, T_K = self._EnforceDomain(P_MPa, T_K)
         return self.ufn_Cp_JkgK(P_MPa, T_K, grid=grid)
     def fn_alpha_pK(self, P_MPa, T_K, grid=False):
-        if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        P_MPa, T_K = self._EnforceDomain(P_MPa, T_K)
         return self.ufn_alpha_pK(P_MPa, T_K, grid=grid)
     def fn_kTherm_WmK(self, P_MPa, T_K, grid=False):
-        if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        P_MPa, T_K = self._EnforceDomain(P_MPa, T_K)
         return self.ufn_kTherm_WmK(P_MPa, T_K, grid=grid)
     def fn_Seismic(self, P_MPa, T_K, grid=False):
-        if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        P_MPa, T_K = self._EnforceDomain(P_MPa, T_K)
         return (self.ufn_VP_kms(P_MPa, T_K, grid=grid),
                 self.ufn_VS_kms(P_MPa, T_K, grid=grid),
                 self.ufn_KS_GPa(P_MPa, T_K, grid=grid),
                 self.ufn_GS_GPa(P_MPa, T_K, grid=grid))
     def fn_phi_frac(self, P_MPa, T_K, grid=False):
-        if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        P_MPa, T_K = self._EnforceDomain(P_MPa, T_K)
         return self.ufn_phi_frac(P_MPa, T_K, grid=grid)
     def fn_eta_Pas(self, P_MPa, T_K, grid=False):
-        if not self.EXTRAP:
-            P_MPa, T_K = ResetNearestExtrap(P_MPa, T_K, self.Pmin, self.Pmax, self.Tmin, self.Tmax)
+        P_MPa, T_K = self._EnforceDomain(P_MPa, T_K)
         return self.ufn_eta_Pas(P_MPa, T_K, grid=grid)
 
 

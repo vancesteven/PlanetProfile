@@ -34,6 +34,117 @@ def ResetNearestExtrap(var1, var2, min1, max1, min2, max2):
 
     return outVar1, outVar2
 
+class EOSDomainError(ValueError):
+    """Raised when an EOS is queried outside its tabulated P-T domain under a
+    strict domain policy."""
+    pass
+
+
+# Recognized EOS-domain policies. See EnforceEOSDomain.
+EOS_DOMAIN_POLICIES = ('legacy_clamp', 'warn', 'error')
+
+
+def EOSDomainExceedance(var1, var2, min1, max1, min2, max2):
+    """Quantify how far a set of (P, T) queries falls outside an EOS domain.
+
+    Returns a dict of diagnostics; all counts are ints and all exceedances are
+    in the same units as the inputs. An in-domain query set yields
+    nOutside == 0 and zero exceedances.
+    """
+    v1 = np.atleast_1d(np.asarray(var1, dtype=float))
+    v2 = np.atleast_1d(np.asarray(var2, dtype=float))
+    # Broadcast so paired (P, T) queries are counted per node, not per axis.
+    try:
+        b1, b2 = np.broadcast_arrays(v1, v2)
+    except ValueError:
+        b1, b2 = v1, v2
+
+    low1, high1 = b1 < min1, b1 > max1
+    low2, high2 = b2 < min2, b2 > max2
+    outside = low1 | high1 | low2 | high2
+
+    def _worst(arr, mask, bound, sign):
+        if not np.any(mask):
+            return 0.0
+        return float(np.max(sign * (arr[mask] - bound)))
+
+    return {
+        'nTotal': int(np.size(outside)),
+        'nOutside': int(np.count_nonzero(outside)),
+        'n1Low': int(np.count_nonzero(low1)), 'n1High': int(np.count_nonzero(high1)),
+        'n2Low': int(np.count_nonzero(low2)), 'n2High': int(np.count_nonzero(high2)),
+        'max1Below': _worst(b1, low1, min1, -1.0), 'max1Above': _worst(b1, high1, max1, 1.0),
+        'max2Below': _worst(b2, low2, min2, -1.0), 'max2Above': _worst(b2, high2, max2, 1.0),
+        'min1Requested': float(np.min(b1)) if np.size(b1) else np.nan,
+        'max1Requested': float(np.max(b1)) if np.size(b1) else np.nan,
+        'min2Requested': float(np.min(b2)) if np.size(b2) else np.nan,
+        'max2Requested': float(np.max(b2)) if np.size(b2) else np.nan,
+    }
+
+
+def FormatEOSDomainMessage(report, min1, max1, min2, max2, EOSname='EOS',
+                           var1name='P_MPa', var2name='T_K'):
+    """Human-readable description of an EOS-domain violation."""
+    parts = [
+        f'{EOSname}: {report["nOutside"]} of {report["nTotal"]} node(s) requested '
+        f'outside the tabulated EOS domain.',
+        f'  domain:    {var1name} [{min1:.6g}, {max1:.6g}], {var2name} [{min2:.6g}, {max2:.6g}]',
+        f'  requested: {var1name} [{report["min1Requested"]:.6g}, {report["max1Requested"]:.6g}], '
+        f'{var2name} [{report["min2Requested"]:.6g}, {report["max2Requested"]:.6g}]',
+    ]
+    if report['n1Low']:
+        parts.append(f'  {var1name} below min: {report["n1Low"]} node(s), max exceedance {report["max1Below"]:.6g}')
+    if report['n1High']:
+        parts.append(f'  {var1name} above max: {report["n1High"]} node(s), max exceedance {report["max1Above"]:.6g}')
+    if report['n2Low']:
+        parts.append(f'  {var2name} below min: {report["n2Low"]} node(s), max exceedance {report["max2Below"]:.6g}')
+    if report['n2High']:
+        parts.append(f'  {var2name} above max: {report["n2High"]} node(s), max exceedance {report["max2Above"]:.6g}')
+    return '\n'.join(parts)
+
+
+def EnforceEOSDomain(var1, var2, min1, max1, min2, max2, policy='legacy_clamp',
+                     CLAMP=True, EOSname='EOS', var1name='P_MPa', var2name='T_K'):
+    """Apply an EOS-domain policy to a set of (P, T) queries.
+
+    Policies:
+      'legacy_clamp' -- historical behavior: silently clamp to the nearest
+                        domain boundary (only when CLAMP is True). No warning.
+      'warn'         -- identical numerics to 'legacy_clamp', but log an
+                        explicit warning naming the EOS, the requested and
+                        tabulated ranges, the number of affected nodes and the
+                        maximum exceedance.
+      'error'        -- raise EOSDomainError before any property is evaluated.
+
+    CLAMP mirrors ``not EOS.EXTRAP``: when extrapolation is permitted the
+    values are passed through unchanged, but 'warn'/'error' still apply, so a
+    deliberate extrapolation is never silent.
+
+    Returns (var1, var2), clamped or unchanged per the policy.
+    """
+    if policy not in EOS_DOMAIN_POLICIES:
+        raise ValueError(f'Unrecognized EOS domain policy {policy!r}. '
+                         f'Expected one of {EOS_DOMAIN_POLICIES}.')
+
+    if policy == 'legacy_clamp':
+        # Fast path: preserve historical behavior exactly, with no extra work.
+        if CLAMP:
+            return ResetNearestExtrap(var1, var2, min1, max1, min2, max2)
+        return var1, var2
+
+    report = EOSDomainExceedance(var1, var2, min1, max1, min2, max2)
+    if report['nOutside'] > 0:
+        msg = FormatEOSDomainMessage(report, min1, max1, min2, max2,
+                                     EOSname=EOSname, var1name=var1name, var2name=var2name)
+        if policy == 'error':
+            raise EOSDomainError(msg)
+        log.warning(msg)
+
+    if CLAMP:
+        return ResetNearestExtrap(var1, var2, min1, max1, min2, max2)
+    return var1, var2
+
+
 def ReAssignPT(P_MPa, T_K, Pmin, Pmax, Tmin, Tmax, MELT=False, propsStepReductionFactor=1):
     # Find indices where P_MPa is within bounds [Pmin, Pmax]
     deltaP = np.mean(np.diff(P_MPa))

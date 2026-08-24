@@ -25,6 +25,15 @@ def configAssign():
     Params.EXTRAP_REF =   False  # Allow refprofile extrapolation separate from normal ocean
     Params.EXTRAP_SIL =   False
     Params.EXTRAP_Fe =    False
+    # EOS-domain policy for inner (silicate/core) Perple_X EOS lookups:
+    #   'legacy_clamp' -- historical behavior: silently clamp out-of-domain P/T
+    #                     to the nearest table edge (default, backwards compatible)
+    #   'warn'         -- same numerics, but log which EOS, how many nodes, and
+    #                     by how much the tabulated domain was exceeded
+    #   'error'        -- raise before evaluating properties outside the domain
+    # Scientific production runs should prefer 'warn' or 'error'; silent
+    # saturation can return plausible values for an unvalidated state.
+    Params.EOS_DOMAIN_POLICY = 'legacy_clamp'
     Params.lookupInterpMethod = 'nearest'  # Interpolation method to use for EOS lookup tables. Options are 'nearest', 'linear', 'cubic'.
     Params.minPres_MPa = 0.5  # Only applies to ice EOS! Applies a lower bound to how small the pressure step can be in loading the EOS. Avoids major slowdowns when chaining models for small and large bodies.
     Params.minTres_K = 0.5  # Same as above. Set to None to allow default behavior for ice EOS resolution.
