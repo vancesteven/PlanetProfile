@@ -215,16 +215,24 @@ class SwConduct:
 def MPa2seaPressure(P_MPa):
     """ Calculates "sea pressure" as needed for inputs to GSW functions.
         Sea pressure is defined as the pressure relative to the top of
-        the ocean, equal to the absolute pressure less 10.1325 dbar.
+        the ocean, equal to the absolute pressure less one standard
+        atmosphere (10.1325 dbar = 0.101325 MPa).
+
+        Note: the atmospheric-pressure offset (Constants.P0 = 1 atm =
+        0.101325 MPa) is a distinct physical quantity from the bar-to-MPa
+        conversion (Constants.bar2MPa = 0.1 MPa/bar). They coincided only
+        because of a historical mis-definition of bar2MPa; do not conflate
+        them.
 
         Args:
             P_MPa (float, shape N or NxM): Pressures in MPa
         Returns:
-            SP_dbar (float, shape N or NxM): Sea pressures in dbar (1 dbar = 0.1 bar = 0.1 * bar2MPa MPa)
+            SP_dbar (float, shape N or NxM): Sea pressures in dbar
+                (1 dbar = 0.01 MPa exactly, i.e. dbar = MPa / bar2MPa * 10 = MPa * 100)
     """
-    # Subtract off Earth atmospheric pressure
-    SP_MPa = P_MPa - Constants.bar2MPa
-    # Convert to dbar
+    # Subtract off one standard atmosphere (Constants.P0), NOT one bar.
+    SP_MPa = P_MPa - Constants.P0
+    # Convert to dbar: 1 dbar = 0.01 MPa exactly, so dbar = 10 * (MPa / bar2MPa) with bar2MPa = 0.1.
     SP_dbar = SP_MPa * 10 / Constants.bar2MPa
 
     return SP_dbar

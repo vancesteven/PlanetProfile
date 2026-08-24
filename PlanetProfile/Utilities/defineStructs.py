@@ -3495,8 +3495,8 @@ class ConstantsStruct:
     def __init__(self):
         """ General physical constants """
         self.G = 6.673e-11  # "Big G" gravitational constant, m^3/kg/s
-        self.bar2GPa = 1.01325e-4  # Multiply by this to convert pressure from bars to GPa
-        self.bar2MPa = 1.01325e-1  # Same but for MPa
+        self.bar2GPa = 1.0e-4  # Exact SI: 1 bar = 10^5 Pa = 10^-4 GPa. Use Constants.P0 for 1 atm in MPa.
+        self.bar2MPa = 1.0e-1  # Exact SI: 1 bar = 0.1 MPa. Do NOT reuse for atmosphere offsets; use Constants.P0.
         self.erg2J = 1e-7  # Multiply by this to convert from ergs to joules
         self.T0 = 273.15  # The Celsius zero point in K.
         self.P0 = 0.101325  # One standard atmosphere in MPa
