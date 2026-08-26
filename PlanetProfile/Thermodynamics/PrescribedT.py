@@ -85,12 +85,25 @@ class PrescribedTemperatureProfile:
         #                      Legitimate only if the final selected model is
         #                      afterwards shown not to depend on it; the
         #                      counters below exist to make that checkable.
-        if deepContinuation not in (None, 'isothermal'):
+        if deepContinuation not in (None, 'isothermal', 'linear'):
             raise ValueError(f'Unsupported deepContinuation {deepContinuation!r}; '
-                             'expected None or "isothermal".')
+                             'expected None, "isothermal" or "linear".')
         self.deepContinuation = deepContinuation
         self.nDeepContinuationCalls = 0
         self.maxContinuationDepth_m = None
+        # Deep gradient for 'linear' continuation.
+        #
+        # Defined by an unweighted least-squares fit to the deepest
+        # DEEP_GRADIENT_NODES source nodes, rather than the final pair, so a
+        # single noisy interval cannot set the slope. The node count is fixed
+        # and documented so the rule is reproducible across compositions.
+        self.DEEP_GRADIENT_NODES = 5
+        self.deepGradient_KperM = None
+        if deepContinuation == 'linear':
+            n = min(self.DEEP_GRADIENT_NODES, depth_m.size)
+            zz, TT = depth_m[-n:], T_K[-n:]
+            self.deepGradient_KperM = float(np.polyfit(zz, TT, 1)[0])
+            self.deepGradientNodesUsed = int(n)
 
     def __repr__(self):
         return (f'PrescribedTemperatureProfile({self.depth_m.size} levels, '
@@ -136,7 +149,13 @@ class PrescribedTemperatureProfile:
         # exactly the 'isothermal' continuation. CheckRange has already either
         # rejected out-of-range depths or recorded the continuation, so no
         # extrapolation can occur silently here.
-        return np.interp(z, self.depth_m, self.T_K)
+        T = np.interp(z, self.depth_m, self.T_K)
+        if self.deepContinuation == 'linear' and self.deepGradient_KperM is not None:
+            deep = np.asarray(z) > self.zMax_m
+            if np.any(deep):
+                T = np.array(T, dtype=float, copy=True)
+                T[deep] = self.T_K[-1] + self.deepGradient_KperM * (np.asarray(z)[deep] - self.zMax_m)
+        return T
 
 
 def LoadPrescribedTProfileCSV(fpath, source=None, deepContinuation=None):

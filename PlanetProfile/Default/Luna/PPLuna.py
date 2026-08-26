@@ -53,22 +53,20 @@ Planet.Do.Fe_CORE = True  # [ASSUM] Fe-bearing core present (Weber et al. 2011; 
 # evaluation falls outside the tabulated Perple_X domain, instead of silently
 # saturating at the table edge. The lunar central pressure sits close to the
 # unified Warren table's 5 GPa ceiling, so this is not a hypothetical risk.
-# NOTE, important and deliberate: 'warn', not 'error'.
+# Strict EOS-domain policy: a scientific lunar run must FAIL if any
+# PHYSICALLY ACTIVE mantle or core node falls outside the tabulated Perple_X
+# domain, rather than silently saturating at the table edge. The lunar central
+# pressure sits close to the unified Warren table's 5 GPa ceiling, so this is
+# not hypothetical.
 #
-# 'error' is architecturally unsatisfiable for a cored dry body. PlanetProfile
-# propagates EVERY candidate silicate profile from its start radius down to
-# r = 0 as scratch space for the core-radius search (Silicates.py sets
-# rSilEnd_m = 0 when Fe_CORE is set), and only afterwards replaces the lower
-# part with core. Those scratch nodes reach pressures beyond any mantle table's
-# ceiling (observed: 5002.9 MPa against a 5000 MPa limit) even when the FINAL
-# selected model lies entirely inside the domain.
-#
-# So strictness is enforced where it is scientifically meaningful -- on the
-# ANSWER rather than on the search. The run uses 'warn' so every out-of-domain
-# evaluation is logged with its magnitude, and the selected model is then
-# checked node-by-node to be fully inside the EOS domain. A model that is not
-# is rejected. See docs/LUNAR_PLANETPROFILE_WARREN_1D_REFERENCE.md.
-Planet.Do.EOS_DOMAIN_POLICY = 'warn'
+# Strictness applies to physical nodes only. PlanetProfile propagates every
+# candidate silicate profile down toward r = 0 as scratch storage for the
+# core-radius search; those unused nodes routinely exceed the ceiling. They are
+# clamped during propagation (they cannot contaminate active nodes, since the
+# recursion is strictly downward and active nodes are always shallower) and the
+# policy is then enforced on each candidate's active extent once nSilFinal is
+# known. See docs/LUNAR_PLANETPROFILE_WARREN_NUMERICAL_CLOSURE.md.
+Planet.Do.EOS_DOMAIN_POLICY = 'error'
 
 # [OBS] Mean radius 1737.15 km. Neumann, G. A. (2013), LRO LOLA topographic
 # data products, as adopted in Williams et al. (2014), JGR Planets 119,
@@ -110,7 +108,19 @@ Planet.Bulk.Psurf_MPa = 0.0  # [ASSUM] No atmosphere.
 Planet.Bulk.qSurf_Wm2 = 12e-3
 
 """ Layer step settings """
-Planet.Steps.nSilMax = 300  # [ASSUM] Silicate radial resolution.
+# [DERIV] Production structural resolution, set by a convergence study, not by
+# convenience. PlanetProfile's silicate recursion is first-order in the radial
+# step h, verified: successive refinements 300 -> 600 -> 1200 -> 2400 change
+# R_core by 2.895, 1.448, 0.724 km -- ratios of exactly 2.00. The pre-registered
+# convergence criteria are met only at 1200 (checked against 2400); 300 and 600
+# both fail on the pressure profile and 300 also on mass residual.
+# See docs/LUNAR_PLANETPROFILE_WARREN_NUMERICAL_CLOSURE.md.
+#
+# NOTE for composition comparisons: |R_core - R_core_converged| equals exactly
+# one radial interval at every resolution, so R_core is resolved only to h.
+# At 1200 that is 1.448 km. A Hauri-vs-Warren core-radius difference smaller
+# than that is NOT resolved and must not be interpreted.
+Planet.Steps.nSilMax = 1200
 Planet.Steps.nCore = 10     # [ASSUM] Core radial resolution.
 
 """ Observational crust (Garcia 2019 M3 nominal; structure-only) """

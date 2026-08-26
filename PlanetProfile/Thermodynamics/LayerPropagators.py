@@ -8,6 +8,9 @@ from PlanetProfile.Thermodynamics.IronCore import IronCoreLayers
 from PlanetProfile.Thermodynamics.HydroEOS import GetPfreeze, GetTfreeze, \
     GetPlanetOceanEOS, GetPlanetIceEOS, GetIceEOS
 from PlanetProfile.Utilities.Indexing import PhaseConv, GetPhaseIndices
+from PlanetProfile.Thermodynamics.InnerEOS import (EOSCandidatePropagation,
+                                                   ValidateCandidateEOSDomains,
+                                                   ResolveEOSdomainPolicy)
 from PlanetProfile.Thermodynamics.InnerEOS import GetHtidalFunc, GetphiCalc, GetPlanetInnerEOS
 from PlanetProfile.Thermodynamics.Silicates import SilicateLayers
 from PlanetProfile.Thermodynamics.ThermalProfiles.Convection import IceIConvectSolid, IceIConvectPorous, \
@@ -1821,19 +1824,30 @@ def FindInnerWithMoIAndEOS(Planet, Params):
         Planet.Sil.fn_phi_frac = GetphiCalc(Planet.Sil.phiRockMax_frac, Planet.Sil.EOS.fn_phi_frac, Planet.Sil.phiMin_frac)
         # Propagate the silicate EOS from each hydrosphere layer to the center of the body
         log.debug(f'Propagating silicate EOS for each possible mantle size ({Planet.Steps.nHydroMax-Planet.Steps.iSilStart} options)...')
-        indsSilValid, nProfiles, Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, \
-        phiSil_frac, HtidalSil_Wm3, kThermSil_WmK, PsilPore_MPa, rhoSilMatrix_kgm3, rhoSilPore_kgm3, phaseSilPore \
-            = SilicateLayers(Planet, Params)
-        if not Planet.Do.VALID and Planet.Steps.iSilStart > 1 and np.size(indsSilValid) != 0:
-            Planet.Steps.iSilStart = 1
+        with EOSCandidatePropagation():
             indsSilValid, nProfiles, Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, \
             phiSil_frac, HtidalSil_Wm3, kThermSil_WmK, PsilPore_MPa, rhoSilMatrix_kgm3, rhoSilPore_kgm3, phaseSilPore \
                 = SilicateLayers(Planet, Params)
+        if not Planet.Do.VALID and Planet.Steps.iSilStart > 1 and np.size(indsSilValid) != 0:
+            Planet.Steps.iSilStart = 1
+            with EOSCandidatePropagation():
+                indsSilValid, nProfiles, Psil_MPa, Tsil_K, rSil_m, rhoSil_kgm3, MLayerSil_kg, MAboveSil_kg, gSil_ms2, \
+                phiSil_frac, HtidalSil_Wm3, kThermSil_WmK, PsilPore_MPa, rhoSilMatrix_kgm3, rhoSilPore_kgm3, phaseSilPore \
+                    = SilicateLayers(Planet, Params)
         nSilTooBig = nProfiles - np.size(indsSilValid)
         # Propagate the core EOS from each silicate layer at the max core radius to the center of the body
-        nSilFinal, Pcore_MPa, Tcore_K, rCore_m, rhoCore_kgm3, MLayerCore_kg, gCore_ms2, CpCore_JkgK, alphaCore_pK, \
-            kThermCore_WmK = IronCoreLayers(Planet, Params,
-                           indsSilValid, nSilTooBig, nProfiles, Psil_MPa, Tsil_K, rSil_m, MAboveSil_kg, gSil_ms2)
+        with EOSCandidatePropagation():
+            nSilFinal, Pcore_MPa, Tcore_K, rCore_m, rhoCore_kgm3, MLayerCore_kg, gCore_ms2, CpCore_JkgK, alphaCore_pK, \
+                kThermCore_WmK = IronCoreLayers(Planet, Params,
+                               indsSilValid, nSilTooBig, nProfiles, Psil_MPa, Tsil_K, rSil_m, MAboveSil_kg, gSil_ms2)
+
+        # Each candidate's physical extent is now known (nSilFinal), so the
+        # EOS-domain policy can be enforced where it is scientifically
+        # meaningful: on active mantle and core nodes, not on scratch storage.
+        Planet.Sil.EOSdomainReport = ValidateCandidateEOSDomains(
+            Planet, Psil_MPa, Tsil_K, nSilFinal, indsSilValid,
+            Pcore_MPa=Pcore_MPa, Tcore_K=Tcore_K,
+            policy=ResolveEOSdomainPolicy(Planet, Params))
 
         dCfromCore_kgm2 = 8*np.pi/15 * rhoCore_kgm3 * (rCore_m[:,:-1]**5 - rCore_m[:,1:]**5)
         Ccore_kgm2 = np.sum(dCfromCore_kgm2, axis=1)

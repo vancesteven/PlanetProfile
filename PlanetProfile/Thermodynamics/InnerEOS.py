@@ -5,7 +5,8 @@ from scipy.io import loadmat
 from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator, interp1d as Interp1D, griddata as GridData
 from PlanetProfile import _ROOT, _PERPLEXCACHE
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist, ConstantPropsStruct
-from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnZeros, EOSwrapper, EnforceEOSDomain
+from PlanetProfile.Utilities.DataManip import (ResetNearestExtrap, ReturnZeros, EOSwrapper,
+                                              EnforceEOSDomain, EOSDomainExceedance, EOSDomainError)
 from PlanetProfile.Thermodynamics.ConstantEOS import GetConstantEOS
 
 # Assign logger
@@ -42,6 +43,122 @@ class EOSIntrospection:
 
 def EOSIntrospectionActive():
     return _EOS_INTROSPECTION_DEPTH > 0
+
+
+# Candidate-propagation phase.
+#
+# PlanetProfile propagates every candidate silicate profile from its start
+# radius down toward r = 0 as scratch storage for the core-radius search; only
+# indices [0, nSilFinal[i]) of candidate i are ever part of a physical
+# structure (see IronCore.IronCoreLayers and the Csil_kgm2 sum in
+# FindInnerWithMoIAndEOS). Those scratch nodes routinely exceed the EOS
+# pressure ceiling and any finite prescribed thermal range, so enforcing a
+# strict policy during propagation aborts the search on storage that is never
+# used scientifically.
+#
+# Inside EOSCandidatePropagation(), a strict 'error' policy is therefore
+# downgraded to the historical clamp. Because the recursion is strictly
+# downward (node j depends only on j-1) and active nodes are always shallower
+# than scratch nodes, clamped scratch values can never propagate back into a
+# physical node. Strictness is then enforced on the physical nodes themselves
+# by ValidateCandidateEOSDomains once each candidate's extent is known.
+#
+# 'warn' is left untouched so the diagnostics remain visible.
+_EOS_CANDIDATE_PROPAGATION_DEPTH = 0
+
+
+class EOSCandidatePropagation:
+    """Downgrade strict EOS-domain failure to clamping during candidate search."""
+
+    def __enter__(self):
+        global _EOS_CANDIDATE_PROPAGATION_DEPTH
+        _EOS_CANDIDATE_PROPAGATION_DEPTH += 1
+        return self
+
+    def __exit__(self, *exc):
+        global _EOS_CANDIDATE_PROPAGATION_DEPTH
+        _EOS_CANDIDATE_PROPAGATION_DEPTH -= 1
+        return False
+
+
+def EOSCandidatePropagationActive():
+    return _EOS_CANDIDATE_PROPAGATION_DEPTH > 0
+
+
+def ValidateCandidateEOSDomains(Planet, Psil_MPa, Tsil_K, nSilFinal, indsSilValid,
+                                Pcore_MPa=None, Tcore_K=None, policy=None):
+    """Enforce the EOS-domain policy on PHYSICALLY ACTIVE nodes only.
+
+    For candidate i the physically active silicate extent is indices
+    [0, nSilFinal[i]) -- the same extent used for that candidate's mass and
+    moment-of-inertia sums, so no second notion of "active node" is introduced
+    here. Anything at or beyond nSilFinal[i] is scratch storage replaced by
+    core.
+
+    Within that extent, only nodes whose MATERIAL is mantle are evaluated by
+    the silicate EOS: an explicit crust supplies prescribed constants instead,
+    and its shallow nodes legitimately sit below the mantle table's P and T
+    floors. The existing Crust.material_mask is reused to make that
+    distinction rather than re-deriving it. All core nodes are physical.
+
+    Returns a diagnostics dict. Under policy 'error', raises EOSDomainError if
+    any physically active node of any viable candidate lies outside its EOS
+    domain. Under 'warn' it logs; under 'legacy_clamp' it only reports.
+    """
+    if policy is None:
+        policy = ResolveEOSdomainPolicy(Planet, type('P', (), {})())
+    silEOS = EOSlist.loaded.get(getattr(Planet.Sil.EOS, 'key', None), None)
+    coreEOS = EOSlist.loaded.get(getattr(Planet.Core.EOS, 'key', None), None)
+
+    report = {'nCandidates': 0, 'nBadCandidates': 0, 'nBadNodes': 0, 'offenders': []}
+
+    def _scan(P, T, eos, label, idx):
+        if eos is None or np.size(P) == 0:
+            return 0
+        rep = EOSDomainExceedance(P, T, eos.Pmin, eos.Pmax, eos.Tmin, eos.Tmax)
+        if rep['nOutside']:
+            report['offenders'].append(
+                f'candidate {idx} {label}: {rep["nOutside"]}/{rep["nTotal"]} active node(s) outside '
+                f'(P {rep["min1Requested"]:.2f}-{rep["max1Requested"]:.2f} MPa vs [{eos.Pmin:.0f},{eos.Pmax:.0f}]; '
+                f'T {rep["min2Requested"]:.2f}-{rep["max2Requested"]:.2f} K vs [{eos.Tmin:.0f},{eos.Tmax:.0f}])')
+        return rep['nOutside']
+
+    nSilFinal = np.atleast_1d(nSilFinal)
+    matMask = getattr(Planet.Crust, 'material_mask', None) if Planet.Crust.enabled else None
+    for i in np.atleast_1d(indsSilValid):
+        i = int(i)
+        if i >= np.size(nSilFinal):
+            continue
+        nAct = int(nSilFinal[i])
+        if nAct <= 0:
+            continue
+        report['nCandidates'] += 1
+        Pa = np.asarray(Psil_MPa)[i, :nAct]
+        Ta = np.asarray(Tsil_K)[i, :nAct]
+        if matMask is not None and np.asarray(matMask).ndim == 2 and i < np.shape(matMask)[0]:
+            isMantle = np.asarray(matMask)[i, :nAct] == Constants.materialMantle
+            Pa, Ta = Pa[isMantle], Ta[isMantle]
+            report['nCrustExcluded'] = report.get('nCrustExcluded', 0) + int(np.count_nonzero(~isMantle))
+        bad = _scan(Pa, Ta, silEOS, 'mantle', i)
+        report['nBadNodes'] += bad
+        if bad:
+            report['nBadCandidates'] += 1
+
+    if Pcore_MPa is not None and coreEOS is not None and np.size(Pcore_MPa):
+        Pc = np.asarray(Pcore_MPa); Tc = np.asarray(Tcore_K)
+        bad = _scan(Pc.ravel(), Tc.ravel(), coreEOS, 'core', -1)
+        report['nBadNodes'] += bad
+
+    if report['nBadNodes']:
+        msg = ('EOS domain violated on PHYSICALLY ACTIVE nodes (scratch storage excluded):\n  '
+               + '\n  '.join(report['offenders'][:10]))
+        if len(report['offenders']) > 10:
+            msg += f"\n  ... and {len(report['offenders'])-10} more"
+        if policy == 'error':
+            raise EOSDomainError(msg)
+        elif policy == 'warn':
+            log.warning(msg)
+    return report
 
 
 def ResolveEOSdomainPolicy(Planet, Params):
@@ -405,6 +522,10 @@ class PerplexEOSStruct:
         table edge. Clamping behavior itself is unchanged.
         """
         policy = getattr(self, 'EOSdomainPolicy', 'legacy_clamp')
+        if policy == 'error' and EOSCandidatePropagationActive():
+            # Scratch storage below a candidate's CMB is not scientifically
+            # evaluated; strictness is applied to physical nodes afterwards.
+            policy = 'legacy_clamp'
         if EOSIntrospectionActive():
             # Sentinel/type probe, not a physical evaluation -- fall back to
             # the historical clamp so introspection cannot trip a strict policy.

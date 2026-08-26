@@ -350,6 +350,8 @@ class SilSubstruct:
         self.T_of_z_K = None
         # Provenance string for the prescribed profile, recorded in output.
         self.TprescribedSource = None
+        # Diagnostics from the physical-node EOS-domain validation.
+        self.EOSdomainReport = None
         self.etaRock_Pas = None # Assumed viscosities of rock - Overrides Constants.etaRock_Pas if specified
         self.TviscTrans_K = None # Transition temperatures for rock to go from one viscosity value to another - Overrides Constants.TviscRock_K if specified
         self.kThermCMB_WmK = None  # Constant thermal conductivity to use for determining core-mantle boundary thermal boundary layer thickness when convection is happening
