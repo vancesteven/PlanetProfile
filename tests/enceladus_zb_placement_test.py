@@ -466,3 +466,69 @@ def test_zb_driven_path_reaches_production_tolerance_with_real_brentq(
     achieved = 25.0 + 120.0 * (R6_T_SEQ[3] - out.Bulk.Tb_K) \
         + 40.0 * (R6_T_SEQ[3] - out.Bulk.Tb_K) ** 2
     assert abs(achieved - 25.0) < 0.125
+
+
+def test_reachability_target_within_solver_band_below_floor_passes(
+        monkeypatch, tmp_path):
+    """§0.31: the r7 production build's (zb=6.0, w=2.8943) node. The table's
+    zb_min (6.0086) is the shell achieved AT the warm bracket end; brentq
+    evaluates that end first and IceShellResidual early-exits because
+    |6.0 - 6.0086| < zbTol_km (= 0.4 * 0.125 = 0.05 km). Building there is
+    the solver's own acceptance, not a stale table -- the build must pass."""
+    monkeypatch.setattr(cache_builder, 'build_single_structure',
+                        _fake_build_with_failures(fail_at_zb=set()))
+    monkeypatch.setattr(cache_builder, '_save_cache_atomic',
+                        lambda cache, path: None)
+    cache = build_zbw_grid_cache(
+        'PlanetProfile.Default.Enceladus.PPEnceladus',
+        zb_km_grid=[6.0, 15.0], wOcean_ppt_grid=[1.0, 100.0],
+        output_path=str(tmp_path / 'x.pkl'),
+        zb_tol_km=0.125,
+        config=_synthetic_restriction_config(zb_min_km=6.0086),
+        progress=False,
+    )
+    assert all(s is not None for s in cache['structures'])
+
+
+def test_reachability_target_beyond_solver_band_below_floor_fails(
+        monkeypatch, tmp_path):
+    """Pins the band's width: a target 0.06 km below zb_min (> the 0.05 km
+    solver tolerance) cannot early-exit at the bracket end, so building
+    there still means a stale table and must FAIL."""
+    monkeypatch.setattr(cache_builder, 'build_single_structure',
+                        _fake_build_with_failures(fail_at_zb=set()))
+    monkeypatch.setattr(cache_builder, '_save_cache_atomic',
+                        lambda cache, path: None)
+    with pytest.raises(RuntimeError, match='ocean_reachability_restriction'):
+        build_zbw_grid_cache(
+            'PlanetProfile.Default.Enceladus.PPEnceladus',
+            zb_km_grid=[6.0, 15.0], wOcean_ppt_grid=[1.0, 100.0],
+            output_path=str(tmp_path / 'x.pkl'),
+            zb_tol_km=0.125,
+            config=_synthetic_restriction_config(zb_min_km=6.06),
+            progress=False,
+        )
+
+
+def test_c2_failure_writes_quarantined_dump_not_the_cache(
+        monkeypatch, tmp_path):
+    """§0.31: a C2 failure keeps the computed structures in a quarantined
+    side file and never writes output_path itself."""
+    import pickle
+    monkeypatch.setattr(cache_builder, 'build_single_structure',
+                        _fake_build_with_failures(fail_at_zb=set()))
+    out = tmp_path / 'x.pkl'
+    with pytest.raises(RuntimeError, match='ocean_reachability_restriction'):
+        build_zbw_grid_cache(
+            'PlanetProfile.Default.Enceladus.PPEnceladus',
+            zb_km_grid=[6.0, 15.0], wOcean_ppt_grid=[1.0, 100.0],
+            output_path=str(out), zb_tol_km=0.125,
+            config=_synthetic_restriction_config(zb_min_km=6.06),
+            progress=False,
+        )
+    assert not out.exists()
+    with open(str(out) + '.preC2_QUARANTINED.pkl', 'rb') as f:
+        dump = pickle.load(f)
+    assert dump['QUARANTINED_C2_FAILED'] is True
+    assert len(dump['structures']) == 4 and dump['c2_violations']
+    assert dump['reachability_band_km'] == pytest.approx(0.05)

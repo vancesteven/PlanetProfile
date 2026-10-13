@@ -52,7 +52,8 @@ REPORT_PATH = (REPO / 'validation_reports/enceladus_isostasy/'
 # build contract (composition, tolerance, declared restriction), so a
 # disagreement means the shards are not assemblable.
 _IDENTICAL_FIELDS = ('ocean_comp', 'zb_tol_km',
-                     'ocean_reachability_restriction_table')
+                     'ocean_reachability_restriction_table',
+                     'reachability_band_km', 'reachability_predicate')
 
 
 def _load_shards(shard_dir):
@@ -213,6 +214,8 @@ def main():
         'ocean_moi_window': merged_window,
         'ocean_reachability_restriction_table':
             ref_cache['ocean_reachability_restriction_table'],
+        'reachability_band_km': ref_cache['reachability_band_km'],
+        'reachability_predicate': ref_cache['reachability_predicate'],
         'ocean_none_reasons': none_reasons,
         'frozen_zb_km_grid': frozen_shard['frozen_zb_km_grid'],
         'frozen_structures': frozen_shard['frozen_structures'],

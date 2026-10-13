@@ -2133,6 +2133,14 @@ def build_zbw_grid_cache(
     # from the "must build outside" direction: it is explained by the
     # SEPARATE, already-declared physical ocean/no-ocean edge, not by this
     # restriction, which C1 measured to live entirely below ~13 km.
+    #
+    # The table's zb_min is the shell achieved AT the warm bracket end, and
+    # IceShellResidual early-exits on |target - achieved| < Bulk.zbTol_km --
+    # brentq evaluates that bracket end first, so a TARGET within
+    # solve_tol_km below zb_min deterministically builds there (§0.31: the
+    # r7 production build's (6.0, 2.8943) node, target 6.0 vs zb_min
+    # 6.0086). "Unreachable" is therefore target < zb_min - solve_tol_km:
+    # the solver's own acceptance band, not added slack.
     reachability_table = ocean_reachability_restriction_from_config(config)
     if reachability_table is not None:
         violations: List[str] = []
@@ -2141,7 +2149,8 @@ def build_zbw_grid_cache(
                 flat = i_zb * n_w + i_w
                 zb_min_declared = _reachability_zb_min_interp(
                     float(w_ppt), reachability_table)
-                declared_excluded = float(zb_km) < zb_min_declared
+                declared_excluded = (float(zb_km)
+                                     < zb_min_declared - solve_tol_km)
                 built = structures[flat] is not None
                 if declared_excluded and built:
                     zb_actual = structures[flat].get("zb_km_actual",
@@ -2161,6 +2170,19 @@ def build_zbw_grid_cache(
                         f"(zb_min={zb_min_declared:.4f} km) -- an "
                         f"unexplained ocean-branch None")
         if violations:
+            # Quarantined dump so a C2 failure does not discard a full
+            # build's compute (§0.31; the r7 run lost ~10 h this way). The
+            # suffix and flag keep it out of every consumer: nothing loads
+            # this path, and it must never be renamed into output_path.
+            _save_cache_atomic(
+                {"QUARANTINED_C2_FAILED": True,
+                 "c2_violations": violations,
+                 "zb_km_grid": zb_arr, "wOcean_ppt_grid": w_arr,
+                 "structures": structures,
+                 "ocean_none_reasons": none_reasons,
+                 "zb_tol_km": zb_tol_km,
+                 "reachability_band_km": solve_tol_km},
+                str(output_path) + ".preC2_QUARANTINED.pkl")
             raise RuntimeError(
                 "ocean_reachability_restriction violated (r7 condition "
                 f"C2, two-sided enforcement): {len(violations)} node(s) "
@@ -2198,6 +2220,14 @@ def build_zbw_grid_cache(
         # when no config (or a config without the C1 table) was supplied,
         # i.e. the two-sided check above did not run.
         "ocean_reachability_restriction_table": reachability_table,
+        # §0.31: the solver acceptance band C2 applied below each zb_min(w)
+        # (== the per-node Bulk.zbTol_km). Scales with zb_tol_km, so C2
+        # outcomes are only comparable between builds at equal zb_tol_km.
+        "reachability_band_km": (solve_tol_km if reachability_table
+                                 is not None else None),
+        "reachability_predicate": (
+            "excluded iff zb_target < zb_min(w) - reachability_band_km"
+            if reachability_table is not None else None),
         "ocean_none_reasons": none_reasons,
     }
 

@@ -113,3 +113,33 @@ precision noise orders of magnitude below its own stated uncertainty
 regardless of source). Not implementing either without a ruling, since
 this is the second axis/table-precision issue this build has surfaced
 and a considered decision is better than a second quick patch.
+
+---
+
+## SUPERSEDED DIAGNOSIS — Machine A ruling §0.31 (2026-10-13; scientific-reviewer ACCEPT WITH CONDITIONS)
+
+The rounding mechanism above is **not** the cause, and none of fix
+options 1-3 would clear the node: the check compares the grid TARGET
+(6.0 km) against the floor, and 6.0 < 6.0086 and 6.0 < 6.0088 alike; a
+1e-3 km tolerance doesn't cover the 0.0086 km gap either.
+
+Actual mechanism: the table's zb_min is the shell achieved AT the warm
+bracket end (TupperLimit_K). The zb-driven path (`_zbDrivenXtol`, then
+brentq) evaluates both bracket ends, and `IceShellResidual` early-exits
+on `|target - achieved| < Bulk.zbTol_km` (= 0.4 x 0.125 = 0.05 km in the
+build). |6.0 - 6.0086| = 0.0086 < 0.05, so the node legitimately builds
+at the bracket end, placed well within the 0.125 km zb_placement
+invariant. The bracket comes from GetTfreeze and doesn't depend on
+zbTol, so C1's probe (zbTol 0.01) and the build read the same endpoint,
+which is why zb_actual equals the table row exactly.
+
+Fix (cache_builder C2): `declared_excluded = zb_target < zb_min(w) -
+solve_tol_km`. This is the solver's own acceptance band, not added
+slack. A target 0.06 km below the floor that builds still fails (pinned
+by test). Offline check over the full production axes: the only node in
+the band is (6.0, 2.8943). The nearest excluded node to the band edge is
+(12, 4.9239), 0.067 km below its floor, i.e. 0.017 km outside the band,
+so it stays excluded. The cache now records `reachability_band_km` and
+`reachability_predicate`. A C2 failure now writes
+`<output>.preC2_QUARANTINED.pkl` before raising, so a failure never
+again discards a full build.

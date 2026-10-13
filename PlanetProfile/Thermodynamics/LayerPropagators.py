@@ -598,8 +598,10 @@ def GetIceShellTFreeze(Planet, Params):
        and PfreezeUpper_MPa).
     2. It uses a root-finding algorithm on the `iceShellTFreeze` helper function
        to find the precise temperature (Tb_K) that results in the desired ice
-       shell thickness (Planet.Bulk.zb_approximate_km). It iteratively adjusts
-       the bracket if the initial range does not contain the solution.
+       shell thickness (Planet.Bulk.zb_approximate_km). The bracket is fixed
+       by GetTfreeze and is NOT adjusted: a target outside the zb range the
+       bracket ends achieve raises (unless within Bulk.zbTol_km of an end,
+       where the early exit accepts that end).
 
     Args:
         Planet: Planet object containing ice shell properties.

@@ -59,6 +59,44 @@ Answers to corrected_sbc_SPEC_QUESTIONS.md; spec discipline accepted
    guarded: queued as a Codex task (assert/fallback if a corrected
    result is requested without full-N likelihoods).
 
+## 0.31 C2 FALSE-POSITIVE RULING (manager + scientific-reviewer, 2026-10-13) — RE-RUN IS GO
+
+Ruling on `validation_reports/enceladus_isostasy/r7_build_c2_false_positive.md`
+(see its SUPERSEDED DIAGNOSIS addendum). Reviewer verdict: ACCEPT WITH
+CONDITIONS; the conditions are applied in this commit.
+
+1. **Diagnosis corrected: not rounding.** The check compares the grid
+   TARGET 6.0 against the floor. 6.0 sits below both 6.0086 and 6.0088,
+   so none of the three proposed fixes clears it. The real cause is the
+   solver's early exit: zb_min is the zb achieved at the warm bracket
+   end, and IceShellResidual accepts that end whenever |target -
+   zb_min| < Bulk.zbTol_km (0.05 km). The node built legitimately. Not
+   patching the gate was the right call, even though the mechanism was
+   wrong.
+2. **Fix (Machine A):** C2 now declares a node unreachable iff
+   `zb_target < zb_min(w) - solve_tol_km`. That band is the solver's own
+   acceptance, not slack; 0.06 km below the floor still fails (pinned by
+   test). The cache records `reachability_band_km` and
+   `reachability_predicate`, and the shard merge now requires both to
+   agree across shards. Shards from before this commit lack the fields
+   and will KeyError at merge, which is correct: rebuild them all.
+3. **New safety net:** a C2 failure now writes
+   `<output>.preC2_QUARANTINED.pkl` (flagged `QUARANTINED_C2_FAILED`)
+   before raising. Never consume it or rename it into the cache path.
+   It exists only for diagnosis.
+4. **Re-run:** full 3520-node rebuild at this commit, canonical
+   zb_tol_km=0.125 (C2 outcomes are only comparable at equal
+   zb_tol_km). There is no resume path. Either serial (~10 h) or the
+   `plans/cluster/` SLURM shards (~1 h wall). **Acceptance (in addition
+   to the six §0.29 gates):**
+   - exactly 0 C2 violations;
+   - (6.0, 2.8943) built with zb_actual 6.0086;
+   - (12.0, 4.9239) None with the unreachable reason (0.067 km below
+     its floor, outside the band);
+   - built/None set otherwise identical to the failed r7 run's log.
+   Report any difference rather than reconciling it.
+5. Sequence after that is unchanged from §0.30 item 5.
+
 ## 0.30 NOTES FOR B (manager, 2026-08-17) — endpoint ruling: BUILD IS GO
 
 1. **zb-axis endpoint RULING: INCLUSIVE — 88 nodes, ending at 45.0 km.**
