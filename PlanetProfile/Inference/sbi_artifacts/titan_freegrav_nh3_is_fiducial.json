@@ -113,5 +113,13 @@
   "torch": "2.8.0",
   "sbi": "0.26.1",
   "numpy": "2.4.3"
+ },
+ "gui_gate_values": {
+  "pushforward_median_gap_sigma_obs": 0.1469660196033328,
+  "pushforward_ks": 0.060842232444609956,
+  "n_seeds": 3,
+  "corrected_sbc": "PASS",
+  "inrange_prior_predictive_fail_frac": 0.14912280701754385,
+  "source": "validation_reports/titan_freegrav_nh3_1m/is_correction/is_validation_nh3.json gates.pushforward (gap_im_sigma, max wks); c12_sweep (17/114 in-range fails, RATIFICATION 2026-10-20); GUI renders these rounded UP to 2 decimals"
  }
 }

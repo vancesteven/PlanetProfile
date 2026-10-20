@@ -1,0 +1,92 @@
+{
+ "kind": "r1_r2_c9_prereg_bands",
+ "note": "Computed from the n_eff=8000 REFERENCE seed pkls ONLY; no corrected quantity read. C9 rule: PASS-by-C9 iff |m_corr - m_ref_pooled| <= 2*s_seed (r1_r2_PREREGISTRATION.md).",
+ "reference_seeds": {
+  "72": {
+   "n": 21397,
+   "config_hash": "1611b65fff3f06c9",
+   "c20_finite": 1.0,
+   "c22_finite": 1.0,
+   "cache": null
+  },
+  "172": {
+   "n": 21095,
+   "config_hash": "1611b65fff3f06c9",
+   "c20_finite": 1.0,
+   "c22_finite": 1.0,
+   "cache": null
+  },
+  "272": {
+   "n": 21246,
+   "config_hash": "1611b65fff3f06c9",
+   "c20_finite": 1.0,
+   "c22_finite": 1.0,
+   "cache": null
+  }
+ },
+ "c9_bands": {
+  "log10_eta_Ih": {
+   "per_seed_median": [
+    13.036256983777617,
+    12.981722655075712,
+    13.097767039419837
+   ],
+   "s_seed_ddof1": 0.05805712573245341,
+   "pass_halfwidth_2s": 0.11611425146490682
+  },
+  "log10_eta_III": {
+   "per_seed_median": [
+    12.887812625389971,
+    12.960084812398758,
+    13.11206553878889
+   ],
+   "s_seed_ddof1": 0.11446307947471414,
+   "pass_halfwidth_2s": 0.22892615894942828
+  },
+  "log10_eta_V": {
+   "per_seed_median": [
+    12.664333084076713,
+    12.781260391022258,
+    12.67636508087568
+   ],
+   "s_seed_ddof1": 0.06431665174128026,
+   "pass_halfwidth_2s": 0.12863330348256052
+  },
+  "log10_eta_VI": {
+   "per_seed_median": [
+    12.398969198206995,
+    12.374316377684881,
+    12.374439427864887
+   ],
+   "s_seed_ddof1": 0.014197924344065853,
+   "pass_halfwidth_2s": 0.028395848688131706
+  },
+  "log10_eta_sil": {
+   "per_seed_median": [
+    19.838004246629428,
+    20.004998435455484,
+    19.897590308897882
+   ],
+   "s_seed_ddof1": 0.08463063232753089,
+   "pass_halfwidth_2s": 0.16926126465506178
+  },
+  "log10_zeta": {
+   "per_seed_median": [
+    -1.1044605941967154,
+    -1.1200260920574932,
+    -1.1487394475043604
+   ],
+   "s_seed_ddof1": 0.022462406946243782,
+   "pass_halfwidth_2s": 0.044924813892487564
+  },
+  "alpha": {
+   "per_seed_median": [
+    0.31187482039684516,
+    0.3136296776577503,
+    0.3048602524950404
+   ],
+   "s_seed_ddof1": 0.004640159920727423,
+   "pass_halfwidth_2s": 0.009280319841454845
+  }
+ }
+}

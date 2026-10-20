@@ -53,6 +53,7 @@ from Utilities.planet_sidebar import show_planet_status
 # Public-serving detection (shared with the Exploreogram page; lives in
 # Utilities because importing a pages/ module would execute the page).
 from Utilities.app_mode import public_mode
+from Utilities import is_correction_ui as is_ui
 from utils.mcmc_run_loader import (
     DEFAULT_RESULTS_ROOTS,
     scan_mcmc_results,
@@ -1173,6 +1174,52 @@ _SBI_ARTIFACT_SLOTS = {
             'posteriors; the reference MCMC is authoritative for those. '
             'Details: validation_reports/titan_freegrav_nh3_1m/'
             'RATIFICATION.md.'),
+        # Phase 2 of the fiducial IS correction (handoff §0.32, RATIFICATION
+        # 2026-10-20, conditions B1-B9). INERT unless
+        # is_fiducial_bundle.FEATURE_ENABLED (default False) is set. Warning
+        # templates are approved text; every {placeholder} is filled from the
+        # manifest / recomputed diagnostics / weighted bundle (B7), never a
+        # literal. 'g1_passing_params' (zeta/eta list) is intentionally
+        # ABSENT: gate G1 is pending, so only Re k2, |Im k2| are listed.
+        'is_correction': {
+            'manifest': ('PlanetProfile/Inference/sbi_artifacts/'
+                         'titan_freegrav_nh3_is_fiducial.json'),
+        },
+        'sector_warning_corrected': (
+            'Tidal sector at the DEFAULT Cassini datum only: {params} are '
+            'shown with an exact-likelihood importance-sampling correction '
+            'precomputed for this datum (N = {N} flow draws, effective '
+            'sample size ≈ {ess}, Pareto-k {pareto_k}). At this datum the '
+            'corrected pipeline was validated against the reference MCMC '
+            '(k₂ pushforward medians within {gap} σ_obs, full-distribution '
+            'KS ≤ {ks}, {n_seeds}-seed stable; corrected-pipeline SBC PASS). '
+            'This validates the corrected pipeline, not the flow: the '
+            'uncorrected flow under-updates k₂ (|Im k₂| ≈ {flow_im}). '
+            'Model–data tension remains and is shared with the MCMC: '
+            'corrected |Im k₂| ≈ {corr_im} vs observed {obs_im} ± '
+            '{obs_im_sig}. Changing any observable, uncertainty, or setting '
+            'disables the correction and restores the uncorrected, '
+            'quarantined tidal sector. Details: validation_reports/'
+            'titan_freegrav_nh3_1m/is_correction/.'),
+        'sector_warning_fallback': (
+            'Tidal-sector correction unavailable for this conditioning '
+            '({reason}). The correction is validated only at the default '
+            'Cassini datum; about {fail_pct}% of in-range prior-predictive '
+            'data fail its reliability gates. The uncorrected flow '
+            'under-updates k₂: do not quote its Re k₂, Im k₂, ζ, or η '
+            'posteriors; the reference MCMC is authoritative for those. '
+            'Gravity/structure sector unaffected. Details: '
+            'validation_reports/titan_freegrav_nh3_1m/RATIFICATION.md.'),
+        # Corrected path only: this sentence of scope_note is replaced.
+        'scope_note_quarantine_sentence': (
+            'DO NOT quote '
+            'SBI Re k₂, Im k₂, ζ, or η at this datum — the MCMC '
+            'reference is authoritative for k₂/dissipation.'),
+        'scope_note_corrected_sentence': (
+            'At this exact datum the tidal sector is reported with the '
+            'precomputed importance-sampling correction (scope, validation, '
+            'and the remaining model–data k₂ tension are stated in the '
+            'results-panel warning).'),
         # NOTE: the version dropdown shows only the text AFTER ' — ' (the
         # analysis grouping eats the head), so the composition tag must
         # appear in the tail or the user cannot tell this is the NH3 model.
@@ -2566,8 +2613,32 @@ def render_amortized_config():
         + "  Set mainly by the recompute-subset sliders, not posterior count.")
 
     # --- Validated-domain guard (hard refusal, per deployment conditions) ---
-    if slot.get('scope_note'):
-        st.caption(f"ℹ️ {slot['scope_note']}")
+    _scope_note = slot.get('scope_note')
+    if _scope_note and is_ui.correction_active_for(slot):
+        # Feature flag ON and this slot ships an IS correction: when the
+        # live conditioning would take the CORRECTED path (cheap exact-match
+        # pre-check; same call as the Run button), the quarantine sentence
+        # of the scope note is replaced. Otherwise the note is unchanged.
+        from PlanetProfile.Inference.inference_core import (
+            InferenceConfig as _IC)
+        _pre = is_ui.attempt_correction(
+            {'is_correction': slot['is_correction'],
+             'config_path': slot.get('config_path'),
+             'artifact_path': str(artifact_path),
+             'cache_path': slot['cache_path'],
+             'x_obs': x_obs, 'obs_sigma': obs_sigma,
+             'truncate_bounds': truncate_bounds or None,
+             'n_posterior_samples': n_post, 'n_derived': n_derived},
+            parent_directory, _IC)
+        if _pre:
+            _q = slot.get('scope_note_quarantine_sentence')
+            _c = slot.get('scope_note_corrected_sentence')
+            if _q and _c:
+                _scope_note = (_scope_note.replace(_q, _c)
+                               if _q in _scope_note
+                               else f"{_scope_note} {_c}")
+    if _scope_note:
+        st.caption(f"ℹ️ {_scope_note}")
     if slot.get('gate_status'):
         # Traceability: keep the gate verdict visible on ratified slots too,
         # not only while a slot is held (STRATEGY.md architecture principles).
@@ -2640,6 +2711,10 @@ def render_amortized_config():
         'config_path': slot.get('config_path'),
         'ocean_comp': slot.get('ocean_comp'),
         'sector_warning': slot.get('sector_warning'),
+        # Fiducial IS correction (inert unless the feature flag is on).
+        'is_correction': slot.get('is_correction'),
+        'sector_warning_corrected': slot.get('sector_warning_corrected'),
+        'sector_warning_fallback': slot.get('sector_warning_fallback'),
         'validated_version_pairs': slot.get('validated_version_pairs', ()),
     }
 
@@ -2784,11 +2859,33 @@ def render_amortized_run_button(spec, InferenceConfig):
             config.ocean_overrides = {
                 **(getattr(config, 'ocean_overrides', {}) or {}),
                 'comp': spec['ocean_comp']}
+        # Fiducial IS correction (Phase 2). None => feature off or slot has
+        # no correction: everything below is byte-identical to the
+        # uncorrected path. Bundle => result is built FROM the shipped
+        # draws+weights. Fallback => the existing uncorrected path runs with
+        # the approved fallback warning and the reason is recorded.
+        _t_run0 = time.time()
+        _corr = is_ui.attempt_correction(spec, parent_directory,
+                                         InferenceConfig)
+        _warn = spec.get('sector_warning')
+        if _corr is not None and not _corr:
+            _m = None
+            try:
+                _m = is_ui.read_manifest(spec, parent_directory)
+            except Exception:
+                pass
+            if spec.get('sector_warning_fallback'):
+                _warn = is_ui.fallback_warning(
+                    spec['sector_warning_fallback'], _corr.reason, _m)
+        elif _corr:
+            _warn = is_ui.corrected_warning(
+                spec['sector_warning_corrected'], _corr,
+                spec['is_correction'], spec['x_obs'], spec['obs_sigma'])
         # Sector-verification warning travels with the result (and any
         # exported pickle) the same way.
-        if spec.get('sector_warning'):
+        if _warn:
             config.metadata = {**(getattr(config, 'metadata', {}) or {}),
-                               'sector_warning': spec['sector_warning']}
+                               'sector_warning': _warn}
 
         runner = SBIRunner(config)
 
@@ -2800,17 +2897,28 @@ def render_amortized_run_button(spec, InferenceConfig):
                 text=f"Stage {d['iteration']} / {d['n_total']}")
 
         with st.spinner("Conditioning pretrained flow + recomputing observables..."):
-            result = runner.infer_from_artifact(
-                spec['artifact_path'],
-                x_obs=spec['x_obs'],
-                n_posterior_samples=spec['n_posterior_samples'],
-                seed=spec['seed'],
-                n_reeval=spec['n_reeval'],
-                n_derived=spec.get('n_derived'),
-                truncate_bounds=spec['truncate_bounds'],
-                progress_callback=progress_callback,
-                validated_version_pairs=spec.get('validated_version_pairs', ()),
-            )
+            if _corr:
+                # Built FROM the shipped bundle (never re-drawn from the
+                # flow: torch RNG is not portable, so fresh draws could not
+                # be paired with the shipped weights).
+                result = is_ui.build_corrected_result(
+                    _corr, config, runner, spec, parent_directory, _t_run0)
+            else:
+                result = runner.infer_from_artifact(
+                    spec['artifact_path'],
+                    x_obs=spec['x_obs'],
+                    n_posterior_samples=spec['n_posterior_samples'],
+                    seed=spec['seed'],
+                    n_reeval=spec['n_reeval'],
+                    n_derived=spec.get('n_derived'),
+                    truncate_bounds=spec['truncate_bounds'],
+                    progress_callback=progress_callback,
+                    validated_version_pairs=spec.get(
+                        'validated_version_pairs', ()),
+                )
+        if _corr is not None and not _corr:
+            result.metadata.update({'is_corrected': False,
+                                    'is_fallback_reason': _corr.reason})
 
         # Display/export provenance belongs to the run result so it survives
         # reruns and pickle export without coupling the inference core to the
@@ -2825,9 +2933,12 @@ def render_amortized_run_button(spec, InferenceConfig):
         st.session_state.amort_last_run_fp = _amortized_spec_fingerprint(spec)
         # Self-calibrate the runtime estimator from this run's actual wall time.
         _slot_key = Path(spec['artifact_path']).name.replace('.', '_').replace(' ', '_')
-        _record_amort_runtime(_slot_key, result)
+        if not _corr:  # a bundle load says nothing about per-pass cost
+            _record_amort_runtime(_slot_key, result)
         kept = result.metadata.get('kept_fraction')
         msg = "✅ Amortized posterior ready."
+        if _corr:
+            msg += " (precomputed importance-sampling correction loaded.)"
         if kept is not None:
             msg += f" Truncation kept {kept:.1%} of draws."
         st.success(msg)
@@ -3011,6 +3122,12 @@ def _figure_export_provenance():
         used = {name: values[0] for name, values in observables.items()}
     conditioning = ', '.join(
         f'{name}={float(value):.6g}' for name, value in (used or {}).items())
+    if metadata.get('is_corrected'):
+        _d = metadata.get('is_diagnostics') or {}
+        conditioning += (
+            f"; IS-corrected (ESS={_d.get('ess', float('nan')):.0f}, "
+            f"Pareto-k={_d.get('pareto_k', float('nan')):.2f}, "
+            f"manifest sha256={str(metadata.get('is_manifest_sha256'))[:12]})")
     return {
         'model_label': label or 'Custom MCMC run',
         'artifact_filename': artifact,
@@ -3053,8 +3170,16 @@ def render_results():
         """)
         return
 
-    # Results available
-    result = st.session_state.inference_results
+    # Results available.
+    # IS-corrected results (fiducial NH3 bundle, handoff §0.32 B5): every
+    # panel below reads `result`, an equal-weight seeded systematic resample
+    # of the weighted bundle (so no panel can silently show unweighted flow
+    # draws); numerical summaries use `raw_result` + `is_w` (true weights).
+    # For every non-corrected result both are the identical object / None.
+    raw_result = st.session_state.inference_results
+    is_w = is_ui.result_weights(raw_result)
+    result = is_ui.display_view(raw_result)
+    is_corrected = is_w is not None
 
     # Sector-level verification warning (slot-threaded via config.metadata,
     # e.g. the Titan NH3 split ratification: structure verified, tidal not).
@@ -3082,7 +3207,29 @@ def render_results():
     is_amortized = (result.metadata or {}).get('sampler') == 'sbi'
     with st.expander("📈 Sampling Diagnostics", expanded=True):
         metrics = result.convergence_metrics
-        if is_amortized:
+        if is_corrected:
+            # B6: show ESS / Pareto-k / w_max, never "n samples = N".
+            _d = raw_result.metadata.get('is_diagnostics') or {}
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Effective sample size", f"{_d['ess']:,.0f}")
+            col2.metric("Pareto-k", f"{_d['pareto_k']:.2f}")
+            col3.metric("Max weight", f"{_d['w_max_frac']:.2%}")
+            _of = is_ui.weighted_ocean_fraction(raw_result)
+            col4.metric("Ocean fraction (weighted)",
+                        f"{_of:.3f}" if _of is not None else "n/a")
+            _md = raw_result.metadata
+            st.caption(
+                "**Importance-sampling corrected posterior** (precomputed, "
+                f"bundle `{_md.get('is_bundle')}`, manifest sha256 "
+                f"`{str(_md.get('is_manifest_sha256'))[:16]}…`). The "
+                "diagnostics above were RECOMPUTED at load from the shipped "
+                "log-weights; the quantities shown are weighted. Plots are "
+                "drawn from a seeded systematic resample of the weighted "
+                f"set (seed {is_ui.DISPLAY_SEED}); the information content "
+                "is the ESS above, not the number of plotted points. "
+                "Per-phase heating is not part of the bundle and is "
+                "unavailable on this path.")
+        elif is_amortized:
             col1, col2, col3 = st.columns(3)
             col1.metric("Posterior draws", f"{metrics['n_samples']}")
             kept = (result.metadata or {}).get('kept_fraction')
@@ -3147,21 +3294,75 @@ def render_results():
         # magnitude scale calls for it (same thresholds as _prior_fmt).
         summary_data = []
         for i, param_name in enumerate(result.param_names):
-            samples_param = result.samples[:, i]
+            if is_corrected:
+                # True importance weights on the shipped draws (not the
+                # display resample).
+                samples_param = raw_result.samples[:, i]
+                _mean, _med, _std, _p16, _p84 = is_ui.weighted_summary(
+                    samples_param, is_w)
+            else:
+                samples_param = result.samples[:, i]
+                _mean, _med = np.mean(samples_param), np.median(samples_param)
+                _std = np.std(samples_param)
+                _p16, _p84 = np.percentile(samples_param, [16, 84])
             _m = float(np.max(np.abs(samples_param))) if samples_param.size \
                 else 0.0
             _sf = (lambda v: f"{v:.3e}") if (0.0 < _m < 1e-2 or _m >= 1e5) \
                 else (lambda v: f"{v:.4f}")
             summary_data.append({
                 'Parameter': result.param_labels[i],
-                'Mean': _sf(np.mean(samples_param)),
-                'Median': _sf(np.median(samples_param)),
-                'Std': _sf(np.std(samples_param)),
-                '16th %ile': _sf(np.percentile(samples_param, 16)),
-                '84th %ile': _sf(np.percentile(samples_param, 84)),
+                'Mean': _sf(_mean),
+                'Median': _sf(_med),
+                'Std': _sf(_std),
+                '16th %ile': _sf(_p16),
+                '84th %ile': _sf(_p84),
             })
 
         st.table(summary_data)
+        if is_corrected:
+            st.caption("Importance-weighted statistics (weighted mean, "
+                       "weighted quantiles).")
+
+    # Weighted derived pushforwards (corrected path only; B5)
+    if is_corrected:
+        with st.expander("📐 Tidal pushforward (importance-weighted)",
+                         expanded=True):
+            try:
+                from PlanetProfile.Inference.is_correction import (
+                    weighted_quantile)
+                _k2 = np.asarray(raw_result.k2_results, float)
+                _obs = (raw_result.metadata.get('x_obs') or {})
+                _sig = {n: v[1] for n, v in
+                        (getattr(raw_result.config, 'observables', {})
+                         or {}).items()}
+                rows = []
+                for _nm, _v, _on in (('Re k₂', _k2[:, 0], 'Re_k2'),
+                                     ('|Im k₂|', np.abs(_k2[:, 1]), 'Im_k2')):
+                    _q = weighted_quantile(_v, is_w, [0.16, 0.5, 0.84])
+                    _fin = _v[np.isfinite(_v)]
+                    rows.append({
+                        'Quantity': _nm,
+                        'Corrected median': f"{_q[1]:.3f}",
+                        'Corrected 16–84%': f"{_q[0]:.3f} – {_q[2]:.3f}",
+                        'Uncorrected flow median': f"{np.median(_fin):.3f}",
+                        'Observed ± σ': (f"{abs(_obs[_on]):.3f} ± "
+                                         f"{_sig[_on]:.3f}"
+                                         if _on in _obs and _on in _sig
+                                         else 'n/a'),
+                    })
+                st.table(rows)
+                _of = is_ui.weighted_ocean_fraction(raw_result)
+                _of_flow = (raw_result.metadata.get('is_diagnostics') or {}
+                            ).get('branch', {}).get('ocean', {}).get(
+                                'prob_flow')
+                if _of is not None:
+                    st.caption(
+                        f"Ocean fraction (weighted has_ocean mass): "
+                        f"**{_of:.3f}**"
+                        + (f" (uncorrected flow: {_of_flow:.3f})"
+                           if _of_flow is not None else "") + ".")
+            except Exception as e:
+                st.warning(f"Weighted pushforward unavailable: {e}")
 
     # Corner plot
     with st.expander("🔺 Corner Plot", expanded=True):
@@ -3454,6 +3655,11 @@ def render_results():
                     f"**Zoomed view**: {100 * _k2_frac_out:.0f}% of "
                     "posterior samples lie outside the ±4σ measurement "
                     "window (toggle off to see the full cloud).")
+            if is_corrected:
+                caption_bits.append(
+                    "**IS-weighted**: the cloud is a seeded weighted "
+                    "resample of the corrected posterior (marker density "
+                    "reflects weight; information content = ESS).")
             st.caption(" ".join(caption_bits))
 
             # Component panes: marginal posteriors of both k₂ components,
@@ -5130,7 +5336,13 @@ def render_results():
     with st.expander("🔥 Heating Distribution", expanded=False):
         heating_results = list(result.heating_results) if result.heating_results is not None else []
         n_nonempty = sum(1 for h in heating_results if h)
-        if not heating_results or n_nonempty == 0:
+        if is_corrected:
+            st.info("Heating unavailable on the importance-sampling "
+                    "corrected path: per-phase heating was computed on a "
+                    "small subset of UNCORRECTED flow draws and is not part "
+                    "of the validated bundle, so it is deliberately not "
+                    "shown (it would be unweighted).")
+        elif not heating_results or n_nonempty == 0:
             st.info("Heating data unavailable. Set **n_reeval > 0** in sampler "
                     "settings (or the heating re-evaluation subset in amortized "
                     "mode) to compute per-phase heating.")
@@ -5342,9 +5554,20 @@ def render_results():
         output_path = Path(parent_directory) / "inference_result.pkl"
 
         with open(output_path, 'wb') as f:
-            pickle.dump(result, f, protocol=pickle.HIGHEST_PROTOCOL)
+            # raw_result: for IS-corrected results this carries the shipped
+            # draws + normalized weights (result.weights /
+            # metadata['is_weights']) and the manifest sha, not the display
+            # resample.
+            pickle.dump(raw_result, f, protocol=pickle.HIGHEST_PROTOCOL)
 
         st.success(f"✅ Results saved to: {output_path}")
+    if is_corrected:
+        st.download_button(
+            "💾 Export weighted draws (CSV: params + weight, manifest sha)",
+            data=is_ui.weighted_csv(raw_result),
+            file_name="inference_is_weighted_samples.csv",
+            mime="text/csv", key="is_weighted_csv",
+            use_container_width=True)
 
 
 # ============================================================
