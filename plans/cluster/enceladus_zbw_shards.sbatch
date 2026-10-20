@@ -51,12 +51,11 @@ set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/pp_env.sh"
 
 N_SHARDS="${N_SHARDS:-11}"
-SHARD_DIR="${SHARD_DIR:-$PP_SCRATCH/enc_zbw_shards}"
-# Shards must OUTLIVE the array tasks for the merge job to read them, so
-# they cannot live in a per-task SLURM_TMPDIR. Default to a shared path.
-if [[ -n "${SLURM_TMPDIR:-}" && "$SHARD_DIR" == "$SLURM_TMPDIR"* ]]; then
-  SHARD_DIR="${SCRATCH:-$PP_REPO}/enc_zbw_shards_${SLURM_ARRAY_JOB_ID:-manual}"
-fi
+# Shards must OUTLIVE the array tasks for the merge job to read them, and
+# all tasks must share ONE dir. PP_SCRATCH is per-task (keyed on
+# SLURM_JOB_ID, which differs per array task), so default to a shared path
+# keyed on SLURM_ARRAY_JOB_ID instead. Export SHARD_DIR to override.
+SHARD_DIR="${SHARD_DIR:-${SCRATCH:-$PP_REPO}/enc_zbw_shards_${SLURM_ARRAY_JOB_ID:-manual}}"
 mkdir -p "$SHARD_DIR"
 echo "shard output dir: $SHARD_DIR"
 echo "  (pass the SAME SHARD_DIR to the merge job)"

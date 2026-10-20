@@ -26,6 +26,19 @@ they come from env vars or the `#SBATCH` lines you edit once.
 
 3. `mkdir -p slurm_logs` in the repo root (the scripts write there).
 
+4. **Populate the PlanetProfile user cache.** Every Perple_X lookup reads
+   `platformdirs.user_cache_dir('PlanetProfile')/Perple_X`
+   (`~/.cache/PlanetProfile` on Linux, `~/Library/Caches/PlanetProfile`
+   on macOS); an empty cache fails every build. For production runs, copy
+   the cache the reference builds used, so the tables match:
+   ```bash
+   # from the Mac
+   rsync -av ~/Library/Caches/PlanetProfile/ cluster:~/.cache/PlanetProfile/
+   ```
+   `python -c "from PlanetProfile.install import DownloadPerplexFiles as d; d()"`
+   fetches the tables from GitHub `main` instead; that is fine for smoke
+   tests, but record it, because it may not be byte-identical to the Mac cache.
+
 `pp_env.sh` also sets the things this project has actually been bitten by:
 `KMP_DUPLICATE_LIB_OK` (numba+torch libomp double-load), a **per-task**
 `NUMBA_CACHE_DIR` (array tasks sharing one cache dir can corrupt it),
@@ -50,13 +63,18 @@ python plans/scripts/enceladus_zbw_shard_build.py --n-shards 11 --plan
 
 # 1. build the shards, 2. merge when they all succeed
 mkdir -p slurm_logs
+export SHARD_DIR=$SCRATCH/enc_zbw_shards_$(date +%Y%m%d)   # shared, persistent
 JID=$(sbatch --parsable plans/cluster/enceladus_zbw_shards.sbatch)
-SHARD_DIR=$SCRATCH/enc_zbw_shards_$JID \
-  sbatch --dependency=afterok:$JID plans/cluster/enceladus_zbw_merge.sbatch
+sbatch --dependency=afterok:$JID plans/cluster/enceladus_zbw_merge.sbatch
 ```
 
-Pass the **same** `SHARD_DIR` to both. The shard job prints the directory
-it chose; `afterok` means the merge never starts if any task failed.
+Both jobs inherit the **same** exported `SHARD_DIR` (sbatch exports the
+submit environment). Without it, the shard tasks default to
+`$SCRATCH/enc_zbw_shards_<array job id>`. `afterok` means the merge never
+starts if any task failed.
+
+No SLURM: `plans/cluster/enceladus_zbw_local.sh` runs the same 11 shards as
+local background processes (capped at the core count, resumable).
 
 **Why sharding does not weaken the r7 gates.** This is the load-bearing
 claim — it rests on the gates' own structure, not on convenience:

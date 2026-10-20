@@ -3,7 +3,13 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-20c (Machine A: NH3 R1/R2 ALL PASS, lift ratified; Enceladus rebuild on persistent scratch. Previously 2026-10-20b, end of session, user relocating. **The user directed that everything run on this machine, so Machine B's §0.31/§0.32 items now run locally.** Open threads:
+Updated: 2026-10-20d (Opus 5.5 session, running in a Linux container that sees the repo but NOT the Mac's ~/scratch, PPcl env, or PlanetProfile cache. **The Enceladus r7 third launch (thread 1) could NOT be checked from here**, so its state is unknown, not failed. Check it on the Mac (`ls ~/scratch/enc_zbw_shards/*.meta.json | wc -l`) before any relaunch, so the work is not duplicated.
+   - Launcher now committed: `plans/cluster/enceladus_zbw_local.sh` reconstructs the uncommitted run.sh (resumable, macOS bash 3.2-safe, aborts if the PlanetProfile cache is missing).
+   - SLURM fix: `enceladus_zbw_shards.sbatch` defaulted SHARD_DIR to the per-task `$PP_SCRATCH`, which is keyed on SLURM_JOB_ID and differs per array task, so the shards would have scattered across 11 dirs and the merge would have refused. The default is now keyed on SLURM_ARRAY_JOB_ID; the README exports one SHARD_DIR for both jobs and documents copying the Mac PlanetProfile cache to the cluster.
+   - Status of these script changes: implemented, unverified (syntax-checked; the missing-cache guard was exercised, but no shard has been built with them).
+   - The user offered their SLURM cluster for large runs.
+   - The uncommitted `PP_IS_CORRECTION_FEATURE` env override in is_correction_ui.py (for the B8 flag-on visual check) is left uncommitted.)
+Prior: 2026-10-20c (Machine A: NH3 R1/R2 ALL PASS, lift ratified; Enceladus rebuild on persistent scratch. Previously 2026-10-20b, end of session, user relocating. **The user directed that everything run on this machine, so Machine B's §0.31/§0.32 items now run locally.** Open threads:
 
 1. **Enceladus r7 rebuild: RUNNING on PERSISTENT scratch (third launch, 2026-10-20 ~16:20 BST).**
    - **History.**
