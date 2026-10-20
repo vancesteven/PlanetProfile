@@ -5,12 +5,12 @@ what current work buys). This file is the tactical log.
 
 Updated: 2026-10-20b (Machine A, end of session, user relocating. **The user directed that everything run on this machine, so Machine B's §0.31/§0.32 items now run locally.** Open threads:
 
-1. **Enceladus r7 rebuild: RUNNING, detached (RELAUNCHED ~16:10 BST after a failed first local attempt).**
+1. **Enceladus r7 rebuild: RUNNING, detached (RELAUNCHED ~15:29 BST after a failed first local attempt).**
    - **First attempt FAILED (environment, not physics).** Every node raised FileNotFoundError for the Perple_X table, because HOME=/tmp/pphome redirects platformdirs' user cache to an empty /tmp/pphome/Library/Caches. Fixed with the symlink /tmp/pphome/Library/Caches/PlanetProfile -> ~/Library/Caches/PlanetProfile; the failed logs are in /tmp/enc_zbw_failed_run1/.
    - Relaunch confirmed healthy: shard 3 builds nodes, and shard 0's zb=5 Nones are the expected thin-shell brentq bracket failures.
    - **ANY HOME=/tmp/pphome run that touches Perple_X needs that symlink** (it is gone after a reboot).
    - Launch: `/tmp/enc_zbw_shards/run.sh`, 11 shards (shard 0 also builds the frozen axis). Commit in `/tmp/enc_zbw_shards/BUILD_COMMIT`; the C2 fix it depends on is cf0adfb7.
-   - Threads are pinned at 1 per process. Throughput in the first attempt was ~45 nodes/h/shard, but the failed nodes there were fast, so real throughput is unmeasured; expect roughly 7-11 h from the 16:10 BST relaunch.
+   - Threads are pinned at 1 per process. Throughput in the first attempt was ~45 nodes/h/shard, but the failed nodes there were fast, so real throughput is unmeasured; measured ~66 nodes/h/shard after relaunch, so ETA ~20:30 BST.
    - Finished when `/tmp/enc_zbw_shards/DONE` exists. Then check every `shard_*.log` for Traceback, `ls /tmp/enc_zbw_shards/shard_*.meta.json` (11 expected), and look for any `*.preC2_QUARANTINED.pkl` (that means a C2 failure).
    - Merge: `HOME=/tmp/pphome python plans/scripts/enceladus_zbw_merge_shards.py --shard-dir /tmp/enc_zbw_shards --out <cache path from the production build script>`.
    - Then check the four §0.31 acceptance points plus the six §0.29 gates. Report any difference rather than reconciling it.
@@ -25,7 +25,12 @@ Updated: 2026-10-20b (Machine A, end of session, user relocating. **The user dir
    - Phase 2 files: `PlanetProfileApp/Utilities/is_correction_ui.py`, Inference.py wiring, the manifest's `gui_gate_values`, and `tests/app_is_correction_test.py`.
    - Tests: is_fiducial_bundle + app_is_correction, 40 passed (manager-run).
    - tests/app_globe_panel_test.py: 9 passed, 2 failed (europa_v4_globe_panel "assert 3 >= 4"; mineralogy_tab "dataframe missing"). Both also fail at HEAD with Phase 2 stashed, so they are PRE-EXISTING failures, not regressions from this work. Diagnose separately.
-   - **Not reviewed:** the panel-by-panel weighting (B5) has not been audited.
+   - **B5 per-panel audit DONE (2026-10-20, Haiku swarm, 5 slices, all of Inference.py ~3290-5600): no unweighted-draw defect.**
+     - Summary tables, the k2 pushforward and the ocean fraction use true weights.
+     - All plots, the picker, profiles, wedge, mineralogy and exports use the seeded weighted resample (`display_view`), or carry weights (PKL, weighted CSV with the manifest sha).
+     - Heating is disabled and labelled.
+     - Fixed in the same commit: a corrected-flagged result with missing or invalid weights now RAISES (previously it silently returned None, which would have rendered raw draws unlabelled); "sample #k" is labelled as a resample index.
+     - Tests: 41 passed.
    - **Next:**
      1. Audit every result.samples consumer for weights or an explicit "uncorrected" label.
      2. Visual verification with the flag on: default datum shows the corrected warning, |Im k₂| ≈ 0.109, ocean ≈ 0.929; a one-field change shows the fallback.

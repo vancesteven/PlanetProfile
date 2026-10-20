@@ -79,10 +79,26 @@ def test_result_weights_normalized_and_validated():
     got = ui.result_weights(r)
     assert got is not None and np.isclose(got.sum(), 1.0)
     np.testing.assert_allclose(got, w)
-    # wrong-length weights are refused rather than silently misapplied
+    # Wrong-length weights on a result flagged corrected must FAIL LOUDLY: a
+    # silent None would render every panel from raw flow draws, unlabelled.
     r.weights = w[:-1]
     r.metadata['is_weights'] = w[:-1]
-    assert ui.result_weights(r) is None
+    with pytest.raises(ValueError, match='IS weights are invalid'):
+        ui.result_weights(r)
+    r.weights = None
+    r.metadata.pop('is_weights')
+    with pytest.raises(ValueError, match='carries no IS weights'):
+        ui.result_weights(r)
+
+
+def test_display_view_is_equal_weight_and_not_flagged_corrected():
+    r, _ = _fake_result()
+    view = ui.display_view(r)
+    # The equal-weight view must not re-enter the corrected branch (and must
+    # not trip the fail-loudly guard) when helpers are called on it.
+    assert ui.result_weights(view) is None
+    assert view.metadata['is_display_view_of_corrected'] is True
+    assert ui.display_view(view) is view
 
 
 def test_weighted_summary_matches_numpy_reference():

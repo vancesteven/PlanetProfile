@@ -4241,7 +4241,11 @@ def render_results():
                            else obs.get('C20', [None])[0])
                     c22 = (float(c22s[sel_idx]) if c22s is not None
                            else obs.get('C22', [None])[0])
-                    which = (f"sample #{sel_idx}: " + ", ".join(
+                    which = (f"sample #{sel_idx}"
+                             + (" (index into the weighted display "
+                                "resample, not the shipped draw)"
+                                if is_corrected else "")
+                             + ": " + ", ".join(
                         f"{n} = {samples[sel_idx, j]:.3g}"
                         for j, n in enumerate(names)))
                 else:

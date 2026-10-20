@@ -72,12 +72,20 @@ def result_weights(result) -> Optional[np.ndarray]:
     if w is None:
         w = md.get('is_weights')
     if w is None:
-        return None
+        raise ValueError(
+            "result is flagged is_corrected but carries no IS weights -- "
+            "refusing to render unweighted draws as corrected")
     w = np.asarray(w, float)
     s = w.sum()
     if w.ndim != 1 or len(w) != len(result.samples) or not np.isfinite(s) \
             or s <= 0:
-        return None
+        # Flagged corrected but the weights are unusable: fail loudly. A
+        # silent None here would render every panel from raw flow draws with
+        # no "uncorrected" label (B5).
+        raise ValueError(
+            "result is flagged is_corrected but its IS weights are invalid "
+            f"(ndim={w.ndim}, len={len(w)} vs {len(result.samples)} samples, "
+            f"sum={s!r})")
     return w / s
 
 
@@ -158,6 +166,10 @@ def display_view(result, seed: int = DISPLAY_SEED):
                   for part, vals in d.items()} if isinstance(d, dict) else d
             for lab, d in ind.items()}
     md.pop('is_weights', None)   # the view is equal-weight by construction
+    # The view is equal-weight: mark it so result_weights(view) returns None
+    # (not the fail-loudly path for a corrected result missing its weights).
+    md['is_corrected'] = False
+    md['is_display_view_of_corrected'] = True
     diag = md.get('is_diagnostics') or {}
     md.update({
         'heating_indices': None,
