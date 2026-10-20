@@ -1,0 +1,837 @@
+PlanetProfileApp
+
+About
+
+BulkPlanetarySettings
+
+CompareRuns
+
+CoreSettings
+
+Exploreogram
+
+FigureSettings
+
+Inference
+
+LayerStepSettings
+
+OceanSettings
+
+View 3 more
+
+⚠️ Current Planet: ❌ Not Set
+
+Deploy
+🧮 Bayesian Inference
+
+Mode
+
+🚀 Run new MCMC
+
+📂 Browse saved runs
+
+Inference method
+
+🧮 MCMC (pocomc — full sampling, free priors/σ)
+
+⚡ Amortized (pretrained SBI — instant, frozen priors/σ)
+
+⚡ Amortized Configuration
+keyboard_arrow_right
+
+📖 Model build-up & assumptions
+
+Mission–body analysis:
+
+Model version:
+
+1D · Cassini–Titan (NH₃, joint no-ocean+ocean) — NH₃ joint no-ocean+ocean free-gravity, 13D · free C₂₀/C₂₂ (agnostic) + measured k₂ + sampled salinity, CMR₂ dropped
+
+📍
+
+Active model body: Titan — the observable defaults below are Titan values.
+
+keyboard_arrow_right
+
+🧲 How magnetic induction constrains this model
+
+nsf/nsf · trained on 689,845 sims · config e596574d1e81567c · git 33a7ef9e · 2026-08-03T03:37:20Z
+
+Amortized mode: priors and observation uncertainties are frozen at training time (shown read-only below). Observable values are free — conditioning is instant. Use MCMC mode to vary priors or σ freely. See for the validated conditioning domain.
+
+🔒 Trained priors
+
+parameter
+
+	
+
+prior
+
+
+
+
+alpha
+
+	
+
+uniform [0.15, 0.45]
+
+
+
+
+log10_zeta
+
+	
+
+uniform [-3, 2]
+
+
+
+
+log10_eta_Ih
+
+	
+
+uniform [10, 16]
+
+
+
+
+log10_eta_III
+
+	
+
+uniform [10, 16]
+
+
+
+
+log10_eta_V
+
+	
+
+uniform [10, 16]
+
+
+
+
+log10_eta_VI
+
+	
+
+uniform [10, 16]
+
+
+
+
+log10_eta_sil
+
+	
+
+uniform [18, 22]
+
+
+
+
+Tb_K
+
+	
+
+uniform [249, 263]
+
+
+
+
+log10_wOcean_ppt
+
+	
+
+uniform [0, 1.8451]
+
+
+
+
+R_core_km
+
+	
+
+uniform [0, 2000]
+
+
+
+
+rho_core_kgm3
+
+	
+
+uniform [2591, 3600]
+
+
+
+
+dC20_nh
+
+	
+
+uniform [-2e-05, 2e-05]
+
+
+
+
+dC22_nh
+
+	
+
+uniform [-5e-06, 5e-06]
+
+keyboard_arrow_right
+
+✂️ Prior truncation (exact, within trained bounds)
+
+🔭 Observables (condition the posterior)
+
+C20:
+
+± σ (frozen at training):
+
+C22:
+
+± σ (frozen at training):
+
+Re_k2:
+
+± σ (frozen at training):
+
+Im_k2:
+
+± σ (frozen at training):
+
+Hydrostatic C/MR² (from current 
+C
+22
+	​
+
+)
+
+0.23427
+
+GC21 SOL-A band (±1σ)
+
+nan–nan
+
+⚠️ 
+C
+22
+	​
+
+ = 1.011e-05 is outside the GC21 SOL-A plausible band (1.386e-04 ± 2.44e-06); the readout still shows the corresponding hydrostatic C/MR² for exploration.
+
+⚙️ Sampling
+
+Posterior samples:
+
+20000
+
+1000
+
+50000
+
+Heating re-evaluation subset:
+
+500
+
+100
+
+2000
+
+Derived-quantity recompute subset (k₂/CMR²/likelihood):
+
+All
+
+500
+
+All
+
+Seed:
+
+⏱️
+
+Rough conditioning time: ~5.5 min (≈ 40,500 forward-model passes: 2 × all samples derived + 500 heating). Typical-laptop estimate; replaced by the measured time after your first run. Set mainly by the recompute-subset sliders, not posterior count.
+
+ℹ️ Titan free-gravity JOINT no-ocean+ocean (NH₃): the posterior spans BOTH frozen no-ocean interiors and NH₃-ocean interiors over the full Tb∈[249,263] K × 1–70 ppt range — frozen (Tb,w) grid nodes (no liquidus crossing) build as REAL no-ocean structures (own recomputed k₂/C₂₀/C₂₂) and are RETAINED in the distribution, not silently rejected. CMR₂ DROPPED (removes hydrostatic double-count of C₂₂); C₂₀/C₂₂ = Petricca et al. 2025; ΔC₂₀ⁿʰ/ΔC₂₂ⁿʰ freely-sampled non-hydrostatic offsets (gravity interior-agnostic). Induction + h₂ dropped (no clean Cassini signal). Reviewer status 2026-08-03 is SPLIT: VERIFIED for the gravity/structure sector (C₂₀, C₂₂, R_core, ρ_core, salinity, Tb, ΔC₂₀/ΔC₂₂ null) — SBC PASS (all 13 params, min BH-adj KS p = 0.772). But the TIDAL (k₂) SECTOR is NOT VERIFIED: a posterior-predictive check shows the flow under-updates dissipation — SBI k₂ pushforward sits at the prior-predictive median (Re k₂≈0.54, Im k₂≈0.04) vs the MCMC reference (0.58, 0.09) and the data (0.61, 0.135). DO NOT quote SBI Re k₂, Im k₂, ζ, or η at this datum — the MCMC reference is authoritative for k₂/dissipation. Limits monotonicity N/A for a joint mixture. Full finding + caveats: validation_reports/titan_freegrav_nh3_1m/RATIFICATION.md.
+
+✅
+
+Structure cache found (3164 KB)
+
+⚡ Generate Posterior
+
+Stage 4 / 4
+
+✅
+
+Amortized posterior ready.
+
+📊 Results
+🔬
+
+Tidal-sector correction unavailable for this conditioning (modified datum: x_obs differs from the validated fiducial (values or observable set).). The correction is validated only at the default Cassini datum; about 15% of in-range prior-predictive data fail its reliability gates. The uncorrected flow under-updates k₂: do not quote its Re k₂, Im k₂, ζ, or η posteriors; the reference MCMC is authoritative for those. Gravity/structure sector unaffected. Details: validation_reports/titan_freegrav_nh3_1m/RATIFICATION.md.
+
+📊 Inference Results
+keyboard_arrow_down
+
+📈 Sampling Diagnostics
+
+Posterior draws
+
+20000
+
+Truncation kept
+
+no truncation
+
+Sampler
+
+Amortized NPE
+
+Runtime: 7.7 min · artifact: (trained on 689,845 sims). Acceptance rate and R-hat are MCMC convergence diagnostics and do not apply here; this artifact's calibration was validated via the SBC / cross-check / anchor gates (see ).
+
+keyboard_arrow_right
+
+🔭 Observables used in this run
+
+keyboard_arrow_right
+
+📜 Model assumptions for this run
+
+keyboard_arrow_down
+
+📋 Parameter Summary
+
+Posterior Statistics:
+
+Parameter
+
+	
+
+Mean
+
+	
+
+Median
+
+	
+
+Std
+
+	
+
+16th %ile
+
+	
+
+84th %ile
+
+
+
+
+α
+
+	
+
+0.3051
+
+	
+
+0.3086
+
+	
+
+0.0864
+
+	
+
+0.2025
+
+	
+
+0.4060
+
+
+
+
+log
+10
+	​
+
+ζ
+
+	
+
+-0.7401
+
+	
+
+-1.0822
+
+	
+
+1.4649
+
+	
+
+-2.3095
+
+	
+
+1.0904
+
+
+
+
+log
+10
+	​
+
+η
+Ih
+	​
+
+
+	
+
+12.9410
+
+	
+
+12.9949
+
+	
+
+1.7061
+
+	
+
+10.9070
+
+	
+
+14.8755
+
+
+
+
+log
+10
+	​
+
+η
+III
+	​
+
+
+	
+
+12.9693
+
+	
+
+12.9591
+
+	
+
+1.7352
+
+	
+
+10.9074
+
+	
+
+15.0260
+
+
+
+
+log
+10
+	​
+
+η
+V
+	​
+
+
+	
+
+12.7213
+
+	
+
+12.5646
+
+	
+
+1.7432
+
+	
+
+10.7126
+
+	
+
+14.8354
+
+
+
+
+log
+10
+	​
+
+η
+VI
+	​
+
+
+	
+
+12.5059
+
+	
+
+12.2752
+
+	
+
+1.7323
+
+	
+
+10.5758
+
+	
+
+14.5824
+
+
+
+
+log
+10
+	​
+
+η
+sil
+	​
+
+
+	
+
+19.9588
+
+	
+
+19.9453
+
+	
+
+1.1579
+
+	
+
+18.6141
+
+	
+
+21.3456
+
+
+
+
+T
+b
+	​
+
+ (K)
+
+	
+
+256.9822
+
+	
+
+257.4529
+
+	
+
+3.9385
+
+	
+
+252.3491
+
+	
+
+261.3294
+
+
+
+
+log10_wOcean_ppt
+
+	
+
+1.0031
+
+	
+
+1.0492
+
+	
+
+0.5373
+
+	
+
+0.3537
+
+	
+
+1.6094
+
+
+
+
+R_core_km
+
+	
+
+910.2000
+
+	
+
+911.5345
+
+	
+
+517.0610
+
+	
+
+307.5222
+
+	
+
+1514.6613
+
+
+
+
+rho_core_kgm3
+
+	
+
+3172.6453
+
+	
+
+3163.6295
+
+	
+
+239.9345
+
+	
+
+2894.1315
+
+	
+
+3462.1691
+
+
+
+
+dC20_nh
+
+	
+
+-3.239e-06
+
+	
+
+-3.031e-06
+
+	
+
+9.802e-07
+
+	
+
+-4.169e-06
+
+	
+
+-2.376e-06
+
+
+
+
+dC22_nh
+
+	
+
+1.008e-06
+
+	
+
+9.179e-07
+
+	
+
+2.641e-07
+
+	
+
+7.935e-07
+
+	
+
+1.267e-06
+
+keyboard_arrow_down
+
+🔺 Corner Plot
+
+download
+
+Download corner plot (PDF)
+
+download
+
+Download corner plot (PNG)
+
+keyboard_arrow_down
+
+🧅 Interior Layer Thicknesses
+
+download
+
+Download layer thicknesses (PDF)
+
+download
+
+Download layer thicknesses (PNG)
+
+Median with 16–84% interval (dotted). Mantle thickness is derived per sample as R_body − hydrosphere thickness − core radius (hydrosphere includes any HP-ice layers).
+
+keyboard_arrow_down
+
+📡 k₂ Posterior Scatter
+
+Zoom to measurement ellipse (±4σ)
+
+download
+
+Download k₂ posterior (PDF)
+
+download
+
+Download k₂ posterior (PNG)
+
+Red ellipses: 1σ / 2σ observational constraint (this run's k₂ conditioning values). Point size scales with the sampled basal temperature T_b (larger = warmer ice shell base; the structural dimension of the model). Color is the fraction of tidal heating dissipated in the silicate interior (viridis: dark = ice-dominated, yellow = rock-dominated dissipation). Zoomed view: 30% of posterior samples lie outside the ±4σ measurement window (toggle off to see the full cloud).
+
+k₂ component view
+
+Re / Im
+
+Amplitude / Phase
+
+download
+
+Download k₂ components (PDF)
+
+download
+
+Download k₂ components (PNG)
+
+keyboard_arrow_right
+
+🌐 Interactive Globe
+
+keyboard_arrow_down
+
+🪨 Non-hydrostatic gravity: identifiable combination u
+
+median u
+
+3.32e-08
+
+95% upper limit |u|
+
+3.12e-07
+
+|u|₉₅ / σ_u(obs)
+
+2.0
+
+download
+
+Download non-hydrostatic u (PDF)
+
+download
+
+Download non-hydrostatic u (PNG)
+
+u is the RATIO-BREAKING combination of the sampled non-hydrostatic Stokes offsets — the interior term cancels exactly, making u interior-independent and SBC-calibrated (the v4 deliverable). Report u as a provisional upper limit in absolute and observation-σ units. Do NOT cite the per-component dC20_nh/dC22_nh marginals or the −C20/C22 ratio: the ratio-preserving direction is pinned only through the weakly identified interior. σ_u convention risk: if the mission's σ(C20) is 4π-normalized, σ_u is ~1.4× larger than shown.
+
+keyboard_arrow_down
+
+⚖️ C/MR² Moment-of-Inertia Posterior
+
+📖 How degree-2 gravity constrains C/MR²
+
+expand_more
+download
+
+Download C/MR² posterior (PDF)
+
+download
+
+Download C/MR² posterior (PNG)
+
+Median C/MR²
+
+0.33064
+
+16th–84th %ile
+
+0.32540 – 0.33198
+
+Shape of the actual C/MR² posterior: skew -1.57, excess kurtosis +1.88 — non-Gaussian. In this free-gravity design C/MR² is not conditioned on, so this is the expected projection of the loosely-constrained interior (discrete ice-phase regimes + core structure), NOT a pipeline artifact — the reference MCMC reproduces the same shape (reviewer-verified 2026-07-24).
+
+Non-hydrostaticity (actual − hydrostatic reference)
+
+Median gap
+
+-0.01274
+
+Median |gap|
+
+0.01274
+
+RD floor
+
+±0.0035
+
+Median |gap| 0.01274 exceeds the ~0.0035 Radau–Darwin floor — a candidate non-hydrostatic signal (the actual moment of inertia departs from the hydrostatic C₂₂ reduction beyond the RD approximation).
+
+keyboard_arrow_right
+
+🔥 Heating Distribution
+
+💾 Export Results (PKL)
+
+Conditions the pretrained flow (instant) and recomputes k2/C-MR2/heating for the plots (~seconds).
