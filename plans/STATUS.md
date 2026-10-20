@@ -3,12 +3,23 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-20d (Opus 5.5 session, running in a Linux container that sees the repo but NOT the Mac's ~/scratch, PPcl env, or PlanetProfile cache. **The Enceladus r7 third launch (thread 1) could NOT be checked from here**, so its state is unknown, not failed. Check it on the Mac (`ls ~/scratch/enc_zbw_shards/*.meta.json | wc -l`) before any relaunch, so the work is not duplicated.
+Updated: 2026-10-20e (Opus 5.5 session, running in a Linux container that sees the repo but NOT the Mac's ~/scratch, PPcl env, or PlanetProfile cache. **The Enceladus r7 third launch (thread 1) could NOT be checked from here**, so its state is unknown, not failed. Check it on the Mac (`ls ~/scratch/enc_zbw_shards/*.meta.json | wc -l`) before any relaunch, so the work is not duplicated.
    - Launcher now committed: `plans/cluster/enceladus_zbw_local.sh` reconstructs the uncommitted run.sh (resumable, macOS bash 3.2-safe, aborts if the PlanetProfile cache is missing).
    - SLURM fix: `enceladus_zbw_shards.sbatch` defaulted SHARD_DIR to the per-task `$PP_SCRATCH`, which is keyed on SLURM_JOB_ID and differs per array task, so the shards would have scattered across 11 dirs and the merge would have refused. The default is now keyed on SLURM_ARRAY_JOB_ID; the README exports one SHARD_DIR for both jobs and documents copying the Mac PlanetProfile cache to the cluster.
    - Status of these script changes: implemented, unverified (syntax-checked; the missing-cache guard was exercised, but no shard has been built with them).
    - The user offered their SLURM cluster for large runs.
-   - The uncommitted `PP_IS_CORRECTION_FEATURE` env override in is_correction_ui.py (for the B8 flag-on visual check) is left uncommitted.)
+   - **Enceladus r7 third launch FINISHED on the Mac:** 11/11 shards with meta, DONE 20:48 BST, no Traceback, no C2 quarantine dump, BUILD_COMMIT 634ea0cd (after the C2 fix cf0adfb7). Merge and gates are pending: run `plans/cluster/enceladus_zbw_finish.sh` on the Mac. It merges into ~/scratch and runs `plans/scripts/enceladus_zbw_acceptance.py` (§0.31 A1-A4, r7 ACCEPTANCE G1-G7, §0.30 axes). The acceptance script is implemented, unverified on real data. A4 is UNCHECKABLE in-repo because the failed r7 run never saved, so only the prose writeup exists. The ocean mass gate has no ratified lower bound and needs a reviewer ruling. Do not move the cache into the repo before adjudication.
+   - **B8 flag-on visual verification: verified** (Linux aarch64 container, micromamba PPcl at ~/mamba/envs/PPcl, headless Chromium; screenshots in that session's scratchpad b8/, not committed).
+     - Default datum with PP_IS_CORRECTION_FEATURE=1: corrected warning scoped to Re k2, |Im k2|, zeta, eta x5, alpha; ESS 1,271; Pareto-k 0.19; |Im k2| median 0.109 (uncorrected 0.045); ocean fraction 0.929; tension caveat present.
+     - Im_k2 changed to 0.145: fallback text, no corrected label.
+     - Flag off: original split-ratification warning.
+     - The env override is now committed; FEATURE_ENABLED stays False.
+   - **B8 deviations (open, not fixed):**
+     - (a) At the GUI DEFAULT sliders (10,000 samples, derived subset 1000) the app falls back ("full-N likelihoods absent: n_derived=1000 < N=20000"). The correction appears only at 20000 samples with derived subset "All", so a default-settings user never sees it.
+     - (b) The Parameter Summary table heads all 13 parameters "Importance-weighted statistics" without marking which are lifted.
+     - (c) The fallback text has a ".)." typo.
+     - (d) Blank inline-code values in the diagnostics captions ("bundle , manifest sha256 )", "artifact: (trained", "(see )"), possibly a container font artifact, unchecked.
+     - Flag flip waits on the user plus a reviewer ruling on (a) and (b).)
 Prior: 2026-10-20c (Machine A: NH3 R1/R2 ALL PASS, lift ratified; Enceladus rebuild on persistent scratch. Previously 2026-10-20b, end of session, user relocating. **The user directed that everything run on this machine, so Machine B's §0.31/§0.32 items now run locally.** Open threads:
 
 1. **Enceladus r7 rebuild: RUNNING on PERSISTENT scratch (third launch, 2026-10-20 ~16:20 BST).**

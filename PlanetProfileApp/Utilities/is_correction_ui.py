@@ -46,8 +46,18 @@ R_TRUNCATED = ('modified datum: truncation bounds are set (the correction '
 # ---------------------------------------------------------------------------
 
 def feature_enabled() -> bool:
-    """Read the module flag at call time so tests can monkeypatch it."""
+    """Read the module flag at call time so tests can monkeypatch it.
+
+    ``PP_IS_CORRECTION_FEATURE=1`` in the app's environment turns the
+    feature on for that process only, without editing the committed
+    default. It exists for B8 visual verification of an app instance
+    launched for that purpose; the deployed default stays
+    ``FEATURE_ENABLED``.
+    """
+    import os
     from PlanetProfile.Inference import is_fiducial_bundle as fb
+    if os.environ.get('PP_IS_CORRECTION_FEATURE') == '1':
+        return True
     return bool(fb.FEATURE_ENABLED)
 
 
