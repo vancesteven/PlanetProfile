@@ -1,0 +1,117 @@
+{
+ "bundle": "titan_freegrav_nh3_is_fiducial",
+ "npz_file": "titan_freegrav_nh3_is_fiducial.npz",
+ "npz_sha256": "0818b4e5fde13382fbcf048f5c4820f0e4929f09698a5907884cdbcfb5579d33",
+ "artifact_sha256": "828965d61e8a30181431a130c108aa0ba0fc960fbde32e8cfbb95f7053604ef1",
+ "artifact_name": "titan_freegrav_nh3_posterior_1m.pt",
+ "config_file": "PlanetProfile/Inference/configs/test54_titan_nh3_freegrav.json",
+ "config_hash": "e596574d1e81567c",
+ "structure_cache_sha256": "3d837cf853ad6b5945a4ab43693399a3c4fceae8c46ba967a8bc4d51ec328648",
+ "x_obs": {
+  "C20": -3.3511e-05,
+  "C22": 1.0107e-05,
+  "Re_k2": 0.608,
+  "Im_k2": 0.135
+ },
+ "obs_sigma": {
+  "C20": 4.71e-07,
+  "C22": 6.2e-08,
+  "Re_k2": 0.048,
+  "Im_k2": 0.035
+ },
+ "observables": [
+  "C20",
+  "C22",
+  "Im_k2",
+  "Re_k2"
+ ],
+ "imag_convention": "abs",
+ "param_names": [
+  "alpha",
+  "log10_zeta",
+  "log10_eta_Ih",
+  "log10_eta_III",
+  "log10_eta_V",
+  "log10_eta_VI",
+  "log10_eta_sil",
+  "Tb_K",
+  "log10_wOcean_ppt",
+  "R_core_km",
+  "rho_core_kgm3",
+  "dC20_nh",
+  "dC22_nh"
+ ],
+ "n_samples": 20000,
+ "config_random_state": 72,
+ "seed_offset": 0,
+ "effective_seed": 72,
+ "n_derived": null,
+ "arrays": [
+  "D_clath_results",
+  "D_hsphere_results",
+  "D_iceHP_results",
+  "D_iceIh_results",
+  "D_icePhase_III",
+  "D_icePhase_V",
+  "D_icePhase_VI",
+  "D_ocean_results",
+  "c20_results",
+  "c22_results",
+  "cmr2_hydro_results",
+  "cmr2_results",
+  "flow_log_prob",
+  "h2_results",
+  "has_ocean",
+  "k2_results",
+  "log_likelihoods",
+  "log_w",
+  "param_names",
+  "samples"
+ ],
+ "derived_carried": [
+  "k2_results",
+  "h2_results",
+  "cmr2_results",
+  "D_ocean_results",
+  "D_iceIh_results",
+  "D_hsphere_results",
+  "D_iceHP_results",
+  "D_clath_results",
+  "c20_results",
+  "c22_results",
+  "cmr2_hydro_results",
+  "D_icePhase_III",
+  "D_icePhase_V",
+  "D_icePhase_VI"
+ ],
+ "heating_note": "heating_results: list of 500 dicts (len != N=20000; not shipped)",
+ "diagnostics": {
+  "ess": 1270.7118961718193,
+  "pareto_k": 0.19062726587199338,
+  "w_max_frac": 0.0062302424698169245,
+  "frac_rejected": 0.0113,
+  "n_rejected": 226,
+  "verdict": "clean",
+  "ocean_prob_flow": 0.93255,
+  "ocean_prob_corrected": 0.9292539223381953
+ },
+ "c5_3": {
+  "threshold_logq": -4.091457773208618,
+  "ref_mass_below": 0.0009399897981707592,
+  "cap": 0.01,
+  "tail_q": 0.001,
+  "pass": true
+ },
+ "logw_match": {
+  "n_finite": 19774,
+  "n_neg_inf": 226,
+  "max_abs_diff": 0.0,
+  "max_rel_diff": 0.0,
+  "rtol": 1e-10
+ },
+ "versions": {
+  "torch": "2.8.0",
+  "sbi": "0.26.1",
+  "numpy": "2.4.3"
+ }
+}
