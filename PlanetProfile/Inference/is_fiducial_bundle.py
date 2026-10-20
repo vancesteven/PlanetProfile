@@ -157,18 +157,6 @@ def _load(manifest_path, artifact_path, config, cache_path, x_obs,
         m = json.load(f)
     N = int(m['n_samples'])
 
-    # B4: full-N only (checked first: it is a property of the request).
-    if n_derived is not None and n_derived < N:
-        return Fallback(f'{R_FULLN}: n_derived={n_derived} < N={N}; '
-                        'corrected weights require full-N likelihoods '
-                        '(n_derived=None).')
-    if n_derived is not None and n_derived > N:
-        return Fallback(f'{R_FULLN}: n_derived={n_derived} does not '
-                        f'correspond to the bundle draw set (N={N}).')
-    if n_post is not None and int(n_post) != N:
-        return Fallback(f'{R_MODIFIED}: n_post={n_post} differs from the '
-                        f'validated draw count N={N}.')
-
     # B2: exact datum + provenance match.
     if not _same_floats(dict(x_obs), m['x_obs']):
         return Fallback(f'{R_MODIFIED}: x_obs differs from the validated '
@@ -187,6 +175,19 @@ def _load(manifest_path, artifact_path, config, cache_path, x_obs,
     if _sha256(cache_path) != m['structure_cache_sha256']:
         return Fallback(f'{R_MODIFIED}: structure-cache hash differs from '
                         'the validated fiducial.')
+
+    # B4: full-N only. Checked after the datum/provenance match so a
+    # request-size reason is reported only when the datum itself matches.
+    if n_derived is not None and n_derived < N:
+        return Fallback(f'{R_FULLN}: n_derived={n_derived} < N={N}; '
+                        'corrected weights require full-N likelihoods '
+                        '(n_derived=None)')
+    if n_derived is not None and n_derived > N:
+        return Fallback(f'{R_FULLN}: n_derived={n_derived} does not '
+                        f'correspond to the bundle draw set (N={N})')
+    if n_post is not None and int(n_post) != N:
+        return Fallback(f'{R_FULLN}: n_post={n_post} differs from the '
+                        f'validated draw count N={N}')
 
     # Bundle integrity.
     npz_path = mp.parent / m['npz_file']

@@ -1207,8 +1207,7 @@ _SBI_ARTIFACT_SLOTS = {
             'titan_freegrav_nh3_1m/is_correction/.'),
         'sector_warning_fallback': (
             'Tidal-sector correction unavailable for this conditioning '
-            '({reason}). The correction is validated only at the default '
-            'Cassini datum; about {fail_pct}% of in-range prior-predictive '
+            '({reason}). {scope}; about {fail_pct}% of in-range prior-predictive '
             'data fail its reliability gates. The uncorrected flow '
             'under-updates k₂: do not quote its Re k₂, Im k₂, ζ, or η '
             'posteriors; the reference MCMC is authoritative for those. '
@@ -3325,7 +3324,9 @@ def render_results():
         st.table(summary_data)
         if is_corrected:
             st.caption("Importance-weighted statistics (weighted mean, "
-                       "weighted quantiles).")
+                       "weighted quantiles); all parameters weighted; the "
+                       "quarantine lift applies to the tidal set named in "
+                       "the warning.")
 
     # Weighted derived pushforwards (corrected path only; B5)
     if is_corrected:

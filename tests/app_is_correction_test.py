@@ -381,3 +381,19 @@ def test_corrected_path_panels_render_without_errors(monkeypatch):
     bad = [str(w.value) for w in at.warning if 'unavailable' in str(w.value)]
     assert not bad, bad
     assert not at.error, [str(e.value) for e in at.error]
+
+
+def test_fallback_warning_text_hint_and_punctuation():
+    tmpl = ('unavailable ({reason}). {scope}; about {fail_pct}% fail.')
+    size = ui.fallback_warning(
+        tmpl, 'full-N likelihoods absent: n_post=10000 differs from the '
+        'validated draw count N=20000.', None)
+    assert 'set Posterior samples = 20,000 and Derived subset = All to ' \
+           'use the precomputed correction' in size
+    assert '.).' not in size and 'modified datum' not in size
+    datum = ui.fallback_warning(
+        tmpl, 'modified datum: x_obs differs from the validated fiducial '
+        '(values or observable set).', None)
+    assert 'Posterior samples' not in datum
+    assert 'validated only at the default Cassini datum' in datum
+    assert '.).' not in datum

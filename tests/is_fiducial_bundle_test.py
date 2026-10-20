@@ -273,3 +273,19 @@ def test_shipped_bundle_activation_and_modified_datum():
         fb.R_MODIFIED)
     assert fb.load_fiducial_correction(
         SHIPPED, **dict(kw, n_derived=1000)).reason.startswith(fb.R_FULLN)
+
+
+def test_n_post_mismatch_uses_fulln_category(tmp_path):
+    mp, art, cache, _ = _write_bundle(tmp_path)
+    r = fb.load_fiducial_correction(mp, **_kw(art, cache, n_post=N + 1))
+    assert isinstance(r, fb.Fallback)
+    assert r.reason.startswith(fb.R_FULLN) and 'n_post=' in r.reason
+    assert 'modified datum' not in r.reason
+
+
+def test_datum_change_beats_size_reason(tmp_path):
+    mp, art, cache, _ = _write_bundle(tmp_path)
+    kw = _kw(art, cache, n_post=N + 1)
+    kw['x_obs'] = {**kw['x_obs'], next(iter(kw['x_obs'])): 123.456}
+    r = fb.load_fiducial_correction(mp, **kw)
+    assert r.reason.startswith(fb.R_MODIFIED)

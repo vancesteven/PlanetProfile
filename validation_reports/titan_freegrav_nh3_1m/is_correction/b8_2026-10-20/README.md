@@ -14,3 +14,13 @@ Setup:
 | off_default_view5.png / off_default_post.txt | flag off (control) | original split-ratification warning |
 
 At the GUI default sliders (10,000 samples / derived 1000), the app falls back via the B4 n_derived guard. Per the reviewer, this is correct and fail-closed; the message wording is to be fixed.
+
+## Reviewer text fixes — re-verified 2026-10-20
+
+| file | condition | observed |
+|---|---|---|
+| fix_default_sliders_hint.png | override on, default sliders (10,000 / derived 1000), default datum | "full-N likelihoods absent ... The datum is unchanged: set Posterior samples = 20,000 and Derived subset = All to use the precomputed correction"; no ".)." |
+| fix_changed_datum.png | Im_k2 0.145 | "modified datum: x_obs differs ... The correction is validated only at the default Cassini datum"; no ".)." |
+| fix_full_post.txt | 20,000 + All | corrected path still active; summary caption ends "all parameters weighted; the quarantine lift applies to the tidal set named in the warning." |
+
+The container drops italic and inline-code glyphs ("Observable are free" is missing an italic word; "(see )" is blank), which supports the reviewer's font-artifact reading of item (d). Confirm once in a Mac browser.

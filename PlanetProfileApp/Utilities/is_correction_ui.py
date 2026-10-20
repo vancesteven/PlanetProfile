@@ -298,7 +298,19 @@ def fallback_warning(template: str, reason: str, manifest_or_none) -> str:
     gv = (manifest_or_none or {}).get('gui_gate_values') or {}
     frac = gv.get('inrange_prior_predictive_fail_frac')
     pct = f"{100 * float(frac):.0f}" if frac is not None else 'an appreciable'
-    return template.format(reason=reason, fail_pct=pct)
+    from PlanetProfile.Inference.is_fiducial_bundle import R_FULLN as fb_R_FULLN
+    reason = str(reason).rstrip().rstrip('.')  # template supplies ')' + '.'
+    if reason.startswith(fb_R_FULLN) and ('n_post=' in reason
+                                          or 'n_derived=' in reason):
+        # Datum/provenance matched; only the request size differs.
+        scope = ('The datum is unchanged: set Posterior samples = 20,000 '
+                 'and Derived subset = All to use the precomputed '
+                 'correction (validated only at the default Cassini '
+                 'datum)')
+    else:
+        scope = ('The correction is validated only at the default '
+                 'Cassini datum')
+    return template.format(reason=reason, fail_pct=pct, scope=scope)
 
 
 # ---------------------------------------------------------------------------

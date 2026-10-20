@@ -19,7 +19,14 @@ Updated: 2026-10-20e (Opus 5.5 session, running in a Linux container that sees t
      - (b) The Parameter Summary table heads all 13 parameters "Importance-weighted statistics" without marking which are lifted.
      - (c) The fallback text has a ".)." typo.
      - (d) Blank inline-code values in the diagnostics captions ("bundle , manifest sha256 )", "artifact: (trained", "(see )"), possibly a container font artifact, unchecked.
-     - Flag flip waits on the user plus a reviewer ruling on (a) and (b).)
+     - Flag flip waits on the user plus a reviewer ruling on (a) and (b).
+   - **Reviewer flag-flip verdict: FLIP AFTER changes.** B1-B9 are satisfied.
+     - (a) The fallback is correct and fail-closed; only the wording was wrong. Slider defaults are NOT to be forced.
+     - (b) Not a defect.
+     - (d) Likely a font artifact.
+   - The required text fixes and a caption line are now **verified** in-browser, with 44 tests passing; evidence is in validation_reports/titan_freegrav_nh3_1m/is_correction/b8_2026-10-20/.
+   - The B4 checks now run after the datum and provenance match, which changes only which reason is reported; every mismatch still falls back.
+   - **Remaining before the flip:** the user's go-ahead, then FEATURE_ENABLED=True plus updates to tests/is_fiducial_bundle_test.py:89-90 and tests/app_is_correction_test.py:189 (they assert False), in one commit. Optionally, a Mac-browser glance at item (d).)
 Prior: 2026-10-20c (Machine A: NH3 R1/R2 ALL PASS, lift ratified; Enceladus rebuild on persistent scratch. Previously 2026-10-20b, end of session, user relocating. **The user directed that everything run on this machine, so Machine B's §0.31/§0.32 items now run locally.** Open threads:
 
 1. **Enceladus r7 rebuild: RUNNING on PERSISTENT scratch (third launch, 2026-10-20 ~16:20 BST).**
