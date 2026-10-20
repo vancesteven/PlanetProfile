@@ -1179,11 +1179,15 @@ _SBI_ARTIFACT_SLOTS = {
         # is_fiducial_bundle.FEATURE_ENABLED (default False) is set. Warning
         # templates are approved text; every {placeholder} is filled from the
         # manifest / recomputed diagnostics / weighted bundle (B7), never a
-        # literal. 'g1_passing_params' (zeta/eta list) is intentionally
-        # ABSENT: gate G1 is pending, so only Re k2, |Im k2| are listed.
+        # literal. 'g1_passing_params': the rheology parameters that passed
+        # gate G1 (R1/R2 2026-10-20, validation_reports/titan_freegrav_nh3_1m/
+        # is_correction/r1_r2_RESULT.md -- all seven passed the stock
+        # crosscheck, none by the C9 fallback, none quarantined by name).
         'is_correction': {
             'manifest': ('PlanetProfile/Inference/sbi_artifacts/'
                          'titan_freegrav_nh3_is_fiducial.json'),
+            'g1_passing_params': ['ζ', 'η (ice Ih, III, V, VI, silicate)',
+                                  'α'],
         },
         'sector_warning_corrected': (
             'Tidal sector at the DEFAULT Cassini datum only: {params} are '

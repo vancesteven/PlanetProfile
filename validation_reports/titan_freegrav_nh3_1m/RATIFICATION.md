@@ -191,3 +191,17 @@ further adjudication. On either FAIL, re-escalate.
   in every panel, ESS shown rather than N, manifest-sourced numbers,
   screenshot verification, C8(iii) disabled) and the approved
   warning texts are in MACHINE-B-HANDOFF §0.32.
+
+### R1/R2 outcome (2026-10-20): ALL PASS, the fiducial-scope lift TAKES EFFECT
+
+- G1: all 13 parameters pass the stock gates against the n_eff=8000 pool,
+  so the C9 fallback was never needed.
+- C10 re-run: Re KS 0.032, |Im| KS 0.048; median gaps 0.055 / 0.098 σ_obs.
+- C11: C20 shift 0.007 σ_obs, C22 shift 0.0975 σ_obs against a 0.1 gate.
+  The C22 margin is thin and is recorded rather than reinterpreted.
+
+Full record: `is_correction/r1_r2_RESULT.md` and `r1_r2_report.json`.
+
+Lifted at the default datum only: Re k₂, |Im k₂|, ζ, the η's and alpha.
+The k₂ model–data tension caveat stays. The GUI flag stays OFF until the
+B8 visual verification is done.

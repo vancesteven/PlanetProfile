@@ -271,7 +271,9 @@ def test_flag_on_default_datum_shows_corrected_weighted_output(monkeypatch):
     _click_run(at)
     w = _warnings(at)
     assert 'Tidal sector at the DEFAULT Cassini datum only' in w, w[:400]
-    assert 'Re k₂, |Im k₂| are shown' in w          # no zeta/eta (G1 pending)
+    # G1 passed for all seven rheology params (r1_r2_RESULT.md, 2026-10-20).
+    assert ('Re k₂, |Im k₂|, ζ, η (ice Ih, III, V, VI, silicate), α '
+            'are shown') in w
     assert 'effective sample size ≈ 1,271' in w
     assert 'Pareto-k 0.19' in w
     assert 'within 0.15 σ_obs' in w and 'KS ≤ 0.07' in w

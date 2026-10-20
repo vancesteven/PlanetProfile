@@ -3,7 +3,7 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-20b (Machine A, end of session, user relocating. **The user directed that everything run on this machine, so Machine B's §0.31/§0.32 items now run locally.** Open threads:
+Updated: 2026-10-20c (Machine A: NH3 R1/R2 ALL PASS, lift ratified; Enceladus rebuild on persistent scratch. Previously 2026-10-20b, end of session, user relocating. **The user directed that everything run on this machine, so Machine B's §0.31/§0.32 items now run locally.** Open threads:
 
 1. **Enceladus r7 rebuild: RUNNING on PERSISTENT scratch (third launch, 2026-10-20 ~16:20 BST).**
    - **History.**
@@ -22,11 +22,15 @@ Updated: 2026-10-20b (Machine A, end of session, user relocating. **The user dir
      - Check for any `*.preC2_QUARANTINED.pkl`, which means C2 failed.
    - **Merge:** `HOME=~/scratch/pphome python plans/scripts/enceladus_zbw_merge_shards.py --shard-dir ~/scratch/enc_zbw_shards --out ~/scratch/enceladus_zbw_production_cache.pkl`, then move the cache to `PlanetProfile/Test/mcmc_results/Enceladus/Cassini_isostasy/enceladus_zbw_production_cache.pkl`. The repo is Dropbox-synced, so stage the merge in scratch first, as the sbatch does.
    - **Check:** the four §0.31 acceptance points and the six §0.29 gates. Report any difference rather than reconciling it.
-2. **NH3 R1/R2 preregistration: DRAFT, REVIEW PENDING (not preregistered).**
-   - Files: `validation_reports/titan_freegrav_nh3_1m/is_correction/r1_r2_PREREGISTRATION.md` and `r1_r2_prereg_bands.json`. The bands are computed from the reference only; nothing corrected was read.
-   - Two Opus reviewer passes died on network errors. Re-dispatch the review first.
-   - Don't compute R1/R2 until the reviewer approves and the approved file is committed.
-   - The n_eff=8000 seed pkls DO carry finite c20/c22, so C11 is runnable here.
+2. **NH3 R1/R2: RUN, ALL PASS. The fiducial-scope quarantine lift TAKES EFFECT (ratified).**
+   - Run 2026-10-20, driver at 7f52c758, against the preregistration 634ea0cd.
+   - **G1:** all 13 parameters pass the stock gates against the n_eff=8000 pool, so no C9 fallback was needed. The three η medians that failed on the uncorrected flow now pass.
+   - **C10:** Re KS 0.032, |Im| KS 0.048; median gaps 0.055 / 0.098 σ_obs.
+   - **C11:** C20 shift 0.007 σ_obs, C22 shift 0.0975 σ_obs against a 0.1 gate. The C22 margin is thin; it is recorded, not reinterpreted.
+   - Record: `validation_reports/titan_freegrav_nh3_1m/is_correction/r1_r2_RESULT.md` and `r1_r2_report.json`, plus an addendum in RATIFICATION.md.
+   - Lifted at the DEFAULT datum only: Re k₂, |Im k₂|, ζ, the five η's and α. The k₂ model–data tension caveat stays.
+   - The GUI slot now lists these parameters (`g1_passing_params`).
+   - **The flag stays OFF until B8 visual verification is done.**
 3. **GUI Phase 2 (precomputed fiducial IS correction): implemented, unverified, behind `is_fiducial_bundle.FEATURE_ENABLED = False`.**
    - The Sonnet agent was cut off twice by network errors before reporting. Its code is committed as-is.
    - Phase 2 files: `PlanetProfileApp/Utilities/is_correction_ui.py`, Inference.py wiring, the manifest's `gui_gate_values`, and `tests/app_is_correction_test.py`.
