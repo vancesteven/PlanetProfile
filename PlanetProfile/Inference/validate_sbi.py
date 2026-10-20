@@ -747,8 +747,19 @@ def _run_crosscheck(
     sbi_samples: np.ndarray,
     seed: int,
     empirical_floor: Optional[Dict[str, float]] = None,
+    matched_n_floor: bool = False,
 ) -> Dict[str, Any]:
     """Per-parameter cross-check gates. All arrays share param_names order.
+
+    matched_n_floor (opt-in; R1/R2 preregistration, reviewer 2026-10-20):
+    build the shape-gate self-D floor at the n the KS actually compares,
+    min(ESS_ref, n_sbi), instead of at ESS_ref. The stock floor assumes the
+    KS runs at n_ks = ESS_ref (full-ESS-vs-full-ESS); when the SBI side is
+    much smaller than the reference ESS (an IS-resampled corrected set,
+    L=1270 vs ESS_ref ~39k) the comparison runs at n_ks = L and the stock
+    floor is ~sqrt(ESS_ref/L) too tight, so reference self-draws fail it.
+    Factor, percentile and bootstrap count are unchanged. False => stock
+    HEAD behaviour, byte-identical for every existing campaign.
 
     empirical_floor (opt-in; preregistered per §0.7 step-3, reviewer-ratified
     2026-08-06): {param_name: F_wander} in the PARAMETER'S OWN native units,
@@ -778,7 +789,9 @@ def _run_crosscheck(
     rng = np.random.RandomState(int(seed))
     # Reference's own finite-sampling floor (ratified 2026-07-10): the shape
     # gate judges D against this, not against an n-dependent p-value.
-    d_floor_p99 = _self_d_floor(mcmc_samples, w, ess, rng)
+    floor_ess = (min(ess, float(sbi_samples.shape[0])) if matched_n_floor
+                 else ess)
+    d_floor_p99 = _self_d_floor(mcmc_samples, w, floor_ess, rng)
 
     per_param = []
     all_pass = True
@@ -865,6 +878,8 @@ def _run_crosscheck(
         'n_sbi': int(sbi_samples.shape[0]),
         'per_parameter': per_param,
         'all_pass': bool(all_pass),
+        **({'floor_ess': float(floor_ess), 'matched_n_floor': True}
+           if matched_n_floor else {}),
     }
 
 
