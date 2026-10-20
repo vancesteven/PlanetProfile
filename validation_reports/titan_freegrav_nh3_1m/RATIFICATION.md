@@ -134,3 +134,60 @@ mischaracterization the PPC corrected. Instead, MgSO4 and NaCl must:
 The gravity/structure sector is expected to remain cleanly verifiable for both
 compositions; the split-status discipline (verified gravity/structure, k2 sector
 deferred to the MCMC reference) travels with every joint artifact.
+
+---
+
+## Tidal-sector quarantine-lift adjudication (2026-10-20, scientific-reviewer + manager): NOT LIFTED YET, fiducial-scope lift pre-authorized
+
+The verdict is binding. It is recorded here because this file is what
+the GUI warning cites.
+
+**Blocking gates (never run):**
+- **G1**: crosscheck of the IS-CORRECTED posterior against the
+  reference on all 13 parameters. The only crosscheck on disk
+  (`crosscheck/`, 2026-08-03) is of the UNCORRECTED flow;
+  `is_validation_nh3.json` `crosscheck_resample` holds only the
+  resample indices (L=1270).
+- **C11**: C20/C22 gravity no-regression. The reference lacks C20/C22
+  columns.
+
+Both must PASS. On PASS, a fiducial-scope lift takes effect without
+further adjudication. On either FAIL, re-escalate.
+
+**Passing at the fiducial (seeds 72/+1000/+2000, N=20000):**
+- G2 pushforward medians: Im gap ≤0.19 σ_obs, Re gap ≤0.10 σ_obs.
+- C2, C3 (max rel diff 0.0), C4.
+- C5/C7 reliability set: Pareto-k ≤0.26, ESS ≥1229, w_max ≤0.0062.
+- C5.3 reverse coverage.
+- C6.
+- C10: weighted KS ≤0.074, run against the n_eff=2000 reference; re-run
+  against n_eff=8000 with G1.
+- C13: 3-seed spreads ≤0.074 σ_obs.
+- C14/C15.
+- C16: 1.20σ against the n_eff=8000 reference.
+- G4 corrected SBC: PASS on all 13 parameters, 485 pairs, 20.9%
+  excluded.
+
+**Dispositions:**
+- **Plan gate 3** (ESS/N ≥0.1):
+  - Fiducial half: FAIL-ADJUDICATED (0.0635), superseded by the C7
+    reliability set, which passes.
+  - Sweep half: replaced by C12, which FAILED (29/149; 17/114 = 14.9%
+    inside the GUI Im_k2 box).
+  - Discharged ONLY as a scope restriction: corrected at the default
+    datum, uncorrected and quarantined everywhere else (architecture
+    C8(i)).
+- **C8(iii)** (x-keyed correction for user-modified x): NOT authorized.
+  It needs its own preregistered gate set, including a substitute for
+  C5.3 and a Re_k2 `x_obs_limits`.
+- **Scope of the lift, once it takes effect:**
+  - Re k₂ and |Im k₂| pushforwards: lifted.
+  - ζ and η: lifted only for the parameters that pass G1 under the C9
+    rule.
+  - Ocean fraction: shows the corrected value (≈0.929).
+  - The model–data k₂ tension caveat stays in every case.
+- **GUI conditions B1–B9** (hashed precomputed bundle, exact-match
+  activation, load-time diagnostic recompute, n_derived guard, weights
+  in every panel, ESS shown rather than N, manifest-sourced numbers,
+  screenshot verification, C8(iii) disabled) and the approved
+  warning texts are in MACHINE-B-HANDOFF §0.32.

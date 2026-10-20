@@ -1,6 +1,11 @@
 # Codex 5.6 queue (Machine A delegate lane)
 
-Updated: 2026-08-15 (C18–C25 verified; no queued Codex task). Curated by the Claude model manager
+**LANE RETIRED (user, 2026-10-20): Codex is not used on JPL computing
+infrastructure.** Do not add tasks here. Open item C26 and any future
+delegate work go to Machine A Claude subagents instead; this file is kept
+as history.
+
+Updated: 2026-10-20 (lane retired; previously: 2026-08-15 C18–C25 verified). Curated by the Claude model manager
 (Fable 5). Codex 5.6 works ONLY tasks listed here unless the user directs
 otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 

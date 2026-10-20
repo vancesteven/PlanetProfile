@@ -59,6 +59,62 @@ Answers to corrected_sbc_SPEC_QUESTIONS.md; spec discipline accepted
    guarded: queued as a Codex task (assert/fallback if a corrected
    result is requested without full-N likelihoods).
 
+## 0.32 NH3 QUARANTINE LIFT: NOT YET; two gates were never run (manager + scientific-reviewer, 2026-10-20)
+
+§0.30 item 3 said the lift evidence was complete. It wasn't. The
+reviewer re-read the JSON records and I confirmed both points:
+- **G1** (plan gate 1: crosscheck of the IS-CORRECTED posterior on all
+  13 parameters) was never run. `is_validation_nh3.json`
+  `crosscheck_resample` holds only the resample indices plus a "feed
+  samples[idx] to validate_sbi" note. `crosscheck/` (2026-08-03) is of
+  the UNCORRECTED flow.
+- **C11** (C20/C22 no-regression) was never evaluated: the reference
+  lacks C20/C22 columns (84ae975a). The "C11 already passed" wording in
+  c12_sweep_FINDINGS.md, c12_gui_box_answer.md, STATUS 2026-08-16 and
+  §0.25 was wrong; errata are appended to those files.
+
+Every other fiducial gate passes; the full table is in
+`validation_reports/titan_freegrav_nh3_1m/RATIFICATION.md` (2026-10-20
+section). C12's FAIL confines any lift to the default datum (C8(i)).
+**If both runs below PASS, the fiducial-scope lift takes effect with no
+further adjudication; if either FAILs, re-escalate.** Both need the
+n_eff=8000 seed pkls, which live only on B. Run them in gaps behind the
+§0.31 Enceladus rebuild.
+
+**R1 (G1 + C10 re-run).**
+- Regenerate the seed-72 N=20000 conditioning with
+  `is_correction_validate.py --comp nh3`.
+- Assert that the regenerated `log_w` matches the committed
+  `log_weights.npy`. If it doesn't, STOP and report: the draws are not
+  the ones that were validated.
+- Feed `samples[resampled_indices]` (L=1270) to the ratified
+  validate_sbi crosscheck against the **n_eff=8000 pooled reference**,
+  under the standard tolerances.
+- Apply the C9 preregistered 3-seed nuisance rule. The rule must
+  already exist in the record; if it doesn't, preregister it in a
+  commit before reading any result.
+- Re-run C10 (weighted KS) against the same reference.
+- Report per-parameter verdicts, ζ and the three η by name.
+
+**R2 (C11).**
+- Recompute C20/C22 per reference sample through the config's gravity
+  forward model on the structure cache.
+- Gate: |corrected − reference| C20/C22 pushforward median shift ≤0.1
+  σ_obs.
+- First confirm that the corrected-side `k2_results` actually carries
+  C20/C22 columns. The driver skips C11 silently if either side lacks
+  them; fail loudly instead.
+
+Preregister R1/R2 (tolerances, reference, C9 rule) in a commit before
+running. GUI wiring of the precomputed correction (bundle, weighted
+panels, guards B1–B9, approved warning texts) is Machine A work and
+starts now behind a disabled flag. No GUI text changes until R1/R2
+PASS.
+
+Note: the Codex lane is retired (Codex isn't used on JPL computing
+infrastructure). §0.28 item 4's n_derived guard was never queued; it's
+now Machine A Claude work (B4).
+
 ## 0.31 C2 FALSE-POSITIVE RULING (manager + scientific-reviewer, 2026-10-13) — RE-RUN IS GO
 
 Ruling on `validation_reports/enceladus_isostasy/r7_build_c2_false_positive.md`

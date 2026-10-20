@@ -119,3 +119,15 @@ elsewhere.
 Not tuned, not re-run with a different threshold after seeing this
 result — reported as designed. Gates are interpreted, never tuned to
 pass.
+
+
+---
+
+**ERRATUM (Machine A, 2026-10-20; scientific-reviewer lift adjudication).**
+The parenthetical "C3/C5.3/C10/C11/C13/C16, which already passed" is
+wrong about **C11**. C11 (C20/C22 gravity no-regression) was never
+evaluated: the pooled reference stores `k2_results` as (N,2) with no
+C20/C22 columns (commit 84ae975a; `plans/active/titan-campaign-methods.md:141`),
+and no `gravity_noregression` record exists in any `is_validation_nh3.json`.
+The other five fiducial gates did pass. C11 is now required before the
+lift (MACHINE-B-HANDOFF §0.32 R2).
