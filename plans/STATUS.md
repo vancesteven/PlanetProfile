@@ -5,9 +5,12 @@ what current work buys). This file is the tactical log.
 
 Updated: 2026-10-20b (Machine A, end of session, user relocating. **The user directed that everything run on this machine, so Machine B's §0.31/§0.32 items now run locally.** Open threads:
 
-1. **Enceladus r7 rebuild: RUNNING, detached.**
+1. **Enceladus r7 rebuild: RUNNING, detached (RELAUNCHED ~16:10 BST after a failed first local attempt).**
+   - **First attempt FAILED (environment, not physics).** Every node raised FileNotFoundError for the Perple_X table, because HOME=/tmp/pphome redirects platformdirs' user cache to an empty /tmp/pphome/Library/Caches. Fixed with the symlink /tmp/pphome/Library/Caches/PlanetProfile -> ~/Library/Caches/PlanetProfile; the failed logs are in /tmp/enc_zbw_failed_run1/.
+   - Relaunch confirmed healthy: shard 3 builds nodes, and shard 0's zb=5 Nones are the expected thin-shell brentq bracket failures.
+   - **ANY HOME=/tmp/pphome run that touches Perple_X needs that symlink** (it is gone after a reboot).
    - Launch: `/tmp/enc_zbw_shards/run.sh`, 11 shards (shard 0 also builds the frozen axis). Commit in `/tmp/enc_zbw_shards/BUILD_COMMIT`; the C2 fix it depends on is cf0adfb7.
-   - Threads are pinned at 1 per process. Started ~14:40, at ~102/320 nodes per shard by ~16:00, so expect it to finish ~10-11 h after start.
+   - Threads are pinned at 1 per process. Throughput in the first attempt was ~45 nodes/h/shard, but the failed nodes there were fast, so real throughput is unmeasured; expect roughly 7-11 h from the 16:10 BST relaunch.
    - Finished when `/tmp/enc_zbw_shards/DONE` exists. Then check every `shard_*.log` for Traceback, `ls /tmp/enc_zbw_shards/shard_*.meta.json` (11 expected), and look for any `*.preC2_QUARANTINED.pkl` (that means a C2 failure).
    - Merge: `HOME=/tmp/pphome python plans/scripts/enceladus_zbw_merge_shards.py --shard-dir /tmp/enc_zbw_shards --out <cache path from the production build script>`.
    - Then check the four §0.31 acceptance points plus the six §0.29 gates. Report any difference rather than reconciling it.
