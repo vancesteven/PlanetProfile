@@ -3,7 +3,21 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-21c (Opus 5.5: **Enceladus C1 met, C2 met, C3 FAIL.**
+Updated: 2026-10-21d (Opus 5.5: **Enceladus stack mass closure implemented, unverified on the production cache. Next: the jitter gate on the Mac.**
+   - The user approved the reviewer's plan. `mcmc_runner._close_reduced_stack_mass` rescales the rock density of the reduced 3-layer stack so that M_stack equals struct Mtot_kg. It is applied in `_derive_gravity_isostatic` and `_derive_libration_deg`, only when `metadata.isostasy.stack_mass_closure = "rock_density"` (now set in enceladus_cassini_isostasy_7D.json).
+   - A hard reject (-1e30 / SBI drop) applies when the pre-closure residual exceeds `_STACK_CLOSURE_MAX_ABS_RESIDUAL = 1e-2`. No PP core files were changed.
+   - Tests: `tests/enceladus_mass_closure_test.py` 13 passed. The Enceladus, libration and sigma_model suites: 165 passed, 1 xfail (container run).
+   - The closure is **verified** at the unit level by those tests. Its effect on the real cache is **implemented, unverified** until the gate runs.
+   - Gate: `plans/scripts/enceladus_mass_closure_jitter_gate.py`, run via `plans/cluster/enceladus_mass_closure_gate.sh [JOBS]`. It covers 10 nodes × deltaP/{1,2,4} × nPoros {8,12,16}.
+     - σ_model = max(std, |production − finest bias|).
+     - PASS requires C20/C22 σ_model ≤ 0.5σ_obs and libration ≤ 0.1σ; any failed build makes the verdict INCONCLUSIVE.
+     - It also reports the C20–C22 jitter correlation, the recommended sigma_model_add, and the frozen-stack mass residual (`--frozen-check`).
+   - Self-test (node (70,18), 2 builds only): C20 bias −0.61σ, which would fail. This is not the gate result.
+   - **Next:**
+     - If σ_model ≤ 0.5σ: set sigma_model_add, then run criterion 4, the posterior shift with σ_model on and off.
+     - Otherwise: a finer deltaP/nPoros production rebuild.
+     - The cache stays out of C20/C22-driven evidence until then.
+Prior: 2026-10-21c (Opus 5.5: **Enceladus C1 met, C2 met, C3 FAIL.**
    - C3 measured ocean-deltaP discretization of C20/C22 at +1.4-1.8 σ / −1.0-1.3 σ on the worst-deficit nodes (gate 0.1 σ); libration and C30 stay ≤0.1 σ.
    - A second, non-quantization mass error exists: refined residuals floor at 0.04-0.16%.
    - The cache must not be used for C20/C22-driven evidence. Remedy (rebuild at finer deltaP / exact mass closure in the builder / Sigma_model inflation) is a scientific decision for the user and reviewer; diagnosis is in progress.

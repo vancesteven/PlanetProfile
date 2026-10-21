@@ -616,6 +616,8 @@
    "shape_ref_radius_m": 252220.0,
    "gravity_ref_radius_m": 256600.0,
    "finite_amplitude": true,
+   "stack_mass_closure": "rock_density",
+   "stack_mass_closure_provenance": "2026-10-21 scientific-reviewer ruling on the C3 mass-deficit root cause (validation_reports/enceladus_isostasy/c3_root_cause_2026-10-21/README.md): the reduced 3-layer stack is closed to Bulk.M (struct Mtot_kg) by rescaling the interior/rock density, as derive_silicate_density does for Clairaut campaigns. Applied to BOTH the isostatic gravity and the libration stacks. Plain Bulk.M normalisation without closing the stack was rejected. C20/C22 remain PROVISIONAL until the jitter gate (plans/scripts/enceladus_mass_closure_jitter_gate.py) passes; sigma_model_add C20/C22 must then be raised in quadrature by the measured jitter.",
    "sigma_model_lm": {
     "2,0": 5.3e-06,
     "2,2": 1.7e-06,

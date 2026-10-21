@@ -51,6 +51,12 @@ _FROZEN_LOOP_CLOSURE_TOL = 3e-3
 # Floating-point boundary slack (km) for the frozen-branch zb<->rho_rock
 # bijection's out-of-support check (MCMCRunner._frozen_struct_for_theta,
 # A8). Not a physical tolerance -- see that method's inline comment.
+# Hard-reject bound on the PRE-closure reduced-stack mass residual
+# |(M_stack - Mtot_kg)/Mtot_kg| for the Enceladus stack_mass_closure
+# (scientific-reviewer ruling 2026-10-21): the measured production range is
+# 0.04-0.51%, so anything beyond 1% is a broken node (cf. the -22% smoke-cache
+# nodes) that closure must never silently paper over.
+_STACK_CLOSURE_MAX_ABS_RESIDUAL = 1e-2
 _ZB_SUPPORT_EPS_KM = 1e-6
 
 # The same boundary slack on the salinity axis, in log10 ppt -- the coordinate
@@ -2237,6 +2243,51 @@ class MCMCRunner:
                 return None
         return reduced_r, reduced_rho
 
+    def _stack_mass_closure_mode(self) -> str:
+        """Config switch ``metadata.isostasy.stack_mass_closure``.
+
+        ``"rock_density"`` closes the reduced 3-layer stack mass to the
+        structure's target ``Mtot_kg`` by rescaling the interior (rock)
+        density, as ``structure_derivation.derive_silicate_density`` does
+        for the Clairaut campaigns (2026-10-21 reviewer ruling on the
+        Enceladus C20/C22 mass-deficit defect). Absent / any other value
+        keeps the historical behaviour exactly (stack normalised by its own
+        mass)."""
+        mode = self._isostasy_physics_config().get('stack_mass_closure')
+        return str(mode) if mode else 'none'
+
+    def _close_reduced_stack_mass(self, reduced_r, reduced_rho, struct):
+        """Rescale ``reduced_rho[0]`` so the 3-layer stack mass equals
+        ``struct['Mtot_kg']`` (relative error ~1e-15). Returns the new
+        density array, or None on missing/non-finite target or an
+        unphysical (non-positive) rock density. Records the diagnostic in
+        ``self.last_mass_closure`` (pre-closure residual fraction
+        (M_stack - M)/M and the applied rock-density factor)."""
+        M_target = struct.get('Mtot_kg', np.nan)
+        try:
+            M_target = float(M_target)
+        except (TypeError, ValueError):
+            return None
+        if not np.isfinite(M_target) or M_target <= 0:
+            return None
+        r_in = np.concatenate(([0.0], reduced_r[:-1]))
+        m_layer = reduced_rho * (4.0 * np.pi / 3.0) * (reduced_r ** 3
+                                                       - r_in ** 3)
+        M_stack = float(np.sum(m_layer))
+        V0 = (4.0 * np.pi / 3.0) * float(reduced_r[0]) ** 3
+        if abs(M_stack - M_target) / M_target > _STACK_CLOSURE_MAX_ABS_RESIDUAL:
+            return None  # broken node: reject (-1e30 / SBI drop), never close
+        rho0 = (M_target - float(np.sum(m_layer[1:]))) / V0
+        if not np.isfinite(rho0) or rho0 <= 0:
+            return None
+        out = np.array(reduced_rho, dtype=float)
+        out[0] = rho0
+        self.last_mass_closure = {
+            'pre_closure_residual_frac': (M_stack - M_target) / M_target,
+            'rock_density_factor': rho0 / float(reduced_rho[0]),
+        }
+        return out
+
     def _derive_gravity_isostatic(
         self, theta_dict: Dict[str, float]
     ) -> Optional[Dict[Tuple[int, int], float]]:
@@ -2354,6 +2405,12 @@ class MCMCRunner:
                                 _vw_rho(last + 1, r_m.size - 1)])
         if not np.all(np.isfinite(reduced_rho)):
             return None
+
+        if self._stack_mass_closure_mode() == 'rock_density':
+            reduced_rho = self._close_reduced_stack_mass(
+                reduced_r, reduced_rho, struct)
+            if reduced_rho is None:
+                return None
 
         rho_ice_override = theta_dict.get('rho_ice_kgm3')
         if rho_ice_override is not None:
@@ -2747,6 +2804,15 @@ class MCMCRunner:
                                 _vw_rho(last + 1, r_m.size - 1)])
         if not np.all(np.isfinite(reduced_rho)):
             return None
+
+        # Mass closure (config-gated, default off): the libration stack is
+        # the same reduced 3-layer stack as the gravity channel, so it gets
+        # the same closed stack (see _stack_mass_closure_mode).
+        if self._stack_mass_closure_mode() == 'rock_density':
+            reduced_rho = self._close_reduced_stack_mass(
+                reduced_r, reduced_rho, struct)
+            if reduced_rho is None:
+                return None
 
         # D6: the sampled EOS nuisance rho_ice_kgm3 must reach the OCEAN
         # branch's libration too. Before this, rho_shell_override was
