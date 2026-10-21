@@ -40,3 +40,29 @@
 4. More nPoros.
 5. Add model σ for C20/C22.
 6. Normalize gravity by Bulk.M instead of the stack mass.
+
+## Scientific-reviewer ruling (2026-10-21): PASS WITH CONCERNS
+
+The reviewer checked code paths only and did not re-run the numbers.
+
+1. **(A) holds.** Silicates.py:110 and :118-121 keep the first candidate with Mtot ≤ M; LayerPropagators.py:2135-2137 then picks argmin|CMR2 − Cmeasured|, which ignores mass. This is a PP MODELLING CONVENTION. Remedy 2 (mass-aware selection) crosses the "fundamental assumptions" line and **needs explicit user approval**.
+   **(B) holds.** cache_builder.py:274-283 and :577-579 integrate the reduced ALMAModel, and reducedPlanetModel.py:196-202 resamples r and ρ linearly using outer-edge ρ. This is a numerical defect. A fix inside the Inference builder is allowed; editing GetReducedLayers changes ALMA Love numbers for all PP users and needs approval.
+   **Normalization confirmed:** mcmc_runner.py:2373 sets M_body to the reduced 3-layer stack mass, used at :2410 and :2420.
+2. **Remedy (medium confidence).**
+   - **Primary:** close the mass of the Enceladus 3-layer stack in the runner by rescaling rock density, as `derive_silicate_density` already does for the Clairaut campaigns. This enforces PP's own target M = Bulk.M and needs no rebuild.
+   - **Then:** add σ_model for C20/C22 equal to the measured jitter.
+   - **Escalate to nPoros/deltaP only if the gate fails.**
+   - Remedy 1 becomes optional and diagnostic-only. Remedy 6 alone is REJECTED as inconsistent.
+   **Gate that replaces C3:**
+   - Take 8-10 fixed nodes, including 70 and 77. Rebuild each over deltaP {x1, x2, x4} × nPoros {8, 12, 16}, with mass closure applied.
+   - PASS requires all of:
+     - the C20/C22 spread is ≤ 0.5 σ_obs, or σ_model = std is ≤ 0.5 σ_obs in quadrature;
+     - the libration spread is ≤ 0.1 σ;
+     - no node departs from a local quadratic fit in (zb, w) by more than 3× the jitter std;
+     - posterior medians shift by < 0.2 posterior σ between σ_model on and off.
+3. **Blast radius.** Titan NH3, Titan NaCl/MgSO4 and Europa v5/v6 use `clairaut_hydrostatic`, normalized by Mtot_kg = Bulk.M_kg (cache_builder.py:608; mcmc_runner.py:1591, 2564/2578, 2598). Their deficit goes into ρ_sil, not into q, so they are **NOT exposed**, and **the NH3 flag flip is NOT blocked**. Residual exposures:
+   - The discrete R_oceanbot enters through the hydrosphere layers. It is bounded by deltaP and was present at ratification.
+   - k2 comes from the reduced ALMA model; its effect is estimated ≪ σ but unmeasured.
+   - Suggested follow-up: a Europa spot-check of the C20/C22 spread across deltaP x1/x2, against σ/obs of 0.19% / 0.15%.
+4. **May proceed:** libration-only Enceladus analyses; Titan and Europa work, including the NH3 flag; the two-run reference protocol and the mass-closure implementation, with Enceladus C20/C22 labelled provisional.
+   **Frozen:** C3 acceptance; any Enceladus posterior conditioned on C20/C22; extrapolated corrections; edits to Silicates.py, LayerPropagators.py selection or reducedPlanetModel.py without user approval.

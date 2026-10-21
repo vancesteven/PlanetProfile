@@ -3,11 +3,16 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-21b (Opus 5.5: **Enceladus C1 met, C2 met, C3 FAIL.**
+Updated: 2026-10-21c (Opus 5.5: **Enceladus C1 met, C2 met, C3 FAIL.**
    - C3 measured ocean-deltaP discretization of C20/C22 at +1.4-1.8 σ / −1.0-1.3 σ on the worst-deficit nodes (gate 0.1 σ); libration and C30 stay ≤0.1 σ.
    - A second, non-quantization mass error exists: refined residuals floor at 0.04-0.16%.
    - The cache must not be used for C20/C22-driven evidence. Remedy (rebuild at finer deltaP / exact mass closure in the builder / Sigma_model inflation) is a scientific decision for the user and reviewer; diagnosis is in progress.
    - Record: r7_rebuild_acceptance_2026-10-21.md, section "Condition results".
+   - **Root cause and ruling** (validation_reports/enceladus_isostasy/c3_root_cause_2026-10-21/):
+     - (A) PP's mass-blind MoI candidate pick, a modelling convention.
+     - (B) The lossy reduced-model mass in the Enceladus gravity stack, a numerical defect (~0.04%).
+     - Titan, Europa and NH3 are NOT exposed (Clairaut path normalized by Bulk.M), so **the NH3 flip is not blocked**.
+     - Recommended fix: runner-level 3-layer mass closure by rescaling rock density, plus σ_model for C20/C22, with a new jitter/smoothness gate (deltaP {x1, x2, x4} × nPoros {8, 12, 16} on 8-10 nodes). Not implemented; awaiting the user's go-ahead.
 Prior: 2026-10-21 (Opus 5.5: **Enceladus r7 rebuild MERGED; acceptance 23 PASS / 0 FAIL / A4 WAIVED (deductive). Reviewer: ACCEPT WITH CONDITIONS C1-C4.**
    - Record and ruling: validation_reports/enceladus_isostasy/r7_rebuild_acceptance_2026-10-21.md.
    - **C1:** confirm all 121 Nones are bracket failures. Run `plans/cluster/enceladus_zbw_none_reasons.sh` on the Mac; it writes r7_rebuild_none_reasons.txt into the repo.
