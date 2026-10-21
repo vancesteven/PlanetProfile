@@ -1,0 +1,56 @@
+{
+  "ruling": "validation_reports/enceladus_isostasy/r7_ADJUDICATION.md (+ \u00a70.30 endpoint ruling)",
+  "build_mode": "local processes (11 shards)",
+  "build_commit": "634ea0cd29c2b36a3ad29b5672aaf22e2704552e",
+  "merge_commit": "246e0c4fd1d15844962e83fdbef9eb3e695cee8b",
+  "merge_host": "MT-502677",
+  "output_path": "/Users/svance/scratch/enceladus_zbw_production_cache.pkl",
+  "schema_version": "v3.2-zbw-joint",
+  "n_zb": 88,
+  "n_w": 40,
+  "n_frozen": 39,
+  "acceptance_gates": {
+    "1_zb_placement_rejects_zero": {
+      "value": 0,
+      "pass": true
+    },
+    "2_max_residual_under_zb_tol": {
+      "value_km": 0.049808020610011994,
+      "threshold_km": 0.125,
+      "expectation_km": 0.035,
+      "pass": true
+    },
+    "3_reachability_none_set": {
+      "n_ocean_none": 121,
+      "n_ocean_total": 3520,
+      "f_excluded": 0.034375,
+      "pass": true,
+      "note": "C2 two-sided enforcement passed inside every shard; a violation would have aborted that shard."
+    },
+    "4_moi_window_floor_remeasured": {
+      "Cmeasured": 0.335,
+      "CuncertaintyUpper": 0.08,
+      "CuncertaintyLower": 0.08,
+      "source": "config metadata['bulk_overrides']",
+      "n_nodes_measured": 3399,
+      "max_abs_cmr2_deviation": 0.0038613362093641856,
+      "margin": 0.07613866379063582,
+      "reading": "Ocean branch only. The half-width is a node-ACCEPTANCE threshold, not a selection knob: PP selects argmin|CMR2 - Cmeasured| over the in-window candidates, and those sets are nested in the half-width, so a surviving node's structure is identical for every half-width that admits it. max_abs_cmr2_deviation is the measured floor -- a half-width below it would have deleted at least one node to None.",
+      "merged_from_shards": 11,
+      "merge_note": "max_abs_cmr2_deviation is the max over shard maxes and n_nodes_measured the sum over shard counts -- both exact for a partition of the node set, not an approximation. Every other field was asserted identical across shards."
+    },
+    "5_frozen_invariants_not_fired": {
+      "n_frozen_nodes": 39,
+      "n_built": 39,
+      "n_rejected": 0,
+      "n_frozen_if2_rejected": 0,
+      "pass": true
+    },
+    "6_f_excluded_recorded": {
+      "f_excluded": 0.034375,
+      "pass": true,
+      "note": "Required by C3 for the +log(1/(1-f_excluded)) evidence normalization before any log B."
+    }
+  },
+  "total_shard_wall_h": 48.28101739784082
+}

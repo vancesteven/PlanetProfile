@@ -90,3 +90,21 @@ Conditions:
 Gating:
 - The cache may move into `PlanetProfile/Test/mcmc_results/Enceladus/Cassini_isostasy/` once C1 and C2 are met.
 - The two-run reference protocol (§0.30 item 5) may START, but no branch evidence may be quoted until C3 passes.
+
+## Condition results (Mac, 2026-10-21; log r7_rebuild_conditions_20261021_123413.log)
+
+- **C1: met.** 121/121 None lines match the cache count. All of them are `ValueError: Root finding for corresponding Tb_K ... failed for temperature bracket [...] ... f(a) and f(b) must have different signs`. No I/O, cache-path or EOS errors (r7_rebuild_none_reasons.txt).
+- **C2: met.** The report now records `build_mode` "local processes (11 shards)", build_commit 634ea0cd, merge_commit 246e0c4f, merge_host MT-502677.
+- **C3: FAIL** (c3_mass_deficit/c3_mass_deficit_study.{md,json}).
+  - **Extrapolated shifts at x4, worst over C2:**
+    - Worst-deficit nodes (zb 39.5-43.25 km, low w): C20 +1.37 to +1.78 σ, C22 −0.98 to −1.29 σ, C30 ≤0.06 σ, libration ≤0.099 σ.
+    - Median-deficit controls: C20 +0.14 σ (also over the gate), C22 −0.08 σ.
+  - Even unextrapolated, the worst node's C20 shift is ≈1.2 σ.
+  - **Findings:**
+    - The worst deficits exceed the one-layer bound by about 15%.
+    - The FLOOR finding fires on every node. Refined residuals stay at 0.04-0.16%, so a second, non-quantization mass error exists.
+    - The x2 and x4 extrapolations disagree on the 0.1-0.6 ppt nodes.
+    - The deficit map is sawtooth-jagged in zb.
+  - Tb and zb are bit-identical across repro/x2/x4 builds, and every repro build reproduces the cache exactly.
+  - The nSilMax x2 diagnostic moves things only ~0.01 σ, so the silicate step is not the lever.
+- **Consequence:** under C3 the cache must not be used to quote C20/C22-driven evidence. The libration channel passes.

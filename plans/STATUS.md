@@ -3,7 +3,12 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-21 (Opus 5.5: **Enceladus r7 rebuild MERGED; acceptance 23 PASS / 0 FAIL / A4 WAIVED (deductive). Reviewer: ACCEPT WITH CONDITIONS C1-C4.**
+Updated: 2026-10-21b (Opus 5.5: **Enceladus C1 met, C2 met, C3 FAIL.**
+   - C3 measured ocean-deltaP discretization of C20/C22 at +1.4-1.8 σ / −1.0-1.3 σ on the worst-deficit nodes (gate 0.1 σ); libration and C30 stay ≤0.1 σ.
+   - A second, non-quantization mass error exists: refined residuals floor at 0.04-0.16%.
+   - The cache must not be used for C20/C22-driven evidence. Remedy (rebuild at finer deltaP / exact mass closure in the builder / Sigma_model inflation) is a scientific decision for the user and reviewer; diagnosis is in progress.
+   - Record: r7_rebuild_acceptance_2026-10-21.md, section "Condition results".
+Prior: 2026-10-21 (Opus 5.5: **Enceladus r7 rebuild MERGED; acceptance 23 PASS / 0 FAIL / A4 WAIVED (deductive). Reviewer: ACCEPT WITH CONDITIONS C1-C4.**
    - Record and ruling: validation_reports/enceladus_isostasy/r7_rebuild_acceptance_2026-10-21.md.
    - **C1:** confirm all 121 Nones are bracket failures. Run `plans/cluster/enceladus_zbw_none_reasons.sh` on the Mac; it writes r7_rebuild_none_reasons.txt into the repo.
    - **C2:** merge report provenance. The merge script now records the real build_mode, build_commit, merge_commit and merge_host; re-run the merge on the Mac to regenerate r7_production_build_report.json.
