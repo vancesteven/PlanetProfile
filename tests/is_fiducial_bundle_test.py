@@ -86,8 +86,9 @@ def test_exact_match_activates(tmp_path):
         mp, **_kw(art, cache, n_post=None)), fb.CorrectedBundle)
 
 
-def test_feature_flag_default_off():
-    assert fb.FEATURE_ENABLED is False
+def test_feature_flag_deployed_on():
+    # Flipped 2026-10-21 after R1/R2 PASS + B8 + reviewer flip conditions.
+    assert fb.FEATURE_ENABLED is True
 
 
 @pytest.mark.parametrize('key', sorted(X_OBS))

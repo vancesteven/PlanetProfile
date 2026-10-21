@@ -19,8 +19,11 @@ expected fallback cases):
   B4  the request is a full-N conditioning (``n_derived`` None); a
       truncated derived recompute can never receive corrected weights.
 
-``FEATURE_ENABLED`` is the module-level switch the GUI reads (Phase 2);
-default False.  The loader itself does not consult it.
+``FEATURE_ENABLED`` is the module-level switch the GUI reads (Phase 2).
+ON since 2026-10-21: R1/R2 passed, B8 visual verification and the
+reviewer's flag-flip conditions met (validation_reports/
+titan_freegrav_nh3_1m/is_correction/b8_2026-10-20/). The loader itself
+does not consult it.
 """
 from __future__ import annotations
 
@@ -40,8 +43,8 @@ from .is_correction import (
 
 log = logging.getLogger('PlanetProfile')
 
-# Read by the GUI (Phase 2). Default OFF.
-FEATURE_ENABLED = False
+# Read by the GUI (Phase 2).
+FEATURE_ENABLED = True
 
 # Approved fallback text categories.
 R_MODIFIED = 'modified datum'

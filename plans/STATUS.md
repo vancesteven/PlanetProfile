@@ -8,6 +8,7 @@ Updated: 2026-10-21c (Opus 5.5: **Enceladus C1 met, C2 met, C3 FAIL.**
    - A second, non-quantization mass error exists: refined residuals floor at 0.04-0.16%.
    - The cache must not be used for C20/C22-driven evidence. Remedy (rebuild at finer deltaP / exact mass closure in the builder / Sigma_model inflation) is a scientific decision for the user and reviewer; diagnosis is in progress.
    - Record: r7_rebuild_acceptance_2026-10-21.md, section "Condition results".
+   - **NH3 FEATURE_ENABLED = True (flipped with the user's go-ahead): verified** in-browser at the deployed default (evidence: b8_2026-10-20/flip_*.png). The IS-correction tests pass (56). PP_IS_CORRECTION_FEATURE=0/1 forces the feature per process.
    - **Root cause and ruling** (validation_reports/enceladus_isostasy/c3_root_cause_2026-10-21/):
      - (A) PP's mass-blind MoI candidate pick, a modelling convention.
      - (B) The lossy reduced-model mass in the Enceladus gravity stack, a numerical defect (~0.04%).

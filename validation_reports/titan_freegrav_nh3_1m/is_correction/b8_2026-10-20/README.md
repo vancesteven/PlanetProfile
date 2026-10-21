@@ -24,3 +24,13 @@ At the GUI default sliders (10,000 samples / derived 1000), the app falls back v
 | fix_full_post.txt | 20,000 + All | corrected path still active; summary caption ends "all parameters weighted; the quarantine lift applies to the tidal set named in the warning." |
 
 The container drops italic and inline-code glyphs ("Observable are free" is missing an italic word; "(see )" is blank), which supports the reviewer's font-artifact reading of item (d). Confirm once in a Mac browser.
+
+## Flag flip — FEATURE_ENABLED = True, verified 2026-10-21
+
+No env var set, i.e. the deployed default.
+
+| file | condition | observed |
+|---|---|---|
+| flip_deployed_default_corrected.png | 20,000 + All, default datum | "Tidal sector at the DEFAULT Cassini datum only ..."; ESS 1,271; Pareto-k 0.19; max weight 0.62%; ocean 0.929 |
+| flip_deployed_default_sliders_hint.png | default sliders | size-mismatch fallback with the "The datum is unchanged: set Posterior samples = 20,000 and Derived subset = All" hint |
+| flip_env0_flag_off.png | PP_IS_CORRECTION_FEATURE=0 | original split-ratification warning, no corrected path |

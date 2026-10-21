@@ -185,11 +185,13 @@ def test_warning_text_numbers_come_from_manifest(monkeypatch):
         'Re k₂, |Im k₂|, ζ'
 
 
-def test_flag_default_off_and_inactive_without_slot_entry(monkeypatch):
-    assert fb.FEATURE_ENABLED is False
+def test_flag_deployed_on_and_inactive_without_slot_entry(monkeypatch):
+    monkeypatch.delenv('PP_IS_CORRECTION_FEATURE', raising=False)
+    assert fb.FEATURE_ENABLED is True
+    assert ui.correction_active_for({'is_correction': {'manifest': 'x'}})
+    monkeypatch.setattr(fb, 'FEATURE_ENABLED', False)
     assert not ui.correction_active_for({'is_correction': {'manifest': 'x'}})
     monkeypatch.setattr(fb, 'FEATURE_ENABLED', True)
-    assert ui.correction_active_for({'is_correction': {'manifest': 'x'}})
     assert not ui.correction_active_for({'sector_warning': 'x'})
     assert ui.attempt_correction({'sector_warning': 'x'}, REPO, None) is None
 
@@ -247,7 +249,8 @@ def _all_text(at):
 
 
 @needs_assets
-def test_flag_off_warning_unchanged():
+def test_flag_off_warning_unchanged(monkeypatch):
+    monkeypatch.setattr(fb, 'FEATURE_ENABLED', False)
     at = _boot()
     _set_slider(at, 'amort_n_post', 1000)
     _set_slider(at, 'amort_n_reeval', 100)
@@ -356,6 +359,7 @@ def test_flag_on_truncated_derived_recompute_falls_back(monkeypatch):
 def test_scope_note_sentence_replaced_only_on_corrected_path(monkeypatch):
     def caps(at):
         return ' '.join(str(c.value) for c in at.caption)
+    monkeypatch.setattr(fb, 'FEATURE_ENABLED', False)
     at = _boot()
     _set_slider(at, 'amort_n_post', 20000)
     _set_slider(at, 'amort_n_derived', 'All')
@@ -397,3 +401,16 @@ def test_fallback_warning_text_hint_and_punctuation():
     assert 'Posterior samples' not in datum
     assert 'validated only at the default Cassini datum' in datum
     assert '.).' not in datum
+
+
+def test_env_override_forces_on_and_off(monkeypatch):
+    spec = {'is_correction': {'manifest': 'x'}}
+    monkeypatch.setattr(fb, 'FEATURE_ENABLED', True)
+    monkeypatch.setenv('PP_IS_CORRECTION_FEATURE', '0')
+    assert not ui.correction_active_for(spec)
+    monkeypatch.setattr(fb, 'FEATURE_ENABLED', False)
+    monkeypatch.setenv('PP_IS_CORRECTION_FEATURE', '1')
+    assert ui.correction_active_for(spec)
+    # anything else defers to the module flag
+    monkeypatch.setenv('PP_IS_CORRECTION_FEATURE', 'yes')
+    assert not ui.correction_active_for(spec)
