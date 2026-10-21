@@ -33,7 +33,10 @@ enceladus_zbw_production_cache.pkl
 """
 import argparse
 import json
+import os
 import pickle
+import platform
+import subprocess
 import sys
 from pathlib import Path
 
@@ -75,11 +78,31 @@ def _load_shards(shard_dir):
     return shards
 
 
+def _read_text(path):
+    try:
+        return Path(path).read_text().strip()
+    except OSError:
+        return None
+
+
+def _git_head():
+    try:
+        return subprocess.run(['git', '-C', str(REPO), 'rev-parse', 'HEAD'],
+                              capture_output=True, text=True,
+                              check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--shard-dir', required=True)
     ap.add_argument('--out', required=True)
     ap.add_argument('--report', default=str(REPORT_PATH))
+    ap.add_argument('--build-mode', default=None,
+                    help='how the shards were built; default: SLURM array '
+                         'if SLURM_ARRAY_JOB_ID is set, else local '
+                         'processes')
     args = ap.parse_args()
 
     cfg = _load_config()
@@ -252,7 +275,15 @@ def main():
     report = {
         'ruling': 'validation_reports/enceladus_isostasy/r7_ADJUDICATION.md '
                   '(+ §0.30 endpoint ruling)',
-        'build_mode': f'SLURM sharded ({n_shards_declared} array tasks)',
+        'build_mode': args.build_mode or (
+            f'SLURM sharded ({n_shards_declared} array tasks)'
+            if os.environ.get('SLURM_ARRAY_JOB_ID')
+            else f'local processes ({n_shards_declared} shards)'),
+        # Provenance (r7 rebuild adjudication C2): the commit the shards were
+        # BUILT at is the shard dir's BUILD_COMMIT, not the merge checkout.
+        'build_commit': _read_text(Path(args.shard_dir) / 'BUILD_COMMIT'),
+        'merge_commit': _git_head(),
+        'merge_host': platform.node(),
         'output_path': str(out_path),
         'schema_version': cache_out['schema_version'],
         'n_zb': len(zb_all), 'n_w': n_w, 'n_frozen': len(frozen_all),

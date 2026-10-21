@@ -61,3 +61,32 @@ ACCEPTANCE GATES: ALL PASS
 [PASS       ] S_shards_complete_and_match_merged: 11 shards, mask equal, no quarantine
 SUMMARY {'PASS': 23, 'FAIL': 0, 'UNCHECKABLE': 1}
 ```
+
+## Scientific-reviewer adjudication (2026-10-21): ACCEPT WITH CONDITIONS
+
+- **A4: WAIVED (deductive equivalence), not PASS.**
+  - Recomputing both predicates over the 88×40 axes, the old predicate excludes 122 nodes and the new one 121. They differ only at (6.0, 2.8943), whose floor is 6.0088.
+  - C2 is a post-build check (cache_builder.py:2144-2153), so the predicate does not change which nodes build. Between b7beb6b4 and 634ea0cd the only non-text change is docstring-only (LayerPropagators.py).
+  - The failed run's single violation was that node. Its built set therefore equals the new non-excluded set: 3399 built / 121 None, and the predicted set difference is empty.
+  - The nearest node to the band edge has a 0.017 km margin.
+  - If the old console log turns up, diff it against this set and append the result here.
+- **G2: benign.** solve_tol_km = 0.4 × 0.125 = 0.05 (cache_builder.py:1996) is passed as zbTol_km (:2053). IceShellResidual stops on ANY iterate within tolerance (LayerPropagators.py:667, caught at :733), so residuals are bounded just under 0.05 km.
+- **C4:** the r7 expectation "≤0.035 km" is SUPERSEDED by the <0.05 km bound from the solver's early exit.
+- **G3: consistent.** The frozen axis starts at 46.5 km, so no edge Nones are expected.
+- **G5a: not blocking.** It lies inside the deficit band of already-ratified caches (Titan to −0.98%, Europa −0.28%; mass_gate_blast_radius_audit.json). However:
+  - σ/|obs| is 0.68% for C20 and 0.97% for C22, so a 1:1 propagation of a −0.51% deficit into C20 would be ≈0.75σ.
+  - The frozen branch closes mass exactly, so the deficit is a branch asymmetry that feeds log B.
+
+Conditions:
+- **C1:** every one of the 121 `build_exception` Nones must be the bracket / same-sign "target outside achievable zb" failure (no I/O, cache-path or EOS errors), checked from the shard logs with `plans/cluster/enceladus_zbw_none_reasons.sh`. A3 depends on this too.
+- **C2:** merge report provenance. `build_mode` was hardcoded to SLURM; the merge script now records the real mode plus build_commit, merge_commit and merge_host. Re-run the merge to regenerate `r7_production_build_report.json`.
+- **C3, before ANY evidence or observable is quoted:**
+  - Rebuild the ~5 largest-deficit nodes with a finer silicate radial step.
+  - The C20/C22/libration shift must be ≤0.1 σ_obs; otherwise bound or correct the deficit.
+  - Map the deficit over (zb, w) to check for jagged noise.
+  - The study script is `plans/scripts/enceladus_zbw_mass_deficit_study.py` (in preparation).
+- **C4:** applied above.
+
+Gating:
+- The cache may move into `PlanetProfile/Test/mcmc_results/Enceladus/Cassini_isostasy/` once C1 and C2 are met.
+- The two-run reference protocol (§0.30 item 5) may START, but no branch evidence may be quoted until C3 passes.

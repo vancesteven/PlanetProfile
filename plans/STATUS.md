@@ -3,7 +3,15 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-20e (Opus 5.5 session, running in a Linux container that sees the repo but NOT the Mac's ~/scratch, PPcl env, or PlanetProfile cache. **The Enceladus r7 third launch (thread 1) could NOT be checked from here**, so its state is unknown, not failed. Check it on the Mac (`ls ~/scratch/enc_zbw_shards/*.meta.json | wc -l`) before any relaunch, so the work is not duplicated.
+Updated: 2026-10-21 (Opus 5.5: **Enceladus r7 rebuild MERGED; acceptance 23 PASS / 0 FAIL / A4 WAIVED (deductive). Reviewer: ACCEPT WITH CONDITIONS C1-C4.**
+   - Record and ruling: validation_reports/enceladus_isostasy/r7_rebuild_acceptance_2026-10-21.md.
+   - **C1:** confirm all 121 Nones are bracket failures. Run `plans/cluster/enceladus_zbw_none_reasons.sh` on the Mac; it writes r7_rebuild_none_reasons.txt into the repo.
+   - **C2:** merge report provenance. The merge script now records the real build_mode, build_commit, merge_commit and merge_host; re-run the merge on the Mac to regenerate r7_production_build_report.json.
+   - **C3:** mass-deficit study, required before any evidence is quoted. The script is being written by a Sonnet agent.
+   - **C4:** applied.
+   - **Next:** the cache moves into the repo after C1 and C2; then the two-run reference protocol (n_eff 8000, 3 seeds x 2 branches), a candidate for the user's SLURM cluster.
+   - The NH3 flag flip awaits the user's go-ahead (reviewer: FLIP AFTER changes, changes made, c81e7398).
+Prior: 2026-10-20e (Opus 5.5 session, running in a Linux container that sees the repo but NOT the Mac's ~/scratch, PPcl env, or PlanetProfile cache. **The Enceladus r7 third launch (thread 1) could NOT be checked from here**, so its state is unknown, not failed. Check it on the Mac (`ls ~/scratch/enc_zbw_shards/*.meta.json | wc -l`) before any relaunch, so the work is not duplicated.
    - Launcher now committed: `plans/cluster/enceladus_zbw_local.sh` reconstructs the uncommitted run.sh (resumable, macOS bash 3.2-safe, aborts if the PlanetProfile cache is missing).
    - SLURM fix: `enceladus_zbw_shards.sbatch` defaulted SHARD_DIR to the per-task `$PP_SCRATCH`, which is keyed on SLURM_JOB_ID and differs per array task, so the shards would have scattered across 11 dirs and the merge would have refused. The default is now keyed on SLURM_ARRAY_JOB_ID; the README exports one SHARD_DIR for both jobs and documents copying the Mac PlanetProfile cache to the cluster.
    - Status of these script changes: implemented, unverified (syntax-checked; the missing-cache guard was exercised, but no shard has been built with them).
