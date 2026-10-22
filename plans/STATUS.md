@@ -3,7 +3,11 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-21d (Opus 5.5: **Enceladus stack mass closure implemented, unverified on the production cache. Next: the jitter gate on the Mac.**
+Updated: 2026-10-22 (Opus 5.5: **Enceladus mass-closure jitter gate FAIL**: C20 σ_model 1.27σ, C22 0.95σ, libration 0.107σ; 90/90 builds.
+   - Reviewer: the residual is R_sil quantisation, a single hydrostatic mode. Keep the closure ON. C20/C22 stay BLOCKED.
+   - Recommended remedy: Option 4, a runner-level closure of the reduced stack in both mass and MoI (closed form, no rebuild, no PP core edit). It **awaits user approval** because it adds an MoI-equality assumption.
+   - Record: validation_reports/enceladus_isostasy/mass_closure_gate/README.md.
+Prior: 2026-10-21d (Opus 5.5: **Enceladus stack mass closure implemented, unverified on the production cache. Next: the jitter gate on the Mac.**
    - The user approved the reviewer's plan. `mcmc_runner._close_reduced_stack_mass` rescales the rock density of the reduced 3-layer stack so that M_stack equals struct Mtot_kg. It is applied in `_derive_gravity_isostatic` and `_derive_libration_deg`, only when `metadata.isostasy.stack_mass_closure = "rock_density"` (now set in enceladus_cassini_isostasy_7D.json).
    - A hard reject (-1e30 / SBI drop) applies when the pre-closure residual exceeds `_STACK_CLOSURE_MAX_ABS_RESIDUAL = 1e-2`. No PP core files were changed.
    - Tests: `tests/enceladus_mass_closure_test.py` 13 passed. The Enceladus, libration and sigma_model suites: 165 passed, 1 xfail (container run).
