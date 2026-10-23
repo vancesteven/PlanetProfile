@@ -62,6 +62,10 @@ _STACK_CLOSURE_MAX_ABS_RESIDUAL = 1e-2
 # the zero-porosity grain density (config metadata.isostasy.rho_grain_max_kgm3
 # from the Perple_X table; the check is skipped if the key is absent).
 _STACK_CLOSURE_MAX_DR_S_M = 10.0e3
+# mass_rho_rock records |R_s - R_sil(PP)| but does NOT reject on it
+# (user/reviewer ruling pending 2026-10-23: with rho_s free the 10 km rule
+# may no longer make sense). Set True only after that ruling.
+_MASS_RHO_ROCK_APPLY_DR_S_REJECT = False
 _ZB_SUPPORT_EPS_KM = 1e-6
 
 # The same boundary slack on the salinity axis, in log10 ppt -- the coordinate
@@ -164,6 +168,7 @@ class MCMCRunner:
         self.param_groups = getattr(config, 'param_groups', {}) or {}
         # fixed_params: constants injected into every forward call
         self.fixed_params = getattr(config, 'fixed_params', {}) or {}
+        self._check_ocean_rho_rock_config()
 
         # Lazily-loaded CMR2 discretization-offset anchor sidecar (Test52
         # Phase 2, plan decision 1). None until _load_cmr2_offset_sidecar()
@@ -494,8 +499,13 @@ class MCMCRunner:
           ``return sd`` and was handed the whole cache dict.
         """
         sd = self.structure_data
+        # An OCEAN theta under stack_mass_closure='mass_rho_rock' carries
+        # BOTH zb_km and rho_rock_kgm3 (2026-10-23); zb_km marks the ocean
+        # branch (the frozen theta never samples zb -- it is DERIVED), so
+        # such a theta must not be routed to the frozen lookup.
         if (isinstance(sd, dict) and sd.get('frozen_branch_supported')
-                and 'rho_rock_kgm3' in theta_dict):
+                and 'rho_rock_kgm3' in theta_dict
+                and 'zb_km' not in theta_dict):
             return self._frozen_struct_for_theta(theta_dict)
         if is_zbw_cache(sd) and 'zb_km' in theta_dict:
             return self._ocean_zbw_struct_for_theta(theta_dict)
@@ -2248,6 +2258,19 @@ class MCMCRunner:
                 return None
         return reduced_r, reduced_rho
 
+    def _check_ocean_rho_rock_config(self) -> None:
+        """Ocean theta (zb_km sampled) + rho_rock_kgm3 is only meaningful
+        under stack_mass_closure='mass_rho_rock'; otherwise rho_rock_kgm3
+        would be a silently inert (prior-dominated) dimension. Raises
+        ValueError."""
+        names = set(self.param_names) | set(self.fixed_params)
+        if ('zb_km' in names and 'rho_rock_kgm3' in names
+                and self._stack_mass_closure_mode() != 'mass_rho_rock'):
+            raise ValueError(
+                "rho_rock_kgm3 together with zb_km (ocean theta) requires "
+                "metadata.isostasy.stack_mass_closure='mass_rho_rock'; "
+                "otherwise rho_rock_kgm3 would be silently ignored.")
+
     def _stack_mass_closure_mode(self) -> str:
         """Config switch ``metadata.isostasy.stack_mass_closure``.
 
@@ -2258,8 +2281,20 @@ class MCMCRunner:
         Enceladus C20/C22 mass-deficit defect). Absent / any other value
         keeps the historical behaviour exactly (stack normalised by its own
         mass)."""
-        mode = self._isostasy_physics_config().get('stack_mass_closure')
-        return str(mode) if mode else 'none'
+        cfg = self._isostasy_physics_config()
+        mode = cfg.get('stack_mass_closure')
+        mode = str(mode) if mode else 'none'
+        if mode == 'mass_rho_rock' and cfg.get('moi_target') is not None:
+            # User decision 2026-10-23: C/MR^2 is DERIVED in this mode; a
+            # live fixed moi_target would silently reinstate the Iess 2014
+            # double-count (and the Cmeasured consistency guard would be
+            # bypassed). Refuse rather than ignore it.
+            raise ValueError(
+                "metadata.isostasy.stack_mass_closure='mass_rho_rock' "
+                "frees C/MR^2 (derived from the sampled rho_rock_kgm3); "
+                "metadata.isostasy.moi_target must be absent -- both live "
+                "would double-count the Iess et al. 2014 moment factor.")
+        return mode
 
     def _stack_moi_target(self) -> Optional[float]:
         """MoI-equality target C/(M R^2) for ``stack_mass_closure ==
@@ -2404,6 +2439,98 @@ class MCMCRunner:
         out_r = np.array([R_s, R_o, R])
         out_rho = np.array([rho_s, rho_o, rho_i])
         diag['moi_stack_after'] = self._stack_cmr2(out_r, out_rho)
+        diag['mass_residual_after'] = float(np.sum(
+            out_rho * (4.0 * np.pi / 3.0)
+            * (out_r ** 3 - np.concatenate(([0.0], out_r[:-1])) ** 3))
+            / M - 1.0)
+        diag['feasible'] = True
+        return out_r, out_rho
+
+    def _close_reduced_stack_mass_rho_rock(self, reduced_r, reduced_rho,
+                                           struct, rho_ice_override=None,
+                                           rho_rock=None):
+        """``stack_mass_closure == "mass_rho_rock"`` (user decision
+        2026-10-23): the rock density rho_s is the SAMPLED nuisance
+        ``rho_rock_kgm3`` ~ U[2200, 2600] (same prior as the frozen branch)
+        and C/(M R^2) is DERIVED, not fixed. Hold rho_o = reduced_rho[1],
+        rho_i (``rho_ice_override`` if given, as in mass_moi), R_o =
+        reduced_r[1] and R = reduced_r[-1] fixed and solve R_s from mass:
+
+          a = 3M/(4 pi) - rho_o R_o^3 - rho_i (R^3 - R_o^3)
+          R_s = (a / (rho_s - rho_o))^(1/3)
+
+        so M_stack = Mtot_kg exactly. Independent of the PP candidate's
+        (R_sil, rho_sil). Rejects (None, -1e30 upstream, no fallback):
+        pre-closure 1% mass guard, a <= 0, rho_s <= rho_o, R_s not in
+        (0, R_o), rho_s > rho_grain_max. |R_s - R_sil(PP)| is RECORDED
+        (``dR_s_vs_pp_m``) but not rejected on (see
+        ``_MASS_RHO_ROCK_APPLY_DR_S_REJECT``). Records in
+        ``self.last_mass_closure``: rho_s, R_s_m, cmr2_derived,
+        dR_s_vs_pp_m, ocean_thickness_m, reason."""
+        diag = {'mode': 'mass_rho_rock', 'feasible': False, 'reason': None}
+        self.last_mass_closure = diag
+        r0 = np.asarray(reduced_r, float)
+        rho0 = np.asarray(reduced_rho, float)
+        if r0.size != 3 or rho0.size != 3:
+            diag['reason'] = 'not_a_3_layer_stack'
+            return None
+        try:
+            M = float(struct.get('Mtot_kg', np.nan))
+        except (TypeError, ValueError):
+            M = np.nan
+        if not np.isfinite(M) or M <= 0:
+            diag['reason'] = 'missing_mass_target'
+            return None
+        try:
+            rho_s = float(rho_rock)
+        except (TypeError, ValueError):
+            rho_s = np.nan
+        if not np.isfinite(rho_s) or rho_s <= 0:
+            diag['reason'] = 'missing_rho_rock'
+            return None
+        diag['rho_s'] = rho_s
+        r_in = np.concatenate(([0.0], r0[:-1]))
+        M_stack = float(np.sum(rho0 * (4.0 * np.pi / 3.0)
+                               * (r0 ** 3 - r_in ** 3)))
+        resid = (M_stack - M) / M
+        diag.update({'pre_closure_residual_frac': resid,
+                     'R_sil_pp_m': float(r0[0]), 'rho_sil_pp': float(rho0[0])})
+        if not np.isfinite(resid) or abs(resid) > _STACK_CLOSURE_MAX_ABS_RESIDUAL:
+            diag['reason'] = 'pre_closure_mass_residual_gt_1pct'
+            return None
+        R_o, R = float(r0[1]), float(r0[2])
+        rho_o = float(rho0[1])
+        rho_i = float(rho0[2] if rho_ice_override is None
+                      else rho_ice_override)
+        a = 3.0 * M / (4.0 * np.pi) - rho_o * R_o ** 3 \
+            - rho_i * (R ** 3 - R_o ** 3)
+        diag['a'] = a
+        if not (np.isfinite(a) and a > 0):
+            diag['reason'] = 'a_not_positive'
+            return None
+        if not (rho_s > rho_o):
+            diag['reason'] = 'rho_s_not_gt_rho_o'
+            return None
+        R_s = float((a / (rho_s - rho_o)) ** (1.0 / 3.0))
+        diag.update({'R_s_m': R_s, 'dR_s_vs_pp_m': R_s - float(r0[0]),
+                     'ocean_thickness_m': R_o - R_s})
+        if not (np.isfinite(R_s) and 0.0 < R_s < R_o):
+            diag['reason'] = 'R_s_not_in_0_Ro'
+            return None
+        rho_grain = self._isostasy_physics_config().get('rho_grain_max_kgm3')
+        if rho_grain is not None:
+            rho_grain = float(rho_grain)
+            diag['rho_grain_max'] = rho_grain
+            if not (rho_s <= rho_grain):
+                diag['reason'] = 'rho_s_above_grain_max'
+                return None
+        if (_MASS_RHO_ROCK_APPLY_DR_S_REJECT
+                and not abs(R_s - float(r0[0])) <= _STACK_CLOSURE_MAX_DR_S_M):
+            diag['reason'] = 'dR_s_gt_10km'
+            return None
+        out_r = np.array([R_s, R_o, R])
+        out_rho = np.array([rho_s, rho_o, rho_i])
+        diag['cmr2_derived'] = self._stack_cmr2(out_r, out_rho)
         diag['mass_residual_after'] = float(np.sum(
             out_rho * (4.0 * np.pi / 3.0)
             * (out_r ** 3 - np.concatenate(([0.0], out_r[:-1])) ** 3))
@@ -2562,12 +2689,18 @@ class MCMCRunner:
             return None
 
         rho_ice_override = theta_dict.get('rho_ice_kgm3')
-        if self._stack_mass_closure_mode() == 'mass_moi':
+        _mode = self._stack_mass_closure_mode()
+        if _mode in ('mass_moi', 'mass_rho_rock'):
             # rho_i (sampled override applied inside) is held exactly; the
-            # rock layer (R_s, rho_s) absorbs mass AND MoI, so the
-            # mass-neutral shell step below must not run.
-            closed = self._close_reduced_stack_mass_moi(
-                reduced_r, reduced_rho, struct, rho_ice_override)
+            # rock layer (R_s, rho_s) absorbs mass (and MoI for mass_moi), so
+            # the mass-neutral shell step below must not run.
+            if _mode == 'mass_moi':
+                closed = self._close_reduced_stack_mass_moi(
+                    reduced_r, reduced_rho, struct, rho_ice_override)
+            else:
+                closed = self._close_reduced_stack_mass_rho_rock(
+                    reduced_r, reduced_rho, struct, rho_ice_override,
+                    theta_dict.get('rho_rock_kgm3'))
             if closed is None:
                 return None
             reduced_r, reduced_rho = closed
@@ -2974,11 +3107,17 @@ class MCMCRunner:
         # the same reduced 3-layer stack as the gravity channel, so it gets
         # the same closed stack (see _stack_mass_closure_mode).
         _moi_closed = False
-        if self._stack_mass_closure_mode() == 'mass_moi':
+        _mode = self._stack_mass_closure_mode()
+        if _mode in ('mass_moi', 'mass_rho_rock'):
             _ov = (rho_shell_override if rho_shell_override is not None
                    else theta_dict.get('rho_ice_kgm3'))
-            closed = self._close_reduced_stack_mass_moi(
-                reduced_r, reduced_rho, struct, _ov)
+            if _mode == 'mass_moi':
+                closed = self._close_reduced_stack_mass_moi(
+                    reduced_r, reduced_rho, struct, _ov)
+            else:
+                closed = self._close_reduced_stack_mass_rho_rock(
+                    reduced_r, reduced_rho, struct, _ov,
+                    theta_dict.get('rho_rock_kgm3'))
             if closed is None:
                 return None
             reduced_r, reduced_rho = closed

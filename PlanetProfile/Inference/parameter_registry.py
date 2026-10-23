@@ -408,7 +408,13 @@ PARAMETER_REGISTRY: Dict[str, ParameterDef] = {
                     'U[2200, 2600] brackets the H&M/Park requirement of '
                     '2340-2410 kg/m^3. Serves the cache through the '
                     'interpolating frozen dispatch (A8), never a nearest-node '
-                    'snap, so no structure rebuild is triggered per sample.',
+                    'snap, so no structure rebuild is triggered per sample. '
+                    'ALSO sampled on the OCEAN branch (with zb_km) by '
+                    'enceladus_cassini_isostasy_ocean6D_rhorock.json under '
+                    "stack_mass_closure='mass_rho_rock': there it is the "
+                    'rock-layer density of the reduced 3-layer stack, R_s is '
+                    'solved from mass and C/MR^2 is derived (same U[2200, '
+                    '2600] prior as here).',
         category='structure',
         default_prior='uniform',
         default_bounds=[2200.0, 2600.0],

@@ -176,7 +176,7 @@ def test_enceladus_config_enables_flag_others_do_not():
     # Every other campaign config (Titan / Europa clairaut, Callisto, ...)
     # must not carry the flag.
     for p in sorted(CFG_DIR.glob('*.json')):
-        if p == CANDIDATE:
+        if p in (CANDIDATE, CFG_DIR / 'enceladus_cassini_isostasy_ocean6D_rhorock.json'):
             continue
         txt = p.read_text()
         assert 'stack_mass_closure' not in txt, p.name
@@ -504,3 +504,329 @@ def test_config_carries_grain_max_and_provenance():
               'mass_moi_ablation_statement',
               'moi_target_uncertainty_treatment'):
         assert k in iso
+
+
+# ---------------------------------------------------------------------------
+# "mass_rho_rock" closure (user decision 2026-10-23): rho_s = sampled
+# rho_rock_kgm3 ~ U[2200, 2600]; R_s solved from mass; C/MR^2 DERIVED.
+# ---------------------------------------------------------------------------
+CAND_8D = CFG_DIR / 'enceladus_cassini_isostasy_ocean6D_rhorock.json'
+EDGES = (2200.0, 2600.0)
+
+
+def _enc_stack(R_o=R_T - 25e3, rho_o=1005.0, rho_i=925.0, R_sil=None):
+    """Enceladus-like PP stack consistent with M_TRUE (rock R_sil chosen
+    so rho_sil ~ 2450)."""
+    if R_sil is None:
+        R_sil = 192.0e3
+    r = np.array([R_sil, R_o, R_T])
+    a = 3 * M_TRUE / (4 * np.pi) - rho_o * R_o ** 3 - rho_i * (R_T ** 3 - R_o ** 3)
+    return r, np.array([rho_o + a / R_sil ** 3, rho_o, rho_i])
+
+
+def _rr_runner(s, **kw):
+    return _runner(s, 'mass_rho_rock', **kw)
+
+
+def test_mass_rho_rock_recovers_mass_and_derived_cmr2_matches_shell_sum():
+    r_pp, rho_pp = _enc_stack()
+    rho_pp = rho_pp.copy()
+    rho_pp[0] *= 0.997                       # 0.3% deficit, inside the guard
+    s = {'Mtot_kg': M_TRUE}
+    for rho_s in (2200.0, 2400.0, 2600.0):
+        r = _rr_runner(s)
+        out_r, out_rho = r._close_reduced_stack_mass_rho_rock(
+            r_pp, rho_pp, s, None, rho_s)
+        M, C = _stack_M_C(out_r, out_rho)          # independent shell sum
+        assert abs(M / M_TRUE - 1) < 1e-12
+        assert out_rho[0] == rho_s
+        assert out_r[1] == r_pp[1] and out_r[2] == r_pp[2]
+        assert out_rho[1] == rho_pp[1] and out_rho[2] == rho_pp[2]
+        d = r.last_mass_closure
+        assert d['feasible'] and d['reason'] is None
+        assert d['mode'] == 'mass_rho_rock'
+        assert d['rho_s'] == rho_s
+        assert d['R_s_m'] == pytest.approx(out_r[0], rel=1e-14)
+        assert d['cmr2_derived'] == pytest.approx(C, rel=1e-12)
+        assert d['dR_s_vs_pp_m'] == pytest.approx(out_r[0] - r_pp[0])
+        assert d['ocean_thickness_m'] == pytest.approx(r_pp[1] - out_r[0])
+        assert abs(d['mass_residual_after']) < 1e-12
+        # closed form: (rho_s - rho_o) R_s^3 = a
+        a = 3 * M_TRUE / (4 * np.pi) - rho_pp[1] * r_pp[1] ** 3 \
+            - rho_pp[2] * (R_T ** 3 - r_pp[1] ** 3)
+        assert (rho_s - rho_pp[1]) * out_r[0] ** 3 == pytest.approx(a, rel=1e-12)
+
+
+def test_mass_rho_rock_ice_override_held_exactly():
+    r_pp, rho_pp = _enc_stack()
+    s = {'Mtot_kg': M_TRUE}
+    r = _rr_runner(s)
+    out_r, out_rho = r._close_reduced_stack_mass_rho_rock(
+        r_pp, rho_pp, s, 935.0, 2400.0)
+    assert out_rho[2] == 935.0
+    assert abs(_stack_M_C(out_r, out_rho)[0] / M_TRUE - 1) < 1e-12
+
+
+def test_mass_rho_rock_derived_cmr2_monotone_decreasing_in_rho_s():
+    r_pp, rho_pp = _enc_stack()
+    s = {'Mtot_kg': M_TRUE}
+    cs, rs = [], []
+    for rho_s in np.linspace(2200.0, 2600.0, 9):
+        r = _rr_runner(s)
+        assert r._close_reduced_stack_mass_rho_rock(
+            r_pp, rho_pp, s, None, float(rho_s)) is not None
+        cs.append(r.last_mass_closure['cmr2_derived'])
+        rs.append(r.last_mass_closure['R_s_m'])
+    assert all(np.diff(cs) < 0)              # denser rock -> more central
+    assert all(np.diff(rs) < 0)              # and smaller rock core
+
+
+def test_mass_rho_rock_feasible_at_both_box_edges_synthetic_enceladus():
+    """Enceladus-like node (zb ~ 25 km, ocean ~ 36 km thick at the PP
+    candidate): both prior-box edges feasible; ocean thickness > 0."""
+    r_pp, rho_pp = _enc_stack(R_o=R_T - 25e3, R_sil=R_T - 25e3 - 36e3)
+    s = {'Mtot_kg': M_TRUE}
+    for rho_s in EDGES:
+        r = _rr_runner(s, rho_grain_max_kgm3=2858.1098)
+        assert r._close_reduced_stack_mass_rho_rock(
+            r_pp, rho_pp, s, 925.0, rho_s) is not None, r.last_mass_closure
+        d = r.last_mass_closure
+        assert d['feasible'] and d['ocean_thickness_m'] > 0.0
+        assert 0.30 < d['cmr2_derived'] < 0.37
+
+
+@pytest.mark.parametrize('case', [
+    'missing_mass_target', 'missing_rho_rock', 'nonfinite_rho_rock',
+    'pre_closure_mass_residual_gt_1pct', 'a_not_positive',
+    'rho_s_not_gt_rho_o', 'R_s_not_in_0_Ro', 'rho_s_above_grain_max'])
+def test_mass_rho_rock_rejects_every_infeasible_case_with_reason(case):
+    r_pp, rho_pp = _enc_stack()
+    s = {'Mtot_kg': M_TRUE}
+    kw, rho_s, rr, rho = {}, 2400.0, r_pp.copy(), rho_pp.copy()
+    if case == 'missing_mass_target':
+        s = {}
+    elif case == 'missing_rho_rock':
+        rho_s = None
+    elif case == 'nonfinite_rho_rock':
+        rho_s = float('nan')
+    elif case == 'pre_closure_mass_residual_gt_1pct':
+        s = {'Mtot_kg': M_TRUE * 1.02}
+    elif case == 'a_not_positive':
+        # dense ocean over a large volume: ice+ocean outweigh M (a <= 0);
+        # M consistent with the PP stack so the 1% guard passes.
+        rho = np.array([100.0, 4500.0, 925.0])
+        rr = np.array([100e3, R_T - 25e3, R_T])
+        s = {'Mtot_kg': _stack_M_C(rr, rho)[0]}
+    elif case == 'rho_s_not_gt_rho_o':
+        rho_s = 1000.0
+    elif case == 'R_s_not_in_0_Ro':
+        rho_s = 1020.0                       # barely denser than ocean
+    elif case == 'rho_s_above_grain_max':
+        kw = {'rho_grain_max_kgm3': 2300.0}
+    r = _rr_runner(s, **kw)
+    assert r._close_reduced_stack_mass_rho_rock(rr, rho, s, None, rho_s) is None
+    assert r.last_mass_closure['feasible'] is False
+    assert r.last_mass_closure['reason'] == (
+        'missing_rho_rock' if case == 'nonfinite_rho_rock' else case)
+
+
+def test_mass_rho_rock_does_not_apply_10km_reject_but_records_it():
+    """Pending ruling: dR_s is recorded, never rejected on, in this mode."""
+    r_pp, rho_pp = _enc_stack()
+    s = {'Mtot_kg': M_TRUE}
+    r_far = r_pp.copy()
+    r_far[0] -= 14e3                          # PP R_sil 14 km below the closure
+    rho_far = rho_pp.copy()
+    rho_far[0] += (M_TRUE - _stack_M_C(r_far, rho_far)[0]) / (V * r_far[0] ** 3)
+    r = _rr_runner(s)
+    out = r._close_reduced_stack_mass_rho_rock(r_far, rho_far, s, None, 2400.0)
+    assert out is not None
+    assert abs(r.last_mass_closure['dR_s_vs_pp_m']) > 10e3
+    # same stack under mass_moi-style 10 km rule would reject: control
+    from PlanetProfile.Inference import mcmc_runner as mr
+    assert mr._MASS_RHO_ROCK_APPLY_DR_S_REJECT is False
+
+
+def test_mass_rho_rock_independent_of_candidate_rsil_rhosil():
+    """Two PP candidates differing only in (R_sil, rho_sil): identical
+    C20/C22/C30, libration and closed stack, for each rho_s."""
+    sA = _struct_rsil(R_T - 60e3, 0.997)
+    sB = _struct_rsil(R_T - 61.5e3, 0.9985)
+    for rho_s in (2200.0, 2400.0, 2600.0):
+        th = dict(THETA, rho_rock_kgm3=rho_s)
+        rA, rB = _rr_runner(sA), _rr_runner(sB)
+        gA, gB = rA._derive_gravity_isostatic(th), rB._derive_gravity_isostatic(th)
+        assert gA is not None and gB is not None
+        for lm in gA:
+            assert gA[lm] == pytest.approx(gB[lm], rel=1e-10)
+        assert rA.last_mass_closure['R_s_m'] == pytest.approx(
+            rB.last_mass_closure['R_s_m'], rel=1e-12)
+        assert rA.last_mass_closure['dR_s_vs_pp_m'] != pytest.approx(
+            rB.last_mass_closure['dR_s_vs_pp_m'], abs=100.0)
+        assert rA._derive_libration_deg(th) == pytest.approx(
+            rB._derive_libration_deg(th), rel=1e-10)
+
+
+def test_mass_rho_rock_honoured_identically_by_gravity_and_libration():
+    s, _ = _struct(0.0)
+    for rho_s in EDGES + (2400.0,):
+        th = dict(THETA, rho_rock_kgm3=rho_s, rho_ice_kgm3=930.0)
+        rg = _rr_runner(s)
+        assert rg._derive_gravity_isostatic(th) is not None
+        dg = dict(rg.last_mass_closure)
+        rl = _rr_runner(s)
+        assert rl._derive_libration_deg(th) is not None
+        dl = dict(rl.last_mass_closure)
+        assert dg['feasible'] and dl['feasible']
+        assert dg['rho_s'] == dl['rho_s'] == rho_s
+        assert dg['R_s_m'] == dl['R_s_m']
+        assert dg['cmr2_derived'] == dl['cmr2_derived']
+        # the closure really moves both channels with rho_s
+    gs = [_rr_runner(s)._derive_gravity_isostatic(
+        dict(THETA, rho_rock_kgm3=x)) for x in EDGES]
+    ls = [_rr_runner(s)._derive_libration_deg(
+        dict(THETA, rho_rock_kgm3=x)) for x in EDGES]
+    assert gs[0][(2, 0)] != pytest.approx(gs[1][(2, 0)], rel=1e-4)
+    assert ls[0] != pytest.approx(ls[1], rel=1e-4)
+
+
+def test_mass_rho_rock_node_rejected_by_both_paths_no_fallback():
+    s, _ = _struct(0.0)
+    th = dict(THETA, rho_rock_kgm3=2400.0)
+    s_bad = dict(s, Mtot_kg=s['Mtot_kg'] * 1.02)      # >1% broken node
+    r = _rr_runner(s_bad)
+    assert r._derive_gravity_isostatic(th) is None
+    assert r.last_mass_closure['reason'] == 'pre_closure_mass_residual_gt_1pct'
+    assert _rr_runner(s_bad)._derive_libration_deg(th) is None
+    # missing rho_rock in theta -> reject, never a default/fallback value
+    r = _rr_runner(s)
+    assert r._derive_gravity_isostatic(THETA) is None
+    assert r.last_mass_closure['reason'] == 'missing_rho_rock'
+    assert _rr_runner(s)._derive_libration_deg(THETA) is None
+    # infeasible rho_s -> None through the public paths
+    r = _rr_runner(s)
+    assert r._derive_gravity_isostatic(dict(THETA, rho_rock_kgm3=900.0)) is None
+    assert r.last_mass_closure['reason'] == 'rho_s_not_gt_rho_o'
+
+
+def test_mass_rho_rock_guard_moi_target_and_mode_both_live_raises():
+    s, _ = _struct(0.0)
+    r = _runner(s, 'mass_rho_rock', moi_target=0.335)
+    with pytest.raises(ValueError, match='double-count'):
+        r._stack_mass_closure_mode()
+    with pytest.raises(ValueError):
+        r._derive_gravity_isostatic(dict(THETA, rho_rock_kgm3=2400.0))
+    # the Cmeasured consistency guard must not fire in the new mode
+    r = _rr_runner(s)
+    r.config.planet_template_module = 'PlanetProfile.Default.Enceladus.PPEnceladus'
+    r.config.metadata['bulk_overrides'] = {'Cmeasured': 0.999}
+    assert r._derive_gravity_isostatic(dict(THETA, rho_rock_kgm3=2400.0)) is not None
+    # mass_moi still honours (and checks) moi_target
+    r = _runner(s, 'mass_moi', moi_target=0.335)
+    assert r._stack_mass_closure_mode() == 'mass_moi'
+
+
+def test_ocean_theta_with_rho_rock_requires_mass_rho_rock_mode():
+    s, _ = _struct(0.0)
+    ps = {'zb_km': {'prior_type': 'uniform', 'bounds': [5.0, 45.0]},
+          'rho_rock_kgm3': {'prior_type': 'uniform', 'bounds': [2200.0, 2600.0]}}
+    for mode, ok in ((None, False), ('mass_moi', False),
+                     ('rock_density', False), ('mass_rho_rock', True)):
+        r = _runner(s, mode)
+        r.config.param_space = ps
+        r.param_names, r.fixed_params = list(ps), {}
+        if ok:
+            r._check_ocean_rho_rock_config()
+        else:
+            with pytest.raises(ValueError, match='silently ignored'):
+                r._check_ocean_rho_rock_config()
+    # frozen-style theta (rho_rock without zb_km) is unaffected
+    r = _runner(s, None)
+    r.param_names, r.fixed_params = ['rho_rock_kgm3', 'rho_ice_kgm3'], {}
+    r._check_ocean_rho_rock_config()
+
+
+def test_dispatch_ocean_theta_with_rho_rock_is_not_routed_to_frozen(monkeypatch):
+    from PlanetProfile.Inference import mcmc_runner as mr
+    s, _ = _struct(0.0)
+    r = _rr_runner(s)
+    r.structure_data = {'frozen_branch_supported': True}
+    monkeypatch.setattr(mr, 'is_zbw_cache', lambda sd: True)
+    r._frozen_struct_for_theta = lambda t: 'FROZEN'
+    r._ocean_zbw_struct_for_theta = lambda t: 'OCEAN'
+    assert r._struct_for_hydrosphere(
+        {'zb_km': 20.0, 'log10_wOcean_ppt': 0.5, 'rho_rock_kgm3': 2400.0,
+         'rho_ice_kgm3': 925.0}) == 'OCEAN'
+    assert r._struct_for_hydrosphere(
+        {'rho_rock_kgm3': 2400.0, 'rho_ice_kgm3': 925.0}) == 'FROZEN'
+
+
+def _frozen_runner(mode, **kw):
+    from PlanetProfile.Gravity.isostasy import frozen_rho_rock_from_zb
+    zb_m, rho_ice = 55e3, 925.0
+    rho_rock = frozen_rho_rock_from_zb(M_TRUE, R_T, zb_m, rho_ice)
+    R_rock = R_T - zb_m
+    st = {'r_m': np.array([R_rock, R_rock + 0.5 * zb_m, R_T]),
+          'rho': np.array([rho_rock, rho_ice, rho_ice]),
+          'phases': np.array([50, 1, 1]), 'omega': OMEGA, 'eccentricity': ECC,
+          'Mtot_kg': M_TRUE}
+    r = _runner(st, mode, **kw)
+    return r, st
+
+
+def test_frozen_branch_unchanged_by_mass_rho_rock_mode():
+    """Frozen-branch forward predictions (the only mode-dependent inputs of
+    its log L) are bit-identical for mode none / mass_rho_rock / mass_moi,
+    and a sampled rho_rock_kgm3 keeps its existing frozen meaning (it
+    selects the node via the zb bijection, checked by I-F5, not by the
+    closure)."""
+    r0, st = _frozen_runner(None)
+    base_g = r0._derive_gravity_isostatic(THETA)
+    base_l = r0._derive_libration_deg(THETA)
+    assert base_g is not None and base_l is not None
+    for mode, kw in (('mass_rho_rock', {}), ('mass_moi', {'moi_target': 0.335})):
+        r, _ = _frozen_runner(mode, **kw)
+        assert r._derive_gravity_isostatic(THETA) == base_g
+        assert r._derive_libration_deg(THETA) == base_l
+        # sampled rho_rock keeps its existing frozen meaning (I-F5 loop
+        # closure against the served stack): the stack's own interior
+        # density is accepted, a different one is rejected -- in every mode.
+        own = float(st['rho'][0])
+        th = dict(THETA, rho_rock_kgm3=own)
+        assert r._derive_gravity_isostatic(th) == base_g
+        assert r._derive_libration_deg(th) == base_l
+        th = dict(THETA, rho_rock_kgm3=own * 1.05)
+        assert r._derive_gravity_isostatic(th) is None
+        assert r0._derive_gravity_isostatic(th) is None
+
+
+def test_8d_config_wiring_and_7d_untouched():
+    c7 = json.loads(CANDIDATE.read_text())
+    c8 = json.loads(CAND_8D.read_text())
+    assert c7['metadata']['isostasy']['stack_mass_closure'] == 'mass_moi'
+    assert 'rho_rock_kgm3' not in c7['param_space']
+    iso = c8['metadata']['isostasy']
+    assert iso['stack_mass_closure'] == 'mass_rho_rock'
+    assert 'moi_target' not in iso
+    assert iso['moi_iess2014_reference_display_only'] == 0.335
+    p = c8['param_space']['rho_rock_kgm3']
+    assert p['prior_type'] == 'uniform' and p['bounds'] == [2200.0, 2600.0]
+    from PlanetProfile.Inference.parameter_registry import PARAMETER_REGISTRY
+    assert (list(PARAMETER_REGISTRY['rho_rock_kgm3'].default_bounds)
+            == p['bounds'])
+    assert 'rho_rock_kgm3' in c8['metadata']['branch_model']['ocean_branch'][
+        'sampled']
+    # same keys as 7D except the documented ones
+    assert set(c7['param_space']) | {'rho_rock_kgm3'} == set(c8['param_space'])
+    txt = json.dumps(c8['metadata'])
+    assert 'ADDRESSED BY THIS CHANGE, PENDING VERIFICATION' in txt
+    assert 'NOT independent confirmation' in iso['stack_mass_closure_provenance'] \
+        or 'not independent confirmation' in \
+        iso['stack_mass_closure_provenance'].lower()
+    assert '2026-10-23' in iso['stack_mass_closure_provenance']
+    cfg = InferenceConfig.from_json(str(CAND_8D))
+    r = object.__new__(MCMCRunner)
+    r.config = cfg
+    assert r._stack_mass_closure_mode() == 'mass_rho_rock'
+    r.param_names, r.fixed_params = list(cfg.param_space), {}
+    r._check_ocean_rho_rock_config()

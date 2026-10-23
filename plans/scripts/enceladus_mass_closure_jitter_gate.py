@@ -51,6 +51,23 @@ jitter_gate.json without rebuilding. Reported per node: R_s - R_sil(PP), rho_s, 
 after vs PP CMR2. Posterior-median check: TODO (not computed).
 --closure-mode rock_density reproduces the original 2026-10-21 gate.
 
+MODE mass_rho_rock (user decision 2026-10-23; config enceladus_cassini_
+isostasy_8D.json): rho_s = rho_rock_kgm3 is the sampled nuisance, R_s solved
+from mass, C/MR^2 derived. Gate: for EACH rho_s in --rho-rock (default
+2200,2400,2600) the same nodes/builds are scored; the spread criteria are
+per rho_s value (C20/C22 <= 0.1, libration <= 0.05 sigma_obs, every node;
+every node/build feasible; closed-stack residual <= 1e-12; local-quadratic
+check as for mass_moi). The offset-vs-rock_density criterion is NOT used
+(no moi_target to predict it from). --rescore re-adjudicates every rho_s
+block from the stored jitter_gate.json (all criteria derive from the saved
+per-build closure diagnostics and spreads; no re-closing is needed).
+Cache scan: --scan-cache --closure-mode mass_rho_rock [--rho-ice LIST]
+[--no-dc-check]: closure at rho_s = 2200 and 2600 at every ocean node and
+each rho_ice; feasibility, R_o-R_s minimum, derived-C range, dR_s range,
+binding nodes, and the residual-double-count check (mean ocean density over
+[R_s,R_o] vs [R_sil_PP,R_o], propagated to C20/C22/libration by a central
+finite difference in rho_o of the ocean cells, +-DRHO_O kg/m3).
+
 Usage:
   HOME=~/scratch/pphome OMP_NUM_THREADS=1 python \\
      plans/scripts/enceladus_mass_closure_jitter_gate.py \\
@@ -93,6 +110,11 @@ DC_STEP = 5e-4                  # moi_target +- step for dX/dC
 LOCALFIT_K = 3.0                # departure <= max(3 x jitter std, floor)
 LOCALFIT_FLOOR = 0.01           # ... floor, in sigma_obs (reviewer 2026-10-23)
 GATED = ('C20', 'C22')
+CONFIG_8D_PATH = str(REPO / 'PlanetProfile/Inference/configs/'
+                     'enceladus_cassini_isostasy_ocean6D_rhorock.json')
+RHO_ROCK_EDGES = (2200.0, 2600.0)   # prior box edges (kg/m3)
+DRHO_O = 5.0                        # +- kg/m3 ocean-density finite difference
+DOUBLECOUNT_NEGLIGIBLE = 0.05       # sigma_obs (reviewer)
 
 
 def parse_nodes(s):
@@ -133,7 +155,10 @@ def make_runners(mode='mass_moi'):
     """(on, off, ref): on = gated closure `mode`; off = no closure;
     ref = 'rock_density' (the legacy closure; reference for the mass_moi
     offset check)."""
-    on = make_runner(CONFIG_PATH)
+    if mode == 'mass_rho_rock':
+        on = make_runner(CONFIG_8D_PATH)     # no moi_target (guard)
+    else:
+        on = make_runner(CONFIG_PATH)
     on.config.metadata['isostasy']['stack_mass_closure'] = mode
     ref = make_runner(CONFIG_PATH)
     ref.config.metadata['isostasy']['stack_mass_closure'] = 'rock_density'
@@ -164,14 +189,16 @@ def make_runners(mode='mass_moi'):
     return on, off, ref
 
 
-def observables(runner, struct):
+def observables(runner, struct, extra=None):
     """{obs: max-over-C2 handled by caller -> {C2: value}}; also the closure
-    diagnostic of the gravity call."""
+    diagnostic of the gravity call. ``extra``: extra theta entries (e.g.
+    {'rho_rock_kgm3': 2400.0} for mass_rho_rock)."""
     runner.structure_data = struct
     out = {k: {} for k in OBS_NAMES}
     diag = None
     for c2 in C2_GRID:
-        th = {'compensation_C2': c2}
+        th = dict(extra or {})
+        th['compensation_C2'] = c2
         g = runner._derive_gravity_isostatic(th)
         if c2 == 0.5:
             diag = getattr(runner, 'last_mass_closure', None)
@@ -204,7 +231,7 @@ def lq_pass(dep_sigma, jit_sigma):
 
 
 def local_quadratic_check(cache, runner_on, i, j, std_sig_by_obs, sig,
-                          half=2):
+                          half=2, extra=None):
     """Departure of cached node (i,j) (closure ON) from a quadratic fit in
     (zb, log10 w) over its (2*half+1)^2 neighbourhood excluding itself.
     Returns {obs: worst-over-C2 |dep| / (3-sigma-limit)} style dict:
@@ -218,7 +245,7 @@ def local_quadratic_check(cache, runner_on, i, j, std_sig_by_obs, sig,
             s = cache['structures'][a * nw + b]
             if s is None:
                 continue
-            o, _ = observables(runner_on, s)
+            o, _ = observables(runner_on, s, extra)
             pts.append((a, b, zb[a], w[b], o))
     center = [p for p in pts if (p[0], p[1]) == (i, j)]
     others = [p for p in pts if (p[0], p[1]) != (i, j)]
@@ -274,7 +301,7 @@ def _dev_pair(ons):
     return (a - a.mean()).tolist(), (b - b.mean()).tolist()
 
 
-def bias_prod_minus_finest(blds, runner_on, sig):
+def bias_prod_minus_finest(blds, runner_on, sig, extra=None):
     """Systematic bias = production setting (deltaP/1, nPoros 8) minus the
     finest available build (largest deltaP divisor, then largest nPoros;
     full grid: deltaP/4, nPoros 16), closure ON, per observable, in
@@ -287,8 +314,8 @@ def bias_prod_minus_finest(blds, runner_on, sig):
     fine = max(ok, key=lambda b: (b['task'][4], b['nPoros']))
     if fine is prod[0]:
         return None
-    op, _ = observables(runner_on, prod[0]['struct'])
-    of, _ = observables(runner_on, fine['struct'])
+    op, _ = observables(runner_on, prod[0]['struct'], extra)
+    of, _ = observables(runner_on, fine['struct'], extra)
     out = {'finest': {'deltaP': fine['deltaP'], 'nPoros': fine['nPoros']}}
     for k in OBS_NAMES:
         d = [(op[k][c] - of[k][c]) / sig[k] for c in C2_GRID]
@@ -339,6 +366,74 @@ def run(args):
 
     mode = args.closure_mode
     run_on, run_off, run_ref = make_runners(mode)
+    frozen = frozen_check(cache) if (args.frozen_check and cache) else None
+    meta = {'closure_mode': mode, 'cache': args.cache, 'self_test': args.self_test,
+            'dp_factors': list(dps), 'nporos': list(nps),
+            'n_builds': len(tasks), 'total_wall_s': round(total_wall, 1),
+            'mean_build_wall_s': round(float(np.mean(
+                [b['wall_s'] for b in built])), 2),
+            'sigma_obs': sig, 'sigma_obs_inflated': sig_infl,
+            'config': CONFIG_8D_PATH if mode == 'mass_rho_rock'
+            else CONFIG_PATH}
+    if mode == 'mass_rho_rock':
+        rhos = [float(x) for x in str(args.rho_rock).split(',') if x.strip()]
+        meta['rho_rock_kgm3'] = rhos
+        by_rho = {}
+        for rho in rhos:
+            nodes_r = score_nodes(built, nodes, zb_ax, w_ax, mode, run_on,
+                                  run_off, run_ref, sig, cache,
+                                  {'rho_rock_kgm3': rho})
+            verd = adjudicate(nodes_r, sig, cache is not None, cfg, mode)
+            for n in nodes_r:
+                n.pop('_dev', None)
+            by_rho[f'{rho:g}'] = {'rho_rock_kgm3': rho, 'nodes': nodes_r,
+                                  'verdict': verd}
+        overalls = {k: v['verdict']['overall'] for k, v in by_rho.items()}
+        crit = {}
+        for k, v in by_rho.items():
+            for ck, cv in v['verdict']['criteria'].items():
+                crit[f'rho_s={k}: {ck}'] = cv
+        if all(o.startswith('PASS') for o in overalls.values()):
+            ov = 'PASS (all rho_s; all but posterior-median check, TODO)'
+        elif any(o.startswith('FAIL') for o in overalls.values()):
+            ov = 'FAIL (' + ', '.join(f'{k}: {o}' for k, o in
+                                      overalls.items()) + ')'
+        else:
+            ov = 'INCONCLUSIVE (' + ', '.join(
+                f'{k}: {o}' for k, o in overalls.items()) + ')'
+        mid = by_rho[sorted(by_rho, key=float)[len(by_rho) // 2]]
+        out = {'meta': meta,
+               'verdict': {'overall': ov, 'criteria': crit,
+                           'overall_by_rho_s': overalls,
+                           'sigma_model': mid['verdict']['sigma_model'],
+                           'c20_c22_jitter_corr':
+                               mid['verdict']['c20_c22_jitter_corr'],
+                           'failed_builds_by_node':
+                               mid['verdict']['failed_builds_by_node']},
+               'nodes': mid['nodes'], 'by_rho': by_rho,
+               'frozen_check': frozen}
+    else:
+        nodes_out = score_nodes(built, nodes, zb_ax, w_ax, mode, run_on,
+                                run_off, run_ref, sig, cache, None)
+        verdict = adjudicate(nodes_out, sig, cache is not None, cfg, mode)
+        for n in nodes_out:
+            n.pop('_dev', None)
+        out = {'meta': meta, 'verdict': verdict, 'nodes': nodes_out,
+               'frozen_check': frozen}
+    out_dir = Path(args.out_dir).expanduser()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / 'jitter_gate.json').write_text(
+        json.dumps(out, indent=1, default=float))
+    (out_dir / 'jitter_gate.md').write_text(render_md(out))
+    print(render_md(out))
+    return out
+
+
+def score_nodes(built, nodes, zb_ax, w_ax, mode, run_on, run_off, run_ref,
+                sig, cache, extra):
+    """Per-node statistics over the builds (closure ON/OFF, reference,
+    local-quadratic). ``extra``: theta entries for the ON runner (the
+    rho_rock_kgm3 value of one mass_rho_rock gate block)."""
     per_node, nodes_out = {}, []
     for b in built:
         per_node.setdefault(b['task'][:2], []).append(b)
@@ -350,7 +445,7 @@ def run(args):
             br = {'deltaP': b['deltaP'], 'nPoros': b['nPoros'],
                   'wall_s': round(b['wall_s'], 2), 'error': b['error']}
             if b['struct'] is not None:
-                oo, diag = observables(run_on, b['struct'])
+                oo, diag = observables(run_on, b['struct'], extra)
                 of, _ = observables(run_off, b['struct'])
                 ref_o, ref_moi, dxdc = None, None, None
                 if mode == 'mass_moi':
@@ -393,7 +488,8 @@ def run(args):
         rec['failed_builds'] = [(b['deltaP'], b['nPoros'])
                                 for b in rec['builds'] if b['error']
                                 or 'on' not in b]
-        rec['bias'] = bias_prod_minus_finest(per_node[(i, j)], run_on, sig)
+        rec['bias'] = bias_prod_minus_finest(per_node[(i, j)], run_on, sig,
+                                             extra)
         rec['c20_c22_corr'] = _corr_pair(ons)
         rec['_dev'] = _dev_pair(ons)
         rec['local_quadratic'] = None
@@ -401,30 +497,11 @@ def run(args):
             std_s = {k: stats['on'][k]['std_sigma_obs'] for k in OBS_NAMES}
             try:
                 rec['local_quadratic'] = local_quadratic_check(
-                    cache, run_on, i, j, std_s, sig)
+                    cache, run_on, i, j, std_s, sig, extra=extra)
             except Exception as exc:
                 rec['local_quadratic'] = {'error': f'{type(exc).__name__}: {exc}'}
         nodes_out.append(rec)
-    verdict = adjudicate(nodes_out, sig, cache is not None, cfg, mode)
-    frozen = frozen_check(cache) if (args.frozen_check and cache) else None
-    for n in nodes_out:
-        n.pop('_dev', None)
-    meta = {'closure_mode': mode, 'cache': args.cache, 'self_test': args.self_test,
-            'dp_factors': list(dps), 'nporos': list(nps),
-            'n_builds': len(tasks), 'total_wall_s': round(total_wall, 1),
-            'mean_build_wall_s': round(float(np.mean(
-                [b['wall_s'] for b in built])), 2),
-            'sigma_obs': sig, 'sigma_obs_inflated': sig_infl,
-            'config': CONFIG_PATH}
-    out = {'meta': meta, 'verdict': verdict, 'nodes': nodes_out,
-           'frozen_check': frozen}
-    out_dir = Path(args.out_dir).expanduser()
-    out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / 'jitter_gate.json').write_text(
-        json.dumps(out, indent=1, default=float))
-    (out_dir / 'jitter_gate.md').write_text(render_md(out))
-    print(render_md(out))
-    return out
+    return nodes_out
 
 
 def adjudicate(nodes_out, sig, have_cache, cfg=None, mode='rock_density'):
@@ -455,7 +532,7 @@ def adjudicate(nodes_out, sig, have_cache, cfg=None, mode='rock_density'):
                 float(np.hypot(add[k], sm * sig[k]))),
             'existing_sigma_model_add': add.get(k)}
     ok1 = True
-    mm = mode == 'mass_moi'
+    mm = mode in ('mass_moi', 'mass_rho_rock')
     lim_c, lim_l = (MM_SPREAD_C, MM_SPREAD_LIB) if mm else (SPREAD_C,
                                                             SPREAD_LIB)
     if mm:
@@ -478,15 +555,16 @@ def adjudicate(nodes_out, sig, have_cache, cfg=None, mode='rock_density'):
         v['criteria'][f'closed_stack_residual<={MM_RESIDUAL:g}'] = (
             bool(res) and max(res) <= MM_RESIDUAL)
         ok1 = ok1 and v['criteria'][f'closed_stack_residual<={MM_RESIDUAL:g}']
-        off = offset_vs_rock_density(nodes_out, sig, cfg)
-        v['offset_vs_rock_density'] = off
-        good = (off is not None and all(
-            off[k]['max_abs_residual_sigma_obs'] is not None
-            and off[k]['max_abs_residual_sigma_obs'] <= MM_OFFSET
-            for k in GATED))
-        v['criteria'][
-            f'|offset - predicted|<={MM_OFFSET}sigma_every_node'] = good
-        ok1 = ok1 and good
+        if mode == 'mass_moi':
+            off = offset_vs_rock_density(nodes_out, sig, cfg)
+            v['offset_vs_rock_density'] = off
+            good = (off is not None and all(
+                off[k]['max_abs_residual_sigma_obs'] is not None
+                and off[k]['max_abs_residual_sigma_obs'] <= MM_OFFSET
+                for k in GATED))
+            v['criteria'][
+                f'|offset - predicted|<={MM_OFFSET}sigma_every_node'] = good
+            ok1 = ok1 and good
     else:
         for k in GATED:
             sm = v['sigma_model'][k]['sigma_model_over_sigma_obs']
@@ -696,6 +774,39 @@ def render_md(out):
                          f"{p_['predicted_sigma_obs']:+.4f}, residual "
                          f"{p_['residual_sigma_obs']:+.4f}")
         L.append('')
+    if m.get('closure_mode') == 'mass_rho_rock':
+        L += ['', '## mass_rho_rock closure per node and rho_s (range over '
+              'builds in brackets; spreads per rho_s are in the criteria; '
+              'the per-node spread table below is the middle rho_s)', '']
+        for rk, blk in (out.get('by_rho') or {}).items():
+            L += [f'### rho_s = {rk} kg/m3: {blk["verdict"]["overall"]}', '',
+                  '| node | feasible | R_s km | R_o-R_s km | dR_s vs PP km '
+                  '| derived C/MR2 | C20 sp | C22 sp | lib sp |',
+                  '|' + '---|' * 9]
+            for n in blk['nodes']:
+                ds = [b['closure_diag'] for b in n['builds']
+                      if b.get('closure_diag')]
+                if not ds:
+                    continue
+
+                def rg(key, sc=1.0, fmt='.3f'):
+                    x = [d.get(key) for d in ds if d.get(key) is not None]
+                    return (f"[{min(x) * sc:{fmt}}, {max(x) * sc:{fmt}}]"
+                            if x else 'n/a')
+                st = n['stats']['on']
+
+                def f_(x):
+                    return 'n/a' if x is None else f'{x:.4f}'
+                L.append(
+                    f"| ({n['i_zb']},{n['i_w']}) | "
+                    f"{all(d.get('feasible') for d in ds)} | "
+                    f"{rg('R_s_m', 1e-3)} | {rg('ocean_thickness_m', 1e-3)}"
+                    f" | {rg('dR_s_vs_pp_m', 1e-3)} | "
+                    f"{rg('cmr2_derived', 1.0, '.5f')} | "
+                    f"{f_(st['C20']['spread_sigma_obs'])} | "
+                    f"{f_(st['C22']['spread_sigma_obs'])} | "
+                    f"{f_(st['libration_deg']['spread_sigma_obs'])} |")
+            L.append('')
     L += ['', '## Frozen two-layer stack (M_stack-M)/M',
           json.dumps(out.get('frozen_check')), '',
           '', '## Per node: spread / std in sigma_obs (closure ON | OFF)', '',
@@ -860,6 +971,239 @@ def scan_cache(args):
     return out
 
 
+def ocean_mean_density(r, rho, ph, lo, hi):
+    """Volume-weighted mean density of the ocean over [lo, hi] (m) from a
+    cache profile. Cell i spans [r[i-1], r[i]]; only phase-0 cells carry
+    ocean density. Below PP's ocean base (lo < R_sil_PP) the bottom ocean
+    cell's density is extended downward (the ocean profile is not defined
+    in rock cells); above hi nothing is used. Returns (mean, ok)."""
+    r = np.asarray(r, float)
+    rho = np.asarray(rho, float)
+    ph = np.asarray(ph)
+    oc = np.where(ph == 0)[0]
+    if oc.size == 0 or not hi > lo:
+        return np.nan
+    rin = np.concatenate(([0.0], r[:-1]))
+    seg_lo, seg_hi, seg_rho = [], [], []
+    for i in oc:
+        seg_lo.append(rin[i])
+        seg_hi.append(r[i])
+        seg_rho.append(rho[i])
+    base = rin[oc[0]]
+    if lo < base:                       # extend the bottom ocean density down
+        seg_lo.append(lo)
+        seg_hi.append(base)
+        seg_rho.append(rho[oc[0]])
+    a = np.clip(np.array(seg_lo), lo, hi)
+    b = np.clip(np.array(seg_hi), lo, hi)
+    vol = b ** 3 - a ** 3
+    if not np.sum(vol) > 0:
+        return np.nan
+    return float(np.sum(np.array(seg_rho) * vol) / np.sum(vol))
+
+
+def _perturb_ocean(st, delta):
+    out = dict(st)
+    rho = np.array(st['rho'], float)
+    rho[np.asarray(st['phases']) == 0] += delta
+    out['rho'] = rho
+    return out
+
+
+def scan_cache_rho_rock(args):
+    """--scan-cache --closure-mode mass_rho_rock (no rebuilds). For every
+    cached ocean node and each --rho-ice value, run the closure at the two
+    prior-box edges rho_s = 2200 and 2600 through the runner's own gravity
+    path (theta carries rho_rock_kgm3 [+ rho_ice_kgm3 override]). Reports per
+    (rho_ice, edge): feasibility (+ reasons), R_o - R_s (remaining ocean
+    thickness) minimum, derived C/MR^2 range, R_s - R_sil(PP) range, binding
+    nodes (min ocean thickness, max |dR_s|, infeasible).
+
+    RESIDUAL DOUBLE-COUNT CHECK (reviewer): the stack's rho_o is PP's mean
+    over [R_sil_PP, R_o] (a candidate-dependent shell). With R_s != R_sil_PP
+    the physically consistent ocean mean is over [R_s, R_o]. For each
+    (node, rho_ice, edge): d_rho_o = mean[R_s,R_o] - mean[R_sil_PP,R_o] from
+    the cached cell profile (bottom ocean cell density extended downward when
+    R_s < R_sil_PP); dX/d_rho_o by a central finite difference, +-DRHO_O
+    kg/m3 added to every phase-0 cell and the closure re-run (gravity at
+    compensation_C2 = 0.5 and libration); shift = dX/d_rho_o * d_rho_o in
+    sigma_obs units (raw sigma_obs). Negligible if < 0.05 sigma_obs.
+    """
+    if not args.cache:
+        raise SystemExit('--scan-cache needs --cache')
+    with open(Path(args.cache).expanduser(), 'rb') as f:
+        cache = pickle.load(f)
+    if 'zb_km_grid' in cache:
+        zb = np.asarray(cache['zb_km_grid'], float)
+        w = np.asarray(cache['wOcean_ppt_grid'], float)
+    else:
+        n_ = len(cache['structures'])
+        zb, w = np.full(n_, np.nan), np.array([np.nan])
+    nw = w.size
+    cfg = _load_config()
+    sig, _ = sigma_obs(cfg)
+    runner, _, _ = make_runners('mass_rho_rock')
+    dc = not args.no_dc_check
+    runs = {}
+    for rho_ice in _parse_rho_ice(args.rho_ice):
+        label = 'none' if rho_ice is None else f'{rho_ice:g}'
+        edges = {}
+        for edge in RHO_ROCK_EDGES:
+            rows, n_total, n_none, n_nonocean = [], 0, 0, 0
+            for idx, st in enumerate(cache['structures']):
+                n_total += 1
+                i, j = divmod(idx, nw)
+                if st is None:
+                    n_none += 1
+                    continue
+                if not np.any(np.asarray(st['phases']) == 0):
+                    n_nonocean += 1
+                    continue
+                th = {'compensation_C2': 0.5, 'rho_rock_kgm3': edge}
+                if rho_ice is not None:
+                    th['rho_ice_kgm3'] = rho_ice
+
+                def _run(struct):
+                    runner.structure_data = struct
+                    runner.last_mass_closure = None
+                    g = runner._derive_gravity_isostatic(th)
+                    lib = runner._derive_libration_deg(th)
+                    return g, lib, dict(runner.last_mass_closure or {})
+                g, lib, d = _run(st)
+                if not d:
+                    reason = 'not_reached_closure (reduction/geometry reject)'
+                elif not d.get('feasible'):
+                    reason = d.get('reason')
+                elif g is None or lib is None:
+                    reason = 'closure_feasible_but_downstream_none'
+                else:
+                    reason = None
+                row = {'i_zb': i, 'i_w': j, 'zb_km': float(zb[i]),
+                       'wOcean_ppt': float(w[j]), 'reason': reason,
+                       'R_s_m': d.get('R_s_m'),
+                       'ocean_thickness_m': d.get('ocean_thickness_m'),
+                       'cmr2_derived': d.get('cmr2_derived'),
+                       'dR_s_m': d.get('dR_s_vs_pp_m'),
+                       'pre_closure_residual_frac':
+                           d.get('pre_closure_residual_frac')}
+                if dc and reason is None:
+                    try:
+                        r_ = np.asarray(st['r_m'], float)
+                        rho_ = np.asarray(st['rho'], float)
+                        ph_ = np.asarray(st['phases'])
+                        o_ = np.argsort(r_)
+                        r_, rho_, ph_ = r_[o_], rho_[o_], ph_[o_]
+                        oc = np.where(ph_ == 0)[0]
+                        R_o = float(r_[oc[-1]])
+                        R_sil = float(r_[oc[0] - 1])
+                        m_pp = ocean_mean_density(r_, rho_, ph_, R_sil, R_o)
+                        m_cl = ocean_mean_density(r_, rho_, ph_,
+                                                  d['R_s_m'], R_o)
+                        drho = m_cl - m_pp
+                        gp, lp, dp_ = _run(_perturb_ocean(st, +DRHO_O))
+                        gm, lm_, dm_ = _run(_perturb_ocean(st, -DRHO_O))
+                        if (gp is None or gm is None or lp is None
+                                or lm_ is None):
+                            raise ValueError('perturbed closure infeasible')
+                        sh = {}
+                        for k, lm in (('C20', (2, 0)), ('C22', (2, 2))):
+                            sh[k] = float((gp[lm] - gm[lm]) / (2 * DRHO_O)
+                                          * drho / sig[k])
+                        sh['libration_deg'] = float(
+                            (lp - lm_) / (2 * DRHO_O) * drho
+                            / sig['libration_deg'])
+                        row.update({'mean_rho_o_PP': m_pp,
+                                    'mean_rho_o_Rs_Ro': m_cl,
+                                    'd_rho_o': drho,
+                                    'shift_sigma_obs': sh})
+                    except Exception as exc:
+                        row['dc_error'] = f'{type(exc).__name__}: {exc}'
+                rows.append(row)
+            ok = [r for r in rows if r['reason'] is None]
+            rej = [r for r in rows if r['reason'] is not None]
+
+            def rng(key, sc=1.0, rr=ok):
+                x = np.array([r[key] for r in rr if r.get(key) is not None],
+                             float) * sc
+                return (None if x.size == 0 else
+                        {'min': float(x.min()), 'median': float(np.median(x)),
+                         'max': float(x.max())})
+            reasons = {}
+            for r in rej:
+                reasons[r['reason']] = reasons.get(r['reason'], 0) + 1
+            thin = sorted([r for r in ok],
+                          key=lambda r: r['ocean_thickness_m'])[:20]
+            far = sorted([r for r in ok], key=lambda r: -abs(r['dR_s_m']))[:20]
+            dcs = {}
+            for k in ('C20', 'C22', 'libration_deg'):
+                v = [(abs(r['shift_sigma_obs'][k]), r) for r in ok
+                     if 'shift_sigma_obs' in r]
+                if v:
+                    mx, rr_ = max(v, key=lambda t: t[0])
+                    dcs[k] = {'max_abs_shift_sigma_obs': float(mx),
+                              'at_node': [rr_['i_zb'], rr_['i_w']],
+                              'negligible_lt_0.05': bool(
+                                  mx < DOUBLECOUNT_NEGLIGIBLE)}
+            drs = [r['d_rho_o'] for r in ok if 'd_rho_o' in r]
+            edges[f'{edge:g}'] = {
+                'rho_rock_kgm3': edge, 'n_slots': n_total, 'n_none': n_none,
+                'n_frozen_or_no_ocean_skipped': n_nonocean,
+                'n_ocean': len(rows), 'n_feasible': len(ok),
+                'n_rejects': len(rej), 'reject_reasons': reasons,
+                'R_o_minus_R_s_km': rng('ocean_thickness_m', 1e-3),
+                'derived_CMR2': rng('cmr2_derived'),
+                'R_s_minus_R_sil_pp_km': rng('dR_s_m', 1e-3),
+                'binding_thinnest_ocean': thin, 'binding_max_abs_dR_s': far,
+                'doublecount': dcs or None,
+                'd_rho_o_kgm3': (None if not drs else
+                                 {'min': float(min(drs)),
+                                  'max': float(max(drs))}),
+                'rejects': rej, 'nodes': rows}
+        runs[label] = {'rho_ice_kgm3': rho_ice, 'edges': edges}
+    out = {'cache': args.cache, 'config': CONFIG_8D_PATH,
+           'method_doublecount': scan_cache_rho_rock.__doc__.split(
+               'RESIDUAL DOUBLE-COUNT CHECK')[1], 'runs': runs}
+    out_dir = Path(args.out_dir).expanduser()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / 'mass_rho_rock_cache_scan.json').write_text(
+        json.dumps(out, indent=1, default=float))
+    L = ['# mass_rho_rock cache scan (no rebuilds)', '',
+         f"cache: {args.cache}", '']
+    for label, run_ in runs.items():
+        for ek, e in run_['edges'].items():
+            L += [f'## rho_ice = {label}, rho_s = {ek}', '',
+                  f"ocean nodes {e['n_ocean']} (None {e['n_none']}, "
+                  f"frozen/no-ocean skipped "
+                  f"{e['n_frozen_or_no_ocean_skipped']}), feasible "
+                  f"{e['n_feasible']}, rejects {e['n_rejects']} "
+                  f"{e['reject_reasons']}",
+                  f"- R_o - R_s km: {e['R_o_minus_R_s_km']}",
+                  f"- derived C/MR2: {e['derived_CMR2']}",
+                  f"- R_s - R_sil(PP) km: {e['R_s_minus_R_sil_pp_km']}",
+                  f"- d_rho_o (mean[R_s,R_o]-mean[R_sil,R_o]) kg/m3: "
+                  f"{e['d_rho_o_kgm3']}",
+                  f"- double-count shifts (sigma_obs; negligible < "
+                  f"{DOUBLECOUNT_NEGLIGIBLE}): {e['doublecount']}", '',
+                  'binding nodes, thinnest ocean:']
+            L += [f"- ({x['i_zb']},{x['i_w']}) zb={x['zb_km']:.2f} "
+                  f"w={x['wOcean_ppt']:.3f} R_o-R_s="
+                  f"{x['ocean_thickness_m'] / 1e3:.3f} km C="
+                  f"{x['cmr2_derived']:.5f}"
+                  for x in e['binding_thinnest_ocean'][:10]]
+            L += ['', 'binding nodes, max |dR_s|:']
+            L += [f"- ({x['i_zb']},{x['i_w']}) zb={x['zb_km']:.2f} "
+                  f"w={x['wOcean_ppt']:.3f} dR_s={x['dR_s_m'] / 1e3:+.3f} km"
+                  for x in e['binding_max_abs_dR_s'][:10]]
+            L += ['', 'Rejects:']
+            L += [f"- ({x['i_zb']},{x['i_w']}) zb={x['zb_km']:.2f} "
+                  f"w={x['wOcean_ppt']:.3f}: {x['reason']}"
+                  for x in e['rejects']]
+            L.append('')
+    (out_dir / 'mass_rho_rock_cache_scan.md').write_text('\n'.join(L))
+    print('\n'.join(l for l in L if not l.startswith('- (')))
+    return out
+
+
 def rescore(path):
     """--rescore JSON: re-evaluate the criteria of an existing
     jitter_gate.json (no rebuilds) with the CURRENT rules (local-quadratic:
@@ -877,8 +1221,34 @@ def rescore(path):
     cfg = _load_config()
     sig = d['meta']['sigma_obs']
     mode = d['meta'].get('closure_mode', 'rock_density')
-    d['verdict'] = adjudicate(nodes, sig, d['meta'].get('cache') is not None,
-                              cfg, mode)
+    if mode == 'mass_rho_rock' and d.get('by_rho'):
+        have = d['meta'].get('cache') is not None
+        crit, overalls = {}, {}
+        for rk, blk in d['by_rho'].items():
+            for n in blk['nodes']:
+                q = n.get('local_quadratic')
+                if q and 'error' not in q:
+                    for x in q.values():
+                        x['pass'] = lq_pass(x['dep_sigma_obs'],
+                                            x['jitter_std_sigma_obs'])
+            blk['verdict'] = adjudicate(blk['nodes'], sig, have, cfg, mode)
+            overalls[rk] = blk['verdict']['overall']
+            for ck, cv in blk['verdict']['criteria'].items():
+                crit[f'rho_s={rk}: {ck}'] = cv
+        if all(o.startswith('PASS') for o in overalls.values()):
+            ov = 'PASS (all rho_s; all but posterior-median check, TODO)'
+        elif any(o.startswith('FAIL') for o in overalls.values()):
+            ov = 'FAIL (' + ', '.join(f'{k}: {o}' for k, o in
+                                      overalls.items()) + ')'
+        else:
+            ov = 'INCONCLUSIVE (' + ', '.join(
+                f'{k}: {o}' for k, o in overalls.items()) + ')'
+        d['verdict'].update({'overall': ov, 'criteria': crit,
+                             'overall_by_rho_s': overalls})
+    else:
+        d['verdict'] = adjudicate(nodes, sig,
+                                  d['meta'].get('cache') is not None,
+                                  cfg, mode)
     d['meta']['rescored_from'] = str(path)
     d['meta']['rescore_note'] = ('criteria re-evaluated from the stored '
                                  'jitter_gate.json; no rebuilds')
@@ -901,11 +1271,19 @@ def main():
     ap.add_argument('--frozen-check', action='store_true',
                     help='with --cache: report frozen two-layer stack mass '
                          'residual range')
-    ap.add_argument('--closure-mode', choices=('rock_density', 'mass_moi'),
+    ap.add_argument('--closure-mode',
+                    choices=('rock_density', 'mass_moi', 'mass_rho_rock'),
                     default='mass_moi',
                     help='closure under test (default mass_moi; limits: '
                          'C20/C22 spread <=0.1, libration <=0.05 sigma, '
                          'residual ~1e-15, all feasible, offset <=0.3)')
+    ap.add_argument('--rho-rock', default='2200,2400,2600',
+                    help='mass_rho_rock: comma list of rock densities '
+                         '(kg/m3) the gate is scored at (default '
+                         '2200,2400,2600)')
+    ap.add_argument('--no-dc-check', action='store_true',
+                    help='mass_rho_rock --scan-cache: skip the residual '
+                         'double-count finite-difference check')
     ap.add_argument('--jobs', type=int, default=1)
     ap.add_argument('--self-test', action='store_true',
                     help='1 node (70,18), deltaP/{1,2} x nPoros {8} unless '
@@ -929,7 +1307,10 @@ def main():
     if not args.out_dir:
         ap.error('--out-dir is required')
     if args.scan_cache:
-        scan_cache(args)
+        if args.closure_mode == 'mass_rho_rock':
+            scan_cache_rho_rock(args)
+        else:
+            scan_cache(args)
         return
     if not args.self_test and not args.cache:
         print('NOTE: no --cache: local-quadratic check will be SKIPPED '

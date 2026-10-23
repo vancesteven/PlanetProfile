@@ -3,7 +3,23 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-23b (Opus 5.5: **mass_moi gate verified on the Mac cache.**
+Updated: 2026-10-23c (Opus 5.5: **Enceladus ocean-branch rock-density nuisance (`mass_rho_rock`): implemented, unverified on production tables.**
+   - User decision: uniform in ρ_s, U[2200, 2600], matching the frozen branch.
+   - New config `enceladus_cassini_isostasy_ocean6D_rhorock.json`; the 7D file is kept as the fixed-0.335 `mass_moi` diagnostic.
+   - R_s is solved so M is exact, and C/MR² is derived, with no Iess double-count.
+   - Dispatch fix: θ with rho_rock and no zb_km means frozen. Guards against a live moi_target or an inert rho_rock.
+   - Reviewer: COMMIT AFTER (rename + semantics text, both applied).
+     - The 10 km ΔR_s reject is off in this mode.
+     - R_s < R_o is a declared support edge; the lost prior volume must be quantified.
+     - Branch asymmetries (1) and (2) are closed for C20/C22/C30/libration, with declared caveats: shared uniform-rock assumption, borrowed 2200 floor, argmin residual.
+   - Tests: closure 49 passed; Enceladus/libration/sigma_model 201 passed, 1 xfail.
+   - **Next (Mac):**
+     1. `plans/cluster/enceladus_mass_rho_rock_scan.sh`
+     2. the jitter gate in mass_rho_rock mode
+     3. the Fisher identifiability check (reviewer checkpoint)
+     4. posterior runs (a)–(f)
+     5. SBI retrain
+Prior: 2026-10-23b (Opus 5.5: **mass_moi gate verified on the Mac cache.**
    - Rescored with the reviewer's absolute-floor local-quadratic rule: **PASS** (mass_closure_gate_mass_moi/jitter_gate_rescored.md). Jitter σ_model is now 3e-4σ for C20 (was 1.27σ).
    - Cache scan: 3399 of 3399 ocean nodes feasible.
    - Loose rejects added: ρ_s ≤ ρ_grain,max (2858 kg/m³, from the table; Mac md5 confirmation pending) and |ΔR_s| ≤ 10 km.
