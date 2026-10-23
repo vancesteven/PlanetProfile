@@ -3,7 +3,16 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-23 (Opus 5.5: **Enceladus Option 4 "mass_moi" closure implemented, unverified on Mac data** (user-approved 2026-10-22; reviewer COMMIT AFTER, all changes applied).
+Updated: 2026-10-23b (Opus 5.5: **mass_moi gate verified on the Mac cache.**
+   - Rescored with the reviewer's absolute-floor local-quadratic rule: **PASS** (mass_closure_gate_mass_moi/jitter_gate_rescored.md). Jitter σ_model is now 3e-4σ for C20 (was 1.27σ).
+   - Cache scan: 3399 of 3399 ocean nodes feasible.
+   - Loose rejects added: ρ_s ≤ ρ_grain,max (2858 kg/m³, from the table; Mac md5 confirmation pending) and |ΔR_s| ≤ 10 km.
+   - Tests: 180 passed, 1 xfail.
+   - **Correction:** the 0.335 MoI target is DERIVED from the same J2/C22 (Iess 2014), so the exact equality double-counts gravity. **User decision:** sample moi_target as a broad nuisance (7D→8D). The reviewer sets the bounds; not implemented yet.
+   - Until then, fixed-0.335 mass_moi results are not inference results.
+   - **Mac:** `plans/cluster/enceladus_mass_moi_scan.sh` (scan at ρ_ice none/915/935), then `python plans/scripts/enceladus_rho_grain_max.py` (md5 a3a29b35…).
+   - **User asked to add to papers/:** Iess 2014 + supplement, McKinnon 2015, Beuthe 2016.
+Prior: 2026-10-23 (Opus 5.5: **Enceladus Option 4 "mass_moi" closure implemented, unverified on Mac data** (user-approved 2026-10-22; reviewer COMMIT AFTER, all changes applied).
    - The runner solves the reduced stack's rock (R_s, ρ_s) in closed form so that M = Bulk.M and C/MR² = moi_target = 0.335 = Cmeasured, in both the gravity and libration paths.
    - Infeasible nodes are rejected (-1e30 / SBI drop). A guard raises if moi_target ≠ Cmeasured.
    - **Consequence:** C20/C22 no longer constrain rho_ice via the hydrostatic figure.

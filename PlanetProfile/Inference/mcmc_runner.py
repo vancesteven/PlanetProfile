@@ -57,6 +57,11 @@ _FROZEN_LOOP_CLOSURE_TOL = 3e-3
 # 0.04-0.51%, so anything beyond 1% is a broken node (cf. the -22% smoke-cache
 # nodes) that closure must never silently paper over.
 _STACK_CLOSURE_MAX_ABS_RESIDUAL = 1e-2
+# mass_moi loose physical rejects (reviewer 2026-10-23): the closed rock
+# layer must stay within 10 km of PP's own R_sil, and rho_s must not exceed
+# the zero-porosity grain density (config metadata.isostasy.rho_grain_max_kgm3
+# from the Perple_X table; the check is skipped if the key is absent).
+_STACK_CLOSURE_MAX_DR_S_M = 10.0e3
 _ZB_SUPPORT_EPS_KM = 1e-6
 
 # The same boundary slack on the salinity axis, in log10 ppt -- the coordinate
@@ -2325,7 +2330,11 @@ class MCMCRunner:
         ``rho_ice_override`` replaces rho_i BEFORE closing (so the sampled
         ice density is held exactly; the pre-closure 1% mass guard still
         reads the unmodified stack). Returns (new_r, new_rho) or None;
-        every outcome is recorded in ``self.last_mass_closure``."""
+        every outcome is recorded in ``self.last_mass_closure``.
+
+        Loose physical rejects (after the feasibility checks): rho_s <=
+        rho_grain_max (``rho_s_above_grain_max``) and |R_s - R_sil(PP)| <=
+        10 km (``dR_s_gt_10km``)."""
         diag = {'mode': 'mass_moi', 'feasible': False, 'reason': None}
         self.last_mass_closure = diag
         r0 = np.asarray(reduced_r, float)
@@ -2381,6 +2390,16 @@ class MCMCRunner:
             return None
         if not (np.isfinite(rho_s) and rho_s > rho_o):
             diag['reason'] = 'rho_s_not_gt_rho_o'
+            return None
+        rho_grain = self._isostasy_physics_config().get('rho_grain_max_kgm3')
+        if rho_grain is not None:
+            rho_grain = float(rho_grain)
+            diag['rho_grain_max'] = rho_grain
+            if not (rho_s <= rho_grain):
+                diag['reason'] = 'rho_s_above_grain_max'
+                return None
+        if not (abs(R_s - float(r0[0])) <= _STACK_CLOSURE_MAX_DR_S_M):
+            diag['reason'] = 'dR_s_gt_10km'
             return None
         out_r = np.array([R_s, R_o, R])
         out_rho = np.array([rho_s, rho_o, rho_i])

@@ -459,3 +459,48 @@ def test_moi_target_consistency_guard():
     r.config.planet_template_module = tmpl
     with pytest.raises(ValueError):
         r._derive_gravity_isostatic(THETA)
+
+
+def test_mass_moi_loose_rejects_grain_max_and_dR_10km():
+    r_t, rho_t = _true_stack()
+    _, C_t = _stack_M_C(r_t, rho_t)
+    s = {'Mtot_kg': M_TRUE}
+    # baseline feasible (no grain key -> check skipped)
+    r = _runner(s, 'mass_moi', moi_target=C_t)
+    assert r._close_reduced_stack_mass_moi(r_t, rho_t, s) is not None
+    # rho_s above the grain maximum
+    rho_s = r.last_mass_closure['rho_s']
+    r = _runner(s, 'mass_moi', moi_target=C_t,
+                rho_grain_max_kgm3=rho_s - 1.0)
+    assert r._close_reduced_stack_mass_moi(r_t, rho_t, s) is None
+    assert r.last_mass_closure['reason'] == 'rho_s_above_grain_max'
+    assert r.last_mass_closure['feasible'] is False
+    r = _runner(s, 'mass_moi', moi_target=C_t,
+                rho_grain_max_kgm3=rho_s + 1.0)
+    assert r._close_reduced_stack_mass_moi(r_t, rho_t, s) is not None
+    # |R_s - R_sil(PP)| > 10 km: PP stack with R_sil 11 km off the closed one
+    r_pp = np.array([r_t[0] + 11e3, r_t[1], r_t[2]])
+    rho_pp = rho_t.copy()
+    Mpp = _stack_M_C(r_pp, rho_pp)[0]
+    rho_pp[0] += (M_TRUE - Mpp) / (V * r_pp[0] ** 3)    # mass-consistent
+    r = _runner(s, 'mass_moi', moi_target=C_t)
+    assert r._close_reduced_stack_mass_moi(r_pp, rho_pp, s) is None
+    assert r.last_mass_closure['reason'] == 'dR_s_gt_10km'
+    assert abs(r.last_mass_closure['dR_s_vs_pp_m']) > 10e3
+    # 9 km is accepted
+    r_pp = np.array([r_t[0] + 9e3, r_t[1], r_t[2]])
+    rho_pp = rho_t.copy()
+    Mpp = _stack_M_C(r_pp, rho_pp)[0]
+    rho_pp[0] += (M_TRUE - Mpp) / (V * r_pp[0] ** 3)
+    assert r._close_reduced_stack_mass_moi(r_pp, rho_pp, s) is not None
+
+
+def test_config_carries_grain_max_and_provenance():
+    iso = json.loads(CANDIDATE.read_text())['metadata']['isostasy']
+    assert 2000.0 < iso['rho_grain_max_kgm3'] < 4000.0
+    assert 'Comet_67P' in iso['rho_grain_max_provenance']
+    for k in ('mass_moi_gate_result_2026_10_23',
+              'sigma_model_numerical_jitter_dropped',
+              'mass_moi_ablation_statement',
+              'moi_target_uncertainty_treatment'):
+        assert k in iso

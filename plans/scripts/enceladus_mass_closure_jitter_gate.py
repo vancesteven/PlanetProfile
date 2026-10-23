@@ -45,7 +45,9 @@ nodes/builds. PASS needs: C20/C22 spread <= 0.1 sigma_obs at EVERY node;
 libration spread <= 0.05 sigma; closed-stack mass residual ~1e-15 (limit
 1e-12); every node/build feasible; offset (mass_moi - rock_density, finest deltaP) within
 0.1 sigma_obs of the predicted (moi_target - MoI_rd)*dX/dC at every node; local-quadratic check
-(needs --cache). Reported per node: R_s - R_sil(PP), rho_s, stack MoI before/
+(departure <= max(3x jitter std, 0.01 sigma_obs), every observable; needs
+--cache). --rescore JSON re-evaluates the criteria of an existing
+jitter_gate.json without rebuilding. Reported per node: R_s - R_sil(PP), rho_s, stack MoI before/
 after vs PP CMR2. Posterior-median check: TODO (not computed).
 --closure-mode rock_density reproduces the original 2026-10-21 gate.
 
@@ -88,7 +90,8 @@ MM_SPREAD_LIB = 0.05            # libration spread <= 0.05 sigma_obs
 MM_RESIDUAL = 1e-12             # closed-stack |M/Mtot - 1| (expected ~1e-15)
 MM_OFFSET = 0.1                 # |measured - predicted| offset vs rock_density
 DC_STEP = 5e-4                  # moi_target +- step for dX/dC
-LOCALFIT_K = 3.0                # departure <= 3 x jitter std
+LOCALFIT_K = 3.0                # departure <= max(3 x jitter std, floor)
+LOCALFIT_FLOOR = 0.01           # ... floor, in sigma_obs (reviewer 2026-10-23)
 GATED = ('C20', 'C22')
 
 
@@ -192,6 +195,14 @@ def spread_std(vals_by_build, sig):
     return float(max(sp)), float(max(sd))
 
 
+def lq_pass(dep_sigma, jit_sigma):
+    """Local-quadratic rule (reviewer 2026-10-23): departure <=
+    max(3 x jitter std, 0.01 sigma_obs); both in sigma_obs."""
+    if jit_sigma is None or dep_sigma is None:
+        return False
+    return bool(dep_sigma <= max(LOCALFIT_K * jit_sigma, LOCALFIT_FLOOR))
+
+
 def local_quadratic_check(cache, runner_on, i, j, std_sig_by_obs, sig,
                           half=2):
     """Departure of cached node (i,j) (closure ON) from a quadratic fit in
@@ -237,7 +248,7 @@ def local_quadratic_check(cache, runner_on, i, j, std_sig_by_obs, sig,
                   'jitter_std_sigma_obs': jit,
                   'ratio_dep_over_jitter_std': (float(worst / jit)
                                                 if jit else None),
-                  'pass': bool(jit is not None and worst <= LOCALFIT_K * jit)}
+                  'pass': lq_pass(worst, jit)}
     return res
 
 
@@ -494,12 +505,12 @@ def adjudicate(nodes_out, sig, have_cache, cfg=None, mode='rock_density'):
             if not q or 'error' in q:
                 lq.append(None)
             else:
-                lq.append(all(q[k]['pass'] for k in GATED
+                lq.append(all(q[k]['pass'] for k in OBS_NAMES
                               if q[k]['jitter_std_sigma_obs'] is not None))
-        v['criteria']['local_quadratic<=3x_jitter_std'] = (
+        v['criteria']['local_quadratic<=max(3x_jitter_std,0.01sigma_obs)'] = (
             None if any(x is None for x in lq) else all(lq))
     else:
-        v['criteria']['local_quadratic<=3x_jitter_std'] = 'SKIPPED (no --cache)'
+        v['criteria']['local_quadratic<=max(3x_jitter_std,0.01sigma_obs)'] = 'SKIPPED (no --cache)'
     v['criteria']['posterior_median_shift<0.2_sigma'] = (
         'TODO: later step (sigma_model on vs off posterior runs)')
     # reporting only: C20-C22 jitter correlation vs rho_obs
@@ -521,7 +532,7 @@ def adjudicate(nodes_out, sig, have_cache, cfg=None, mode='rock_density'):
                                             > 0.3)),
         'note': 'runner applies rho_obs to the INFLATED sigmas; flag = '
                 '|pooled - rho_obs| > 0.3 (reporting only, not gating)'}
-    lq_c = v['criteria']['local_quadratic<=3x_jitter_std']
+    lq_c = v['criteria']['local_quadratic<=max(3x_jitter_std,0.01sigma_obs)']
     if failed or not full:
         v['overall'] = ('INCONCLUSIVE (build failures: see '
                         'failed_builds_by_node)')
@@ -713,11 +724,25 @@ def render_md(out):
     return '\n'.join(L)
 
 
+def _parse_rho_ice(txt):
+    out = []
+    for t in str(txt).split(','):
+        t = t.strip()
+        if not t:
+            continue
+        out.append(None if t.lower() == 'none' else float(t))
+    return out or [None]
+
+
 def scan_cache(args):
     """--scan-cache: run EVERY cached ocean node through the mass_moi closure
-    (no rebuilds) and report: feasible fraction, rho_s range, R_s - R_sil(PP)
-    range, and the rejects with reasons. REPORTING ONLY: no loose physical
-    rejects (rho_s window etc.) are applied -- those come after this scan."""
+    (no rebuilds), once per --rho-ice value (applied through
+    theta['rho_ice_kgm3'], i.e. the closure's override exactly as the runner
+    does it). Per run: feasible fraction, rho_s range, R_s - R_sil(PP) range,
+    per-node rows (i, j, zb, w, rho_s, dR_s, MoI before, reason), the 20 most
+    extreme nodes by |dR_s| and by rho_s, and the rejects with reasons. The
+    runner's loose rejects (rho_s_above_grain_max, dR_s_gt_10km) are active
+    when the config carries rho_grain_max_kgm3."""
     if not args.cache:
         raise SystemExit('--scan-cache needs --cache')
     with open(Path(args.cache).expanduser(), 'rb') as f:
@@ -730,82 +755,145 @@ def scan_cache(args):
         zb, w = np.full(n_, np.nan), np.array([np.nan])
     nw = w.size
     runner, _, _ = make_runners('mass_moi')
-    rows, rejects, n_total, n_none, n_nonocean = [], [], 0, 0, 0
-    for idx, st in enumerate(cache['structures']):
-        n_total += 1
-        i, j = divmod(idx, nw)
-        if st is None:
-            n_none += 1
-            continue
-        if not np.any(np.asarray(st['phases']) == 0):
-            n_nonocean += 1
-            continue
-        runner.structure_data = st
-        runner.last_mass_closure = None
-        g = runner._derive_gravity_isostatic({'compensation_C2': 0.5})
-        d = runner.last_mass_closure
-        if d is None:
-            reason = 'not_reached_closure (reduction/geometry reject)'
-        elif not d.get('feasible'):
-            reason = d.get('reason')
-        elif g is None:
-            reason = 'closure_feasible_but_downstream_none'
-        else:
-            reason = None
-        if reason:
-            rejects.append({'i_zb': i, 'i_w': j, 'zb_km': float(zb[i]),
-                            'wOcean_ppt': float(w[j]), 'reason': reason,
-                            'a': (d or {}).get('a'), 'b': (d or {}).get('b'),
-                            'pre_closure_residual_frac':
-                                (d or {}).get('pre_closure_residual_frac')})
-        else:
-            rows.append({'i_zb': i, 'i_w': j, 'rho_s': d['rho_s'],
-                         'dR_s_km': d['dR_s_vs_pp_m'] / 1e3,
-                         'rho_s_pp': d['rho_sil_pp'],
-                         'moi_before': d['moi_stack_before']})
-    n_oc = len(rows) + len(rejects)
+    runs = {}
+    for rho_ice in _parse_rho_ice(args.rho_ice):
+        label = 'none' if rho_ice is None else f'{rho_ice:g}'
+        nodes, n_total, n_none, n_nonocean = [], 0, 0, 0
+        for idx, st in enumerate(cache['structures']):
+            n_total += 1
+            i, j = divmod(idx, nw)
+            if st is None:
+                n_none += 1
+                continue
+            if not np.any(np.asarray(st['phases']) == 0):
+                n_nonocean += 1
+                continue
+            runner.structure_data = st
+            runner.last_mass_closure = None
+            th = {'compensation_C2': 0.5}
+            if rho_ice is not None:
+                th['rho_ice_kgm3'] = rho_ice
+            g = runner._derive_gravity_isostatic(th)
+            d = runner.last_mass_closure or {}
+            if not d:
+                reason = 'not_reached_closure (reduction/geometry reject)'
+            elif not d.get('feasible'):
+                reason = d.get('reason')
+            elif g is None:
+                reason = 'closure_feasible_but_downstream_none'
+            else:
+                reason = None
+            nodes.append({
+                'i_zb': i, 'i_w': j, 'zb_km': float(zb[i]),
+                'wOcean_ppt': float(w[j]), 'rho_s': d.get('rho_s'),
+                'dR_s_m': d.get('dR_s_vs_pp_m'),
+                'rho_sil_pp': d.get('rho_sil_pp'),
+                'moi_before': d.get('moi_stack_before'),
+                'a': d.get('a'), 'b': d.get('b'), 'reason': reason})
+        ok = [r for r in nodes if r['reason'] is None]
+        rej = [r for r in nodes if r['reason'] is not None]
 
-    def rng(key):
-        x = np.array([r[key] for r in rows], float)
-        return (None if x.size == 0 else
-                {'min': float(x.min()), 'median': float(np.median(x)),
-                 'max': float(x.max())})
-    reasons = {}
-    for r in rejects:
-        reasons[r['reason']] = reasons.get(r['reason'], 0) + 1
-    out = {'cache': args.cache, 'n_slots': n_total, 'n_none': n_none,
-           'n_frozen_or_no_ocean_skipped': n_nonocean, 'n_ocean': n_oc,
-           'n_feasible': len(rows),
-           'feasible_fraction': (len(rows) / n_oc if n_oc else None),
-           'rho_s_kgm3': rng('rho_s'), 'rho_sil_pp_kgm3': rng('rho_s_pp'),
-           'R_s_minus_R_sil_pp_km': rng('dR_s_km'),
-           'moi_stack_before': rng('moi_before'),
-           'reject_reasons': reasons, 'rejects': rejects}
+        def rng(key, sc=1.0, rows=ok):
+            x = np.array([r[key] for r in rows if r[key] is not None],
+                         float) * sc
+            return (None if x.size == 0 else
+                    {'min': float(x.min()), 'median': float(np.median(x)),
+                     'max': float(x.max())})
+        reasons = {}
+        for r in rej:
+            reasons[r['reason']] = reasons.get(r['reason'], 0) + 1
+        have = [r for r in nodes if r['rho_s'] is not None
+                and r['dR_s_m'] is not None]
+        top_dr = sorted(have, key=lambda r: -abs(r['dR_s_m']))[:20]
+        top_rho = sorted(have, key=lambda r: -r['rho_s'])[:20]
+        runs[label] = {
+            'rho_ice_kgm3': rho_ice, 'n_slots': n_total, 'n_none': n_none,
+            'n_frozen_or_no_ocean_skipped': n_nonocean,
+            'n_ocean': len(nodes), 'n_feasible': len(ok),
+            'feasible_fraction': (len(ok) / len(nodes) if nodes else None),
+            'rho_s_kgm3': rng('rho_s'), 'rho_sil_pp_kgm3': rng('rho_sil_pp'),
+            'R_s_minus_R_sil_pp_km': rng('dR_s_m', 1e-3),
+            'R_s_minus_R_sil_pp_km_all_with_solution': rng(
+                'dR_s_m', 1e-3, have),
+            'moi_stack_before': rng('moi_before'),
+            'reject_reasons': reasons, 'rejects': rej,
+            'most_extreme_abs_dR_s': top_dr, 'most_extreme_rho_s': top_rho,
+            'nodes': nodes}
+    out = {'cache': args.cache, 'runs': runs}
     out_dir = Path(args.out_dir).expanduser()
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / 'mass_moi_cache_scan.json').write_text(
         json.dumps(out, indent=1, default=float))
-    L = ['# mass_moi cache scan (reporting only; no loose rejects applied)',
-         '', f"cache: {args.cache}",
-         f"slots {n_total} (None {n_none}, frozen/no-ocean skipped "
-         f"{n_nonocean}), ocean nodes {n_oc}, feasible {len(rows)} "
-         f"({out['feasible_fraction']})", '',
-         f"rho_s: {out['rho_s_kgm3']}", f"rho_sil(PP): "
-         f"{out['rho_sil_pp_kgm3']}",
-         f"R_s - R_sil(PP) km: {out['R_s_minus_R_sil_pp_km']}",
-         f"MoI stack before: {out['moi_stack_before']}", '',
-         f"reject reasons: {reasons}", '', '## Rejects', '']
-    L += [f"- ({r['i_zb']},{r['i_w']}) zb={r['zb_km']:.2f} "
-          f"w={r['wOcean_ppt']:.3f}: {r['reason']}" for r in rejects]
+    L = ['# mass_moi cache scan (no rebuilds)', '', f"cache: {args.cache}", '']
+    for label, r in runs.items():
+        L += [f'## rho_ice = {label}', '',
+              f"slots {r['n_slots']} (None {r['n_none']}, frozen/no-ocean "
+              f"skipped {r['n_frozen_or_no_ocean_skipped']}), ocean nodes "
+              f"{r['n_ocean']}, feasible {r['n_feasible']} "
+              f"({r['feasible_fraction']})",
+              f"- rho_s: {r['rho_s_kgm3']}",
+              f"- rho_sil(PP): {r['rho_sil_pp_kgm3']}",
+              f"- R_s - R_sil(PP) km (feasible): "
+              f"{r['R_s_minus_R_sil_pp_km']}",
+              f"- R_s - R_sil(PP) km (all with a solution): "
+              f"{r['R_s_minus_R_sil_pp_km_all_with_solution']}",
+              f"- MoI stack before: {r['moi_stack_before']}",
+              f"- reject reasons: {r['reject_reasons']}", '',
+              '20 most extreme nodes by |dR_s| (i, j, zb, w, dR_s km, '
+              'rho_s, reason):']
+        L += [f"- ({x['i_zb']},{x['i_w']}) zb={x['zb_km']:.2f} "
+              f"w={x['wOcean_ppt']:.3f} dR_s={x['dR_s_m'] / 1e3:+.3f} "
+              f"rho_s={x['rho_s']:.1f} {x['reason']}"
+              for x in r['most_extreme_abs_dR_s']]
+        L += ['', '20 most extreme nodes by rho_s:']
+        L += [f"- ({x['i_zb']},{x['i_w']}) zb={x['zb_km']:.2f} "
+              f"w={x['wOcean_ppt']:.3f} rho_s={x['rho_s']:.1f} "
+              f"dR_s={x['dR_s_m'] / 1e3:+.3f} {x['reason']}"
+              for x in r['most_extreme_rho_s']]
+        L += ['', 'Rejects:']
+        L += [f"- ({x['i_zb']},{x['i_w']}) zb={x['zb_km']:.2f} "
+              f"w={x['wOcean_ppt']:.3f}: {x['reason']}"
+              for x in r['rejects']]
+        L.append('')
     (out_dir / 'mass_moi_cache_scan.md').write_text('\n'.join(L))
-    print('\n'.join(L[:14]))
+    print('\n'.join(l for l in L if not l.startswith('- (')))
     return out
+
+
+def rescore(path):
+    """--rescore JSON: re-evaluate the criteria of an existing
+    jitter_gate.json (no rebuilds) with the CURRENT rules (local-quadratic:
+    departure <= max(3 x jitter std, 0.01 sigma_obs), every observable) and
+    write jitter_gate_rescored.{md,json} next to it."""
+    path = Path(path).expanduser()
+    d = json.loads(path.read_text())
+    nodes = d['nodes']
+    for n in nodes:
+        q = n.get('local_quadratic')
+        if q and 'error' not in q:
+            for k, x in q.items():
+                x['pass'] = lq_pass(x['dep_sigma_obs'],
+                                    x['jitter_std_sigma_obs'])
+    cfg = _load_config()
+    sig = d['meta']['sigma_obs']
+    mode = d['meta'].get('closure_mode', 'rock_density')
+    d['verdict'] = adjudicate(nodes, sig, d['meta'].get('cache') is not None,
+                              cfg, mode)
+    d['meta']['rescored_from'] = str(path)
+    d['meta']['rescore_note'] = ('criteria re-evaluated from the stored '
+                                 'jitter_gate.json; no rebuilds')
+    (path.parent / 'jitter_gate_rescored.json').write_text(
+        json.dumps(d, indent=1, default=float))
+    md = render_md(d)
+    (path.parent / 'jitter_gate_rescored.md').write_text(md)
+    print(md[:1800])
+    return d
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--cache')
-    ap.add_argument('--out-dir', required=True)
+    ap.add_argument('--out-dir')
     ap.add_argument('--nodes', help='"i,j;i,j;..." cache indices '
                     '(default: 10 fixed nodes incl. (70,18),(77,10))')
     ap.add_argument('--dp-factors', help='comma list, default 1,2,4')
@@ -822,12 +910,24 @@ def main():
     ap.add_argument('--self-test', action='store_true',
                     help='1 node (70,18), deltaP/{1,2} x nPoros {8} unless '
                          'overridden; no cache needed')
+    ap.add_argument('--rho-ice', default='none,915,935',
+                    help='--scan-cache: comma list of rho_ice values (kg/m3) '
+                         'or none (default none,915,935)')
+    ap.add_argument('--rescore', metavar='JSON',
+                    help='re-evaluate criteria of an existing '
+                         'jitter_gate.json (no rebuilds); writes '
+                         'jitter_gate_rescored.md/.json beside it')
     ap.add_argument('--scan-cache', action='store_true',
                     help='with --cache: run every cached ocean node through '
                          'the mass_moi closure (no rebuilds); report '
                          'feasible fraction, rho_s and R_s-R_sil ranges, '
                          'rejects+reasons; exits without running the gate')
     args = ap.parse_args()
+    if args.rescore:
+        rescore(args.rescore)
+        return
+    if not args.out_dir:
+        ap.error('--out-dir is required')
     if args.scan_cache:
         scan_cache(args)
         return
