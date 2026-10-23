@@ -616,7 +616,11 @@
    "shape_ref_radius_m": 252220.0,
    "gravity_ref_radius_m": 256600.0,
    "finite_amplitude": true,
-   "stack_mass_closure": "rock_density",
+   "stack_mass_closure": "mass_moi",
+   "moi_target": 0.335,
+   "moi_target_provenance": "MoI-equality assumption, user-approved 2026-10-22. moi_target defaults to Planet.Bulk.Cmeasured = 0.335 (PlanetProfile/Default/Enceladus/PPEnceladus.py; Iess et al. 2014), the same value the cache builder's argmin|C/MR^2 - Cmeasured| seafloor selection targets. stack_mass_closure 'mass_moi' (scientific-reviewer ruling 2026-10-22, validation_reports/enceladus_isostasy/mass_closure_gate/README.md, Option 4) holds rho_ocean, rho_ice, R_ocean-top and R fixed and solves the rock layer (R_s, rho_s) in closed form so the reduced 3-layer stack has M = Bulk.M and C/(M R^2) = moi_target exactly, in BOTH the gravity and libration stacks. It overrides PP's R_sil by ~1-2 km and makes MoI an exact equality in the forward model (supersedes the 'rock_density' mode used for the 2026-10-21 jitter gate; that mode is still available).",
+   "moi_target_reviewer_notes_2026_10_22": "(1) In mass_moi mode MoI is FIXED by construction, so C20/C22 no longer constrain rho_ice through the hydrostatic figure; rho_ice acts only through the isostatic (Airy) term and the libration. (2) BRANCH ODDS MUST NOT BE PUBLISHED until the frozen branch receives the same MoI treatment, or both branches carry an explicit MoI likelihood term: the ocean branch now has an exact-MoI equality that the frozen branch lacks. (3) The runner raises if moi_target differs from Bulk.Cmeasured (bulk_overrides if present, else the template) by more than 1e-9.",
+   "stack_mass_closure_previous": "rock_density",
    "stack_mass_closure_provenance": "2026-10-21 scientific-reviewer ruling on the C3 mass-deficit root cause (validation_reports/enceladus_isostasy/c3_root_cause_2026-10-21/README.md): the reduced 3-layer stack is closed to Bulk.M (struct Mtot_kg) by rescaling the interior/rock density, as derive_silicate_density does for Clairaut campaigns. Applied to BOTH the isostatic gravity and the libration stacks. Plain Bulk.M normalisation without closing the stack was rejected. C20/C22 remain PROVISIONAL until the jitter gate (plans/scripts/enceladus_mass_closure_jitter_gate.py) passes; sigma_model_add C20/C22 must then be raised in quadrature by the measured jitter.",
    "sigma_model_lm": {
     "2,0": 5.3e-06,

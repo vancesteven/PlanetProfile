@@ -2256,6 +2256,142 @@ class MCMCRunner:
         mode = self._isostasy_physics_config().get('stack_mass_closure')
         return str(mode) if mode else 'none'
 
+    def _stack_moi_target(self) -> Optional[float]:
+        """MoI-equality target C/(M R^2) for ``stack_mass_closure ==
+        "mass_moi"``: ``metadata.isostasy.moi_target`` (the config records
+        Bulk.Cmeasured, Iess et al. 2014, there). None if absent/invalid."""
+        v = self._isostasy_physics_config().get('moi_target')
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return None
+        if not (np.isfinite(v) and 0.0 < v < 0.4):
+            return None
+        self._check_moi_target_consistency(v)
+        return v
+
+    def _check_moi_target_consistency(self, moi_target: float) -> None:
+        """Reviewer guard (2026-10-22): ``moi_target`` must equal the
+        Bulk.Cmeasured the structures were built against --
+        ``metadata.bulk_overrides['Cmeasured']`` if declared, else the
+        template's ``Planet.Bulk.Cmeasured``. Raises ValueError on a
+        difference > 1e-9; silently skipped when neither is resolvable (no
+        template module on the config). Checked once per runner."""
+        if getattr(self, '_moi_target_checked', None) == moi_target:
+            return
+        meta = getattr(self.config, 'metadata', {}) or {}
+        ref, src = None, None
+        bo = meta.get('bulk_overrides') or {}
+        if bo.get('Cmeasured') is not None:
+            ref, src = float(bo['Cmeasured']), 'metadata.bulk_overrides'
+        else:
+            mod = getattr(self.config, 'planet_template_module', None)
+            if mod:
+                from .cache_builder import _template_cmeasured
+                ref = _template_cmeasured(mod)
+                src = f'{mod}.Planet.Bulk.Cmeasured'
+        if ref is not None and abs(float(moi_target) - ref) > 1e-9:
+            raise ValueError(
+                f"metadata.isostasy.moi_target={moi_target!r} differs from "
+                f"{src}={ref!r} by more than 1e-9: the mass_moi closure "
+                "target must equal the Cmeasured the structures were built "
+                "against.")
+        self._moi_target_checked = moi_target
+
+    @staticmethod
+    def _stack_cmr2(r, rho):
+        """C/(M R^2) of a concentric-shell stack (layer i spans
+        [r[i-1], r[i]]; R = r[-1])."""
+        r = np.asarray(r, float)
+        rho = np.asarray(rho, float)
+        r_in = np.concatenate(([0.0], r[:-1]))
+        M = float(np.sum(rho * (4.0 * np.pi / 3.0) * (r ** 3 - r_in ** 3)))
+        C = float(np.sum(rho * (8.0 * np.pi / 15.0) * (r ** 5 - r_in ** 5)))
+        return C / (M * float(r[-1]) ** 2)
+
+    def _close_reduced_stack_mass_moi(self, reduced_r, reduced_rho, struct,
+                                      rho_ice_override=None):
+        """``stack_mass_closure == "mass_moi"`` (user-approved 2026-10-22,
+        "MoI-equality assumption"): hold rho_o, rho_i, R_o = reduced_r[1]
+        (ocean top / ice bottom) and R = reduced_r[-1] fixed and solve in
+        closed form for the rock layer (R_s = reduced_r[0], rho_s =
+        reduced_rho[0]) so M_stack = Mtot_kg and C/(M R^2) = moi_target.
+
+        Layers: [0,R_s] rock, [R_s,R_o] ocean, [R_o,R] ice, so
+          (rho_s - rho_o) R_s^3 = a = 3M/4pi - rho_o R_o^3 - rho_i (R^3-R_o^3)
+          (rho_s - rho_o) R_s^5 = b = 15 C M R^2/(8 pi)
+                                      - rho_o R_o^5 - rho_i (R^5-R_o^5)
+          R_s^2 = b/a,  rho_s = rho_o + a/R_s^3.
+        ``rho_ice_override`` replaces rho_i BEFORE closing (so the sampled
+        ice density is held exactly; the pre-closure 1% mass guard still
+        reads the unmodified stack). Returns (new_r, new_rho) or None;
+        every outcome is recorded in ``self.last_mass_closure``."""
+        diag = {'mode': 'mass_moi', 'feasible': False, 'reason': None}
+        self.last_mass_closure = diag
+        r0 = np.asarray(reduced_r, float)
+        rho0 = np.asarray(reduced_rho, float)
+        if r0.size != 3 or rho0.size != 3:
+            diag['reason'] = 'not_a_3_layer_stack'
+            return None
+        try:
+            M = float(struct.get('Mtot_kg', np.nan))
+        except (TypeError, ValueError):
+            M = np.nan
+        C_t = self._stack_moi_target()
+        if not np.isfinite(M) or M <= 0:
+            diag['reason'] = 'missing_mass_target'
+            return None
+        if C_t is None:
+            diag['reason'] = 'missing_moi_target'
+            return None
+        r_in = np.concatenate(([0.0], r0[:-1]))
+        M_stack = float(np.sum(rho0 * (4.0 * np.pi / 3.0)
+                               * (r0 ** 3 - r_in ** 3)))
+        resid = (M_stack - M) / M
+        diag.update({
+            'pre_closure_residual_frac': resid,
+            'moi_target': C_t,
+            'moi_stack_before': self._stack_cmr2(r0, rho0),
+            'R_sil_pp_m': float(r0[0]), 'rho_sil_pp': float(rho0[0])})
+        if not np.isfinite(resid) or abs(resid) > _STACK_CLOSURE_MAX_ABS_RESIDUAL:
+            diag['reason'] = 'pre_closure_mass_residual_gt_1pct'
+            return None
+        R_o, R = float(r0[1]), float(r0[2])
+        rho_o = float(rho0[1])
+        rho_i = float(rho0[2] if rho_ice_override is None
+                      else rho_ice_override)
+        a = 3.0 * M / (4.0 * np.pi) - rho_o * R_o ** 3 \
+            - rho_i * (R ** 3 - R_o ** 3)
+        b = (15.0 / (8.0 * np.pi)) * C_t * M * R ** 2 \
+            - rho_o * R_o ** 5 - rho_i * (R ** 5 - R_o ** 5)
+        diag.update({'a': a, 'b': b})
+        if not (np.isfinite(a) and a > 0):
+            diag['reason'] = 'a_not_positive'
+            return None
+        if not (np.isfinite(b) and b > 0):
+            diag['reason'] = 'b_not_positive'
+            return None
+        R_s = float(np.sqrt(b / a))
+        rho_s = rho_o + a / R_s ** 3
+        diag.update({'R_s_m': R_s, 'rho_s': rho_s,
+                     'dR_s_vs_pp_m': R_s - float(r0[0]),
+                     'drho_s_vs_pp': rho_s - float(rho0[0])})
+        if not (0.0 < R_s < R_o):
+            diag['reason'] = 'R_s_not_in_0_Ro'
+            return None
+        if not (np.isfinite(rho_s) and rho_s > rho_o):
+            diag['reason'] = 'rho_s_not_gt_rho_o'
+            return None
+        out_r = np.array([R_s, R_o, R])
+        out_rho = np.array([rho_s, rho_o, rho_i])
+        diag['moi_stack_after'] = self._stack_cmr2(out_r, out_rho)
+        diag['mass_residual_after'] = float(np.sum(
+            out_rho * (4.0 * np.pi / 3.0)
+            * (out_r ** 3 - np.concatenate(([0.0], out_r[:-1])) ** 3))
+            / M - 1.0)
+        diag['feasible'] = True
+        return out_r, out_rho
+
     def _close_reduced_stack_mass(self, reduced_r, reduced_rho, struct):
         """Rescale ``reduced_rho[0]`` so the 3-layer stack mass equals
         ``struct['Mtot_kg']`` (relative error ~1e-15). Returns the new
@@ -2406,13 +2542,23 @@ class MCMCRunner:
         if not np.all(np.isfinite(reduced_rho)):
             return None
 
-        if self._stack_mass_closure_mode() == 'rock_density':
+        rho_ice_override = theta_dict.get('rho_ice_kgm3')
+        if self._stack_mass_closure_mode() == 'mass_moi':
+            # rho_i (sampled override applied inside) is held exactly; the
+            # rock layer (R_s, rho_s) absorbs mass AND MoI, so the
+            # mass-neutral shell step below must not run.
+            closed = self._close_reduced_stack_mass_moi(
+                reduced_r, reduced_rho, struct, rho_ice_override)
+            if closed is None:
+                return None
+            reduced_r, reduced_rho = closed
+            rho_ice_override = None
+        elif self._stack_mass_closure_mode() == 'rock_density':
             reduced_rho = self._close_reduced_stack_mass(
                 reduced_r, reduced_rho, struct)
             if reduced_rho is None:
                 return None
 
-        rho_ice_override = theta_dict.get('rho_ice_kgm3')
         if rho_ice_override is not None:
             _r_in = np.concatenate(([0.0], reduced_r[:-1]))
             M_stack = float(np.sum(reduced_rho * (4.0 * np.pi / 3.0)
@@ -2808,7 +2954,17 @@ class MCMCRunner:
         # Mass closure (config-gated, default off): the libration stack is
         # the same reduced 3-layer stack as the gravity channel, so it gets
         # the same closed stack (see _stack_mass_closure_mode).
-        if self._stack_mass_closure_mode() == 'rock_density':
+        _moi_closed = False
+        if self._stack_mass_closure_mode() == 'mass_moi':
+            _ov = (rho_shell_override if rho_shell_override is not None
+                   else theta_dict.get('rho_ice_kgm3'))
+            closed = self._close_reduced_stack_mass_moi(
+                reduced_r, reduced_rho, struct, _ov)
+            if closed is None:
+                return None
+            reduced_r, reduced_rho = closed
+            _moi_closed = True
+        elif self._stack_mass_closure_mode() == 'rock_density':
             reduced_rho = self._close_reduced_stack_mass(
                 reduced_r, reduced_rho, struct)
             if reduced_rho is None:
@@ -2827,6 +2983,8 @@ class MCMCRunner:
         rho_shell_override = (
             rho_shell_override if rho_shell_override is not None
             else theta_dict.get('rho_ice_kgm3'))
+        if _moi_closed:
+            rho_shell_override = None  # already held exactly by the closure
         if rho_shell_override is not None:
             from PlanetProfile.Gravity.isostasy import (
                 mass_neutral_shell_density)

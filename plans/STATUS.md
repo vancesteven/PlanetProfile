@@ -3,7 +3,15 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-22 (Opus 5.5: **Enceladus mass-closure jitter gate FAIL**: C20 σ_model 1.27σ, C22 0.95σ, libration 0.107σ; 90/90 builds.
+Updated: 2026-10-23 (Opus 5.5: **Enceladus Option 4 "mass_moi" closure implemented, unverified on Mac data** (user-approved 2026-10-22; reviewer COMMIT AFTER, all changes applied).
+   - The runner solves the reduced stack's rock (R_s, ρ_s) in closed form so that M = Bulk.M and C/MR² = moi_target = 0.335 = Cmeasured, in both the gravity and libration paths.
+   - Infeasible nodes are rejected (-1e30 / SBI drop). A guard raises if moi_target ≠ Cmeasured.
+   - **Consequence:** C20/C22 no longer constrain rho_ice via the hydrostatic figure.
+   - **Branch odds BLOCKED** until the frozen branch gets the same MoI treatment.
+   - Tests: closure 26 passed; Enceladus/libration/sigma_model 178 passed, 1 xfail. A one-off `test_apptest_enceladus_ppo_band_caption` failure during an agent run did not reproduce, either on HEAD 3ca0990e (165 passed) or on the edited tree.
+   - Gate container self-test (code paths only): offset vs rock_density C20 +0.409σ, matching the MoI-bias prediction +0.408σ.
+   - **Next (Mac):** `plans/cluster/enceladus_mass_closure_gate.sh 6`, then the `--scan-cache` feasibility scan. Then the posterior-median check.
+Prior: 2026-10-22 (Opus 5.5: **Enceladus mass-closure jitter gate FAIL**: C20 σ_model 1.27σ, C22 0.95σ, libration 0.107σ; 90/90 builds.
    - Reviewer: the residual is R_sil quantisation, a single hydrostatic mode. Keep the closure ON. C20/C22 stay BLOCKED.
    - Recommended remedy: Option 4, a runner-level closure of the reduced stack in both mass and MoI (closed form, no rebuild, no PP core edit). It **awaits user approval** because it adds an MoI-equality assumption.
    - Record: validation_reports/enceladus_isostasy/mass_closure_gate/README.md.
