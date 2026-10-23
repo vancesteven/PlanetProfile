@@ -1,0 +1,31 @@
+{
+ "cache": "/Users/svance/scratch/enceladus_zbw_production_cache.pkl",
+ "n_slots": 3520,
+ "n_none": 121,
+ "n_frozen_or_no_ocean_skipped": 0,
+ "n_ocean": 3399,
+ "n_feasible": 3399,
+ "feasible_fraction": 1.0,
+ "rho_s_kgm3": {
+  "min": 2340.108194943883,
+  "median": 2352.729363959797,
+  "max": 2497.696100674241
+ },
+ "rho_sil_pp_kgm3": {
+  "min": 2298.4935680318395,
+  "median": 2328.7054023571527,
+  "max": 2390.9630849217006
+ },
+ "R_s_minus_R_sil_pp_km": {
+  "min": -4.693436173258436,
+  "median": -0.4008696648287296,
+  "max": 1.1528511159477348
+ },
+ "moi_stack_before": {
+  "min": 0.3339879151765776,
+  "median": 0.33565625026194457,
+  "max": 0.3387686565065835
+ },
+ "reject_reasons": {},
+ "rejects": []
+}
