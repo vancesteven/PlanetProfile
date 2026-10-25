@@ -29,5 +29,5 @@ PTS=()
 [[ -n "${POINTS:-}" ]] && PTS=(--points "$POINTS")
 # shellcheck disable=SC2086
 HOME="$PPHOME" python plans/scripts/enceladus_fisher_identifiability.py \
-  --cache "$CACHE" --out-dir "$OUT" "${PTS[@]}" ${EXTRA_ARGS:-}
+  --cache "$CACHE" --out-dir "$OUT" ${PTS[@]+"${PTS[@]}"} ${EXTRA_ARGS:-}
 echo "outputs in $OUT"
