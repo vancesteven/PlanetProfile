@@ -3,7 +3,16 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-23c (Opus 5.5: **Enceladus ocean-branch rock-density nuisance (`mass_rho_rock`): implemented, unverified on production tables.**
+Updated: 2026-10-25 (Opus 5.5: **mass_rho_rock verified on the Mac production cache (scan + jitter gate).**
+   - Scan (validation_reports/enceladus_isostasy/mass_rho_rock_scan/):
+     - 3399/3399 ocean nodes feasible at ρ_s 2200/2600 × ρ_ice none/915/935, with zero rejects, so the prior volume lost to the "an ocean must exist" edge is 0.
+     - Thinnest ocean: 1.88 km (zb 45, ρ_s 2200, ρ_ice 915).
+     - Derived C/MR² is 0.323–0.347.
+     - Residual argmin double-count ≤ 0.009σ, below the 0.05σ threshold.
+   - Jitter gate (mass_closure_gate_mass_rho_rock/): **PASS** at ρ_s 2200/2400/2600. The posterior-median check is still TODO.
+   - The user added Iess 2014 + SOM, McKinnon 2015, Beuthe 2016 + SOM and Beuthe 2018 to papers/.
+   - **Next:** the Fisher identifiability check (reviewer checkpoint), the 2200-floor literature check, posterior runs (a)–(f), and the SBI retrain.
+Prior: 2026-10-23c (Opus 5.5: **Enceladus ocean-branch rock-density nuisance (`mass_rho_rock`): implemented, unverified on production tables.**
    - User decision: uniform in ρ_s, U[2200, 2600], matching the frozen branch.
    - New config `enceladus_cassini_isostasy_ocean6D_rhorock.json`; the 7D file is kept as the fixed-0.335 `mass_moi` diagnostic.
    - R_s is solved so M is exact, and C/MR² is derived, with no Iess double-count.
