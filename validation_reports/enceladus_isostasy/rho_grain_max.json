@@ -1,0 +1,27 @@
+{
+ "template": "PlanetProfile.Default.Enceladus.PPEnceladus",
+ "mantleEOS": "Comet_67P_CG_v7_excluding_fluid_properties.tab",
+ "table_path": "/Users/svance/scratch/pphome/Library/Caches/PlanetProfile/Perple_X/Comet_67P_CG_v7_excluding_fluid_properties.tab",
+ "table_md5": "a3a29b353f3e260dbb684202aaca8b72",
+ "table_P_MPa_range": [
+  0.1,
+  5000.0
+ ],
+ "table_T_K_range": [
+  273.15,
+  1000.0
+ ],
+ "rho_ref_kgm3": 2857.8695708074947,
+ "ref_P_MPa": 6.1,
+ "ref_T_K": 273.15,
+ "box_P_MPa": [
+  0.1,
+  10.0
+ ],
+ "box_T_K": [
+  273.15,
+  290.0
+ ],
+ "rho_grain_max_kgm3": 2858.1097918323658,
+ "rho_box_min_kgm3": 2856.1425411635564
+}
