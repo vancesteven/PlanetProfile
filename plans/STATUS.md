@@ -3,7 +3,27 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-25 (Opus 5.5: **mass_rho_rock verified on the Mac production cache (scan + jitter gate).**
+Updated: 2026-10-25b (Opus 5.5: **Fisher identifiability verified on the Mac production cache; reviewer: PROCEED WITH CONDITIONS.**
+   - Artifact: validation_reports/enceladus_isostasy/fisher_identifiability/ (a3f42a63).
+   - Data Fisher rank 4/6 (A) and 5/6 with the sys_frac prior (B). The B null direction in raw units is ≈ (zb +0.2 km, ρ_ice −11.6, ρ_s −9 to −11 kg/m³): a lighter-ice/lighter-rock trade, NOT a thicker-shell one.
+   - Variant C (prior-box proxies): corr(ρ_s,C2) −0.88/−0.89 (< 0.98); σ(zb) 0.48–1.2 km, unchanged by freeing ρ_s; σ(C2) 0.04 → 0.09; σ(C/MR²) ≈ 0.0016. ρ_ice and log10 w are prior-dominated.
+   - **Reviewer correction:** σ(zb) comes from the libration datum, given that log10 w is bounded (all boxes except w: σ(zb) 4.5 km; ρ_ice box ×3: +5%). w is the sensitivity axis; ρ_ice is secondary.
+   - Findings:
+     - M1 (major): only log10 w = 0.5 was evaluated, and w leverage grows with salinity.
+     - M2: only best_fit has χ² ≈ 7; the other points have χ² 20–107.
+     - M3: the null-direction label was wrong. Now fixed: scaled vs raw vectors are reported separately (implemented, verified on --self-test output; tests 6 passed).
+     - M4: the headline wording on the data-only result needs a caveat.
+   - Conditions:
+     1. Before the headline MCMC, rerun Fisher at log10 w ∈ {−0.5, 1.0, 1.5, 1.9}.
+     2. Add run (g), w-sensitivity: zb–w posterior; w uniform in ppt; log10 w ∈ [−1, 1.3].
+     3. Add run (h), prior-only (the C/MR² pushforward and the R_s<R_o edge).
+     4. Add injections at log10 w ≈ 1.7 and at ρ_ice 918 or 933.
+     5. ρ_ice prior sensitivity: U[880,940] and the half-boxes [915,925] and [925,935].
+     6. Word zb conditionally (libration-driven, given bounded w and ρ_ice).
+     7. Recompute Fisher at the MAP after the headline run.
+   - Open: confirm that ρ_ice entering cmr2_derived through the reduced-stack closure matches the config note "does not re-open the hydrosphere mass balance" (effect ~2e-4).
+   - Still pending: the user pasting the `enceladus_rho_grain_max.py` output; the 2200 floor source.
+Prior: 2026-10-25 (Opus 5.5: **mass_rho_rock verified on the Mac production cache (scan + jitter gate).**
    - Scan (validation_reports/enceladus_isostasy/mass_rho_rock_scan/):
      - 3399/3399 ocean nodes feasible at ρ_s 2200/2600 × ρ_ice none/915/935, with zero rejects, so the prior volume lost to the "an ocean must exist" edge is 0.
      - Thinnest ocean: 1.88 km (zb 45, ρ_s 2200, ρ_ice 915).

@@ -215,6 +215,13 @@ def analyze_fisher(F, names, g_cmr2=None, i_rho_s=None, i_C2=None, i_zb=None,
                {nm: float(inv['null_vecs'][k, j] * np.sqrt(F[k, k]))
                 for k, nm in enumerate(names)}
                for j in range(inv['null_vecs'].shape[1])],
+           # same directions in raw parameter units (km, dex, kg/m^3, ...),
+           # unit-normalised; the scaled form above is what the eigvecs show
+           'null_directions_raw': [
+               {nm: float(inv['null_vecs'][k, j]
+                          / np.linalg.norm(inv['null_vecs'][:, j]))
+                for k, nm in enumerate(names)}
+               for j in range(inv['null_vecs'].shape[1])],
            'corr_posterior': _mat(R)}
     d = np.sqrt(np.maximum(np.diag(F), 1e-300))
     Fs = F / np.outer(d, d)
@@ -499,10 +506,14 @@ def render_md(rep):
                   f"sigma(C/MR2) = {_fmt(v['sigma_cmr2_derived'])} "
                   f"(rho_s fixed {_fmt(v['sigma_cmr2_derived_rho_s_fixed'])})",
                   '', f"rank {v['rank']}/6, nullity {v['nullity']}; "
-                  'null directions (components in raw-parameter units, '
-                  'scaled by sqrt(F_kk)): ' + (json.dumps(
+                  'null directions (unit-diagonal-scaled Fisher '
+                  'coordinates, i.e. raw component x sqrt(F_kk)): ' + (json.dumps(
                       [{SHORT[k]: round(x, 3) for k, x in d.items()}
                        for d in v['null_directions']]) or '[]'),
+                  '', 'null directions (raw parameter units, unit-normalised): '
+                  + (json.dumps(
+                      [{SHORT[k]: float(f'{x:.3g}') for k, x in d.items()}
+                       for d in v.get('null_directions_raw', [])]) or '[]'),
                   '', 'Posterior correlation matrix (order: '
                   + ', '.join(SHORT[k] for k in PARAMS) + '):', '', '```']
             for row in v['corr_posterior']:
