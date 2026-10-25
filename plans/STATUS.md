@@ -3,7 +3,15 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-25c (Opus 5.5: **Fisher w-sweep verified on Mac (678d3fd9); reviewer: condition 1 satisfied, CLEARED to start headline run (a).**
+Updated: 2026-10-25d (Opus 5.5: **Run (a) pilot FAILED on the Mac at the first likelihood call; the tidal-solve gate fixes it (verified on a synthetic production-schema cache, unverified on the production cache).**
+   - Failure: `log_likelihood` called `forward_model_k2_flexible` unconditionally, and zbw nodes carry no `eta_Pa_base` (KeyError). The same unconditional call was in the posterior recompute, `generate_sbi_dataset` and `SBIRunner.run`. Nothing had exercised `log_likelihood` on a zbw cache: the earlier test used the Tb smoke cache, and the Fisher script called `_derive_*` directly.
+   - Fix: `MCMCRunner._tidal_solve_needed()` is False only when no k2/h2/total_heating_W observable is configured AND the gravity model is isostatic_hm2019, i.e. only the two Enceladus isostasy configs. Every other config is unchanged, per the reviewer.
+   - New per-draw `result.metadata['isostatic_derived']`: C20, C22, C30, cmr2_derived, R_s_m, rho_s, ocean_thickness_m, mass_residual_after. Closure keys are NaN on rejected or infeasible draws. `tidal_solve_skipped` is flagged: k2 NaN here means "not computed", not "rejected".
+   - Reviewer: COMMIT AFTER. Both required changes applied: the infeasible-draw mask, and per-draw reconstruction of the log-likelihood from the stored diagnostics (it fails under a deliberate misalignment).
+   - Tests: tests/enceladus_zbw_end_to_end_test.py, 6 passed, including an end-to-end `run_inference_cli` run with 340 draws. Suites: 254 → 260 passed, 1 xfail. The `SBIRunner.run` gate is untested.
+   - New `plans/scripts/enceladus_loglike_preflight.py`: one central call plus N prior draws, reporting reject reasons and ms per call. `enceladus_posterior_a.sh` now runs it before the sampler and aborts on failure (`PREFLIGHT_ONLY=1`, `OUT_ROOT`). Verified on the synthetic cache: 300/300 accepted, 8 ms per call.
+   - **Next (Mac):** `PILOT=1 plans/cluster/enceladus_posterior_a.sh`.
+Prior: 2026-10-25c (Opus 5.5: **Fisher w-sweep verified on Mac (678d3fd9); reviewer: condition 1 satisfied, CLEARED to start headline run (a).**
    - w-sweep, variant C (zb 25, ρ_s 2400):
      - σ(zb) 0.79/0.81/1.04/1.76 km at log10 w −0.5/1.0/1.5/1.9.
      - corr(zb, log10 w) 0.01/0.26/0.67/0.91.

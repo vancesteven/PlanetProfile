@@ -1371,14 +1371,21 @@ class SBIRunner:
         # -1e30 sentinel for guard-violating draws). NaN outside the subset;
         # get_best_fit() uses nanargmax so it never selects a padded row.
         log_likelihoods = np.full(n_samples, np.nan)
+        _tidal_needed = runner._tidal_solve_needed()
         for count, i in enumerate(derived_indices):
             theta = samples[i]
             theta_dict = runner._expand_theta(theta)
             try:
-                Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
-                    theta_dict, runner.structure_data,
-                    return_heating=False, arrhenius_params=runner.arrhenius_params
-                )
+                if _tidal_needed:
+                    Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
+                        theta_dict, runner.structure_data,
+                        return_heating=False,
+                        arrhenius_params=runner.arrhenius_params
+                    )
+                else:
+                    # No tidal observable + isostatic gravity (Enceladus zbw
+                    # cache): no k2 solve; k2/h2 recorded as NaN.
+                    Re_k2 = Im_k2 = Re_h2 = Im_h2 = np.nan
             except UnservableSampleError:
                 # Posterior draw in an unbuilt 2D-cache corner (rare edge draw,
                 # e.g. a D_iceIh value that inverts to an out-of-grid Tb): report
@@ -1429,7 +1436,7 @@ class SBIRunner:
         # MCMCRunner.run); idx_heat ⊆ derived_indices by construction.
         log.info(f"Recomputing heating for {n_reeval} posterior samples...")
         heating_results = []
-        for si in idx_heat:
+        for si in (idx_heat if _tidal_needed else []):
             theta_dict = runner._expand_theta(samples[si])
             try:
                 _, _, _, _, perPhase_W = forward_model_k2_flexible(
@@ -1480,7 +1487,9 @@ class SBIRunner:
                 'sampler': 'sbi',
                 'density_estimator': self._train_info.get('density_estimator'),
                 'elapsed_time_s': elapsed,
-                'heating_indices': idx_heat,
+                'heating_indices': (idx_heat if _tidal_needed
+                                    else np.array([], dtype=int)),
+                'tidal_solve_skipped': not _tidal_needed,
                 # Rows on which derived quantities + true log-likelihood were
                 # recomputed (a superset of heating_indices). Equals all
                 # samples when n_derived is None. Other rows are NaN-padded.

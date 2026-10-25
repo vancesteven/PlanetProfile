@@ -880,6 +880,8 @@ class MCMCRunner:
             Tm_Ih_lin = 273.16 - 0.068 * P_Ih
             return bool(np.any(T_Ih >= Tm_Ih_lin - no_ocean_margin_K))
 
+        _tidal_needed = self._tidal_solve_needed()
+
         def log_likelihood(theta):
             theta_dict = _expand_theta(theta)
 
@@ -899,15 +901,20 @@ class MCMCRunner:
             if _check_no_ocean(modified):
                 return -1e30
 
-            try:
-                Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
-                    theta_dict, structure_data,
-                    return_heating=False, arrhenius_params=arrhenius_params
-                )
-            except UnservableSampleError:
-                return -1e30
-            if np.isnan(Re_k2):
-                return -1e30
+            if _tidal_needed:
+                try:
+                    Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
+                        theta_dict, structure_data,
+                        return_heating=False, arrhenius_params=arrhenius_params
+                    )
+                except UnservableSampleError:
+                    return -1e30
+                if np.isnan(Re_k2):
+                    return -1e30
+            else:
+                # No tidal observable + isostatic gravity (Enceladus zbw):
+                # k2/h2 are never read below; skip the solve and its NaN reject.
+                Re_k2 = Im_k2 = Re_h2 = Im_h2 = np.nan
             chi2 = 0.0
             if 'Re_k2' in observables:
                 obs_val, obs_err = observables['Re_k2']
@@ -1732,6 +1739,28 @@ class MCMCRunner:
         this forward model (config gravity_forward_model_contract)."""
         return (getattr(self.config, 'gravity_forward_model', None)
                 == 'isostatic_hm2019')
+
+    _TIDAL_OBSERVABLES = frozenset({
+        'Re_k2', 'Im_k2', 'abs_Im_k2', 'k2',
+        'Re_h2', 'Im_h2', 'abs_Im_h2', 'h2', 'total_heating_W',
+    })
+
+    def _tidal_solve_needed(self) -> bool:
+        """False ONLY when no tidal (k2/h2) observable is configured AND the
+        isostatic (H&M-2019) gravity model is active; True otherwise.
+
+        The k2 solve (``forward_model_k2_flexible``) feeds only the k2/h2
+        observables (induction observables use the cached Ae grid, heating
+        is a posterior diagnostic, not a likelihood term). The Enceladus
+        isostasy configs observe C20/C22/C30/libration only and sample a
+        (zb, log10 w) zbw cache whose nodes carry no tidal-solver inputs
+        (e.g. ``eta_Pa_base``), so the solve must be skipped there. Every
+        other config (Europa/Titan/Clairaut/legacy) keeps the solve and its
+        NaN-reject exactly as before."""
+        obs = getattr(self.config, 'observables', None) or {}
+        if any(k in self._TIDAL_OBSERVABLES for k in obs):
+            return True
+        return not self._gravity_isostatic_active()
 
     def _isostasy_physics_config(self) -> Dict[str, Any]:
         """Isostasy physics inputs (observed shape H_obs_lm, reference
@@ -3419,17 +3448,32 @@ class MCMCRunner:
         c20_results = [] if gravity_active else None
         c22_results = [] if gravity_active else None
         cmr2_hydro_results = [] if gravity_active else None
+        tidal_needed = self._tidal_solve_needed()
+        # Isostatic (Enceladus) arm: per-draw gravity prediction + the
+        # mass-closure derived quantities recorded by
+        # _derive_gravity_isostatic (self.last_mass_closure).
+        iso_active = self._gravity_isostatic_active()
+        _ISO_DIAG_KEYS = ('cmr2_derived', 'R_s_m', 'rho_s', 'dR_s_vs_pp_m',
+                          'ocean_thickness_m', 'mass_residual_after')
+        iso_derived = ({k: [] for k in ('C20', 'C22', 'C30') + _ISO_DIAG_KEYS}
+                       if iso_active else None)
         for i, theta in enumerate(samples):
             theta_dict = self._expand_theta(theta)
-            try:
-                Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
-                    theta_dict, self.structure_data,
-                    return_heating=False, arrhenius_params=self.arrhenius_params
-                )
-            except UnservableSampleError:
-                # Posterior draw in an unbuilt 2D-cache corner (rare edge draw):
-                # report NaN k2/h2 rather than crash the recompute loop.
+            if not tidal_needed:
+                # No tidal observable + isostatic gravity: zbw-cache nodes
+                # carry no tidal-solver inputs. Record NaN, no solver call.
                 Re_k2 = Im_k2 = Re_h2 = Im_h2 = np.nan
+            else:
+                try:
+                    Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
+                        theta_dict, self.structure_data,
+                        return_heating=False,
+                        arrhenius_params=self.arrhenius_params
+                    )
+                except UnservableSampleError:
+                    # Posterior draw in an unbuilt 2D-cache corner (rare edge
+                    # draw): report NaN k2/h2 rather than crash the loop.
+                    Re_k2 = Im_k2 = Re_h2 = Im_h2 = np.nan
             k2_results.append((Re_k2, Im_k2))
             h2_results.append((Re_h2, Im_h2))
             cmr2_results.append(self._compute_model_cmr2(theta_dict))
@@ -3453,6 +3497,25 @@ class MCMCRunner:
                 c22_results.append(pair[1] if pair is not None else np.nan)
                 _h = getattr(self, '_last_cmr2_hydro', None)
                 cmr2_hydro_results.append(_h if _h is not None else np.nan)
+            if iso_active:
+                self.last_mass_closure = None
+                try:
+                    _iso = self._derive_gravity_isostatic(theta_dict)
+                except Exception:
+                    _iso = None
+                _iso = _iso or {}
+                iso_derived['C20'].append(float(_iso.get((2, 0), np.nan)))
+                iso_derived['C22'].append(float(_iso.get((2, 2), np.nan)))
+                iso_derived['C30'].append(float(_iso.get((3, 0), np.nan)))
+                _mc = getattr(self, 'last_mass_closure', None) or {}
+                # Closure diagnostics are written before some late rejects
+                # (R_s_not_in_0_Ro, rho_s_above_grain_max): only trust them
+                # for a feasible draw.
+                _ok = bool(_iso) and bool(_mc.get('feasible', True))
+                for _k in _ISO_DIAG_KEYS:
+                    _v = _mc.get(_k, np.nan) if _ok else np.nan
+                    iso_derived[_k].append(
+                        float(_v) if _v is not None else np.nan)
             if (i + 1) % 100 == 0:
                 log.info(f"  {i+1}/{n_samples} samples recomputed")
 
@@ -3473,8 +3536,12 @@ class MCMCRunner:
             cmr2_hydro_results = np.array(cmr2_hydro_results)
 
         # Recompute heating on subset — same dict-based approach
-        n_reeval = min(self.n_reeval, n_samples)
-        log.info(f"Recomputing heating for {n_reeval} posterior samples...")
+        n_reeval = min(self.n_reeval, n_samples) if tidal_needed else 0
+        if tidal_needed:
+            log.info(f"Recomputing heating for {n_reeval} posterior samples...")
+        else:
+            log.info("No tidal observable + isostatic gravity: skipping "
+                     "k2/heating recompute (k2/h2 recorded as NaN).")
 
         rng = np.random.RandomState(self.random_state)
         idx_heat = rng.choice(n_samples, n_reeval, replace=False)
@@ -3518,6 +3585,19 @@ class MCMCRunner:
                 'n_iterations': len(samples) if samples is not None else 0,
                 'rheology': rheology,
                 'heating_indices': heating_indices,
+                # True => k2/h2 NaN mean "not computed" (no tidal
+                # observable; isostatic_hm2019), NOT "rejected".
+                'tidal_solve_skipped': not tidal_needed,
+                'tidal_solve_skipped_note': (
+                    'k2/h2 NaN = not computed (no tidal observable; '
+                    'isostatic_hm2019), not rejected' if not tidal_needed
+                    else None),
+                # Isostatic (Enceladus) per-draw derived arrays: predicted
+                # C20/C22/C30 and the mass-closure outputs (derived C/MR^2,
+                # R_s, rho_s, ...) from last_mass_closure. None otherwise.
+                'isostatic_derived': ({k: np.array(v) for k, v in
+                                       iso_derived.items()}
+                                      if iso_derived is not None else None),
                 # Body radius (constant across the Tb grid) so the GUI can
                 # derive mantle thickness = R_body - D_hsphere - R_core.
                 'R_body_km': _structure_R_body_km(self.structure_data),
@@ -3928,6 +4008,7 @@ class MCMCRunner:
 
         n_rejected_support = 0
         n_rejected_nonfinite = 0
+        _tidal_needed = self._tidal_solve_needed()
 
         t0 = time.time()
         for i in range(n_samples):
@@ -3964,21 +4045,28 @@ class MCMCRunner:
                     n_rejected_support += 1
                     continue
 
-            # Compute k2 (and h2 — same forward call returns both)
-            try:
-                Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
-                    theta_dict, self.structure_data,
-                    return_heating=False, arrhenius_params=self.arrhenius_params
-                )
-            except UnservableSampleError:
-                # Unservable corner reached without the support guard (or a
-                # config that samples w without induction bounds): drop the row
-                # if drop_nonfinite is on; otherwise inject NaN so it is caught
-                # by the caller's finiteness handling, never a hard crash.
-                if drop_nonfinite:
-                    n_rejected_nonfinite += 1
-                    continue
+            # Compute k2 (and h2 — same forward call returns both). Skipped
+            # (NaN, no row drop) when no tidal observable is configured and
+            # the isostatic gravity model is active (Enceladus zbw caches).
+            if not _tidal_needed:
                 Re_k2 = Im_k2 = Re_h2 = Im_h2 = np.nan
+            else:
+                try:
+                    Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
+                        theta_dict, self.structure_data,
+                        return_heating=False,
+                        arrhenius_params=self.arrhenius_params
+                    )
+                except UnservableSampleError:
+                    # Unservable corner reached without the support guard (or
+                    # a config that samples w without induction bounds): drop
+                    # the row if drop_nonfinite is on; otherwise inject NaN so
+                    # it is caught by the caller's finiteness handling, never
+                    # a hard crash.
+                    if drop_nonfinite:
+                        n_rejected_nonfinite += 1
+                        continue
+                    Re_k2 = Im_k2 = Re_h2 = Im_h2 = np.nan
 
             # Physical-k2 support guard on the NOISELESS forward output (must
             # precede any noise added below). Degenerate-interior rows are
@@ -3987,7 +4075,7 @@ class MCMCRunner:
             # applied to whichever k2 channels the config bounds; a finite
             # but out-of-physical-range k2 is dropped, NaN is left to
             # drop_nonfinite below.
-            if k2_support_guard_active:
+            if k2_support_guard_active and _tidal_needed:
                 _rej = False
                 _re_b = _k2_bounds_cfg.get('Re_k2')
                 _im_b = _k2_bounds_cfg.get('Im_k2')
@@ -4143,6 +4231,7 @@ class MCMCRunner:
             )
 
         stats = {
+            'tidal_solve_skipped': not _tidal_needed,
             'n_requested': n_samples,
             'n_rejected_support': n_rejected_support,
             'n_rejected_nonfinite': n_rejected_nonfinite,

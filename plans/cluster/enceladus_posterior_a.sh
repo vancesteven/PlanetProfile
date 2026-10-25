@@ -4,10 +4,11 @@
 # production cache. Reviewer-cleared 2026-10-25 (Fisher checkpoint).
 #
 #   PILOT=1 plans/cluster/enceladus_posterior_a.sh   # small timing pilot (n_eff 500)
+#   PREFLIGHT_ONLY=1 plans/cluster/enceladus_posterior_a.sh   # loglike preflight only
 #   plans/cluster/enceladus_posterior_a.sh           # full run, both repeats
 #
 # Output: validation_reports/enceladus_isostasy/posterior_a[_pilot]/
-#   rep{1,2}_result.pkl, rep{1,2}_config.json, rep{1,2}_progress.json, run log
+#   preflight.json, rep{1,2}_result.pkl, rep{1,2}_config.json, rep{1,2}_progress.json, run log
 set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PP_SCRATCH="${PP_SCRATCH:-$HOME/scratch}"
@@ -22,7 +23,7 @@ if [[ -n "${PILOT:-}" ]]; then
   SETS+=(--set sampler_settings.n_effective=500 --set sampler_settings.n_active=256
          --set sampler_settings.n_posterior_samples=2000)
 fi
-OUT="$REPO/validation_reports/enceladus_isostasy/$NAME"; mkdir -p "$OUT"
+OUT="${OUT_ROOT:-$REPO/validation_reports/enceladus_isostasy}/$NAME"; mkdir -p "$OUT"
 exec > >(tee "$OUT/run_$(date +%Y%m%d_%H%M%S).log") 2>&1
 # shellcheck disable=SC1090
 [[ -f "$PP_CONDA_SH" ]] && { source "$PP_CONDA_SH"; conda activate "${PP_CONDA_ENV:-PPcl}"; }
@@ -30,6 +31,16 @@ cd "$REPO"
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MPLBACKEND=Agg
 [[ -f "$CACHE" ]] || { echo "ERROR: no cache at $CACHE" >&2; exit 1; }
 echo "repo @ $(git rev-parse --short HEAD); cache $CACHE; seed $SEED; $NAME; $(date)"
+# Preflight on the real cache (reviewer 2026-10-25): one central loglike call
+# + 1000 prior draws (accept/reject reasons, ms/call). Abort if it fails.
+PRE="$OUT/preflight_config.json"
+python plans/scripts/cluster_seeded_config.py --config "$CFG" --seed "$SEED" \
+  --out "$PRE" "${SETS[@]}" >/dev/null || exit 1
+echo "=== preflight $(date)"
+HOME="$PPHOME" python plans/scripts/enceladus_loglike_preflight.py --config "$PRE" \
+  --n "${PREFLIGHT_N:-1000}" --json-out "$OUT/preflight.json" || {
+  echo "PREFLIGHT FAILED -- not starting the sampler" >&2; exit 1; }
+[[ -n "${PREFLIGHT_ONLY:-}" ]] && { echo "PREFLIGHT_ONLY set; stopping"; exit 0; }
 rc=0
 for rep in 1 2; do
   P="$OUT/rep${rep}_config.json"
