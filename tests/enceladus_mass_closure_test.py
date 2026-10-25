@@ -830,3 +830,14 @@ def test_8d_config_wiring_and_7d_untouched():
     assert r._stack_mass_closure_mode() == 'mass_rho_rock'
     r.param_names, r.fixed_params = list(cfg.param_space), {}
     r._check_ocean_rho_rock_config()
+
+
+def test_ocean6d_rhorock_config_passes_cli_validation():
+    """The committed config must pass the same validate_config gate that
+    run_inference_cli applies (a prose note once landed in
+    compensation_C2.prior_type and made every posterior run refuse)."""
+    from PlanetProfile.Inference.inference_core import validate_config
+    cfg = InferenceConfig.from_json(str(CAND_8D))
+    ok, errors = validate_config(cfg)
+    errors = [e for e in errors if not e.startswith('Structure cache not found')]
+    assert not errors, errors

@@ -3,7 +3,22 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-25b (Opus 5.5: **Fisher identifiability verified on the Mac production cache; reviewer: PROCEED WITH CONDITIONS.**
+Updated: 2026-10-25c (Opus 5.5: **Fisher w-sweep verified on Mac (678d3fd9); reviewer: condition 1 satisfied, CLEARED to start headline run (a).**
+   - w-sweep, variant C (zb 25, ρ_s 2400):
+     - σ(zb) 0.79/0.81/1.04/1.76 km at log10 w −0.5/1.0/1.5/1.9.
+     - corr(zb, log10 w) 0.01/0.26/0.67/0.91.
+     - corr(ρ_s, C2) −0.89 → −0.39.
+     - Derived C/MR² is w-insensitive (0.3328–0.3337).
+     - The 14% FD instability at log10 w 1.9 is a cache-edge one-sided stencil plus real curvature; MCMC is the arbiter.
+   - **Reporting rule:**
+     - zb is reported JOINTLY with w: a 2-D zb–log10 w plot, plus zb 68% intervals and mass fractions in log10 w bins [−1,0.5], [0.5,1.5] and [1.5,2].
+     - If the bins shift by more than about 1σ, say "zb is constrained jointly with ocean salinity".
+     - Run (g), w uniform in ppt, is now the most important sensitivity run.
+     - Posterior corr(ρ_s, C2) is compared against Fisher per w bin.
+   - rho_grain_max is verified on Mac (md5 a3a29b35…, 2858.11 kg/m³).
+   - **Config defect (found by `--validate-only`):** bfb227e1 had written the rho_rock "SUPPORT AND REJECTS" note into `compensation_C2.prior_type`, so validate_config refused the config. Fixed: the text now lives in the rho_rock semantics, and the new test `test_ocean6d_rhorock_config_passes_cli_validation` fails on the old config and passes on the fixed one. Earlier gate, scan and Fisher results did not read that field.
+   - New launcher `plans/cluster/enceladus_posterior_a.sh`: `PILOT=1` gives an n_eff 500 timing pilot; with no flag it runs the full n_eff 8000 twice at seed 75, using the cache via `--set structure_cache_path`. Implemented, unverified (no production cache here).
+Prior: 2026-10-25b (Opus 5.5: **Fisher identifiability verified on the Mac production cache; reviewer: PROCEED WITH CONDITIONS.**
    - Artifact: validation_reports/enceladus_isostasy/fisher_identifiability/ (a3f42a63).
    - Data Fisher rank 4/6 (A) and 5/6 with the sys_frac prior (B). The B null direction in raw units is ≈ (zb +0.2 km, ρ_ice −11.6, ρ_s −9 to −11 kg/m³): a lighter-ice/lighter-rock trade, NOT a thicker-shell one.
    - Variant C (prior-box proxies): corr(ρ_s,C2) −0.88/−0.89 (< 0.98); σ(zb) 0.48–1.2 km, unchanged by freeing ρ_s; σ(C2) 0.04 → 0.09; σ(C/MR²) ≈ 0.0016. ρ_ice and log10 w are prior-dominated.
