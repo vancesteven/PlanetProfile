@@ -3,7 +3,13 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-25d (Opus 5.5: **Run (a) pilot FAILED on the Mac at the first likelihood call; the tidal-solve gate fixes it (verified on a synthetic production-schema cache, unverified on the production cache).**
+Updated: 2026-10-26 (Opus 5.5: **Run (a) pilot verified on the Mac** (validation_reports/enceladus_isostasy/posterior_a_pilot/README.md).
+   - Preflight PASS: 884 of 1000 prior draws accepted, 6 ms per call. The preflight now classifies rejects (re-measure at the full run).
+   - Same-seed repeats are bit-identical, each about 5 min / 34.6k calls.
+   - Pilot posterior agrees with Fisher C to within 30%: zb 26.7 ± 1.0 km; ρ_s 2413 ± 43; C2 0.81 ± 0.10; C/MR² 0.3323 ± 0.0019; corr(ρ_s, C2) −0.875.
+   - The zb shift across w bins is 0.66 km, less than 1σ.
+   - **Next (Mac):** the full run `plans/cluster/enceladus_posterior_a.sh` (estimated a few hours per repeat).
+Prior: 2026-10-25d (Opus 5.5: **Run (a) pilot FAILED on the Mac at the first likelihood call; the tidal-solve gate fixes it (verified on a synthetic production-schema cache, unverified on the production cache).**
    - Failure: `log_likelihood` called `forward_model_k2_flexible` unconditionally, and zbw nodes carry no `eta_Pa_base` (KeyError). The same unconditional call was in the posterior recompute, `generate_sbi_dataset` and `SBIRunner.run`. Nothing had exercised `log_likelihood` on a zbw cache: the earlier test used the Tb smoke cache, and the Fisher script called `_derive_*` directly.
    - Fix: `MCMCRunner._tidal_solve_needed()` is False only when no k2/h2/total_heating_W observable is configured AND the gravity model is isostatic_hm2019, i.e. only the two Enceladus isostasy configs. Every other config is unchanged, per the reviewer.
    - New per-draw `result.metadata['isostatic_derived']`: C20, C22, C30, cmr2_derived, R_s_m, rho_s, ocean_thickness_m, mass_residual_after. Closure keys are NaN on rejected or infeasible draws. `tidal_solve_skipped` is flagged: k2 NaN here means "not computed", not "rejected".
