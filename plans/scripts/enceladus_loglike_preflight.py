@@ -25,6 +25,26 @@ from scipy import stats
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from PlanetProfile.Inference.inference_core import InferenceConfig  # noqa: E402
 from PlanetProfile.Inference.mcmc_runner import MCMCRunner  # noqa: E402
+from PlanetProfile.Inference.forward_models import (  # noqa: E402
+    apply_parameters, UnservableSampleError)
+
+
+def classify_reject(runner, th):
+    """Why log_likelihood_fn rejected th: re-run its stages in order."""
+    td = runner._expand_theta(th)
+    try:
+        apply_parameters(td, runner.structure_data)
+    except UnservableSampleError:
+        return 'unservable_cache_cell (None corner)'
+    if 'zb_km' in td and runner._ocean_zbw_struct_for_theta(td) is None:
+        return 'zbw_cell_has_None_corner'
+    runner.last_mass_closure = None
+    if runner._derive_gravity_isostatic(td) is None:
+        mc = runner.last_mass_closure or {}
+        return f"gravity_none: {mc.get('reason') or 'no closure reason'}"
+    if runner._derive_libration_deg(td) is None:
+        return 'libration_none'
+    return 'other (gravity+libration finite)'
 
 
 def draw_prior(param_space, rng):
@@ -74,6 +94,7 @@ def main():
     reasons = collections.Counter()
     n_acc = n_exc = 0
     best = (-np.inf, None)
+    rej = []
     t0 = time.perf_counter()
     for _ in range(a.n):
         th = draw_prior(ps, rng)
@@ -89,8 +110,8 @@ def main():
             if ll > best[0]:
                 best = (ll, th)
         else:
-            mc = runner.last_mass_closure or {}
-            reasons[str(mc.get('reason') or 'other (not mass closure)')] += 1
+            reasons[classify_reject(runner, th)] += 1
+            rej.append(dict(zip(names, map(float, th))))
     dt = (time.perf_counter() - t0) / max(a.n, 1) * 1e3
     if n_exc:
         ok = False
@@ -101,6 +122,9 @@ def main():
            'best_prior_draw': ({'loglike': best[0],
                                 'theta': dict(zip(names, map(float, best[1])))}
                                if best[1] is not None else None),
+           'rejected_zb_logw': [[round(r['zb_km'], 3),
+                                 round(r['log10_wOcean_ppt'], 4)] for r in rej
+                                if 'zb_km' in r],
            'pass': ok}
     print(json.dumps(out, indent=1))
     if a.json_out:
