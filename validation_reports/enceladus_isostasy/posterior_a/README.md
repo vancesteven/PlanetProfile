@@ -60,6 +60,7 @@ zb 1.19, rho_rock 1.07, C2 1.05, C/MR² 1.05), and the Fisher-correlation resolu
 - The None-corner hole (zb ≤ 13 km) has negligible effect on (a). Confirm with
   `THIN_CHECK=1 plans/cluster/enceladus_posterior_a.sh`; the best loglike at zb 13–15 km should be far below −50.
   log Z is over the full prior with L = 0 in the hole (not renormalised by the 0.884 acceptance).
+  [2026-10-27, run (h)] Correct as stated: this IS the nominal-prior evidence and is not renormalised. 0.884 is the 1,000-draw preflight (± 0.010); the 20k-draw servable fraction is 0.893. See ../prior_h/README.md.
 - The hole WILL distort the prior-only run (h) and SBI prior draws. Fill the corners, or tally the
   hole separately from physical rejects.
 - Wording: "zb = 26.8 +1.0/−0.9 km (16–84%), marginalised over an unconstrained ocean salinity,

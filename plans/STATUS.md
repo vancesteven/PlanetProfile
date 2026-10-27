@@ -3,7 +3,7 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-27c (Opus 5.5: **Run (g) done: zb prior-sensitivity +0.41 km (w uniform in ppt) / −0.10 km (log10 w ≤ 1.3), below the 1σ width; w-conditioned zb identical.** Previously 2026-10-27b: **Run (a) different-seed replicate + thin check: both PASS; reviewer MAJOR closed; run (a) sampling `verified`.**
+Updated: 2026-10-27d (Opus 5.5: **Run (h) prior pushforward done + reviewer-adjudicated: hole 10.7% (cache artefact), 0 physical rejects, no prior–data conflict, C/MR² 3× narrowed but ρ_s-carried (derived, not a measurement).** Previously 2026-10-27c: **Run (g) done: zb prior-sensitivity +0.41 km (w uniform in ppt) / −0.10 km (log10 w ≤ 1.3), below the 1σ width; w-conditioned zb identical.** Previously 2026-10-27b: **Run (a) different-seed replicate + thin check: both PASS; reviewer MAJOR closed; run (a) sampling `verified`.**
    - **Seed 2027 vs seed 75:**
      - ESS 16,061 vs 16,213.
      - log Z −7.111 ± 0.006 vs −7.096 ± 0.009.
@@ -21,7 +21,16 @@ Updated: 2026-10-27c (Opus 5.5: **Run (g) done: zb prior-sensitivity +0.41 km (w
      - ρ_s, C2 and C/MR² are unchanged (C/MR² within 1e-4). log Z is unchanged.
      - The reweighting prediction recorded beforehand matches both runs to ≤ 0.02 km.
      - Record: `validation_reports/enceladus_isostasy/posterior_g/README.md`, which also proposes updated wording.
-   - **Next (Mac):** (h) prior-only via direct MC; the None-corner hole at zb ≤ 13 km matters for (h). Then injections at log10 w ≈ 1.7 and ρ_ice 918/933, ρ_ice prior variants, and Fisher at the MAP.)
+   - **Run (h) DONE (2026-10-27): prior pushforward by direct MC, 20k draws; reviewer ACCEPT WITH EDITS, all applied.**
+     - Record: `validation_reports/enceladus_isostasy/prior_h/README.md`.
+     - **Support:** 89.3% servable; hole 10.7%, a cache artefact confined to a (zb, w) region at zb 5–13 km; 0 physical rejects, so R_s < R_o never binds (minimum ocean 2.7 km).
+     - **Pushforward vs data:** prior sd / σ_obs is C20 7.2, C22 3.2, C30 2.2, libration 33 (18 robust). No prior–data conflict: posterior best χ² 1.0 for 4 data.
+     - **C/MR²:** 0.3324 ± 0.0017 against a prior of 0.333 ± 0.005, a 3× narrowing. About 96% of that is the ρ_s constraint through mass closure. The adjudicated wording calls it model-dependent and derived, NOT an independent MoI measurement.
+     - **Rulings:**
+       - SBI declares the effective prior (servable (zb, w) region); the corners are NOT filled.
+       - log Z is the nominal-prior evidence and is NOT renormalised; the two-run comparison uses nominal for both branches.
+     - The 0.884 vs 0.893 acceptance figures are reconciled: 0.884 is the 1k preflight (± 0.010).
+   - **Next (Mac):** injections (truths at log10 w ≈ 1.7–1.8, plus ρ_ice 918 and 933); ρ_ice prior variants U[880,940], [915,925], [925,935]; Fisher at the MAP. Also: the Park erratum source into papers/; state the 2200 ρ_s floor as an open assumption (it doesn't bind: posterior 95% [2345, 2501]).)
 Prior: 2026-10-27 (Opus 5.5: **Run (a) full posterior on the Mac: sampling verified; reviewer PASS WITH CONCERNS** (validation_reports/enceladus_isostasy/posterior_a/README.md, zb_w_joint.png).
    - Same-seed repeats bit-identical: 1511 s and 180k calls each, Kish ESS 16,213, log Z −7.096 ± 0.009. All 116/1000 preflight rejects are None-corner cache cells at zb 5.1–13 km.
    - zb 26.76 +0.98/−0.89 km; ρ_s 2411 ± 40; C2 0.81 ± 0.09; C/MR² 0.3324 ± 0.0017; corr(ρ_s, C2) −0.877. w and ρ_ice equal their priors. σ ratios vs Fisher C are 1.05–1.19.
