@@ -30,7 +30,20 @@ Updated: 2026-10-27d (Opus 5.5: **Run (h) prior pushforward done + reviewer-adju
        - SBI declares the effective prior (servable (zb, w) region); the corners are NOT filled.
        - log Z is the nominal-prior evidence and is NOT renormalised; the two-run comparison uses nominal for both branches.
      - The 0.884 vs 0.893 acceptance figures are reconciled: 0.884 is the 1k preflight (± 0.010).
-   - **Next (Mac):** injections (truths at log10 w ≈ 1.7–1.8, plus ρ_ice 918 and 933); ρ_ice prior variants U[880,940], [915,925], [925,935]; Fisher at the MAP. Also: the Park erratum source into papers/; state the 2200 ρ_s floor as an open assumption (it doesn't bind: posterior 95% [2345, 2501]).)
+   - **ρ_ice half-box variants: DONE by exact reweighting of run (a).**
+     - Restricting a uniform prior is an exact posterior restriction. The ESS is ~8.1k per half, and both seeds agree.
+     - U[915,925]: zb 26.84 [25.94, 27.80] km.
+     - U[925,935]: zb 26.69 [25.80, 27.66] km.
+     - The shift is ±0.08 km against run (a)'s 26.76. ρ_s moves ∓5 kg/m³ and C2 and C/MR² are unchanged, so ρ_ice prior sensitivity is negligible.
+   - **RUNNING (launched 2026-10-27 11:55 PDT, commit e4df7f95, caffeinated):**
+     - Three noise-free injection recoveries, all with truth zb 27, ρ_s 2410, C2 0.81, sys_frac 0:
+       - inj_w18: log10 w 1.8, ρ_ice 925;
+       - inj_ri918: log10 w 0.5, ρ_ice 918;
+       - inj_ri933: log10 w 0.5, ρ_ice 933.
+     - `ri880`: ρ_ice ~ U[880,940]. This is outside the declared EOS-nuisance semantics; the box was narrowed from 880 on 2026-08-13, and NEW_MODERATE_4 on the ρ_ice bound rationale is still OPEN. The run is a sensitivity record only.
+     - Injection configs are in `~/scratch/inj/`; outputs in `validation_reports/enceladus_isostasy/posterior_{inj_*,ri880}/`.
+     - Recovery criterion, stated before the results: each truth sits within the 16–84% interval for zb, ρ_s and C2, or the reason is understood. For example, w and ρ_ice are prior-dominated, so the posterior on those reverts to the prior and does not recover the truth.
+   - **Then:** Fisher at the MAP. Also: the Park erratum source into papers/; state the 2200 ρ_s floor as an open assumption (it doesn't bind: posterior 95% [2345, 2501]).)
 Prior: 2026-10-27 (Opus 5.5: **Run (a) full posterior on the Mac: sampling verified; reviewer PASS WITH CONCERNS** (validation_reports/enceladus_isostasy/posterior_a/README.md, zb_w_joint.png).
    - Same-seed repeats bit-identical: 1511 s and 180k calls each, Kish ESS 16,213, log Z −7.096 ± 0.009. All 116/1000 preflight rejects are None-corner cache cells at zb 5.1–13 km.
    - zb 26.76 +0.98/−0.89 km; ρ_s 2411 ± 40; C2 0.81 ± 0.09; C/MR² 0.3324 ± 0.0017; corr(ρ_s, C2) −0.877. w and ρ_ice equal their priors. σ ratios vs Fisher C are 1.05–1.19.
