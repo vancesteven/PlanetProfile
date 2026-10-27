@@ -78,15 +78,33 @@ def main():
 
     pred, derived = predict(runner, th)
     inj = dict(pred)
+    noise_cov = None
     if a.noise_seed is not None:
+        # Draw from the covariance the LIKELIHOOD uses: config sigmas
+        # inflated by metadata.sigma_model_add, with the declared
+        # metadata.observable_correlations (reviewer 2026-10-27; the first
+        # version drew raw independent sigmas, a recorded spec deviation).
+        md = raw.get('metadata', {})
+        add = md.get('sigma_model_add', {}) or {}
+        s = np.array([np.hypot(float(raw['observables'][k][1]),
+                               float(add.get(k, 0.0))) for k in OBS])
+        C = np.diag(s ** 2)
+        for pair, r in (md.get('observable_correlations', {}) or {}).items():
+            i, j = (OBS.index(x.strip()) for x in pair.split(','))
+            C[i, j] = C[j, i] = float(r) * s[i] * s[j]
+        noise_cov = C.tolist()
         rng = np.random.default_rng(a.noise_seed)
-        for k in OBS:
-            inj[k] = pred[k] + rng.normal(0.0, float(raw['observables'][k][1]))
+        eps = np.linalg.cholesky(C) @ rng.normal(size=len(OBS))
+        for k, e in zip(OBS, eps):
+            inj[k] = pred[k] + float(e)
     for k in OBS:
         raw['observables'][k][0] = inj[k]
     raw.setdefault('metadata', {})['injection'] = {
         'truth': dict(zip(names, map(float, th))), 'noise_free_prediction': pred,
         'injected': inj, 'noise_seed': a.noise_seed,
+        'noise_covariance': noise_cov,
+        'noise_model': ('inflated sigma (sigma_model_add) + observable_correlations'
+                        if noise_cov is not None else None),
         'truth_derived': derived, 'source_config': a.config,
         'note': 'observables[k][0] replaced by the injected value; sigmas unchanged'}
     Path(a.out).write_text(json.dumps(raw, indent=1))

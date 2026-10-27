@@ -70,7 +70,7 @@ This run is a nuisance-width sensitivity, not a test of a porosity interpretatio
 - ρ_ice prior sensitivity (condition 5): **`verified`**, and negligible at ≤ 0.3 km.
 - **Ocean-branch headline (runs a/g/h, injections, ρ_ice variants, Fisher-MAP): scientifically ACCEPTED, reviewer 2026-10-27** (see the final review section below). The frozen-branch evidence comparison is a separate later step.
 
-## Final acceptance review (Opus, 2026-10-27): ACCEPT WITH EDITS, then REOPENED by the noisy-injection record (pending ruling).
+## Final acceptance review (Opus, 2026-10-27): ACCEPT WITH EDITS. The ocean branch is scientifically ACCEPTED (stands after the noisy-injection re-adjudication).
 
 The reviewer independently reproduced every number in this README, the run (a)/(g)/(h) records, the half-box reweighting, the Fisher ratios and the g1 prior implementation.
 
@@ -100,7 +100,7 @@ As a robustness RECORD (not a gate), three real noisy-injection pocoMC runs are 
 - Gate for the record: zb, ρ_s and C2 truths inside the 95 % interval in all three; −½χ²(truth) ≤ max log L; ESS > 10k.
 - The reviewer reopens acceptance if a gated truth falls outside its 95 % interval.
 
-**Noisy-injection result (2026-10-27, `noisy_injections.json`): the REOPEN CONDITION TRIPPED. Routed to the reviewer, not self-adjudicated.**
+**Noisy-injection result (2026-10-27, `noisy_injections.json`): the reopen condition tripped. Reviewer RULING: expected exact-posterior behaviour on extreme draws, not a sampler defect, so acceptance STANDS.**
 
 | run | noise / σ_infl (C20, C22, C30, lib) | whitened χ²₄ (p) | ESS | max log L vs truth log L | zb truth pct | ρ_s truth pct | C2 truth pct |
 |---|---|---|---|---|---|---|---|
@@ -108,15 +108,15 @@ As a robustness RECORD (not a gate), three real noisy-injection pocoMC runs are 
 | noise2 | +0.19, −0.52, −0.41, **−2.43** | 6.60 (0.16) | 12,767 | −0.14 ≥ −3.30 ✓ | **0.005 OUT** | 0.369 IN | 0.342 IN |
 | noise3 | **+2.02, −2.54**, +0.41, −0.57 | **20.19 (0.0005)** | 16,030 | −0.01 ≥ −10.10 ✓ | 0.270 IN | **0.003 OUT** | 0.742 IN |
 
-**Manager's diagnosis (for the reviewer):** the misses are explained by the specific noise draws.
-- noise2 has a −2.43σ libration draw, and libration is the zb channel.
-- noise3 has a p = 0.0005 draw on the gravity pair, which drives ρ_s and C2.
-- An exact linear-Gaussian posterior gives truth percentiles for the same draws of zb 0.013 (noise2) and ρ_s 0.008 (noise3), against observed 0.005 and 0.003. noise1's zb is 0.112 against 0.069. So the sampler behaves as an exact Bayesian posterior on these data.
-- The observed percentiles are systematically a little more extreme than the linear prediction (all four zb cases: 0.069/0.005/0.270 vs 0.112/0.013/0.358). That is consistent with forward-model nonlinearity, which the linear fit shows at ≤ 0.2σ.
-
-**Spec deviation:** `enceladus_injection_config.py --noise-seed` drew noise from the RAW config σ, independently. The reviewer's spec was the full inflated covariance with ρ(C20, C22) = 0.47. The likelihood uses the inflated, correlated covariance, so the injected noise is slightly narrower and uncorrelated relative to it.
-
-**Status:** acceptance is REOPENED per the reviewer's own rule, pending a ruling.
+**Reviewer-adjudicated reading:**
+- **Spec deviation.** The noise was drawn from the raw σ without correlation: < 1.1 % in σ, plus the missing C20/C22 correlation. `enceladus_injection_config.py` is now corrected to draw from the inflated, correlated covariance (empirical check: sd within 1 %, correlation 0.468 against a target of 0.47). No rerun is required.
+- **The excursions.** noise2 (libration −2.43σ) and noise3 (χ²₄ = 20.2, p = 5e-4) put a gated truth at the 0.005 and 0.003 percentiles.
+- **Where the sampler can be checked, it agrees.** Importance-reweighting run (a) to the same data reproduces the direct posterior where it has coverage. In noise1 the gated percentiles agree within 0.01, and the quantiles within 0.15 km and 1 kg m⁻³.
+- **Where it can't, the direct runs are the better posteriors.** IS ESS is 1660 and 466 in noise2 and noise3. The direct runs sit 0.5 and 0.9 sd further toward the new data, with wider upper tails. noise3's max log L is −0.71 under IS against −0.013 direct. The IS estimate is therefore a lower bound on the shift and cannot adjudicate those two.
+- **The excursions are driven by the data draws.** Under both methods the out-of-band truths sit at percentile ≤ 0.02.
+- **Scope.** Three runs test sampler robustness, not coverage. A global SBC is deferred to SBI.
+- **Linear prediction.** Percentiles more extreme than the linear prediction are not a concern. The linear prediction and IS share run (a)'s local geometry, and the extra extremity goes toward the new data with wider tails, the opposite of overconfidence.
+- **Optional, non-gating:** a different-seed pocoMC replicate of noise3 is running (`posterior_inj_noise3s2027_seed2027`, same injected data, sampler seed 2027).
 
 **Required caveats on the headline:**
 1. uniform-rock assumption;
