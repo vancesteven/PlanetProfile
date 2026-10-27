@@ -53,6 +53,8 @@ This box is outside the declared EOS-nuisance semantics. It was narrowed to [915
 
 So even an ice-density box three times wider moves the zb headline by less than a third of its 1σ.
 
+This run is a nuisance-width sensitivity, not a test of a porosity interpretation of ρ_ice. A porous shell would also have to feed the hydrosphere mass balance, and ri880 changes ρ_ice only in the isostasy and libration paths (the declared EOS-nuisance semantics).
+
 ## Ice-density prior variants (condition 5), complete
 
 | ρ_ice prior | zb median [16–84 %] | method |
@@ -66,3 +68,37 @@ So even an ice-density box three times wider moves the zb headline by less than 
 
 - Injection recovery (condition 4): **`verified` PASS** against the pre-stated criterion.
 - ρ_ice prior sensitivity (condition 5): **`verified`**, and negligible at ≤ 0.3 km.
+
+## Final acceptance review (Opus, 2026-10-27): ACCEPT WITH EDITS. The calibration item is under re-adjudication.
+
+The reviewer independently reproduced every number in this README, the run (a)/(g)/(h) records, the half-box reweighting, the Fisher ratios and the g1 prior implementation.
+
+**Applied edits:**
+- The libration provenance text in both Enceladus configs now points to `papers/park2024global_ERRATUM.md`. The config hash is unchanged (metadata only).
+- Added the "not a porosity test" sentence (ri880 section above).
+- Corrected the run (a) wording threshold from 10 to 3 ppt.
+
+**Calibration (open).** Noise-free injections test bias only. The reviewer proposed a local check: noise realisations, with posteriors obtained by importance-reweighting run (a). When I reproduced it, the reviewer's script was missing the division by L(x_obs). Done correctly (`plans/scripts/enceladus_posterior_calibration.py` → `calibration_report.json`; N = 1000), it gives:
+
+| | zb | ρ_s | C2 |
+|---|---|---|---|
+| 68 % coverage | 0.712 | 0.710 | 0.711 |
+| 95 % coverage | 0.971 | 0.968 | 0.975 |
+| rank KS (5 % critical 0.043) | 0.055 | 0.081 | 0.073 |
+
+The linearised control is worse, with KS 0.07–0.13 and minimum ESS 13.
+
+All three fail the rank-uniformity test, while coverage is near nominal or slightly over. The manager's hypothesis is a method artefact: replicate data drawn around posterior draws sit about √2× further from x_obs than the posterior spread, so posterior (a) is a poor importance proposal for them. The fact that the exactly-Gaussian linear control fails worse supports this. **This result is not read as miscalibration and not read as calibration.** It has been returned to the reviewer for a ruling on the minimum adequate calibration test, and on whether ocean-branch acceptance waits for it.
+
+**Required caveats on the headline:**
+1. uniform-rock assumption;
+2. 2200 ρ_s floor, open but not binding;
+3. ρ_ice EOS-nuisance semantics (NEW_MODERATE_4 open; a caveat, not a blocker);
+4. ocean branch only;
+5. H&M isostasy and shape σ_model are a model choice;
+6. libration 0.092 ± 0.003, with the σ cited to Park 2024's original uncertainty statement because the erratum text omits it;
+7. the cache hole, negligible for the posterior.
+
+**Adjudicated headline wording:**
+
+> Under the ocean-branch model (uniform-density rock interior, ρ_s ~ U[2200, 2600] kg m⁻³; Airy-isostatic Hemingway & Mittal (2019) gravity with Tajeddine et al. (2017) shape; Δρ-consistent Eq.-12 libration), conditioning on Cassini C20, C22 and C30 and the Park et al. (2024, erratum) physical libration of 0.092° ± 0.003° gives an ice-shell thickness zb = 26.8 +1.0/−0.9 km (median, 16–84 %) for a log-uniform ocean salinity prior (log10 w ~ U[−1, 2], w in ppt), and 27.2 ± 1.0 km if salinity is uniform in w over 0.1–100 ppt. zb is constrained jointly with salinity, which the data do not constrain: conditional on w, zb is 26.6 km for w ≲ 3 ppt and 27.3 km for w ≳ 30 ppt. The prior dependence (≤ 0.4 km) is below the 1σ width. Rock density and gravitational compensation are degenerate (corr = −0.88): ρ_s = 2411 +42/−38 kg m⁻³ and C2 = 0.81 ± 0.09 individually, and the ρ_s 95 % interval [2345, 2501] kg m⁻³ lies well above the prior floor. The derived C/MR² is 0.3324 ± 0.0017; under the uniform-rock model this constraint is carried by the rock density (corr −0.98, ~96 % of its variance) and is a model-dependent derived quantity, not an independent moment-of-inertia measurement (see ../prior_h/README.md). Ice density is not constrained: widening its prior from U[915, 935] to U[880, 940] kg m⁻³ moves zb by +0.3 km (0.3σ).

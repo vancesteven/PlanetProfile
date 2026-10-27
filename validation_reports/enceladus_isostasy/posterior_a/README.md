@@ -64,9 +64,9 @@ zb 1.19, rho_rock 1.07, C2 1.05, C/MR² 1.05), and the Fisher-correlation resolu
 - The hole WILL distort the prior-only run (h) and SBI prior draws. Fill the corners, or tally the
   hole separately from physical rejects.
 - Wording: "zb = 26.8 +1.0/−0.9 km (16–84%), marginalised over an unconstrained ocean salinity,
-  log10 w ~ U[−1, 2] (w in ppt). Conditional on w, the median is 26.6 km for w ≲ 10 ppt and rises to
+  log10 w ~ U[−1, 2] (w in ppt). Conditional on w, the median is 26.6 km for w ≲ 3 ppt and rises to
   about 27.3–27.5 km for w ≳ 30 ppt; the salinity-prior dependence (≲0.9 km) is below the 1σ width.
-  Salinity and ice density are not constrained by these data." Qualify it with the ocean branch,
+  Salinity and ice density are not constrained by these data." [2026-10-27: threshold corrected 10 → 3 ppt, matching the bin edge log10 w = 0.5; superseded by the adjudicated headline in ../injections/README.md.] Qualify it with the ocean branch,
   isostatic_hm2019, uniform rock ρ_s ~ U[2200, 2600], and libration 0.092° (Park et al. 2024 erratum, filed verbatim in papers/park2024global_ERRATUM.md, bcead860).
   Do not present C/MR² as a measurement until (h) shows the prior pushforward is much wider.
 - Next, in order: seed replicate + thin check; (g) w uniform in ppt (expect zb +0.5–0.8 km);
