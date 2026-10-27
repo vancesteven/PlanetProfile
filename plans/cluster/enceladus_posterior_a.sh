@@ -6,6 +6,10 @@
 #   PILOT=1 plans/cluster/enceladus_posterior_a.sh   # small timing pilot (n_eff 500)
 #   PREFLIGHT_ONLY=1 plans/cluster/enceladus_posterior_a.sh   # loglike preflight only
 #   plans/cluster/enceladus_posterior_a.sh           # full run, both repeats
+#   SEED=2027 REPS=1 plans/cluster/enceladus_posterior_a.sh  # different-seed replicate
+#                                  # -> posterior_a_seed2027/ (does not overwrite seed 75)
+#   THIN_CHECK=1 plans/cluster/enceladus_posterior_a.sh  # max loglike over valid cells at
+#                                  # zb 13-15 km (reviewer 2026-10-27) -> posterior_a/thin_zb13_15.json
 #
 # Output: validation_reports/enceladus_isostasy/posterior_a[_pilot]/
 #   preflight.json, rep{1,2}_result.pkl, rep{1,2}_config.json, rep{1,2}_progress.json, run log
@@ -17,7 +21,8 @@ PPHOME="${PPHOME:-$PP_SCRATCH/pphome}"
 PP_CONDA_SH="${PP_CONDA_SH:-$HOME/mamba/etc/profile.d/conda.sh}"
 CFG="PlanetProfile/Inference/configs/enceladus_cassini_isostasy_ocean6D_rhorock.json"
 SEED="${SEED:-75}"
-NAME=posterior_a; SETS=(--set "structure_cache_path=\"$CACHE\"")
+NAME=posterior_a; [[ "$SEED" != 75 ]] && NAME="posterior_a_seed$SEED"
+SETS=(--set "structure_cache_path=\"$CACHE\"")
 if [[ -n "${PILOT:-}" ]]; then
   NAME=posterior_a_pilot
   SETS+=(--set sampler_settings.n_effective=500 --set sampler_settings.n_active=256
@@ -31,6 +36,16 @@ cd "$REPO"
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MPLBACKEND=Agg
 [[ -f "$CACHE" ]] || { echo "ERROR: no cache at $CACHE" >&2; exit 1; }
 echo "repo @ $(git rev-parse --short HEAD); cache $CACHE; seed $SEED; $NAME; $(date)"
+if [[ -n "${THIN_CHECK:-}" ]]; then
+  # Prior draws restricted to zb 13-15 km (just above the None-corner hole at
+  # zb <= 13): the best loglike found there should be far below the posterior's.
+  T="$OUT/thin_config.json"
+  python plans/scripts/cluster_seeded_config.py --config "$CFG" --seed "$SEED" \
+    --out "$T" "${SETS[@]}" --set 'param_space.zb_km.bounds=[13.0,15.0]' >/dev/null || exit 1
+  HOME="$PPHOME" python plans/scripts/enceladus_loglike_preflight.py --config "$T" \
+    --n "${PREFLIGHT_N:-5000}" --json-out "$OUT/thin_zb13_15.json"
+  echo "THIN_CHECK written to $OUT/thin_zb13_15.json"; exit 0
+fi
 # Preflight on the real cache (reviewer 2026-10-25): one central loglike call
 # + 1000 prior draws (accept/reject reasons, ms/call). Abort if it fails.
 PRE="$OUT/preflight_config.json"
@@ -42,7 +57,7 @@ HOME="$PPHOME" python plans/scripts/enceladus_loglike_preflight.py --config "$PR
   echo "PREFLIGHT FAILED -- not starting the sampler" >&2; exit 1; }
 [[ -n "${PREFLIGHT_ONLY:-}" ]] && { echo "PREFLIGHT_ONLY set; stopping"; exit 0; }
 rc=0
-for rep in 1 2; do
+for rep in $(seq 1 "${REPS:-2}"); do
   P="$OUT/rep${rep}_config.json"
   python plans/scripts/cluster_seeded_config.py --config "$CFG" --seed "$SEED" \
     --out "$P" "${SETS[@]}" || exit 1

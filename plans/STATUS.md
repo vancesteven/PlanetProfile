@@ -3,7 +3,14 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-26 (Opus 5.5: **Run (a) pilot verified on the Mac** (validation_reports/enceladus_isostasy/posterior_a_pilot/README.md).
+Updated: 2026-10-27 (Opus 5.5: **Run (a) full posterior on the Mac: sampling verified; reviewer PASS WITH CONCERNS** (validation_reports/enceladus_isostasy/posterior_a/README.md, zb_w_joint.png).
+   - Same-seed repeats bit-identical: 1511 s and 180k calls each, Kish ESS 16,213, log Z −7.096 ± 0.009. All 116/1000 preflight rejects are None-corner cache cells at zb 5.1–13 km.
+   - zb 26.76 +0.98/−0.89 km; ρ_s 2411 ± 40; C2 0.81 ± 0.09; C/MR² 0.3324 ± 0.0017; corr(ρ_s, C2) −0.877. w and ρ_ice equal their priors. σ ratios vs Fisher C are 1.05–1.19.
+   - zb by w: median 26.6 km for log10 w < 1, rising to 27.45 at [1.75, 2). The shift is less than 1σ.
+   - The Fisher corr(ρ_s, C2) weakening at high w was a linearisation artefact. The w-conditioned Fisher gives −0.888 at all w, matching the posterior within bins.
+   - MAJOR: a different-seed replicate is needed before `verified`. The None-corner hole will distort (h) and SBI prior draws.
+   - **Next (Mac):** `SEED=2027 REPS=1 plans/cluster/enceladus_posterior_a.sh` and `THIN_CHECK=1 plans/cluster/enceladus_posterior_a.sh`; then (g) w uniform in ppt.
+Prior: 2026-10-26 (Opus 5.5: **Run (a) pilot verified on the Mac** (validation_reports/enceladus_isostasy/posterior_a_pilot/README.md).
    - Preflight PASS: 884 of 1000 prior draws accepted, 6 ms per call. The preflight now classifies rejects (re-measure at the full run).
    - Same-seed repeats are bit-identical, each about 5 min / 34.6k calls.
    - Pilot posterior agrees with Fisher C to within 30%: zb 26.7 ± 1.0 km; ρ_s 2413 ± 43; C2 0.81 ± 0.10; C/MR² 0.3323 ± 0.0019; corr(ρ_s, C2) −0.875.
