@@ -3,7 +3,7 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-27b (Opus 5.5: **Run (a) different-seed replicate + thin check: both PASS; reviewer MAJOR closed; run (a) sampling `verified`.**
+Updated: 2026-10-27c (Opus 5.5: **Run (g) done: zb prior-sensitivity +0.41 km (w uniform in ppt) / −0.10 km (log10 w ≤ 1.3), below the 1σ width; w-conditioned zb identical.** Previously 2026-10-27b: **Run (a) different-seed replicate + thin check: both PASS; reviewer MAJOR closed; run (a) sampling `verified`.**
    - **Seed 2027 vs seed 75:**
      - ESS 16,061 vs 16,213.
      - log Z −7.111 ± 0.006 vs −7.096 ± 0.009.
@@ -12,13 +12,16 @@ Updated: 2026-10-27b (Opus 5.5: **Run (a) different-seed replicate + thin check:
    - **Thin check:** at zb 13–15 km, 5000/5000 accepted, best loglike −318 (bar −50), so the None-corner hole doesn't affect (a).
    - Record: `validation_reports/enceladus_isostasy/posterior_a/README.md`.
    - Scientific acceptance as a paper result is still `implemented, unverified`.
-   - **Run (g) RUNNING (launched 2026-10-27 ~10:00 PDT, commit 1a53dfb6):**
-     - g1: w ~ U[0.1,100] ppt (new prior_type `uniform-in-linear`).
-     - g2: log10 w ~ U[−1, 1.3].
-     - Launch: `PATH=~/mamba/envs/PPcl/bin:$PATH VARIANT=g1|g2 REPS=1 plans/cluster/enceladus_posterior_a.sh`. Under nohup the launcher needs PPcl on PATH, because ~/mamba/etc/profile.d/conda.sh doesn't exist on this Mac.
-     - Outputs: `validation_reports/enceladus_isostasy/posterior_g{1,2}/`.
-     - Prediction from importance-reweighting run (a), to be checked against the real runs: g1 zb ≈ 27.17 +0.97/−0.95 km (reviewer expected +0.5–0.8 km; reweight shows +0.4 km), g2 zb ≈ 26.65 km. The reweighted g1 ESS is only ~4.8k, which is why the real run is needed.
-   - **Next (Mac):** compare g1/g2 with run (a), then (h) prior-only via direct MC; the hole matters for (h).)
+   - **Run (g) DONE (2026-10-27, commit 1a53dfb6): salinity-prior sensitivity is small and fully explained.**
+     - zb (median, 16–84%):
+       - (a) log10 w ~ U[−1,2]: 26.76 [25.87, 27.74] km.
+       - g1 w ~ U[0.1,100] ppt: 27.17 [26.22, 28.18] km, shift +0.41 km.
+       - g2 log10 w ≤ 1.3: 26.67 [25.78, 27.60] km, shift −0.10 km.
+     - The w-conditioned zb is identical across priors (bin medians within ≤ 0.08 km). The shift is purely the prior reweighting salinity bins, which confirms the joint-zb–w reporting rule.
+     - ρ_s, C2 and C/MR² are unchanged (C/MR² within 1e-4). log Z is unchanged.
+     - The reweighting prediction recorded beforehand matches both runs to ≤ 0.02 km.
+     - Record: `validation_reports/enceladus_isostasy/posterior_g/README.md`, which also proposes updated wording.
+   - **Next (Mac):** (h) prior-only via direct MC; the None-corner hole at zb ≤ 13 km matters for (h). Then injections at log10 w ≈ 1.7 and ρ_ice 918/933, ρ_ice prior variants, and Fisher at the MAP.)
 Prior: 2026-10-27 (Opus 5.5: **Run (a) full posterior on the Mac: sampling verified; reviewer PASS WITH CONCERNS** (validation_reports/enceladus_isostasy/posterior_a/README.md, zb_w_joint.png).
    - Same-seed repeats bit-identical: 1511 s and 180k calls each, Kish ESS 16,213, log Z −7.096 ± 0.009. All 116/1000 preflight rejects are None-corner cache cells at zb 5.1–13 km.
    - zb 26.76 +0.98/−0.89 km; ρ_s 2411 ± 40; C2 0.81 ± 0.09; C/MR² 0.3324 ± 0.0017; corr(ρ_s, C2) −0.877. w and ρ_ice equal their priors. σ ratios vs Fisher C are 1.05–1.19.
