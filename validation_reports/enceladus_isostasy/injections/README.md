@@ -1,0 +1,68 @@
+# Injection recovery and the ρ_ice U[880, 940] sensitivity run (Fisher-checkpoint conditions 4 and 5)
+
+- **Launched:** 2026-10-27, commit e4df7f95, on the Mac production cache. Same sampler settings as run (a) (seed 75, n_eff 8000, one repeat). Each run took 1667–1882 s, four running concurrently.
+- **Injection configs:** made by `plans/scripts/enceladus_injection_config.py`, noise-free. Each truth scores log L = 0 under its own data.
+- **Report:** `plans/scripts/enceladus_injection_report.py` writes `injection_report.json`.
+- **Raw outputs:** `../posterior_{inj_w18,inj_ri918,inj_ri933,ri880}/`.
+
+**Recovery criterion, stated in STATUS before the results:** each truth lies inside the 16–84 % interval for zb, ρ_s and C2, or the reason is understood. w and ρ_ice are prior-dominated, so their posteriors revert toward the prior rather than recovering the truth.
+
+## Injections: all three PASS
+
+Common truth: zb 27 km, ρ_s 2410, C2 0.81, sys_frac 0.
+- **inj_w18:** log10 w 1.8, ρ_ice 925. This is the high-salinity truth where the cache hole and the w-dependence interact (run (h) review).
+- **inj_ri918 / inj_ri933:** log10 w 0.5, with ρ_ice at the ends of its prior.
+
+Each cell gives the posterior 16 / 50 / 84 %, the truth's percentile, and **IN** or **out** of the 16–84 % interval.
+
+| param | inj_w18 | inj_ri918 | inj_ri933 |
+|---|---|---|---|
+| **zb (truth 27)** | 25.64 / 26.52 / 27.49 · pct 0.69 · **IN** | 26.16 / 27.10 / 28.11 · 0.46 · **IN** | 26.40 / 27.33 / 28.39 · 0.36 · **IN** |
+| **ρ_s (2410)** | 2369 / 2408 / 2452 · 0.52 · **IN** | 2385 / 2424 / 2467 · 0.37 · **IN** | 2371 / 2408 / 2452 · 0.52 · **IN** |
+| **C2 (0.81)** | 0.682 / 0.779 / 0.876 · 0.62 · **IN** | 0.708 / 0.805 / 0.899 · 0.52 · **IN** | 0.708 / 0.806 / 0.900 · 0.52 · **IN** |
+| log10 w | truth 1.8: −0.51 / 0.54 / 1.54 · 0.93 · out (prior-dominated) | truth 0.5: · 0.50 · IN | truth 0.5: · 0.49 · IN |
+| ρ_ice | truth 925: · 0.50 · IN | truth 918: 918.2 / 924.8 / 931.7 · 0.15 · out (prior-dominated) | truth 933: · 0.90 · out (prior-dominated) |
+| sys_frac | · 0.50 · IN | · 0.50 · IN | · 0.49 · IN |
+| C/MR² | truth 0.3329 · 0.58 · IN | truth 0.3320 · 0.55 · IN | truth 0.3326 · 0.53 · IN |
+
+The best log L in each run is −0.004, −0.001 and −0.002, so the sampler finds the χ² = 0 truth.
+
+**Why the out-of-band cells are understood.** In each case the nuisance's posterior reverts to its prior, as expected, and zb follows it through the known correlations. Conditioning on the truth's own nuisance value brings zb back to the truth:
+- **inj_w18:** zb in the bin log10 w ∈ [1.7, 1.9) is 27.07 [26.18, 28.03]. The marginal is pulled to 26.52 because the log-uniform w prior puts 83 % of the mass at log10 w < 1.5, where zb is about 0.6 km thinner. This is the same mechanism run (g) quantified.
+- **inj_ri918 / inj_ri933:** zb with |ρ_ice − truth| < 2 is 27.25 and 27.23 against a truth of 27. The marginals shift ∓0.2 km through dzb/dρ_ice ≈ −0.19 km per 10 kg/m³.
+
+So the joint (zb, nuisance) posterior is unbiased. The marginal zb carries a prior-dependent shift bounded by the nuisance prior width, consistent with run (g).
+
+## ρ_ice ~ U[880, 940] (sensitivity only)
+
+This box is outside the declared EOS-nuisance semantics. It was narrowed to [915, 935] on 2026-08-13, and NEW_MODERATE_4, the question of how to justify the ρ_ice bound, is still OPEN.
+
+| quantity | (a) U[915, 935] | U[880, 940] | shift / sd(a) | sd ratio |
+|---|---|---|---|---|
+| zb | 26.76 | **27.06** | +0.31 | 1.07 |
+| ρ_ice | 924.9 | 909.4 (16–84 %: 889–930) | −2.65 | 3.02 |
+| ρ_s | 2411 | 2397 | −0.34 | 1.04 |
+| C2 | 0.814 | 0.810 | −0.05 | 1.03 |
+| log10 w | 0.506 | 0.516 | 0.00 | 1.00 |
+| C/MR² | 0.33238 | 0.33242 | +0.00 | 1.00 |
+| log Z | −7.096 | −7.094 | | |
+
+- **ρ_ice is unconstrained by the data.** Its posterior is the wider prior.
+- **Effect on zb.** zb moves +0.3 km, widening 7 %, through dzb/dρ_ice ≈ −0.19 km per 10 kg/m³. In ρ_ice bins zb runs from 27.46 (880–900) to 26.54 (935–940).
+- **Everything else is unaffected,** including C/MR² and the evidence.
+
+So even an ice-density box three times wider moves the zb headline by less than a third of its 1σ.
+
+## Ice-density prior variants (condition 5), complete
+
+| ρ_ice prior | zb median [16–84 %] | method |
+|---|---|---|
+| U[915, 935] (run a) | 26.76 [25.87, 27.74] | direct |
+| U[915, 925] | 26.84 [25.94, 27.80] | exact reweighting of (a), ESS 8.1k, both seeds agree |
+| U[925, 935] | 26.69 [25.80, 27.66] | exact reweighting of (a), ESS 8.1k |
+| U[880, 940] | 27.06 [26.10, 28.09] | direct |
+
+## Status
+
+- Injection recovery (condition 4): **`verified` PASS** against the pre-stated criterion.
+- ρ_ice prior sensitivity (condition 5): **`verified`**, and negligible at ≤ 0.3 km.

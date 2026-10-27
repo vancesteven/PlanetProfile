@@ -3,7 +3,7 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-27d (Opus 5.5: **Run (h) prior pushforward done + reviewer-adjudicated: hole 10.7% (cache artefact), 0 physical rejects, no prior–data conflict, C/MR² 3× narrowed but ρ_s-carried (derived, not a measurement).** Previously 2026-10-27c: **Run (g) done: zb prior-sensitivity +0.41 km (w uniform in ppt) / −0.10 km (log10 w ≤ 1.3), below the 1σ width; w-conditioned zb identical.** Previously 2026-10-27b: **Run (a) different-seed replicate + thin check: both PASS; reviewer MAJOR closed; run (a) sampling `verified`.**
+Updated: 2026-10-27e (Opus 5.5: **Injections all PASS (pre-stated criterion); ρ_ice U[880,940] moves zb +0.3 km; Fisher at MAP reproduces posterior widths within 0–8%; all 7 Fisher-checkpoint conditions have results; final acceptance review dispatched.** Previously 2026-10-27d: **Run (h) prior pushforward done + reviewer-adjudicated: hole 10.7% (cache artefact), 0 physical rejects, no prior–data conflict, C/MR² 3× narrowed but ρ_s-carried (derived, not a measurement).** Previously 2026-10-27c: **Run (g) done: zb prior-sensitivity +0.41 km (w uniform in ppt) / −0.10 km (log10 w ≤ 1.3), below the 1σ width; w-conditioned zb identical.** Previously 2026-10-27b: **Run (a) different-seed replicate + thin check: both PASS; reviewer MAJOR closed; run (a) sampling `verified`.**
    - **Seed 2027 vs seed 75:**
      - ESS 16,061 vs 16,213.
      - log Z −7.111 ± 0.006 vs −7.096 ± 0.009.
@@ -35,15 +35,14 @@ Updated: 2026-10-27d (Opus 5.5: **Run (h) prior pushforward done + reviewer-adju
      - U[915,925]: zb 26.84 [25.94, 27.80] km.
      - U[925,935]: zb 26.69 [25.80, 27.66] km.
      - The shift is ±0.08 km against run (a)'s 26.76. ρ_s moves ∓5 kg/m³ and C2 and C/MR² are unchanged, so ρ_ice prior sensitivity is negligible.
-   - **RUNNING (launched 2026-10-27 11:55 PDT, commit e4df7f95, caffeinated):**
-     - Three noise-free injection recoveries, all with truth zb 27, ρ_s 2410, C2 0.81, sys_frac 0:
-       - inj_w18: log10 w 1.8, ρ_ice 925;
-       - inj_ri918: log10 w 0.5, ρ_ice 918;
-       - inj_ri933: log10 w 0.5, ρ_ice 933.
-     - `ri880`: ρ_ice ~ U[880,940]. This is outside the declared EOS-nuisance semantics; the box was narrowed from 880 on 2026-08-13, and NEW_MODERATE_4 on the ρ_ice bound rationale is still OPEN. The run is a sensitivity record only.
-     - Injection configs are in `~/scratch/inj/`; outputs in `validation_reports/enceladus_isostasy/posterior_{inj_*,ri880}/`.
-     - Recovery criterion, stated before the results: each truth sits within the 16–84% interval for zb, ρ_s and C2, or the reason is understood. For example, w and ρ_ice are prior-dominated, so the posterior on those reverts to the prior and does not recover the truth.
-   - **Then:** Fisher at the MAP. Also: the Park erratum source into papers/; state the 2200 ρ_s floor as an open assumption (it doesn't bind: posterior 95% [2345, 2501]).)
+   - **Injections + ρ_ice U[880,940]: DONE (2026-10-27, e4df7f95). Record: `validation_reports/enceladus_isostasy/injections/README.md`.**
+     - **All three injections PASS the criterion stated beforehand:** zb, ρ_s and C2 truths are inside 16–84% (zb percentiles 0.69 / 0.46 / 0.36), and the best log L is ≈ 0.
+     - The out-of-band nuisances are prior reversion: log10 w for inj_w18, and ρ_ice for inj_ri918 and inj_ri933. Conditioning on the truth's nuisance value recovers zb ≈ 27.07 / 27.25 / 27.23.
+     - **ρ_ice U[880,940]** (sensitivity outside the declared semantics; NEW_MODERATE_4 still open): zb 27.06 [26.10, 28.09], shift +0.31 sd; ρ_ice is prior-dominated; C/MR² and log Z are unchanged.
+   - **Fisher at the MAP: DONE (db1da5c3).** Posterior sd / Fisher σ is 1.00–1.08 for every parameter and 1.04 for C/MR², with corr(ρ_s, C2) −0.885 vs −0.877. Record: `validation_reports/enceladus_isostasy/fisher_map/README.md`.
+   - **Park erratum source** is already in papers/ (bcead860); the stale run (a) note is fixed.
+   - **All 7 Fisher-checkpoint conditions now have results. Opus final-acceptance review DISPATCHED;** the status stays `implemented, unverified` as a paper result until it rules.
+ Also: the Park erratum source into papers/; state the 2200 ρ_s floor as an open assumption (it doesn't bind: posterior 95% [2345, 2501]).)
 Prior: 2026-10-27 (Opus 5.5: **Run (a) full posterior on the Mac: sampling verified; reviewer PASS WITH CONCERNS** (validation_reports/enceladus_isostasy/posterior_a/README.md, zb_w_joint.png).
    - Same-seed repeats bit-identical: 1511 s and 180k calls each, Kish ESS 16,213, log Z −7.096 ± 0.009. All 116/1000 preflight rejects are None-corner cache cells at zb 5.1–13 km.
    - zb 26.76 +0.98/−0.89 km; ρ_s 2411 ± 40; C2 0.81 ± 0.09; C/MR² 0.3324 ± 0.0017; corr(ρ_s, C2) −0.877. w and ρ_ice equal their priors. σ ratios vs Fisher C are 1.05–1.19.
