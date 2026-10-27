@@ -50,4 +50,4 @@ Each run used seed 75 with n_eff 8000 and one repeat. g1 took 1896 s and g2 1648
 
 - Sampling for g1 and g2: `verified`. Both completed with ESS > 16k.
 - Single seed only. Run (a)'s two-seed check showed MC error ≪ 0.02 sd, and the reweighting prediction matches each run to ≤ 0.02 km, which independently corroborates both.
-- Scientific acceptance: still pending (h) and the remaining reviewer items.
+- Scientific acceptance: **scientifically ACCEPTED (ocean branch), reviewer 2026-10-27.** See `../injections/README.md`.

@@ -68,8 +68,9 @@ This run is a nuisance-width sensitivity, not a test of a porosity interpretatio
 
 - Injection recovery (condition 4): **`verified` PASS** against the pre-stated criterion.
 - ρ_ice prior sensitivity (condition 5): **`verified`**, and negligible at ≤ 0.3 km.
+- **Ocean-branch headline (runs a/g/h, injections, ρ_ice variants, Fisher-MAP): scientifically ACCEPTED, reviewer 2026-10-27** (see the final review section below). The frozen-branch evidence comparison is a separate later step.
 
-## Final acceptance review (Opus, 2026-10-27): ACCEPT WITH EDITS. The calibration item is under re-adjudication.
+## Final acceptance review (Opus, 2026-10-27): ACCEPT WITH EDITS. The ocean branch is scientifically ACCEPTED.
 
 The reviewer independently reproduced every number in this README, the run (a)/(g)/(h) records, the half-box reweighting, the Fisher ratios and the g1 prior implementation.
 
@@ -78,17 +79,26 @@ The reviewer independently reproduced every number in this README, the run (a)/(
 - Added the "not a porosity test" sentence (ri880 section above).
 - Corrected the run (a) wording threshold from 10 to 3 ppt.
 
-**Calibration (open).** Noise-free injections test bias only. The reviewer proposed a local check: noise realisations, with posteriors obtained by importance-reweighting run (a). When I reproduced it, the reviewer's script was missing the division by L(x_obs). Done correctly (`plans/scripts/enceladus_posterior_calibration.py` → `calibration_report.json`; N = 1000), it gives:
+**Calibration (reviewer re-adjudication 2026-10-27).** Noise-free injections test bias only.
 
-| | zb | ρ_s | C2 |
-|---|---|---|---|
-| 68 % coverage | 0.712 | 0.710 | 0.711 |
-| 95 % coverage | 0.971 | 0.968 | 0.975 |
-| rank KS (5 % critical 0.043) | 0.055 | 0.081 | 0.073 |
+A posterior-local importance-reweighted SBC was attempted and **REJECTED as a method**:
+- Without subtracting L(x_obs), it is tautological. That was the reviewer's original script, and its KS ≤ 0.026 carries no information.
+- With the subtraction (`plans/scripts/enceladus_posterior_calibration.py` → `calibration_report.json`), its truth distribution, posterior (a), does not match the inference prior.
+- Posterior (a) is also an inadequate proposal for replicate data about √2σ away. A linear-Gaussian control fails worse, with ESS down to 13.
+- Its output (rank KS 0.055–0.081, 68 % coverage 0.71) is therefore **not evidence either way**. It is kept, labelled as a rejected method, so the record shows why the approach was dropped.
 
-The linearised control is worse, with KS 0.07–0.13 and minimum ESS 13.
+**Sampler fidelity rests instead on:**
+- the different-seed replicate (≤ 0.015 sd);
+- Fisher at the MAP (widths within 0–8 %);
+- agreement between direct and reweighted g1/g2 (≤ 0.02 km);
+- ri880 restricted to [915, 935] reproducing run (a) within 0.01 km (reviewer check);
+- noise-free recovery with max log L ≈ 0.
 
-All three fail the rank-uniformity test, while coverage is near nominal or slightly over. The manager's hypothesis is a method artefact: replicate data drawn around posterior draws sit about √2× further from x_obs than the posterior spread, so posterior (a) is a poor importance proposal for them. The fact that the exactly-Gaussian linear control fails worse supports this. **This result is not read as miscalibration and not read as calibration.** It has been returned to the reviewer for a ruling on the minimum adequate calibration test, and on whether ocean-branch acceptance waits for it.
+**Ruling: ocean-branch acceptance does not wait on calibration.** Global SBC is deferred to the SBI stage.
+
+As a robustness RECORD (not a gate), three real noisy-injection pocoMC runs are under way: inj_noise1–3, truth zb 27, log10 w 0.5, ρ_ice 925, ρ_s 2410, C2 0.81, noise seeds 1–3, with truth log L −1.23, −3.30 and −10.10.
+- Gate for the record: zb, ρ_s and C2 truths inside the 95 % interval in all three; −½χ²(truth) ≤ max log L; ESS > 10k.
+- The reviewer reopens acceptance if a gated truth falls outside its 95 % interval.
 
 **Required caveats on the headline:**
 1. uniform-rock assumption;

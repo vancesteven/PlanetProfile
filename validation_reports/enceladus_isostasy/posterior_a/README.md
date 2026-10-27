@@ -100,4 +100,4 @@ So the Monte-Carlo error is negligible against the posterior widths.
 
 Status of the run (a) posterior:
 - Sampling, reproducibility and Monte-Carlo error: **`verified`**. The evidence is the table above and `thin_zb13_15.json`.
-- Scientific acceptance as a paper result: still `implemented, unverified`, pending (g), (h) and the remaining reviewer items. The hole still matters for (h) and for SBI prior draws.
+- Scientific acceptance: **scientifically ACCEPTED (ocean branch), Opus final-acceptance reviewer 2026-10-27.** The adjudicated headline and caveats are in `../injections/README.md`. The frozen-branch evidence comparison is a separate later step.

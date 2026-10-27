@@ -3,7 +3,7 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-27e (Opus 5.5: **Injections all PASS (pre-stated criterion); ρ_ice U[880,940] moves zb +0.3 km; Fisher at MAP reproduces posterior widths within 0–8%; all 7 Fisher-checkpoint conditions have results; final acceptance review dispatched.** Previously 2026-10-27d: **Run (h) prior pushforward done + reviewer-adjudicated: hole 10.7% (cache artefact), 0 physical rejects, no prior–data conflict, C/MR² 3× narrowed but ρ_s-carried (derived, not a measurement).** Previously 2026-10-27c: **Run (g) done: zb prior-sensitivity +0.41 km (w uniform in ppt) / −0.10 km (log10 w ≤ 1.3), below the 1σ width; w-conditioned zb identical.** Previously 2026-10-27b: **Run (a) different-seed replicate + thin check: both PASS; reviewer MAJOR closed; run (a) sampling `verified`.**
+Updated: 2026-10-27f (Opus 5.5: **Ocean-branch Enceladus headline scientifically ACCEPTED (Opus final review, edits applied); local IS-SBC rejected as a method; 3 noisy-injection record runs in progress.** Previously 2026-10-27e: **Injections all PASS (pre-stated criterion); ρ_ice U[880,940] moves zb +0.3 km; Fisher at MAP reproduces posterior widths within 0–8%; all 7 Fisher-checkpoint conditions have results; final acceptance review dispatched.** Previously 2026-10-27d: **Run (h) prior pushforward done + reviewer-adjudicated: hole 10.7% (cache artefact), 0 physical rejects, no prior–data conflict, C/MR² 3× narrowed but ρ_s-carried (derived, not a measurement).** Previously 2026-10-27c: **Run (g) done: zb prior-sensitivity +0.41 km (w uniform in ppt) / −0.10 km (log10 w ≤ 1.3), below the 1σ width; w-conditioned zb identical.** Previously 2026-10-27b: **Run (a) different-seed replicate + thin check: both PASS; reviewer MAJOR closed; run (a) sampling `verified`.**
    - **Seed 2027 vs seed 75:**
      - ESS 16,061 vs 16,213.
      - log Z −7.111 ± 0.006 vs −7.096 ± 0.009.
@@ -41,7 +41,17 @@ Updated: 2026-10-27e (Opus 5.5: **Injections all PASS (pre-stated criterion); ρ
      - **ρ_ice U[880,940]** (sensitivity outside the declared semantics; NEW_MODERATE_4 still open): zb 27.06 [26.10, 28.09], shift +0.31 sd; ρ_ice is prior-dominated; C/MR² and log Z are unchanged.
    - **Fisher at the MAP: DONE (db1da5c3).** Posterior sd / Fisher σ is 1.00–1.08 for every parameter and 1.04 for C/MR², with corr(ρ_s, C2) −0.885 vs −0.877. Record: `validation_reports/enceladus_isostasy/fisher_map/README.md`.
    - **Park erratum source** is already in papers/ (bcead860); the stale run (a) note is fixed.
-   - **All 7 Fisher-checkpoint conditions now have results. Opus final-acceptance review DISPATCHED;** the status stays `implemented, unverified` as a paper result until it rules.
+   - **FINAL ACCEPTANCE (Opus reviewer, 2026-10-27): ocean-branch headline scientifically ACCEPTED, with edits, all applied.**
+     - Covers runs (a)/(g)/(h), the injections, the ρ_ice variants and Fisher-MAP. The reviewer independently reproduced every number.
+     - The adjudicated headline wording and the 7 required caveats are in `validation_reports/enceladus_isostasy/injections/README.md`.
+     - Headline: zb = 26.8 +1.0/−0.9 km (log-uniform salinity) or 27.2 ± 1.0 km (uniform in ppt); jointly constrained with salinity.
+   - **Calibration:** a posterior-local IS-reweighted SBC was REJECTED as a method.
+     - The reviewer's version was tautological, because it omitted dividing out L(x_obs). Fixed: prior-mismatched truths plus proposal failure; the linear control fails worse.
+     - Its output is not evidence either way. Acceptance does not wait on calibration. Global SBC is deferred to the SBI stage.
+   - **RUNNING (12:40 PDT, caffeinated), a RECORD not a gate:** 3 noisy-injection pocoMC runs (inj_noise1–3; truth zb 27, log10 w 0.5; noise seeds 1–3).
+     - Pass: zb, ρ_s and C2 truths inside the 95% interval in all 3; −½χ²(truth) ≤ max log L; ESS > 10k.
+     - The reviewer reopens acceptance if a gated truth falls outside its 95% interval.
+   - **Next after these:** the frozen-branch two-run evidence comparison (nominal-prior log Z for both branches, per the run (h) ruling).
  Also: the Park erratum source into papers/; state the 2200 ρ_s floor as an open assumption (it doesn't bind: posterior 95% [2345, 2501]).)
 Prior: 2026-10-27 (Opus 5.5: **Run (a) full posterior on the Mac: sampling verified; reviewer PASS WITH CONCERNS** (validation_reports/enceladus_isostasy/posterior_a/README.md, zb_w_joint.png).
    - Same-seed repeats bit-identical: 1511 s and 180k calls each, Kish ESS 16,213, log Z −7.096 ± 0.009. All 116/1000 preflight rejects are None-corner cache cells at zb 5.1–13 km.
