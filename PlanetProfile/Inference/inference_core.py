@@ -492,10 +492,10 @@ def validate_config(config: InferenceConfig) -> Tuple[bool, List[str]]:
         prior_type = spec.get('prior_type', 'uniform')
 
         if prior_type not in ['uniform', 'normal', 'log-uniform',
-                               'truncated_gaussian']:
+                               'truncated_gaussian', 'uniform-in-linear']:
             errors.append(f"Parameter '{param}': invalid prior_type '{prior_type}'")
 
-        if prior_type in ['uniform', 'log-uniform']:
+        if prior_type in ['uniform', 'log-uniform', 'uniform-in-linear']:
             bounds = spec.get('bounds')
             if bounds is None or len(bounds) != 2:
                 errors.append(f"Parameter '{param}': missing or invalid bounds")

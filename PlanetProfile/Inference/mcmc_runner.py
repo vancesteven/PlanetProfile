@@ -137,6 +137,55 @@ def _structure_R_body_km(structure_data) -> Optional[float]:
     return None
 
 
+
+class _UniformInLinearOfLog10:
+    """Prior on x = log10(v) that is uniform in v on [10**lo, 10**hi].
+
+    p(x) = ln(10) * 10**x / (10**hi - 10**lo) on [lo, hi]. Exposes the
+    scipy-frozen-distribution methods pocoMC's ``Prior`` calls (logpdf,
+    rvs, support) plus pdf/cdf/ppf for diagnostics.
+    """
+
+    def __init__(self, lo, hi):
+        self.lo, self.hi = float(lo), float(hi)
+        if not self.hi > self.lo:
+            raise ValueError(f"bounds must satisfy lo < hi, got {lo}, {hi}")
+        self._vlo, self._vhi = 10.0 ** self.lo, 10.0 ** self.hi
+        self._logZ = np.log(self._vhi - self._vlo) - np.log(np.log(10.0))
+
+    def support(self):
+        return (self.lo, self.hi)
+
+    def logpdf(self, x):
+        x = np.asarray(x, dtype=float)
+        inside = (x >= self.lo) & (x <= self.hi)
+        return np.where(inside, x * np.log(10.0) - self._logZ, -np.inf)
+
+    def pdf(self, x):
+        return np.exp(self.logpdf(x))
+
+    def cdf(self, x):
+        x = np.clip(np.asarray(x, dtype=float), self.lo, self.hi)
+        return (10.0 ** x - self._vlo) / (self._vhi - self._vlo)
+
+    def ppf(self, q):
+        q = np.asarray(q, dtype=float)
+        return np.log10(self._vlo + q * (self._vhi - self._vlo))
+
+    def rvs(self, size=None, random_state=None):
+        # pocoMC calls dist.rvs(size=...) with no random_state; scipy frozen
+        # distributions then draw from numpy's GLOBAL RandomState, which the
+        # runner seeds. Match that exactly so seeded runs stay reproducible.
+        if random_state is None:
+            u = np.random.random_sample(size)
+        elif isinstance(random_state, np.random.Generator):
+            u = random_state.random(size)
+        elif isinstance(random_state, np.random.RandomState):
+            u = random_state.random_sample(size)
+        else:
+            u = np.random.RandomState(random_state).random_sample(size)
+        return self.ppf(u)
+
 class MCMCRunner:
     """
     MCMC sampler for interior structure inference using pocoMC.
@@ -704,6 +753,13 @@ class MCMCRunner:
             elif prior_type == 'log-uniform':
                 low, high = param_cfg['bounds']
                 priors.append(loguniform(a=10**low, b=10**high))
+            elif prior_type == 'uniform-in-linear':
+                # Parameter sampled as x = log10(v), prior UNIFORM IN v on
+                # [10**low, 10**high]: density on x is proportional to
+                # ln(10) * 10**x. Enceladus run (g1), w uniform in ppt
+                # (Fisher-checkpoint condition 2).
+                low, high = param_cfg['bounds']
+                priors.append(_UniformInLinearOfLog10(low, high))
             else:
                 raise ValueError(f"Unknown prior type '{prior_type}' for parameter '{param_name}'")
 

@@ -8,6 +8,8 @@
 #   plans/cluster/enceladus_posterior_a.sh           # full run, both repeats
 #   SEED=2027 REPS=1 plans/cluster/enceladus_posterior_a.sh  # different-seed replicate
 #                                  # -> posterior_a_seed2027/ (does not overwrite seed 75)
+#   VARIANT=g2 REPS=1 plans/cluster/enceladus_posterior_a.sh  # run (g2): log10 w in [-1,1.3]
+#   VARIANT=g1 REPS=1 plans/cluster/enceladus_posterior_a.sh  # run (g1): w uniform in ppt
 #   THIN_CHECK=1 plans/cluster/enceladus_posterior_a.sh  # max loglike over valid cells at
 #                                  # zb 13-15 km (reviewer 2026-10-27) -> posterior_a/thin_zb13_15.json
 #
@@ -23,6 +25,17 @@ CFG="PlanetProfile/Inference/configs/enceladus_cassini_isostasy_ocean6D_rhorock.
 SEED="${SEED:-75}"
 NAME=posterior_a; [[ "$SEED" != 75 ]] && NAME="posterior_a_seed$SEED"
 SETS=(--set "structure_cache_path=\"$CACHE\"")
+# Sensitivity variants (reviewer Fisher-checkpoint condition 2, run (g)).
+#   VARIANT=g2 : log10 w ~ U[-1, 1.3]  (bounds override only)
+#   VARIANT=g1 : w ~ U[0.1, 100] ppt, i.e. log10 w with density ∝ 10^x
+#                (prior_type 'uniform-in-linear'; mcmc_runner)
+case "${VARIANT:-}" in
+  "") ;;
+  g2) NAME="posterior_g2"; SETS+=(--set 'param_space.log10_wOcean_ppt.bounds=[-1.0,1.3]') ;;
+  g1) NAME="posterior_g1"; SETS+=(--set 'param_space.log10_wOcean_ppt.prior_type="uniform-in-linear"') ;;
+  *) echo "unknown VARIANT=$VARIANT" >&2; exit 1 ;;
+esac
+[[ -n "${VARIANT:-}" && "$SEED" != 75 ]] && NAME="${NAME}_seed$SEED"
 if [[ -n "${PILOT:-}" ]]; then
   NAME=posterior_a_pilot
   SETS+=(--set sampler_settings.n_effective=500 --set sampler_settings.n_active=256

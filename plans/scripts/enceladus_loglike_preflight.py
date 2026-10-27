@@ -57,6 +57,9 @@ def draw_prior(param_space, rng):
                                          scale=s, random_state=rng))
         elif p['prior_type'] == 'uniform':
             x.append(rng.uniform(lo, hi))
+        elif p['prior_type'] == 'uniform-in-linear':
+            # x = log10(v), v ~ U[10**lo, 10**hi] (run (g1): w uniform in ppt)
+            x.append(np.log10(rng.uniform(10.0 ** lo, 10.0 ** hi)))
         else:
             raise SystemExit(f'{nm}: prior_type {p["prior_type"]!r} not handled')
     return np.array(x)
