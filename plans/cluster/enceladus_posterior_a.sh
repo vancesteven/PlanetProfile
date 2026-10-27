@@ -10,6 +10,8 @@
 #                                  # -> posterior_a_seed2027/ (does not overwrite seed 75)
 #   VARIANT=g2 REPS=1 plans/cluster/enceladus_posterior_a.sh  # run (g2): log10 w in [-1,1.3]
 #   VARIANT=g1 REPS=1 plans/cluster/enceladus_posterior_a.sh  # run (g1): w uniform in ppt
+#   VARIANT=ri880 REPS=1 ...  # rho_ice ~ U[880,940] (sensitivity OUTSIDE the declared EOS-nuisance semantics)
+#   VARIANT=inj_w18 REPS=1 ...  # injection-recovery; config from enceladus_injection_config.py in $PP_SCRATCH/inj/
 #   THIN_CHECK=1 plans/cluster/enceladus_posterior_a.sh  # max loglike over valid cells at
 #                                  # zb 13-15 km (reviewer 2026-10-27) -> posterior_a/thin_zb13_15.json
 #
@@ -33,6 +35,9 @@ case "${VARIANT:-}" in
   "") ;;
   g2) NAME="posterior_g2"; SETS+=(--set 'param_space.log10_wOcean_ppt.bounds=[-1.0,1.3]') ;;
   g1) NAME="posterior_g1"; SETS+=(--set 'param_space.log10_wOcean_ppt.prior_type="uniform-in-linear"') ;;
+  ri880) NAME="posterior_ri880"; SETS+=(--set 'param_space.rho_ice_kgm3.bounds=[880.0,940.0]') ;;
+  inj_*) NAME="posterior_$VARIANT"; CFG="${INJ_DIR:-$PP_SCRATCH/inj}/$VARIANT.json"
+         [[ -f "$CFG" ]] || { echo "no injection config $CFG" >&2; exit 1; } ;;
   *) echo "unknown VARIANT=$VARIANT" >&2; exit 1 ;;
 esac
 [[ -n "${VARIANT:-}" && "$SEED" != 75 ]] && NAME="${NAME}_seed$SEED"
