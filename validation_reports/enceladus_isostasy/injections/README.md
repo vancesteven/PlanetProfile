@@ -116,7 +116,10 @@ As a robustness RECORD (not a gate), three real noisy-injection pocoMC runs are 
 - **The excursions are driven by the data draws.** Under both methods the out-of-band truths sit at percentile ≤ 0.02.
 - **Scope.** Three runs test sampler robustness, not coverage. A global SBC is deferred to SBI.
 - **Linear prediction.** Percentiles more extreme than the linear prediction are not a concern. The linear prediction and IS share run (a)'s local geometry, and the extra extremity goes toward the new data with wider tails, the opposite of overconfidence.
-- **Optional, non-gating:** a different-seed pocoMC replicate of noise3 is running (`posterior_inj_noise3s2027_seed2027`, same injected data, sampler seed 2027).
+- **Optional, non-gating: different-seed pocoMC replicate of noise3, DONE** (`posterior_inj_noise3s2027_seed2027`, same injected data, sampler seed 2027). It confirms the extreme-tail posterior directly:
+  - ρ_s truth percentile 0.0032 against 0.0029; zb 0.272 against 0.270; C2 0.736 against 0.742;
+  - every parameter's mean agrees to ≤ 0.02 posterior sd (≤ 1.8 MC-SE), and the 95 % bounds agree to ≤ 1 kg m⁻³ and 0.02 km;
+  - ESS 16,011 against 16,030; max log L −0.012 against −0.013; log Z −6.386 against −6.388.
 
 **Required caveats on the headline:**
 1. uniform-rock assumption;

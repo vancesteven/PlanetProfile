@@ -1,0 +1,232 @@
+{
+ "method": "log Z_frozen <= max log L over the declared frozen prior (prior integrates to 1)",
+ "config": "/Users/svance/src/planetprofile-genai/PlanetProfile/Inference/configs/enceladus_cassini_isostasy_ocean6D_rhorock.json",
+ "cache": "/Users/svance/scratch/enceladus_zbw_production_cache.pkl",
+ "frozen_params": [
+  "rho_ice_kgm3",
+  "rho_rock_kgm3",
+  "libration_sys_frac"
+ ],
+ "frozen_prior_bounds": {
+  "rho_ice_kgm3": [
+   915.0,
+   935.0
+  ],
+  "rho_rock_kgm3": [
+   2200.0,
+   2600.0
+  ],
+  "libration_sys_frac": [
+   -0.012,
+   0.012
+  ]
+ },
+ "grid": {
+  "rho_rock_kgm3": 161,
+  "rho_ice_kgm3": 21,
+  "libration_sys_frac": 13
+ },
+ "n_grid": 43953,
+ "grid_rejects": 26,
+ "grid_best": {
+  "loglike": -287.28782991539964,
+  "theta": {
+   "rho_ice_kgm3": 915.0,
+   "rho_rock_kgm3": 2600.0,
+   "libration_sys_frac": 0.012
+  }
+ },
+ "multistart": [
+  {
+   "loglike": -288.99272860865847,
+   "theta": {
+    "rho_ice_kgm3": 915.0000001329857,
+    "rho_rock_kgm3": 2599.9999991145105,
+    "libration_sys_frac": 0.003386704966087782
+   }
+  },
+  {
+   "loglike": -287.6123333689304,
+   "theta": {
+    "rho_ice_kgm3": 915.3298521207462,
+    "rho_rock_kgm3": 2599.981126230474,
+    "libration_sys_frac": 0.011999999360344873
+   }
+  },
+  {
+   "loglike": -287.986844055671,
+   "theta": {
+    "rho_ice_kgm3": 915.0000010817669,
+    "rho_rock_kgm3": 2599.99999971142,
+    "libration_sys_frac": 0.008464539683107378
+   }
+  },
+  {
+   "loglike": -288.29816209489684,
+   "theta": {
+    "rho_ice_kgm3": 915.0000005948591,
+    "rho_rock_kgm3": 2599.9999997711147,
+    "libration_sys_frac": 0.006891741942080629
+   }
+  },
+  {
+   "loglike": -287.2905424916507,
+   "theta": {
+    "rho_ice_kgm3": 915.0000590931759,
+    "rho_rock_kgm3": 2599.9908595199067,
+    "libration_sys_frac": 0.01199999957368732
+   }
+  },
+  {
+   "loglike": -287.31535418516904,
+   "theta": {
+    "rho_ice_kgm3": 915.003050699283,
+    "rho_rock_kgm3": 2599.915421253526,
+    "libration_sys_frac": 0.01199999671423178
+   }
+  },
+  {
+   "loglike": -288.18438022149536,
+   "theta": {
+    "rho_ice_kgm3": 915.0000000972409,
+    "rho_rock_kgm3": 2599.99999820005,
+    "libration_sys_frac": 0.007466446549390875
+   }
+  },
+  {
+   "loglike": -290.2601383356607,
+   "theta": {
+    "rho_ice_kgm3": 915.0000001149348,
+    "rho_rock_kgm3": 2599.999998816743,
+    "libration_sys_frac": -0.0029951140288679654
+   }
+  },
+  {
+   "loglike": -288.2936646446604,
+   "theta": {
+    "rho_ice_kgm3": 915.0000002535892,
+    "rho_rock_kgm3": 2599.9999994439086,
+    "libration_sys_frac": 0.00691445430012247
+   }
+  },
+  {
+   "loglike": -291.2581528694196,
+   "theta": {
+    "rho_ice_kgm3": 915.0000004883595,
+    "rho_rock_kgm3": 2599.999999690196,
+    "libration_sys_frac": -0.008007802275794762
+   }
+  },
+  {
+   "loglike": -290.91101436530107,
+   "theta": {
+    "rho_ice_kgm3": 915.0000003412165,
+    "rho_rock_kgm3": 2599.999998724051,
+    "libration_sys_frac": -0.006265500142701877
+   }
+  },
+  {
+   "loglike": -289.92097896891244,
+   "theta": {
+    "rho_ice_kgm3": 915.0000001856893,
+    "rho_rock_kgm3": 2599.999998056453,
+    "libration_sys_frac": -0.0012891001491108973
+   }
+  }
+ ],
+ "multistart_best": {
+  "loglike": -287.2905424916507,
+  "theta": {
+   "rho_ice_kgm3": 915.0000590931759,
+   "rho_rock_kgm3": 2599.9908595199067,
+   "libration_sys_frac": 0.01199999957368732
+  }
+ },
+ "max_loglike": {
+  "loglike": -287.28782991539964,
+  "theta": {
+   "rho_ice_kgm3": 915.0,
+   "rho_rock_kgm3": 2600.0,
+   "libration_sys_frac": 0.012
+  }
+ },
+ "prediction_at_max": {
+  "C20": -0.005812890183772047,
+  "C22": 0.001502322010378412,
+  "C30": 0.00038296166739272216,
+  "libration_deg": 0.02856060438165528
+ },
+ "inflated_sigma": {
+  "C20": 3.7367768196669176e-05,
+  "C22": 1.4797972834141844e-05,
+  "C30": 3.370840251332003e-05,
+  "libration_deg": 0.003010398644698074
+ },
+ "residual_sigma_at_max": {
+  "C20": -8.976725128634982,
+  "C22": -1.0527110568581686,
+  "C30": 6.085772451294881,
+  "libration_deg": -21.073420203026743
+ },
+ "libration_max_over_box_deg": 0.031214268525073027,
+ "libration_only_bound_logL": -203.85683591403736,
+ "frozen_out_of_grid_prior_fraction": 0.00015,
+ "ocean": {
+  "log_Z": -7.096414483417696,
+  "log_Z_err": 0.008753044612321112,
+  "result": "validation_reports/enceladus_isostasy/posterior_a/rep1_result.pkl"
+ },
+ "branch_bayes_factor_full_bound": {
+  "log_bayes_factor": -280.19141543198197,
+  "log_bayes_factor_err": null,
+  "log_bayes_factor_convention": "log Z_frozen - log Z_ocean",
+  "log_posterior_odds": -280.19141543198197,
+  "P_frozen": 2.0625970925441263e-122,
+  "P_ocean": 1.0,
+  "one_sided": false,
+  "prior_odds": {
+   "frozen": 0.5,
+   "ocean": 0.5
+  },
+  "log_Z": {
+   "frozen": -287.28782991539964,
+   "ocean": -7.096414483417696
+  },
+  "log_Z_err": {
+   "frozen": null,
+   "ocean": 0.008753044612321112
+  },
+  "favoured": "ocean",
+  "notes": [
+   "No sampler log_Z uncertainty was supplied for at least one branch; the quoted log B carries NO numerical error budget.",
+   "Each evidence is integrated over its OWN support (frozen 3 free parameters, ocean 5). The branches are not nested and no discrete theta coordinate exists; the prior odds below are DECLARED, not inferred."
+  ]
+ },
+ "branch_bayes_factor_libration_only_bound": {
+  "log_bayes_factor": -196.76042143061966,
+  "log_bayes_factor_err": null,
+  "log_bayes_factor_convention": "log Z_frozen - log Z_ocean",
+  "log_posterior_odds": -196.76042143061966,
+  "P_frozen": 3.532114029375659e-86,
+  "P_ocean": 1.0,
+  "one_sided": false,
+  "prior_odds": {
+   "frozen": 0.5,
+   "ocean": 0.5
+  },
+  "log_Z": {
+   "frozen": -203.85683591403736,
+   "ocean": -7.096414483417696
+  },
+  "log_Z_err": {
+   "frozen": null,
+   "ocean": 0.008753044612321112
+  },
+  "favoured": "ocean",
+  "notes": [
+   "No sampler log_Z uncertainty was supplied for at least one branch; the quoted log B carries NO numerical error budget.",
+   "Each evidence is integrated over its OWN support (frozen 3 free parameters, ocean 5). The branches are not nested and no discrete theta coordinate exists; the prior odds below are DECLARED, not inferred."
+  ]
+ },
+ "labels": "log_Z_frozen entries are UPPER BOUNDS, not estimates; log B values are upper bounds on log Z_frozen - log Z_ocean"
+}
