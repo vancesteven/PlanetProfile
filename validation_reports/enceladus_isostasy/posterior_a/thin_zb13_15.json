@@ -1,0 +1,24 @@
+{
+ "config": "/Users/svance/src/planetprofile-genai/validation_reports/enceladus_isostasy/posterior_a/thin_config.json",
+ "cache": "/Users/svance/scratch/enceladus_zbw_production_cache.pkl",
+ "central_loglike": -3.6651398750465702,
+ "n": 5000,
+ "accepted": 5000,
+ "rejected": 0,
+ "exceptions": 0,
+ "reject_reasons": {},
+ "ms_per_call": 6.589329683408141,
+ "best_prior_draw": {
+  "loglike": -318.1605933007101,
+  "theta": {
+   "zb_km": 14.986801467092125,
+   "log10_wOcean_ppt": -0.5848429891092398,
+   "rho_ice_kgm3": 934.8652306367832,
+   "rho_rock_kgm3": 2404.3372009444975,
+   "compensation_C2": 0.8133247882938247,
+   "libration_sys_frac": -0.004411469226887112
+  }
+ },
+ "rejected_zb_logw": [],
+ "pass": true
+}

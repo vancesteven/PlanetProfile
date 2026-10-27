@@ -3,7 +3,17 @@
 Big-picture program map: `plans/STRATEGY.md` (production line states,
 what current work buys). This file is the tactical log.
 
-Updated: 2026-10-27 (Opus 5.5: **Run (a) full posterior on the Mac: sampling verified; reviewer PASS WITH CONCERNS** (validation_reports/enceladus_isostasy/posterior_a/README.md, zb_w_joint.png).
+Updated: 2026-10-27b (Opus 5.5: **Run (a) different-seed replicate + thin check: both PASS; reviewer MAJOR closed; run (a) sampling `verified`.**
+   - **Seed 2027 vs seed 75:**
+     - ESS 16,061 vs 16,213.
+     - log Z −7.111 ± 0.006 vs −7.096 ± 0.009.
+     - All six parameters: mean shift ≤ 1.35 MC-SE and ≤ 0.015 posterior sd, sd ratio within 1%, weighted KS ≤ 0.010 (1% critical ≈ 0.018).
+     - zb 26.78 vs 26.76 km.
+   - **Thin check:** at zb 13–15 km, 5000/5000 accepted, best loglike −318 (bar −50), so the None-corner hole doesn't affect (a).
+   - Record: `validation_reports/enceladus_isostasy/posterior_a/README.md`.
+   - Scientific acceptance as a paper result is still `implemented, unverified`.
+   - **Next (Mac):** (g) w uniform in ppt, then (h) prior-only via direct MC; the hole matters for (h).)
+Prior: 2026-10-27 (Opus 5.5: **Run (a) full posterior on the Mac: sampling verified; reviewer PASS WITH CONCERNS** (validation_reports/enceladus_isostasy/posterior_a/README.md, zb_w_joint.png).
    - Same-seed repeats bit-identical: 1511 s and 180k calls each, Kish ESS 16,213, log Z −7.096 ± 0.009. All 116/1000 preflight rejects are None-corner cache cells at zb 5.1–13 km.
    - zb 26.76 +0.98/−0.89 km; ρ_s 2411 ± 40; C2 0.81 ± 0.09; C/MR² 0.3324 ± 0.0017; corr(ρ_s, C2) −0.877. w and ρ_ice equal their priors. σ ratios vs Fisher C are 1.05–1.19.
    - zb by w: median 26.6 km for log10 w < 1, rising to 27.45 at [1.75, 2). The shift is less than 1σ.

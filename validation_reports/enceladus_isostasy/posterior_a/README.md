@@ -70,3 +70,33 @@ zb 1.19, rho_rock 1.07, C2 1.05, C/MR² 1.05), and the Fisher-correlation resolu
   Do not present C/MR² as a measurement until (h) shows the prior pushforward is much wider.
 - Next, in order: seed replicate + thin check; (g) w uniform in ppt (expect zb +0.5–0.8 km);
   (h) via direct prior MC; injections at log10 w ≈ 1.7 and rho_ice 918/933; rho_ice prior variants; Fisher at the MAP.
+
+## Different-seed replicate and thin check (2026-10-27): both PASS, reviewer MAJOR closed
+
+**Different-seed replicate (seed 2027).** Produced with `SEED=2027 REPS=1 plans/cluster/enceladus_posterior_a.sh` (1472 s). The result is in `../posterior_a_seed2027/`.
+- Kish ESS: 16,061 vs 16,213 for seed 75.
+- log Z: −7.1106 ± 0.0065 vs −7.0964 ± 0.0088. The difference is 0.014, within 1.3 combined σ.
+
+Per-parameter comparison, seed 75 vs seed 2027:
+
+| param | 16/50/84%, seed 75 | 16/50/84%, seed 2027 | Δmean/SE | Δmean/sd | sd ratio | weighted KS |
+|---|---|---|---|---|---|---|
+| zb_km | 25.87 / 26.76 / 27.74 | 25.87 / 26.78 / 27.76 | +1.25 | +0.014 | 1.009 | 0.0085 |
+| log10_wOcean_ppt | −0.52 / 0.51 / 1.53 | −0.50 / 0.52 / 1.55 | +1.35 | +0.015 | 0.996 | 0.0100 |
+| rho_ice_kgm3 | 918.2 / 924.9 / 931.8 | 918.2 / 924.9 / 931.8 | −0.07 | −0.001 | 0.997 | 0.0084 |
+| rho_rock_kgm3 | 2372.9 / 2410.7 / 2453.2 | 2373.5 / 2410.7 / 2453.3 | +0.13 | +0.001 | 1.001 | 0.0091 |
+| compensation_C2 | 0.718 / 0.814 / 0.906 | 0.718 / 0.815 / 0.908 | +0.76 | +0.009 | 1.009 | 0.0085 |
+| libration_sys_frac | −0.0039 / 0 / 0.0039 | −0.0039 / 0 / 0.0040 | +0.34 | +0.004 | 1.009 | 0.0064 |
+
+- Every mean shift is ≤ 1.35 Monte-Carlo SE and ≤ 0.015 posterior sd.
+- Every sd ratio is within 1% of 1.
+- Every weighted KS distance is below the 1% two-sample critical value, about 0.018 at the combined ESS.
+- The zb headline shifts by 0.015 km (seed 2027 − seed 75), far below its ~0.9 km width.
+
+So the Monte-Carlo error is negligible against the posterior widths.
+
+**Thin check.** `THIN_CHECK=1` drew 5000 prior draws at zb 13–15 km. All were accepted (0 rejects, 0 exceptions). The best loglike was **−318.2**, far below the reviewer's −50 bar and the central −3.67. The None-corner hole at zb ≤ 13 km sits where the likelihood is negligible, so it does not affect (a).
+
+Status of the run (a) posterior:
+- Sampling, reproducibility and Monte-Carlo error: **`verified`**. The evidence is the table above and `thin_zb13_15.json`.
+- Scientific acceptance as a paper result: still `implemented, unverified`, pending (g), (h) and the remaining reviewer items. The hole still matters for (h) and for SBI prior draws.
