@@ -1,0 +1,25 @@
+{
+ "n_kept": 1000953,
+ "n_request": 1120900,
+ "seeds_ok": true,
+ "single_config_hash": [
+  "afcb99011de28946"
+ ],
+ "single_cache_sha": [
+  "a572f1f571f321be9304af6c5750d20e663502590e42b5ad8d25a29f676d2bbd"
+ ],
+ "servable_fraction": 0.8929904540993844,
+ "servable_ok": true,
+ "noise_sd_over_sigma_infl": {
+  "C20": 1.0006595781686245,
+  "C22": 1.0002973565308033,
+  "C30": 0.9993821696372082,
+  "libration_deg": 0.9993756211549163
+ },
+ "noise_corr_C20_C22": 0.4716121997187393,
+ "noise_ok": true,
+ "likelihood_path_max_rel_diff": 0.0,
+ "likelihood_path_ok": true,
+ "x_finite": true,
+ "G0_pass": true
+}
