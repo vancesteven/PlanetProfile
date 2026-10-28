@@ -1199,6 +1199,7 @@ class SBIRunner:
         progress_cb: Optional[Callable] = None,
         truncate_bounds: Optional[Dict[str, Tuple[float, float]]] = None,
         n_derived: Optional[int] = None,
+        samples: Optional[np.ndarray] = None,
     ):
         """Steps 2-4 of the SBI pipeline: condition the (already loaded or
         trained) flow on ``x_obs``, recompute derived quantities with the
@@ -1224,6 +1225,12 @@ class SBIRunner:
         (``get_best_fit`` uses ``nanargmax``). Full-density flow_log_prob
         stays over ALL samples. None => recompute all (the artifact/validation
         path; identical to the historical behavior).
+
+        ``samples`` (n, D), raw theta in ``param_names`` order: posterior
+        draws already taken from THIS flow at ``x_obs`` by a caller-side
+        scope guard (e.g. enceladus_sbi_guard.guarded_posterior, which drops
+        cache-hole draws). Step 2's draw is skipped and these rows are
+        packaged as-is; incompatible with ``truncate_bounds``.
         """
         from .inference_core import InferenceResult
 
@@ -1238,7 +1245,18 @@ class SBIRunner:
 
         # --- Step 2: condition on x_obs --------------------------------------
         kept_fraction = None
-        if truncate_bounds:
+        if samples is not None:
+            if truncate_bounds:
+                raise ValueError("samples= and truncate_bounds are mutually "
+                                 "exclusive (truncate before passing samples)")
+            samples = np.asarray(samples, dtype=float)
+            if samples.ndim != 2 or samples.shape[1] != len(self.param_names):
+                raise ValueError(
+                    f"samples must be (n, {len(self.param_names)}); got "
+                    f"{samples.shape}")
+            if len(samples) == 0:
+                raise ValueError("samples is empty")
+        elif truncate_bounds:
             self._validate_truncation(truncate_bounds)
             idx_map = {name: self.param_names.index(name)
                        for name in truncate_bounds}
@@ -1288,7 +1306,7 @@ class SBIRunner:
                     f"{n_drawn} draws). Results are valid but consider MCMC "
                     f"mode with tighter priors for efficiency.")
             samples = samples[:n_posterior_samples]
-        else:
+        elif samples is None:
             samples = self.sample_posterior(
                 x_obs, n_samples=n_posterior_samples, seed=seed
             )
@@ -1555,6 +1573,7 @@ class SBIRunner:
         progress_callback: Optional[Callable] = None,
         validated_version_pairs=None,
         n_derived: Optional[int] = None,
+        samples: Optional[np.ndarray] = None,
     ):
         """Amortized inference from a pretrained artifact — NEVER trains.
 
@@ -1580,6 +1599,8 @@ class SBIRunner:
                 (see ``_condition_and_package``).
             progress_callback: Same contract as run().
             validated_version_pairs: See ``_load_artifact_dict``.
+            samples: Optional pre-drawn (guarded) posterior samples from this
+                artifact at ``x_obs``; see ``_condition_and_package``.
 
         Returns:
             InferenceResult (metadata['mode'] = 'amortized').
@@ -1655,6 +1676,7 @@ class SBIRunner:
             progress_cb=_progress,
             truncate_bounds=truncate_bounds,
             n_derived=n_derived,
+            samples=samples,
         )
         result.metadata['mode'] = 'amortized'
         result.metadata['artifact_created_utc'] = artifact.get('created_utc')

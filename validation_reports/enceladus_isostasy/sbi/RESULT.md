@@ -66,4 +66,4 @@ My hypothesis was that the log10_w G3 defect was the hole seen through the prior
   - x_obs is accepted and validated, with 0 % dropped and 0 % thin;
   - the thinnest thin-shard x is refused (more than 1 %, "use pocoMC");
   - an off-datum x is accepted with the not-validated label.
-- **Scope text on the model card and in the GUI: NOT YET.** The artifact is not wired into the GUI. Until it is, the status is `implemented, unverified` for GUI use.
+- **Scope text on the model card and in the GUI: `verified` (2026-10-28).** GUI slot `enceladus_ocean6D_rhorock_posterior_1m.pt` in `PlanetProfileApp/pages/Inference.py` shows `SCOPE_TEXT` verbatim, disables prior truncation, and routes every run through `guarded_posterior`. Evidence: `tests/enceladus_gui_slot_test.py` (3 passed: scope text equals `SCOPE_TEXT`; Cassini datum accepted and validated, 0 % dropped; thin-shell x refused, no posterior) and in-browser screenshots from the verifier-streamlit scenario `enceladus_scope_guard_slot` (config scope caption, validated banner, refusal error). INDEX row added.

@@ -1772,25 +1772,69 @@ _SBI_ARTIFACT_SLOTS = {
                        'ablation). Published C/MR² is a display reference '
                        'only (no interior-C/MR² claim until Task D, #36).'),
     },
-    'enceladus_cassini_awaiting_artifact': {
+    'enceladus_ocean6D_rhorock_posterior_1m.pt': {
         'slot_id': 'enceladus_cassini',
-        'artifact_filename': None,
-        'artifact_status': 'awaiting_artifact',
-        'label': ('1D · Cassini-Enceladus (Seawater, isostasy) — '
-                  'awaiting artifact'),
+        'label': ('1D · Cassini-Enceladus (Seawater, isostasy) — ocean '
+                  'branch 6D · C₂₀/C₂₂/C₃₀ + forced libration '
+                  '(scope-bound)'),
         'bodyname': 'Enceladus',
-        'config_path': None,
-        'cache_path': None,
-        'default_obs': None,
-        'gate_status': 'TODO — awaiting Enceladus artifact and validation',
-        'scope_note': ('Frozen-design intent: condition on C₂₀/C₂₂/C₃₀ '
-                       'and forced libration; use H&M shape-input isostasy; '
-                       'sample ice-shell thickness zb × Seawater salinity; '
-                       'and display the orbital plus non-stationary PPO '
-                       'induction-response bands without conditioning on '
-                       'them. Source: plans/active/'
-                       'enceladus-config-freeze.md. Artifact, config, and '
-                       'cache await the validated campaign handoff.'),
+        'config_path': ('PlanetProfile/Inference/configs/'
+                        'enceladus_cassini_isostasy_ocean6D_rhorock.json'),
+        'cache_path': ('PlanetProfile/Test/mcmc_results/Enceladus/'
+                       'Cassini_isostasy/'
+                       'enceladus_seawater_zbw_grid_2d.pkl'),
+        # Park et al. 2024 Table 8 Case 2 (unnormalized, R_ref 256.6 km) and
+        # the Park erratum libration 0.092 deg = the config centrals.
+        'default_obs': {
+            'C20': -0.00547745, 'C22': 0.0015179, 'C30': 0.00017782,
+            'libration_deg': 0.092,
+        },
+        # Query-time scope guard (reviewer ruling 2026-10-27,
+        # validation_reports/enceladus_isostasy/sbi/RESULT.md): every run goes
+        # through enceladus_sbi_guard.guarded_posterior -- REFUSED if > 1 % of
+        # the flow draws sit at zb < 15 km or in a cache-hole cell; otherwise
+        # hole draws are dropped and the fraction shown. Prior truncation is
+        # disabled (the guard is defined on the untruncated flow).
+        'scope_guard': 'enceladus_ocean_branch',
+        # "Validated" applies ONLY to these x (exact match): the Cassini datum
+        # and the six G4 injection data sets (G4 PASS, gates_report.json).
+        'validated_x': [
+            # Cassini datum (pocoMC run a)
+            {'C20': -0.00547745, 'C22': 0.0015179, 'C30': 0.00017782, 'libration_deg': 0.092},
+            # G4 injection inj_w18
+            {'C20': -0.005483765643940255, 'C22': 0.0015301853065403759, 'C30': 0.0002111288579191279, 'libration_deg': 0.09303763495830122},
+            # G4 injection inj_ri918
+            {'C20': -0.005449659345932002, 'C22': 0.0015224097735743018, 'C30': 0.00020701901896474906, 'libration_deg': 0.09095101528413707},
+            # G4 injection inj_ri933
+            {'C20': -0.0054715818737087005, 'C22': 0.001528681698616003, 'C30': 0.00020778363573792743, 'libration_deg': 0.0902804701557991},
+            # G4 injection inj_noise1
+            {'C20': -0.005447262781742414, 'C22': 0.0015373956497086597, 'C30': 0.00021853604610850807, 'libration_deg': 0.08671647866375339},
+            # G4 injection inj_noise2
+            {'C20': -0.005453052856414348, 'C22': 0.0015176334609094256, 'C30': 0.0001936882554023022, 'libration_deg': 0.08330154821064689},
+            # G4 injection inj_noise3
+            {'C20': -0.005384552342706852, 'C22': 0.0014877495870388743, 'C30': 0.0002214657024800348, 'libration_deg': 0.08892264154018267},
+        ],
+        'gate_status': ('SCOPE-BOUND 2026-10-27: G0/G1/G2/G4 PASS, G3 '
+                        '(log10_w ranks) and G5 (thin-shell hole leakage) '
+                        'FAIL; deployed with refusal guard. '
+                        'validation_reports/enceladus_isostasy/sbi/'
+                        'RESULT.md'),
+        # Verbatim deploy-scope text (RESULT.md); must equal
+        # enceladus_sbi_guard.SCOPE_TEXT (tests/enceladus_gui_slot_test.py).
+        'scope_note': ('Enceladus ocean-branch SBI (scope-bound). Validated '
+                       'against pocoMC at the Cassini datum and on six '
+                       'off-nominal injection data sets. It is not globally '
+                       'validated: preregistered gates G3 (log10_w rank '
+                       'uniformity, diagnosed as held-out sampling '
+                       'fluctuation) and G5 (thin-shell cache-hole leakage) '
+                       'FAILED. Queries whose posterior puts more than 1 % '
+                       'mass at zb < 15 km or in a cache-hole cell are '
+                       'refused; use pocoMC for those. Below that threshold, '
+                       'draws falling in hole cells are dropped and the '
+                       'fraction is shown. Results at other x are '
+                       '"effective-prior posterior; servable cells only; not '
+                       'individually validated". Cite pocoMC run (a), not '
+                       'this artifact, for published values.'),
     },
 }
 
@@ -2267,7 +2311,16 @@ def render_amortized_config():
     # training config; the generic model-assumptions expander stays
     # slot-agnostic because it renders before slot selection).
     with st.expander("🧲 How magnetic induction constrains this model"):
-        if 'clipper' in slot_ref:
+        if slot.get('bodyname') == 'Enceladus':
+            st.markdown(
+                "This model does **not** use magnetic induction: it is "
+                "conditioned only on the Cassini gravity coefficients "
+                "C₂₀/C₂₂/C₃₀ and the forced libration amplitude, and no "
+                "induction support cut was applied in training. Saturn's "
+                "spin-aligned field and the drifting PPO driver give no "
+                "stable excitation vector (Saur et al. 2024), so induction "
+                "is not a conditioning channel for Enceladus.")
+        elif 'clipper' in slot_ref:
             st.markdown(
                 "This model conditions on **Europa Clipper-era induction "
                 "measurements directly**: 14 channels "
@@ -2330,45 +2383,56 @@ def render_amortized_config():
     # bound means "use the trained edge" (no truncation on that side).
     default_trunc = slot.get('default_truncate') or {}
     has_default_trunc = any(name in default_trunc for name in bounds)
-    with st.expander("✂️ Prior truncation (exact, within trained bounds)",
-                     expanded=has_default_trunc):
-        st.caption("Narrowing a uniform prior post hoc is exact (sample "
-                   "filtering). Widening requires retraining.")
-        if has_default_trunc:
-            st.info("⚙️ This artifact ships with a **default truncation** "
-                    "applied (validated-domain / support-edge correction). "
-                    "Reset a slider to the full trained range to override.")
-        for name, (lo, hi) in bounds.items():
-            dlo, dhi = default_trunc.get(name, (None, None))
-            init = (float(dlo) if dlo is not None else lo,
-                    float(dhi) if dhi is not None else hi)
-            span = hi - lo
-            if 0 < span < 1e-2:
-                # Tiny-magnitude parameters (non-hydrostatic Stokes
-                # offsets, O(1e-5)): the raw float slider displays the
-                # whole range as 0.0 and its display rounding throws
-                # out-of-bounds on adjustment (user 2026-07-25). Rescale
-                # to ×10^exp units so the slider operates on O(1)-O(100)
-                # numbers, then convert back.
-                exp = int(np.floor(np.log10(span))) - 1
-                scale = 10.0 ** exp
-                sel_s = st.slider(
-                    f'{name}  (×1e{exp:+d})',
-                    min_value=lo / scale, max_value=hi / scale,
-                    value=(init[0] / scale, init[1] / scale),
-                    key=f'amort_trunc_{slot_key}_{name}')
-                sel = (max(lo, float(sel_s[0]) * scale),
-                       min(hi, float(sel_s[1]) * scale))
-                at_edges = (abs(sel[0] - lo) < scale * 1e-6
-                            and abs(sel[1] - hi) < scale * 1e-6)
-                if not at_edges:
-                    truncate_bounds[name] = sel
-            else:
-                sel = st.slider(name, min_value=lo, max_value=hi,
-                                value=init,
-                                key=f'amort_trunc_{slot_key}_{name}')
-                if sel != (lo, hi):
-                    truncate_bounds[name] = (float(sel[0]), float(sel[1]))
+    _scope_guarded = bool(slot.get('scope_guard'))
+    if _scope_guarded:
+        # The query-time scope guard (refusal tier) is defined on the
+        # UNTRUNCATED flow draws (reviewer ruling 2026-10-27); truncation
+        # would change the draws it measures, so it is not offered.
+        with st.expander("✂️ Prior truncation (disabled for this model)"):
+            st.caption("Prior truncation is disabled for this model: its "
+                       "query-time scope guard is evaluated on the "
+                       "untruncated flow. Use pocoMC (MCMC mode) to change "
+                       "priors.")
+    else:
+        with st.expander("✂️ Prior truncation (exact, within trained bounds)",
+                         expanded=has_default_trunc):
+            st.caption("Narrowing a uniform prior post hoc is exact (sample "
+                       "filtering). Widening requires retraining.")
+            if has_default_trunc:
+                st.info("⚙️ This artifact ships with a **default truncation** "
+                        "applied (validated-domain / support-edge correction). "
+                        "Reset a slider to the full trained range to override.")
+            for name, (lo, hi) in bounds.items():
+                dlo, dhi = default_trunc.get(name, (None, None))
+                init = (float(dlo) if dlo is not None else lo,
+                        float(dhi) if dhi is not None else hi)
+                span = hi - lo
+                if 0 < span < 1e-2:
+                    # Tiny-magnitude parameters (non-hydrostatic Stokes
+                    # offsets, O(1e-5)): the raw float slider displays the
+                    # whole range as 0.0 and its display rounding throws
+                    # out-of-bounds on adjustment (user 2026-07-25). Rescale
+                    # to ×10^exp units so the slider operates on O(1)-O(100)
+                    # numbers, then convert back.
+                    exp = int(np.floor(np.log10(span))) - 1
+                    scale = 10.0 ** exp
+                    sel_s = st.slider(
+                        f'{name}  (×1e{exp:+d})',
+                        min_value=lo / scale, max_value=hi / scale,
+                        value=(init[0] / scale, init[1] / scale),
+                        key=f'amort_trunc_{slot_key}_{name}')
+                    sel = (max(lo, float(sel_s[0]) * scale),
+                           min(hi, float(sel_s[1]) * scale))
+                    at_edges = (abs(sel[0] - lo) < scale * 1e-6
+                                and abs(sel[1] - hi) < scale * 1e-6)
+                    if not at_edges:
+                        truncate_bounds[name] = sel
+                else:
+                    sel = st.slider(name, min_value=lo, max_value=hi,
+                                    value=init,
+                                    key=f'amort_trunc_{slot_key}_{name}')
+                    if sel != (lo, hi):
+                        truncate_bounds[name] = (float(sel[0]), float(sel[1]))
 
     # --- Observables: values live, sigmas locked ---
     st.markdown("#### 🔭 Observables (condition the posterior)")
@@ -2719,6 +2783,8 @@ def render_amortized_config():
         'sector_warning_corrected': slot.get('sector_warning_corrected'),
         'sector_warning_fallback': slot.get('sector_warning_fallback'),
         'validated_version_pairs': slot.get('validated_version_pairs', ()),
+        'scope_guard': slot.get('scope_guard'),
+        'validated_x': slot.get('validated_x', ()),
     }
 
 
@@ -2892,6 +2958,32 @@ def render_amortized_run_button(spec, InferenceConfig):
 
         runner = SBIRunner(config)
 
+        # Query-time scope guard (Enceladus ocean branch, reviewer ruling
+        # 2026-10-27): the guard draws from the flow, REFUSES when > 1 % of
+        # draws sit at zb < 15 km or in a cache-hole cell, and otherwise
+        # hands back the hole-dropped draws, which are packaged as-is.
+        _guarded = None
+        if spec.get('scope_guard') == 'enceladus_ocean_branch':
+            from PlanetProfile.Inference.enceladus_sbi_guard import (
+                guarded_posterior)
+            with st.spinner("Checking the model's validated scope "
+                            "(scope guard)..."):
+                _guarded = guarded_posterior(
+                    spec['runner'], runner._get_mcmc_runner(), spec['x_obs'],
+                    validated_x=spec.get('validated_x', ()),
+                    n_draws=spec['n_posterior_samples'], seed=spec['seed'])
+            if not _guarded:
+                st.session_state.inference_results = None
+                st.error(
+                    "🚫 **Refused by the scope guard** — no posterior is "
+                    f"returned. {_guarded.reason}  \n"
+                    f"zb < 15 km: {100 * _guarded.frac_thin:.2f} % · "
+                    f"cache-hole cells: {100 * _guarded.frac_hole:.2f} % · "
+                    f"union: {100 * _guarded.frac_union:.2f} % of "
+                    f"{_guarded.n_draws:,} draws (threshold 1 %).")
+                st.caption(f"ℹ️ {_guarded.scope_text}")
+                return
+
         progress_placeholder = st.empty()
 
         def progress_callback(d):
@@ -2918,7 +3010,21 @@ def render_amortized_run_button(spec, InferenceConfig):
                     progress_callback=progress_callback,
                     validated_version_pairs=spec.get(
                         'validated_version_pairs', ()),
+                    samples=(_guarded.samples if _guarded else None),
                 )
+        if _guarded:
+            # Scope-guard provenance travels with the result (and export).
+            result.metadata.update({
+                'scope_guard': {
+                    'validated': bool(_guarded.validated),
+                    'label': _guarded.label,
+                    'dropped_fraction': float(_guarded.dropped_fraction),
+                    'frac_thin': float(_guarded.frac_thin),
+                    'frac_hole': float(_guarded.frac_hole),
+                    'n_draws': int(_guarded.n_draws),
+                    'scope_text': _guarded.scope_text,
+                    **_guarded.meta,
+                }})
         if _corr is not None and not _corr:
             result.metadata.update({'is_corrected': False,
                                     'is_fallback_reason': _corr.reason})
@@ -2940,6 +3046,10 @@ def render_amortized_run_button(spec, InferenceConfig):
             _record_amort_runtime(_slot_key, result)
         kept = result.metadata.get('kept_fraction')
         msg = "✅ Amortized posterior ready."
+        if _guarded:
+            msg += (f" Scope guard: accepted; {100 * _guarded.dropped_fraction:.2f} % "
+                    f"of {_guarded.n_draws:,} draws fell in cache-hole cells "
+                    f"and were dropped ({len(_guarded.samples):,} kept).")
         if _corr:
             msg += " (precomputed importance-sampling correction loaded.)"
         if kept is not None:
@@ -3192,6 +3302,21 @@ def render_results():
               .get('sector_warning'))
     if _swarn:
         st.warning(f"🔬 {_swarn}")
+
+    # Scope-guard label (Enceladus ocean branch): validated only at the
+    # Cassini datum and the six G4 injection sets; every other accepted x is
+    # labelled. The verbatim deploy-scope text travels with every result.
+    _sg = (result.metadata or {}).get('scope_guard')
+    if _sg:
+        _sg_head = (f"✅ {_sg['label']}." if _sg.get('validated')
+                    else f"⚠️ **{_sg['label']}.**")
+        _sg_msg = (f"{_sg_head}  Scope guard: "
+                   f"{100 * _sg['dropped_fraction']:.2f} % of "
+                   f"{_sg['n_draws']:,} flow draws fell in cache-hole cells "
+                   f"and were dropped; {100 * _sg['frac_thin']:.2f} % at "
+                   f"zb < 15 km.")
+        (st.success if _sg.get('validated') else st.warning)(_sg_msg)
+        st.caption(f"ℹ️ {_sg['scope_text']}")
 
     st.markdown("### 📊 Inference Results")
 
