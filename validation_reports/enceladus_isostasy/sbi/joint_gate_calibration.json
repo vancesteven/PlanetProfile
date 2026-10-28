@@ -1,0 +1,51 @@
+{
+ "kind": "enceladus_sbi_joint_gate_calibration",
+ "note": "REFERENCE draws only; no flow. Fixes k and the floor recipe before any training.",
+ "reference": "pooled run (a) seeds 75 + 2027, treatment A",
+ "ess_ref": 32272.726175162206,
+ "n_ref_draws": 32272,
+ "n_flow": 40000,
+ "whitened_params": [
+  "zb_km",
+  "rho_rock_kgm3",
+  "compensation_C2"
+ ],
+ "energy_subsample_m": 2000,
+ "null_reps": 100,
+ "rng_seed": 20261027,
+ "corr_ref_rho_s_C2": -0.8763845356178669,
+ "energy_null": {
+  "median": 0.0019362471874382337,
+  "p99": 0.006162276346208148
+ },
+ "dcorr_null": {
+  "median": 0.0007728215740695488,
+  "p99": 0.003361448511926074
+ },
+ "k": 2.0,
+ "energy_gate": 0.012324552692416295,
+ "dcorr_gate": 0.05,
+ "null_false_fail_rate": {
+  "energy": 0.0,
+  "dcorr": 0.0
+ },
+ "mutation": {
+  "1.0": {
+   "energy_min": 0.28467508722518753,
+   "energy_median": 0.3085598275184911,
+   "energy_fail_rate": 1.0,
+   "dcorr_min": 0.8637606850280956,
+   "dcorr_fail_rate": 1.0,
+   "joint_fail_rate": 1.0
+  },
+  "0.2": {
+   "energy_min": 0.011004365920662895,
+   "energy_median": 0.01516323870657632,
+   "energy_fail_rate": 0.75,
+   "dcorr_min": 0.1655123004353899,
+   "dcorr_fail_rate": 1.0,
+   "joint_fail_rate": 1.0
+  }
+ },
+ "mutation_sanity_pass": true
+}
