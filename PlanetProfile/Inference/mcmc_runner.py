@@ -4248,6 +4248,15 @@ class MCMCRunner:
             # config. Added after the |Im| fold, NOT re-folded (see docstring).
             sigmas = np.array([float(self.config.observables[name][1])
                                for name in obs_names])
+            # The training generative model must match the likelihood, which
+            # inflates sigma by metadata.sigma_model_add (B15; _inflate_sigma
+            # in _make_flexible_log_likelihood). Configs without that key
+            # (every non-Enceladus campaign) are byte-identical.
+            _sma = ((getattr(self.config, 'metadata', {}) or {})
+                    .get('sigma_model_add', {}) or {})
+            if _sma:
+                sigmas = np.array([float(np.hypot(s_, float(_sma.get(n_, 0.0))))
+                                   for s_, n_ in zip(sigmas, obs_names)])
             noise_rng = np.random.default_rng(noise_seed)
             corr_cfg = (getattr(self.config, 'metadata', {}) or {}).get(
                 'observable_correlations', {}) or {}
@@ -4271,6 +4280,7 @@ class MCMCRunner:
                 'type': ('gaussian_correlated' if applied_corr
                          else 'gaussian_diagonal'),
                 'sigma': {name: float(s) for name, s in zip(obs_names, sigmas)},
+                'sigma_model_add_applied': (dict(_sma) if _sma else None),
                 'correlations': applied_corr or None,
                 'noise_seed': noise_seed,
                 'refold_im': False,
