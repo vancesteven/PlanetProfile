@@ -20,6 +20,9 @@ Output uses the MCMCRunner._precompute_ae_grid sidecar schema
 None}}) so a runner that requests these labels reloads it unchanged.
 
   python plans/scripts/enceladus_ae_sidecar.py --cache CACHE --out OUT [--workers 10]
+
+Resumable: finished nodes are checkpointed to OUT + '.partial' every 100
+nodes; a rerun with the same arguments skips them.
 """
 import argparse
 import os
@@ -85,14 +88,31 @@ def main():
     with open(a.cache, 'rb') as f:
         n = len(pickle.load(f)['structures'])
     t0 = time.time()
+    part = a.out + '.partial'
     grid, grid25 = {}, {}
+    if os.path.exists(part):
+        with open(part, 'rb') as f:
+            ck = pickle.load(f)
+        if ck.get('n') == n and ck.get('periods_hr') == freq:
+            grid, grid25 = ck['ae_grid'], ck['ae_grid_core25']
+            print(f'resuming: {len(grid)}/{n} nodes already done', flush=True)
+
+    def checkpoint():
+        with open(part + '.tmp', 'wb') as f:
+            pickle.dump({'n': n, 'periods_hr': freq, 'ae_grid': grid,
+                         'ae_grid_core25': grid25}, f)
+        os.replace(part + '.tmp', part)
+
+    todo = [i for i in range(n) if i not in grid]
     with ProcessPoolExecutor(a.workers, initializer=_init,
                              initargs=(a.cache, freq)) as ex:
-        for k, (i, r, r25) in enumerate(ex.map(_one, range(n), chunksize=8)):
+        for k, (i, r, r25) in enumerate(ex.map(_one, todo, chunksize=4)):
             grid[i] = r
             grid25[i] = r25
-            if (k + 1) % 100 == 0 or k + 1 == n:
-                print(f'{k + 1}/{n} nodes, {time.time() - t0:.0f} s', flush=True)
+            if (k + 1) % 100 == 0 or k + 1 == len(todo):
+                checkpoint()
+                print(f'{len(grid)}/{n} nodes, {time.time() - t0:.0f} s',
+                      flush=True)
     payload = {'key': {'labels': tuple(sorted(freq)), 'n': n,
                        'cache_size': os.path.getsize(a.cache)},
                'ae_grid': grid, 'ae_grid_core25': grid25,
@@ -102,6 +122,8 @@ def main():
     with open(tmp, 'wb') as f:
         pickle.dump(payload, f)
     os.replace(tmp, a.out)
+    if os.path.exists(part):
+        os.remove(part)
     print('wrote', a.out, 'non-None', sum(v is not None for v in grid.values()))
 
 
