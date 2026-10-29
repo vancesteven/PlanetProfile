@@ -3012,6 +3012,19 @@ def render_amortized_run_button(spec, InferenceConfig):
                         'validated_version_pairs', ()),
                     samples=(_guarded.samples if _guarded else None),
                 )
+        if spec.get('bodyname') == 'Enceladus':
+            # Induction DISPLAY reference (no conditioning, no support cut;
+            # config metadata.induction_provenance). Needs the precomputed
+            # per-node Ae sidecar next to the structure cache; absent => the
+            # panel says so instead of showing nothing.
+            from PlanetProfile.Inference.enceladus_induction_display import (
+                induction_display, sidecar_path_for)
+            _mr = runner._get_mcmc_runner()
+            _side = sidecar_path_for(Path(parent_directory) / spec['cache_path'])
+            result.metadata['enceladus_induction'] = (
+                induction_display(result.samples, result.param_names,
+                                  _mr.structure_data, _side)
+                or {'missing_sidecar': str(_side.name)})
         if _guarded:
             # Scope-guard provenance travels with the result (and export).
             result.metadata.update({
@@ -3266,6 +3279,67 @@ def _display_vector_fig(fig, *, key, download_label='plot'):
 def _display_corner(fig, *, key):
     """Show a corner figure inline as crisp SVG + PDF/PNG downloads."""
     _display_vector_fig(fig, key=key, download_label='corner plot')
+
+
+def _render_enceladus_induction(disp):
+    """Enceladus induction display reference: two core-conductivity curves,
+    orbital (primary) and synodic periods, vs Saur et al. 2024's 1-3 nT."""
+    import matplotlib.pyplot as plt
+    with st.expander("🧲 Induction response (display reference, not "
+                     "conditioned)", expanded=True):
+        if 'missing_sidecar' in disp:
+            st.info("Induction display unavailable: the precomputed Ae "
+                    f"sidecar `{disp['missing_sidecar']}` is not present "
+                    "next to the structure cache.")
+            return
+        from PlanetProfile.Inference.enceladus_induction_display import (
+            summarize)
+        summ = summarize(disp)
+        names = {'pp_core': 'PlanetProfile rock-core σ',
+                 'core_25Sm': 'imposed 25 S/m core (Saur scenario)'}
+        rows = []
+        for curve, per_d in summ.items():
+            o, sy = per_d.get('orbital', {}), per_d.get('synodic', {})
+            def f(d, fmt='{:.3g}'):
+                return (f"{fmt.format(d['p50'])} [{fmt.format(d['p16'])}, "
+                        f"{fmt.format(d['p84'])}]") if d and d['n'] else '—'
+            rows.append({
+                'core σ': names.get(curve, curve),
+                'orbital |Ae|': f(o.get('A')),
+                'orbital Φ (°)': f(o.get('phi_deg'), '{:.0f}'),
+                'orbital |B_ind| (nT)': f(o.get('B_nT')),
+                'synodic |Ae|': f(sy.get('A')),
+                'synodic |B_ind| band (nT)': (
+                    f"{sy['B_lo_nT']['p50']:.2g}–{sy['B_hi_nT']['p50']:.2g}"
+                    if sy.get('B_lo_nT', {}).get('n') else '—'),
+            })
+        st.table(rows)
+        sig = np.asarray(disp['sigma_ocean_Sm'], float)
+        if np.isfinite(sig).any():
+            s16, s50, s84 = np.nanpercentile(sig, [16, 50, 84])
+            st.caption(f"Posterior ocean conductivity σ_ocean: {s50:.3g} "
+                       f"[{s16:.3g}, {s84:.3g}] S/m (median [16, 84] %).")
+        lo, hi = disp['saur_candidate_nT']
+        fig, ax = plt.subplots(figsize=(7, 4))
+        colors = {'pp_core': 'tab:blue', 'core_25Sm': 'tab:orange'}
+        for curve, per_d in disp['curves'].items():
+            ae = (np.asarray(per_d['orbital']['Ae_re'])
+                  + 1j * np.asarray(per_d['orbital']['Ae_im']))
+            b = np.abs(ae) * disp['bexc_nT']['orbital']
+            ok = np.isfinite(b) & np.isfinite(sig)
+            if ok.any():
+                ax.scatter(sig[ok], b[ok], s=4, alpha=0.4,
+                           color=colors.get(curve), label=names.get(curve, curve))
+        ax.axhspan(lo, hi, color='0.6', alpha=0.25,
+                   label=f'Saur et al. 2024 candidate {lo:g}–{hi:g} nT')
+        ax.set_xscale('log')
+        ax.set_xlabel('ocean conductivity σ_ocean (S/m)')
+        ax.set_ylabel('orbital |B_ind| = |Ae| × 5.0 nT')
+        ax.legend(fontsize=8, loc='upper left')
+        fig.tight_layout()
+        st.pyplot(fig)
+        plt.close(fig)
+        st.caption(f"ℹ️ {disp['caption']}")
 
 
 def render_results():
@@ -3850,6 +3924,9 @@ def render_results():
 
     # Posterior induction response (complex plane) — only when the run
     # carried induction (metadata packaged by both runners since 2026-07).
+    _enc_ind = (result.metadata or {}).get('enceladus_induction')
+    if _enc_ind:
+        _render_enceladus_induction(_enc_ind)
     _ind_ae = (result.metadata or {}).get('induction_Ae')
     if _ind_ae:
         with st.expander("🧲 Induction Response (Ae) Posterior", expanded=True):
