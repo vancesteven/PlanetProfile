@@ -92,6 +92,17 @@ def test_cassini_datum_accepted_validated_with_scope_text():
     assert sg["scope_text"] == SCOPE_TEXT
     assert len(res.samples) == 1000
     assert "validated against pocoMC at this datum" in _text(app)
+    # Induction display reference (display only): both core curves present
+    # when the Ae sidecar ships next to the cache.
+    from PlanetProfile.Inference.enceladus_induction_display import (
+        CAPTION, sidecar_path_for)
+    ind = res.metadata["enceladus_induction"]
+    if sidecar_path_for(REPO / SLOT["cache_path"]).exists():
+        assert set(ind["curves"]) == {"pp_core", "core_25Sm"}
+        assert len(ind["curves"]["pp_core"]["orbital"]["Ae_re"]) == 1000
+        assert CAPTION in _text(app)
+    else:
+        assert "missing_sidecar" in ind
 
 
 @pytest.mark.skipif(not _READY, reason="Enceladus artifact / cache absent")
