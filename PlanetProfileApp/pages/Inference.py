@@ -3331,7 +3331,7 @@ def _render_enceladus_induction(disp):
                 ax.scatter(sig[ok], b[ok], s=4, alpha=0.4,
                            color=colors.get(curve), label=names.get(curve, curve))
         ax.axhspan(lo, hi, color='0.6', alpha=0.25,
-                   label=f'Saur et al. 2024 candidate {lo:g}–{hi:g} nT')
+                   label=f'Saur et al. 2024 flyby candidate {lo:g}–{hi:g} nT (scale only)')
         ax.set_xscale('log')
         ax.set_xlabel('ocean conductivity σ_ocean (S/m)')
         ax.set_ylabel('orbital |B_ind| = |Ae| × 5.0 nT')

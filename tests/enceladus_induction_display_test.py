@@ -95,3 +95,28 @@ def test_out_of_box_nan_and_summary(setup):
 def test_missing_sidecar_returns_none(setup, tmp_path):
     sd, zb, w, _ = setup
     assert _run(sd, tmp_path / 'absent.pkl', [27.0], [3.0]) is None
+
+
+def test_core25_mask_all_nodes():
+    """Reviewer 2026-10-29: the imposed 25 S/m core changes every layer below
+    the ocean floor and nothing in the ocean or shell, at every ocean node."""
+    sys.path.insert(0, str(REPO / 'plans/scripts'))
+    from enceladus_ae_sidecar import core25
+    sd = pickle.load(open(CACHE, 'rb'))
+    n_ocean = 0
+    for s in sd['structures']:
+        if not s or not s.get('D_ocean_km'):
+            continue
+        t = core25(s)
+        r = np.asarray(s['rSigChange_m'], float)
+        a = np.asarray(s['sigmaLayers_Sm'], float)
+        b = np.asarray(t['sigmaLayers_Sm'], float)
+        r_top = s['R_body_m'] - 1e3 * s['zb_km_actual']
+        r_floor = r_top - 1e3 * s['D_ocean_km']
+        changed = b == 25.0
+        assert changed.any()
+        assert np.all(r[changed] <= r_floor + 1.0)
+        above = r > r_floor + 1.0
+        np.testing.assert_array_equal(b[above], a[above])
+        n_ocean += 1
+    assert n_ocean > 3000
