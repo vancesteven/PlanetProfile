@@ -1,0 +1,4371 @@
+"""
+MCMC runner using pocoMC for Bayesian inference.
+
+Refactored from Test41-44 scripts into reusable MCMCRunner class.
+Supports Andrade and Maxwell rheologies with optional Arrhenius viscosity.
+
+Author: PlanetProfile Team
+Date: 2026-04-29
+"""
+import json
+import numpy as np
+import logging
+import os
+import subprocess
+import threading
+import time
+import pickle
+from datetime import datetime, timezone
+from typing import Dict, Optional, Any, Callable, Tuple
+from pathlib import Path
+
+from PlanetProfile.Inference.grid_interp_2d import (
+    is_2d_cache,
+    is_zbw_cache,
+    bilinear_weights,
+    resolve_none_corners,
+    blend_complex,
+    wOcean_ppt_from_theta,
+    invert_d_iceIh_to_Tb,
+)
+
+log = logging.getLogger('PlanetProfile')
+
+
+# Max |period| mismatch (hr) allowed when mapping a canonical Bind_
+# excitation label to a Be1xyz file row by closest period. Europa's tightest
+# valid match ('orbital'->'adjusted orbital') is ~0.003 hr and its nearest
+# wrong neighbor is ~0.07 hr away, so 0.1 hr accepts every correct Europa
+# match while rejecting a cross-excitation mis-rank (scientific review
+# 2026-07-14, margin guard).
+BE_PERIOD_MATCH_TOL_HR = 0.1
+
+# Frozen-branch per-sample loop-closure tolerance (invariant I-F5,
+# frozen-branch design ruling). The sampled rho_rock is mapped to a build-space
+# zb by the analytic mass bijection and must come back unchanged when the
+# served node's reduced two-layer stack is re-closed against body mass. A
+# failure means the sample was served a node its own coordinates do not name;
+# it is REJECTED to -inf log-likelihood, never served a neighbouring node.
+_FROZEN_LOOP_CLOSURE_TOL = 3e-3
+
+# Floating-point boundary slack (km) for the frozen-branch zb<->rho_rock
+# bijection's out-of-support check (MCMCRunner._frozen_struct_for_theta,
+# A8). Not a physical tolerance -- see that method's inline comment.
+# Hard-reject bound on the PRE-closure reduced-stack mass residual
+# |(M_stack - Mtot_kg)/Mtot_kg| for the Enceladus stack_mass_closure
+# (scientific-reviewer ruling 2026-10-21): the measured production range is
+# 0.04-0.51%, so anything beyond 1% is a broken node (cf. the -22% smoke-cache
+# nodes) that closure must never silently paper over.
+_STACK_CLOSURE_MAX_ABS_RESIDUAL = 1e-2
+# mass_moi loose physical rejects (reviewer 2026-10-23): the closed rock
+# layer must stay within 10 km of PP's own R_sil, and rho_s must not exceed
+# the zero-porosity grain density (config metadata.isostasy.rho_grain_max_kgm3
+# from the Perple_X table; the check is skipped if the key is absent).
+_STACK_CLOSURE_MAX_DR_S_M = 10.0e3
+# mass_rho_rock records |R_s - R_sil(PP)| but does NOT reject on it
+# (user/reviewer ruling pending 2026-10-23: with rho_s free the 10 km rule
+# may no longer make sense). Set True only after that ruling.
+_MASS_RHO_ROCK_APPLY_DR_S_REJECT = False
+_ZB_SUPPORT_EPS_KM = 1e-6
+
+# The same boundary slack on the salinity axis, in log10 ppt -- the coordinate
+# the ocean-branch prior is uniform in and the one the interpolant weights in
+# (MCMCRunner._ocean_zbw_struct_for_theta, E2). 1e-9 dex is ~2e-9 relative in
+# ppt: far above float noise on a log10 round-trip, far below the production
+# grid's 0.0769 dex spacing.
+_LOGW_SUPPORT_EPS = 1e-9
+
+# Observable name -> spherical-harmonic (l, m) key for the isostatic_hm2019
+# forward model (_derive_gravity_isostatic's return dict). Shared by the
+# likelihood's dispatch and generate_sbi_dataset's arm (r5 defect D2) so the
+# training set and the MCMC target cannot drift apart.
+_ISOSTATIC_OBS_LM = {'C20': (2, 0), 'C22': (2, 2), 'C30': (3, 0)}
+
+
+def _parse_bind_channel(name: str):
+    """Parse a Bind_ induction channel name into (label, comp, part).
+
+    Channel grammar: ``Bind_<label>_<comp>_<part>`` where comp is one of
+    {x, y, z} and part is one of {real, imag}. The excitation <label> may
+    itself contain underscores or spaces (e.g. 'synodic 2nd',
+    'adjusted orbital'), so the fixed ``_<comp>_<part>`` suffix is stripped
+    from the RIGHT rather than split from the left.
+
+    Returns (label, comp, part) or None when `name` is not a Bind_ channel
+    or its comp/part suffix is not recognized.
+    """
+    if not name.startswith('Bind_'):
+        return None
+    body = name[len('Bind_'):]
+    for part in ('real', 'imag'):
+        suffix = '_' + part
+        if not body.endswith(suffix):
+            continue
+        rest = body[:-len(suffix)]
+        for comp in ('x', 'y', 'z'):
+            comp_suffix = '_' + comp
+            if rest.endswith(comp_suffix):
+                label = rest[:-len(comp_suffix)]
+                if label:
+                    return label, comp, part
+    return None
+
+
+def _structure_R_body_km(structure_data) -> Optional[float]:
+    """Body radius in km from a structure grid cache (constant across the
+    Tb grid), or None when the cache lacks it (older cache schemas).
+
+    Scans for the first BUILT (non-None) structure: the 2D (Tb × w) v3.0 cache
+    leaves the tilted-band corners — including ``structures[0]`` (low-Tb/low-w)
+    — as ``None``, so indexing [0] blindly hits ``None.get`` (AttributeError,
+    caught here as TypeError). R_body_m is constant across the grid, so any
+    built node gives the same value."""
+    try:
+        structures = structure_data['structures']
+    except (KeyError, TypeError):
+        return None
+    for struct in structures:
+        if struct is None:
+            continue
+        try:
+            R_m = struct.get('R_body_m')
+        except AttributeError:
+            return None
+        if R_m is not None:
+            return float(R_m) / 1e3
+        return None
+    return None
+
+
+
+class _UniformInLinearOfLog10:
+    """Prior on x = log10(v) that is uniform in v on [10**lo, 10**hi].
+
+    p(x) = ln(10) * 10**x / (10**hi - 10**lo) on [lo, hi]. Exposes the
+    scipy-frozen-distribution methods pocoMC's ``Prior`` calls (logpdf,
+    rvs, support) plus pdf/cdf/ppf for diagnostics.
+    """
+
+    def __init__(self, lo, hi):
+        self.lo, self.hi = float(lo), float(hi)
+        if not self.hi > self.lo:
+            raise ValueError(f"bounds must satisfy lo < hi, got {lo}, {hi}")
+        self._vlo, self._vhi = 10.0 ** self.lo, 10.0 ** self.hi
+        self._logZ = np.log(self._vhi - self._vlo) - np.log(np.log(10.0))
+
+    def support(self):
+        return (self.lo, self.hi)
+
+    def logpdf(self, x):
+        x = np.asarray(x, dtype=float)
+        inside = (x >= self.lo) & (x <= self.hi)
+        return np.where(inside, x * np.log(10.0) - self._logZ, -np.inf)
+
+    def pdf(self, x):
+        return np.exp(self.logpdf(x))
+
+    def cdf(self, x):
+        x = np.clip(np.asarray(x, dtype=float), self.lo, self.hi)
+        return (10.0 ** x - self._vlo) / (self._vhi - self._vlo)
+
+    def ppf(self, q):
+        q = np.asarray(q, dtype=float)
+        return np.log10(self._vlo + q * (self._vhi - self._vlo))
+
+    def rvs(self, size=None, random_state=None):
+        # pocoMC calls dist.rvs(size=...) with no random_state; scipy frozen
+        # distributions then draw from numpy's GLOBAL RandomState, which the
+        # runner seeds. Match that exactly so seeded runs stay reproducible.
+        if random_state is None:
+            u = np.random.random_sample(size)
+        elif isinstance(random_state, np.random.Generator):
+            u = random_state.random(size)
+        elif isinstance(random_state, np.random.RandomState):
+            u = random_state.random_sample(size)
+        else:
+            u = np.random.RandomState(random_state).random_sample(size)
+        return self.ppf(u)
+
+class MCMCRunner:
+    """
+    MCMC sampler for interior structure inference using pocoMC.
+
+    Args:
+        config: InferenceConfig object with parameter space, observables, and settings
+
+    Example:
+        >>> config = InferenceConfig(mode='mcmc', bodyname='Titan', ...)
+        >>> runner = MCMCRunner(config)
+        >>> result = runner.run(progress_callback=my_callback)
+    """
+
+    def __init__(self, config):
+        """Initialize MCMC runner with configuration."""
+        from .inference_core import InferenceConfig
+        from .structure_cache import load_structure_cache
+
+        if not isinstance(config, InferenceConfig):
+            raise TypeError("config must be InferenceConfig instance")
+
+        self.config = config
+
+        # Extract parameter names and labels (must be before _build_prior)
+        self.param_names = list(config.param_space.keys())
+        self.param_labels = [self._make_label(name) for name in self.param_names]
+
+        # param_groups: maps group key -> list of member names
+        self.param_groups = getattr(config, 'param_groups', {}) or {}
+        # fixed_params: constants injected into every forward call
+        self.fixed_params = getattr(config, 'fixed_params', {}) or {}
+        self._check_ocean_rho_rock_config()
+
+        # Lazily-loaded CMR2 discretization-offset anchor sidecar (Test52
+        # Phase 2, plan decision 1). None until _load_cmr2_offset_sidecar()
+        # is first called; _cmr2_offset_sidecar_checked distinguishes "not
+        # yet checked" from "checked, no sidecar file exists" so the lookup
+        # (and its one-time log line) only ever happens once per runner
+        # instance.
+        self._cmr2_offset_sidecar = None
+        self._cmr2_offset_sidecar_checked = False
+        # Diagnostic side-channel set by _derive_cmr2_via_mass_conservation
+        # on every call: None on success, else a short reason string
+        # ('missing_inputs', 'hydrosphere_error', 'hydrosphere_empty',
+        # 'rho_sil_bounds', 'density_inversion', 'cmr2_valueerror'). Lets
+        # generate_sbi_dataset's support-guard counting distinguish a
+        # density-inversion rejection from other reject-causes without
+        # duplicating the derivation logic or changing this method's
+        # public None/float return contract.
+        self._last_cmr2_reject_reason: Optional[str] = None
+        # Composite (core + derived silicate + cached hydrosphere) layer
+        # stack from the most recent successful
+        # _derive_cmr2_via_mass_conservation call, as (layers, R_body_m,
+        # M_total_kg). Consumed by _derive_gravity_pair so the v4 Clairaut
+        # integration runs on the IDENTICAL per-sample profile the CMR2
+        # derivation used (reviewer-binding, v4 geodesy plan).
+        self._last_composite_layers: Optional[tuple] = None
+
+        # Route to grid cache when Tb_K is a free parameter OR fixed via
+        # fixed_params, OR when v5 samples ice thickness D_iceIh_km (Tb is then
+        # DERIVED per draw by inverting the cached D_iceIh field — the grid
+        # cache is still required for that inversion + all (Tb, w) lookups).
+        self._samples_D_iceIh = 'D_iceIh_km' in self.param_names
+        self._use_flexible = (
+            'Tb_K' in self.param_names or 'Tb_K' in self.fixed_params
+            or self._samples_D_iceIh
+            # Frozen branch (A8): sampled rho_rock_kgm3 dispatches through
+            # the zb×w grid cache's frozen axis (_frozen_struct_for_theta),
+            # which needs the full grid-format cache dict passed through by
+            # _load_grid_cache below -- not the single-structure loader.
+            or 'rho_rock_kgm3' in self.param_names
+            or 'rho_rock_kgm3' in self.fixed_params
+        )
+
+        # Load cached structure (skip bodyname validation for Test* files).
+        # Paths in configs are repo-relative; resolve against the repo root
+        # when the CWD is elsewhere (e.g. the Streamlit app).
+        from .structure_cache import resolve_cache_path
+        self._resolved_cache_path = resolve_cache_path(config.structure_cache_path)
+        log.info(f"Loading structure cache: {self._resolved_cache_path}")
+        if self._use_flexible:
+            self.structure_data = self._load_grid_cache(str(self._resolved_cache_path))
+        else:
+            self.structure_data = load_structure_cache(
+                str(self._resolved_cache_path), validate_bodyname=None
+            )
+
+        # v5 ice-thickness reparameterization: precompute the row-major flat
+        # D_iceIh_km array once so the per-draw D_iceIh -> Tb inversion (in the
+        # theta expanders) does not re-walk the structures list every sample.
+        # Only populated when D_iceIh_km is sampled AND the cache is 2D.
+        self._d_iceIh_flat: Optional[list] = None
+        if self._samples_D_iceIh:
+            if not is_2d_cache(self.structure_data):
+                raise ValueError(
+                    "Sampling 'D_iceIh_km' requires a 2D (Tb x w) structure "
+                    "cache (schema v3.0); the loaded cache is 1D. The D->Tb "
+                    "inversion needs the (Tb, w) grid."
+                )
+            structs = self.structure_data['structures']
+            self._d_iceIh_flat = [
+                (None if s is None else s.get('D_iceIh_km', None))
+                for s in structs
+            ]
+
+        # Resolve arrhenius_params: prefer config.arrhenius_params, fallback to
+        # sampler_settings, and mirror back to config for self-describing pickles.
+        ap = getattr(config, 'arrhenius_params', None) or config.sampler_settings.get('arrhenius_params')
+        if ap and not getattr(config, 'arrhenius_params', None):
+            config.arrhenius_params = dict(ap)
+        self.arrhenius_params = ap or {}
+
+        # Build prior and likelihood — always use dict-based interface so
+        # parameter order in param_space never affects forward model mapping.
+        self.prior = self._build_prior()
+
+        # Pre-compute induction Ae for every grid point at init time so the
+        # likelihood can look up by index instead of calling AeResponse
+        # (mpmath, ~1.5 s/call) on every sample.  Only done when induction
+        # observables are present and a grid cache is loaded.
+        self._ae_grid_cache: Dict[int, Optional[Dict[str, complex]]] = {}
+        self._precompute_ae_grid(config.observables)
+
+        # Complex excitation field components Be_{x,y,z}(label) [nT], loaded
+        # from the MoonMag Be1xyz_<body>.txt file, for the Bind_ induction
+        # channel family (Europa Clipper v2). None when no Bind_ observable
+        # is configured or the file is unavailable. See _load_be_excitation.
+        self._be_excitation: Optional[Dict[str, Dict[str, complex]]] = \
+            self._load_be_excitation(config.observables)
+
+        self.log_likelihood_fn = self._make_flexible_log_likelihood(
+            config.observables,
+            self.structure_data,
+            arrhenius_params=self.arrhenius_params
+        )
+
+        # MCMC settings
+        self.n_effective = config.sampler_settings.get('n_effective', 500)
+        # n_active: pocoMC active-particle count. None -> pocoMC default (256).
+        # Exposed so a resolution study can raise it in step with n_effective to
+        # preserve the sampler regime (the n_effective/n_active ratio drives flow
+        # train cadence + annealing), rather than only changing n_effective.
+        self.n_active = config.sampler_settings.get('n_active', None)
+        self.random_state = config.random_state
+        self.n_reeval = config.sampler_settings.get('n_reeval', 500)
+
+        # Checkpoint settings
+        self.checkpoint_interval = config.sampler_settings.get('checkpoint_interval', 100)
+        self.checkpoint_dir = Path(config.sampler_settings.get('checkpoint_dir', '/tmp'))
+        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+    def _precompute_ae_grid(self, observables: Dict[str, Any]) -> None:
+        """Pre-compute InducedAeList for every grid point at init time.
+
+        AeResponse uses mpmath arbitrary-precision arithmetic (~1.5 s/call).
+        Since the conductivity profile depends only on the discrete Tb grid
+        (not on rheological parameters), we compute once and cache by index.
+        The per-likelihood call then does a dict lookup instead of recomputing.
+        """
+        induction_obs = [k for k in observables
+                         if k.startswith('Ae_') or k.startswith('BiAmp_')
+                         or k.startswith('BiPhase_') or k.startswith('Bind_')]
+        # induction_bounds labels (support cuts, e.g. Europa's
+        # |Ae_synodic| > 0.7) need the Ae grid too, even with no Gaussian
+        # induction observable configured.
+        bound_labels = set(getattr(self.config, 'induction_bounds', {}) or {})
+        if not induction_obs and not bound_labels:
+            return
+
+        # Only applies to v2.1 grid format {'Tb_K_grid': ..., 'structures': [...]}
+        sd = self.structure_data
+        if not (isinstance(sd, dict) and 'Tb_K_grid' in sd and 'structures' in sd):
+            return
+
+        from .forward_models import forward_model_induction
+
+        structures = sd['structures']
+        n = len(structures)
+
+        # Collect all requested frequency labels from observables + bounds.
+        requested_labels: set = set(bound_labels)
+        for k in observables:
+            if k.startswith('Ae_') and k.endswith('_real'):
+                requested_labels.add(k[len('Ae_'):-len('_real')])
+            elif k.startswith('Ae_') and k.endswith('_imag'):
+                requested_labels.add(k[len('Ae_'):-len('_imag')])
+            elif k.startswith('BiAmp_'):
+                requested_labels.add(k[len('BiAmp_'):])
+            elif k.startswith('BiPhase_') and k.endswith('_deg'):
+                requested_labels.add(k[len('BiPhase_'):-len('_deg')])
+            else:
+                parsed = _parse_bind_channel(k)
+                if parsed is not None:
+                    requested_labels.add(parsed[0])
+
+        # Persistent sidecar: the mpmath Ae solve costs seconds per node, and
+        # this precompute runs at EVERY runner construction (each GUI
+        # "Generate Posterior" click builds a fresh runner). For the 2D
+        # (Tb x w) caches that was ~1300 nodes = many minutes of solver spam
+        # per run (user-reported 2026-07-20). Compute once, persist next to
+        # the structure cache, and reload instantly ever after. Keyed on the
+        # requested labels, node count, and the cache file's mtime so a
+        # rebuilt cache invalidates the sidecar.
+        import os as _os
+        import pickle as _pickle
+        sidecar_path = None
+        cache_path = getattr(self.config, 'structure_cache_path', None)
+        sidecar_key = None
+        if cache_path:
+            _cp = str(cache_path)
+            if not _os.path.isabs(_cp):
+                from PlanetProfile import _ROOT
+                _repo = _os.path.dirname(_ROOT)
+                _cand = _os.path.join(_repo, _cp)
+                _cp = _cand if _os.path.exists(_cand) else _cp
+            if _os.path.exists(_cp):
+                sidecar_path = _cp + '.ae_sidecar.pkl'
+                sidecar_key = {
+                    'labels': tuple(sorted(requested_labels)),
+                    'n': n,
+                    # File size, not mtime: survives the deploy rsync so a
+                    # shipped sidecar is reused on the public app. A rebuilt
+                    # cache changes size (different node count / contents).
+                    'cache_size': _os.path.getsize(_cp),
+                }
+        if sidecar_path and _os.path.exists(sidecar_path):
+            try:
+                with open(sidecar_path, 'rb') as f:
+                    payload = _pickle.load(f)
+                if payload.get('key') == sidecar_key:
+                    self._ae_grid_cache = dict(payload['ae_grid'])
+                    log.info(f"Loaded induction Ae grid sidecar "
+                             f"({n} nodes) — no recompute needed.")
+                    return
+                log.info("Ae sidecar stale (labels/cache changed); "
+                         "recomputing.")
+            except Exception as _exc:
+                log.warning(f"Ae sidecar unreadable ({_exc}); recomputing.")
+
+        log.info(f"Pre-computing induction Ae for {n} grid points "
+                 "(one-time; persisted to a sidecar for future runs) ...")
+        for i, struct in enumerate(structures):
+            Texc_hr_full = struct.get('Texc_hr') if isinstance(struct, dict) else None
+            if not Texc_hr_full:
+                self._ae_grid_cache[i] = None
+                continue
+            freq_dict = {lbl: Texc_hr_full[lbl]
+                         for lbl in requested_labels if lbl in Texc_hr_full}
+            if not freq_dict:
+                self._ae_grid_cache[i] = None
+                continue
+            result = forward_model_induction(struct, freq_dict, nn=1, do_parallel=False)
+            self._ae_grid_cache[i] = result
+            if (i + 1) % 100 == 0 or i + 1 == n:
+                log.info(f"  Ae grid {i + 1}/{n}")
+
+        log.info("Induction Ae pre-computation complete.")
+        if sidecar_path:
+            try:
+                import tempfile as _tempfile
+                fd, tmp = _tempfile.mkstemp(
+                    dir=_os.path.dirname(sidecar_path), suffix='.tmp')
+                with _os.fdopen(fd, 'wb') as f:
+                    _pickle.dump({'key': sidecar_key,
+                                  'ae_grid': self._ae_grid_cache}, f,
+                                 protocol=_pickle.HIGHEST_PROTOCOL)
+                _os.replace(tmp, sidecar_path)
+                log.info(f"Saved Ae grid sidecar: {sidecar_path}")
+            except Exception as _exc:
+                log.warning(f"Could not save Ae sidecar ({_exc}); "
+                            "the grid will recompute next run.")
+
+    def _blended_ae_dict(self, theta_dict: Dict[str, Any]
+                         ) -> Optional[Dict[str, complex]]:
+        """Return the complex Ae ``{label: Ae}`` for a sample from the
+        precomputed grid — the SINGLE lookup shared by the likelihood, the SBI
+        induction-channel values, and the support-guard bounds check.
+
+        Routing this through one method is the scientific-reviewer's binding
+        requirement: the MCMC likelihood and the SBI support guard MUST use the
+        identical interpolant, or the training-set support diverges from the
+        reference-MCMC support and the 2D Tb↔w degeneracy gate fails
+        spuriously.
+
+        - **1D cache (v1/v2):** nearest node in Tb — the historical
+          argmin(|grid_Tb − Tb|) behavior, byte-for-byte unchanged.
+        - **2D cache (v3.0):** bilinear blend in (Tb, log10 w) of the complex
+          Ae at the four bracketing corners, with ``None`` corners dropped and
+          weights renormalized (shared grid_interp_2d policy). Returns None
+          when Tb is missing, the grid/cache is unavailable, or every corner is
+          None (→ caller rejects, mirroring the 1D "Ae_dict is None" path).
+        """
+        Tb_sample = theta_dict.get('Tb_K')
+        sd = self.structure_data
+        if (not self._ae_grid_cache or Tb_sample is None
+                or not isinstance(sd, dict) or 'Tb_K_grid' not in sd):
+            return None
+
+        # --- 2D (Tb × w) bilinear path ---
+        if is_2d_cache(sd):
+            Tb_grid = np.asarray(sd['Tb_K_grid'], dtype=float)
+            w_grid = np.asarray(sd['wOcean_ppt_grid'], dtype=float)
+            w_ppt = wOcean_ppt_from_theta(theta_dict)
+            corners, weights = bilinear_weights(Tb_grid, w_grid,
+                                                float(Tb_sample), w_ppt)
+            ae_corners = [self._ae_grid_cache.get(int(c)) for c in corners]
+            valid = [d is not None for d in ae_corners]
+            resolved = resolve_none_corners(corners, weights, valid)
+            if resolved is None:
+                return None
+            kept_corners, kept_w = resolved
+            kept_dicts = [self._ae_grid_cache.get(int(c)) for c in kept_corners]
+            # Blend each label separately; a label absent from any surviving
+            # corner is omitted (caller treats a missing label as reject).
+            labels = set()
+            for d in kept_dicts:
+                labels.update(d.keys())
+            out: Dict[str, complex] = {}
+            for lab in labels:
+                vals = [d.get(lab) for d in kept_dicts]
+                if any(v is None for v in vals):
+                    continue  # label not defined at every kept corner
+                out[lab] = blend_complex([complex(v) for v in vals], kept_w)
+            return out
+
+        # --- 1D (Tb-only) nearest-node path (unchanged v1/v2 behavior) ---
+        grid_Tb = np.asarray(sd['Tb_K_grid'])
+        return self._ae_grid_cache.get(
+            int(np.argmin(np.abs(grid_Tb - Tb_sample))))
+
+    def _struct_for_hydrosphere(self, theta_dict: Dict[str, Any]):
+        """Select/blend the per-sample structure dict for CMR²/mass-conservation.
+
+        Mirrors :meth:`_blended_ae_dict`'s dispatch so the CMR² hydrosphere and
+        the induction Ae are read from the SAME (Tb, w) location:
+
+        - **2D cache (v3.0):** the bilinearly-blended structure from
+          ``forward_models._apply_bottom_temperature_2d`` (shared interpolant,
+          None-corner fallback → raises → caller rejects).
+        - **1D list cache (v2.1):** nearest-Tb structure (unchanged).
+        - **dict cache / single struct:** unchanged legacy behavior.
+
+        Returns None when the sample must be rejected (all-None 2D corner).
+
+        - **Frozen branch (schema v3.2-zbw-joint, A8):** when the sample
+          carries ``rho_rock_kgm3`` and the loaded cache declares
+          ``frozen_branch_supported``, dispatch is routed through
+          :meth:`_frozen_struct_for_theta` instead of any Tb-keyed path
+          below -- the frozen theta space has no ``Tb_K``. Checked FIRST
+          so it never falls through to (and is never shadowed by) the
+          ocean-branch branches.
+        - **Ocean branch of the zb x w cache (schema v3.1-zbw /
+          v3.2-zbw-joint, E2):** when the sample carries ``zb_km`` and the
+          cache carries a ``zb_km_grid``, dispatch is routed through
+          :meth:`_ocean_zbw_struct_for_theta` (bilinear in
+          ``(zb, log10 w)``, any None corner rejects). Checked before the
+          Tb-keyed paths, which cannot serve it: this theta space has no
+          ``Tb_K`` either -- Tb is SOLVED per node at build time -- so
+          before E2 every ocean sample fell all the way through to
+          ``return sd`` and was handed the whole cache dict.
+        """
+        sd = self.structure_data
+        # An OCEAN theta under stack_mass_closure='mass_rho_rock' carries
+        # BOTH zb_km and rho_rock_kgm3 (2026-10-23); zb_km marks the ocean
+        # branch (the frozen theta never samples zb -- it is DERIVED), so
+        # such a theta must not be routed to the frozen lookup.
+        if (isinstance(sd, dict) and sd.get('frozen_branch_supported')
+                and 'rho_rock_kgm3' in theta_dict
+                and 'zb_km' not in theta_dict):
+            return self._frozen_struct_for_theta(theta_dict)
+        if is_zbw_cache(sd) and 'zb_km' in theta_dict:
+            return self._ocean_zbw_struct_for_theta(theta_dict)
+        Tb_sample = theta_dict.get('Tb_K')
+        if is_2d_cache(sd) and Tb_sample is not None:
+            from .forward_models import (_apply_bottom_temperature_2d,
+                                         UnservableSampleError)
+            try:
+                return _apply_bottom_temperature_2d(theta_dict, sd)
+            except UnservableSampleError:
+                return None  # all corners None → reject
+        if (Tb_sample is not None and isinstance(sd, dict)
+                and 'Tb_K_grid' in sd and 'structures' in sd):
+            grid_Tb = np.asarray(sd['Tb_K_grid'])
+            return sd['structures'][int(np.argmin(np.abs(grid_Tb - Tb_sample)))]
+        if isinstance(sd, dict) and 'grid_cache' in sd and Tb_sample is not None:
+            grid_Tb = sd['grid_Tb_values']
+            idx = int(np.argmin(np.abs(grid_Tb - Tb_sample)))
+            return sd['grid_cache'][grid_Tb[idx]]
+        return sd
+
+    def _load_be_excitation(self, observables: Dict[str, Any]
+                            ) -> Optional[Dict[str, Dict[str, complex]]]:
+        """Load complex excitation field components Be_{x,y,z}(label) [nT].
+
+        Only invoked when at least one ``Bind_`` observable is configured.
+        Reads ``Be1xyz_<body>.txt`` from the MoonMag excitation directory
+        (the same canonical file the production induction path uses) and
+        maps each requested canonical excitation label to a file row by
+        CLOSEST PERIOD — identical to how PlanetProfile itself resolves
+        ``Excitations.Texc_hr`` labels against the file (MagneticInduction
+        .GetBexc, argmin over |inpTexc_hr - Texc_hr[label]|). This tolerates
+        the label-string drift between the cache's ``Texc_hr`` keys
+        ('orbital') and the file's row names ('adjusted orbital').
+
+        Returns {label: {'x': complex, 'y': complex, 'z': complex}} keyed by
+        the canonical labels requested in the observables, or None when no
+        Bind_ observable is present or the excitation file is unavailable.
+        The complex components use the SAME (unconjugated) Ae convention as
+        the MCMC likelihood: Bind = Ae * Be_comp (plain complex product),
+        NOT the Zimmer-2000 conjugate-phase plotting convention in
+        MagneticInduction.py (Be * conj(Ae)).
+        """
+        bind_labels: set = set()
+        for k in observables:
+            parsed = _parse_bind_channel(k)
+            if parsed is not None:
+                bind_labels.add(parsed[0])
+        if not bind_labels:
+            return None
+
+        bodyname = getattr(self.config, 'bodyname', None)
+        if not bodyname:
+            log.warning("Bind_ observables configured but config has no "
+                        "bodyname; cannot load excitation field. Bind "
+                        "channels will be NaN.")
+            return None
+
+        # The canonical single-file excitation table lives alongside the
+        # MoonMag solver used by forward_model_induction.
+        exc_dir = (Path(__file__).parent.parent / 'MagneticInduction'
+                   / 'MoonMag' / 'excitation')
+        exc_path = exc_dir / f'Be1xyz_{bodyname}.txt'
+        if not exc_path.is_file():
+            log.warning(f"Excitation file not found: {exc_path}. Bind "
+                        f"channels will be NaN.")
+            return None
+
+        # File columns (header row 0):
+        #   exc name, period(hr), B0x, B0y, B0z,
+        #   Bex_Re, Bex_Im, Bey_Re, Bey_Im, Bez_Re, Bez_Im
+        file_periods = []
+        file_comps = []
+        try:
+            with open(exc_path, 'r') as f:
+                header = f.readline()  # skip header
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    parts = line.split(',')
+                    if len(parts) < 11:
+                        continue
+                    period_hr = float(parts[1])
+                    bex = complex(float(parts[5]), float(parts[6]))
+                    bey = complex(float(parts[7]), float(parts[8]))
+                    bez = complex(float(parts[9]), float(parts[10]))
+                    file_periods.append(period_hr)
+                    file_comps.append({'x': bex, 'y': bey, 'z': bez})
+        except (OSError, ValueError) as e:
+            log.warning(f"Failed to parse excitation file {exc_path}: {e}. "
+                        f"Bind channels will be NaN.")
+            return None
+
+        if not file_periods:
+            log.warning(f"Excitation file {exc_path} had no data rows. "
+                        f"Bind channels will be NaN.")
+            return None
+        file_periods = np.asarray(file_periods)
+
+        # Canonical label -> period map (from PP's Excitations table, the
+        # same source forward_model_induction's freq_dict is derived from).
+        try:
+            from PlanetProfile.MagneticInduction.Moments import Excitations
+            label_periods = Excitations.Texc_hr.get(bodyname, {})
+        except Exception as e:
+            log.warning(f"Could not load Excitations.Texc_hr for {bodyname}: "
+                        f"{e}. Bind channels will be NaN.")
+            return None
+
+        be_excitation: Dict[str, Dict[str, complex]] = {}
+        for label in bind_labels:
+            target_hr = label_periods.get(label)
+            if target_hr is None:
+                log.warning(f"Bind_ label '{label}' not in "
+                            f"Excitations.Texc_hr[{bodyname}]; skipping "
+                            f"(channel will be NaN).")
+                continue
+            iClosest = int(np.argmin(np.abs(file_periods - target_hr)))
+            margin_hr = float(np.abs(file_periods[iClosest] - target_hr))
+            # Margin guard (scientific review 2026-07-14, LOW): the Europa
+            # excitation table packs five rows within 84.5-85.3 hr, so the
+            # 'orbital' -> 'adjusted orbital' match has only ~0.07 hr of
+            # separation to the next orbital-family row. A future body or a
+            # v3 that adds 'true anomaly' (~0.5 hr away) could silently
+            # mis-rank. Refuse a match beyond BE_PERIOD_MATCH_TOL_HR rather
+            # than bind to the wrong physical excitation. Ae is evaluated at
+            # the cache period and Be at the file period; the sub-tolerance
+            # mismatch (~0.025 hr for Europa) is physically negligible.
+            if margin_hr > BE_PERIOD_MATCH_TOL_HR:
+                log.warning(
+                    f"Bind_ label '{label}' ({target_hr:.4f} hr): nearest "
+                    f"excitation-file row is {file_periods[iClosest]:.4f} hr "
+                    f"(|dP|={margin_hr:.4f} hr > tol "
+                    f"{BE_PERIOD_MATCH_TOL_HR} hr); refusing an "
+                    f"ambiguous period match (channel will be NaN).")
+                continue
+            be_excitation[label] = file_comps[iClosest]
+            log.debug(f"Bind_ label '{label}' ({target_hr:.4f} hr) -> file "
+                      f"row period {file_periods[iClosest]:.4f} hr "
+                      f"(|dP|={margin_hr:.4f} hr), Be={be_excitation[label]}")
+
+        return be_excitation or None
+
+    def _infer_rheology(self) -> str:
+        """Infer rheology type from parameter space or sampler_settings."""
+        # Explicit override in sampler_settings takes highest priority
+        explicit = self.config.sampler_settings.get('rheology')
+        if explicit in ('andrade', 'maxwell'):
+            return explicit
+
+        params = self.config.param_space
+        has_alpha = 'alpha' in params
+        # Accept both 'log10_zeta' (single) and 'log10_zeta_*' (per-phase)
+        has_zeta = ('log10_zeta' in params or
+                    any(k.startswith('log10_zeta_') for k in params))
+        if has_alpha and has_zeta:
+            return 'andrade'
+        elif not has_alpha and not has_zeta:
+            return 'maxwell'
+        else:
+            raise ValueError("Cannot infer rheology from parameter space. "
+                           "Andrade requires 'alpha' and log10_zeta or log10_zeta_* parameters. "
+                           "Maxwell requires neither. Or set sampler_settings.rheology explicitly.")
+
+    def _build_prior(self):
+        """Build pocoMC Prior object from parameter space configuration."""
+        try:
+            import pocomc as pc
+            from scipy.stats import uniform, norm, loguniform, truncnorm
+        except ImportError as e:
+            raise ImportError("pocoMC not installed. Run: pip install pocomc") from e
+
+        priors = []
+        for param_name in self.param_names:
+            param_cfg = self.config.param_space[param_name]
+            prior_type = param_cfg['prior_type']
+
+            if prior_type == 'uniform':
+                low, high = param_cfg['bounds']
+                priors.append(uniform(loc=low, scale=(high - low)))
+            elif prior_type == 'normal':
+                mean = param_cfg['mean']
+                std = param_cfg['std']
+                priors.append(norm(loc=mean, scale=std))
+            elif prior_type == 'truncated_gaussian':
+                # v5 ice-thickness prior: N(mean, std) truncated to [low, high].
+                # Used for D_iceIh_km ~ N(29, 10) trunc [5, 60] (reviewer). The
+                # truncation keeps sampling off the near-melt regime (thin tail)
+                # and out of unphysically thick shells.
+                mean = param_cfg['mean']
+                std = param_cfg['std']
+                low, high = param_cfg['bounds']
+                a, b = (low - mean) / std, (high - mean) / std
+                priors.append(truncnorm(a=a, b=b, loc=mean, scale=std))
+            elif prior_type == 'log-uniform':
+                low, high = param_cfg['bounds']
+                priors.append(loguniform(a=10**low, b=10**high))
+            elif prior_type == 'uniform-in-linear':
+                # Parameter sampled as x = log10(v), prior UNIFORM IN v on
+                # [10**low, 10**high]: density on x is proportional to
+                # ln(10) * 10**x. Enceladus run (g1), w uniform in ppt
+                # (Fisher-checkpoint condition 2).
+                low, high = param_cfg['bounds']
+                priors.append(_UniformInLinearOfLog10(low, high))
+            else:
+                raise ValueError(f"Unknown prior type '{prior_type}' for parameter '{param_name}'")
+
+        return pc.Prior(priors)
+
+    def _make_label(self, param_name: str) -> str:
+        """Convert parameter name to LaTeX label for plotting."""
+        label_map = {
+            'alpha': r'$\alpha$',
+            'log10_zeta': r'$\log_{10}\zeta$',
+            'log10_zeta_Ih': r'$\log_{10}(\zeta_{\rm Ih})$',
+            'log10_zeta_HP': r'$\log_{10}(\zeta_{\rm HP})$',
+            'log10_zeta_sil': r'$\log_{10}(\zeta_{\rm sil})$',
+            'log10_eta_Ih': r'$\log_{10}\eta_\mathrm{Ih}$',
+            'log10_eta_III': r'$\log_{10}\eta_\mathrm{III}$',
+            'log10_eta_V': r'$\log_{10}\eta_\mathrm{V}$',
+            'log10_eta_VI': r'$\log_{10}\eta_\mathrm{VI}$',
+            'log10_eta_HP': r'$\log_{10}(\eta_{\rm HP})$',
+            'log10_eta_sil': r'$\log_{10}\eta_\mathrm{sil}$',
+            'log10_mu_Ih': r'$\log_{10}(\mu_{\rm Ih})$',
+            'Tb_K': r'$T_b$ (K)',
+            'D_iceIh_km': r'$D_{\rm ice\,Ih}$ (km)',
+        }
+        return label_map.get(param_name, param_name)
+
+    def _load_grid_cache(self, cache_path: str) -> Dict[str, Any]:
+        """Load grid cache; accepts three formats.
+
+        **Format A** (MCMCRunner native): ``dict[float -> structure_dict]``
+        keyed by Tb_K values.
+
+        **Format B** (Test50 list): ``{'Tb_K_grid': ndarray, 'structures': list}``
+        as produced by Test50's ``build_or_load_structure_grid()``.
+
+        **Format C** (zb×w grid, schema ``v3.1-zbw`` / ``v3.2-zbw-joint``,
+        A8): ``{'zb_km_grid': ndarray, 'wOcean_ppt_grid': ndarray,
+        'structures': list, ...}`` as produced by
+        :func:`cache_builder.build_zbw_grid_cache`, optionally carrying a
+        separate frozen axis (``frozen_zb_km_grid`` / ``frozen_structures``
+        / ``frozen_build_spec``). Passed through unmodified so
+        :meth:`_frozen_struct_for_theta` can read the frozen fields
+        directly.
+
+        All three formats are passed through transparently; ``apply_bottom_temperature``
+        in forward_models.py (Formats A/B) or ``_frozen_struct_for_theta``
+        (Format C's frozen axis) handles interpolation.
+        """
+        with open(cache_path, 'rb') as f:
+            grid_cache = pickle.load(f)
+        if not isinstance(grid_cache, dict):
+            raise ValueError(f"Expected dict at {cache_path}, got {type(grid_cache)}")
+        if not grid_cache:
+            raise ValueError(
+                f"Grid cache at {cache_path} is empty. "
+                f"Regenerate with: python -m PlanetProfile.Inference.prepare_structure_variants "
+                f"--test-module PlanetProfile.Test.PPTest42 --output-dir titan_cache/ --maxwell --force"
+            )
+
+        # Format B: Test50 list format
+        if 'Tb_K_grid' in grid_cache and 'structures' in grid_cache:
+            Tb_grid = np.asarray(grid_cache['Tb_K_grid'])
+            log.info(f"Grid cache loaded (list format): {len(grid_cache['structures'])} structures "
+                     f"[{Tb_grid[0]:.3f} – {Tb_grid[-1]:.3f} K]")
+            return grid_cache  # pass through; apply_bottom_temperature handles it
+
+        # Format C: zb×w grid cache (schema v3.1-zbw / v3.2-zbw-joint)
+        if 'zb_km_grid' in grid_cache and 'structures' in grid_cache:
+            n_frozen = len(grid_cache.get('frozen_structures') or [])
+            msg = (f"Grid cache loaded (zb×w format, schema "
+                   f"{grid_cache.get('schema_version', '?')}): "
+                   f"{len(grid_cache['structures'])} ocean structures")
+            if n_frozen:
+                msg += f", {n_frozen} frozen structures"
+            log.info(msg)
+            return grid_cache  # pass through; _frozen_struct_for_theta handles it
+
+        # Format A: float-keyed dict
+        first_key = next(iter(grid_cache))
+        if not isinstance(first_key, (int, float)):
+            raise ValueError(
+                f"Expected grid cache keyed by Tb_K floats at {cache_path}, "
+                f"got key type {type(first_key).__name__}"
+            )
+        grid_Tb_values = np.array(sorted(grid_cache.keys()))
+        log.info(f"Grid cache loaded (dict format): {len(grid_Tb_values)} Tb_K values "
+                 f"[{grid_Tb_values[0]:.1f} – {grid_Tb_values[-1]:.1f} K]")
+        return {'grid_cache': grid_cache, 'grid_Tb_values': grid_Tb_values}
+
+    def _make_flexible_log_likelihood(
+        self,
+        observables: Dict[str, Any],
+        structure_data: Dict[str, Any],
+        arrhenius_params: Optional[Dict[str, Any]] = None
+    ) -> Callable:
+        """Build Gaussian log-likelihood using the dict-based flexible forward model."""
+        from .forward_models import forward_model_k2_flexible
+        param_names = self.param_names
+        param_groups = self.param_groups   # {group_key: [member_names]}
+        fixed_params = self.fixed_params   # {param_name: value}
+
+        # Build no-ocean guard from sampler_settings
+        phase_stability_cfg = self.config.sampler_settings.get('phase_stability', {})
+        no_ocean_guard = phase_stability_cfg.get('enforce') == 'no_ocean_Ih'
+        no_ocean_margin_K = float(phase_stability_cfg.get('margin_K', 0.1))
+
+        # v2 derived-params (Phase C1 Stage 2): mass-conservation solve for rho_sil
+        # and per-sample CMR² recomputation from sampled (R_core, rho_core) plus
+        # cached hydrosphere. Inactive for v1 configs (Titan Test50) — those
+        # leave derived_params empty and fall through to the cached-CMR² path.
+        derived_params_cfg = getattr(self.config, 'derived_params', {}) or {}
+        rho_sil_cfg = derived_params_cfg.get('rho_sil_kgm3', {}) or {}
+        use_derived_rho_sil = rho_sil_cfg.get('derivation') == 'mass_conservation'
+        rho_sil_bounds = tuple(rho_sil_cfg.get('bounds', (2200.0, 3500.0)))
+        rho_sil_reject = bool(rho_sil_cfg.get('reject_if_outside_bounds', True))
+
+        # Sigma_model additive-variance inflation (H&M 2019 Eq. 22/24 —
+        # freeze blocker B15). A config MAY declare
+        # metadata['sigma_model_add'] = {observable_name: sigma_model}
+        # (e.g. {"C20": 5.3e-6, "C22": 1.7e-6, "C30": 4.4e-6,
+        # "libration_deg": 0.00025} for the Enceladus shape-model
+        # uncertainty). Every Gaussian term below looks its observable name
+        # up in this dict via `_inflate_sigma` and, when present, replaces
+        # sigma_obs with sqrt(sigma_obs**2 + sigma_model**2) before forming
+        # chi2 — exactly H&M's Eq. 24 combined-sigma construction (verified
+        # against the config's own precomputed combined values). Configs
+        # that do not declare the block (i.e. every existing campaign) get
+        # an empty dict, `_inflate_sigma` returns sigma_obs unchanged, and
+        # the likelihood is byte-identical to pre-B15 behavior — see
+        # tests/sigma_model_inflation_test.py::test_no_block_is_byte_identical.
+        sigma_model_add = (
+            (getattr(self.config, 'metadata', {}) or {}).get(
+                'sigma_model_add', {}) or {})
+
+        def _inflate_sigma(name, sigma_obs):
+            extra = sigma_model_add.get(name)
+            if not extra:
+                return sigma_obs
+            return float(np.sqrt(float(sigma_obs) ** 2 + float(extra) ** 2))
+
+        def _expand_theta(theta):
+            """Convert sampled array → full parameter dict with groups and fixed params."""
+            theta_dict = dict(zip(param_names, theta))
+            # Expand param_groups: each group key's value is broadcast to all members
+            for group_key, members in param_groups.items():
+                if group_key in theta_dict:
+                    for m in members:
+                        theta_dict[m] = theta_dict[group_key]
+            # Inject fixed params (constants not in the prior)
+            theta_dict.update(fixed_params)
+            # v5: derive Tb_K from sampled (D_iceIh_km, w) when reparameterized.
+            self._inject_derived_Tb(theta_dict)
+            return theta_dict
+
+        def _check_no_ocean(modified_structure) -> bool:
+            """Return True if sample should be rejected (ocean would form)."""
+            if not no_ocean_guard:
+                return False
+            phases = modified_structure.get('phases')
+            P_arr = modified_structure.get('P_MPa')
+            T_arr = modified_structure.get('T_K')
+            if phases is None or P_arr is None or T_arr is None:
+                return False
+            P_arr = np.asarray(P_arr)
+            T_arr = np.asarray(T_arr)
+            if P_arr.shape != T_arr.shape or P_arr.shape != np.asarray(phases).shape:
+                return False
+            Ih_mask = (np.asarray(phases) == 1)
+            if not np.any(Ih_mask):
+                return False
+            P_Ih = P_arr[Ih_mask]
+            T_Ih = T_arr[Ih_mask]
+            if not np.all(np.isfinite(P_Ih)):
+                return False
+            Tm_Ih_lin = 273.16 - 0.068 * P_Ih
+            return bool(np.any(T_Ih >= Tm_Ih_lin - no_ocean_margin_K))
+
+        _tidal_needed = self._tidal_solve_needed()
+
+        def log_likelihood(theta):
+            theta_dict = _expand_theta(theta)
+
+            # Run forward model — parameter hooks do the Tb interpolation so that
+            # _check_no_ocean sees the fully-interpolated T(r) and P(r) profiles.
+            from .forward_models import apply_parameters, UnservableSampleError
+            try:
+                modified = apply_parameters(theta_dict, structure_data)
+            except UnservableSampleError:
+                # 2D (Tb × w) cache: the prior samples the full rectangular box,
+                # but the valid region is a tilted band — a draw in an unbuilt
+                # corner (all four bilinear corners None) is unservable. Hard
+                # reject, exactly like the induction support cut.
+                return -1e30
+
+            # No-ocean safeguard (body-agnostic: assert solid-Ih stability everywhere)
+            if _check_no_ocean(modified):
+                return -1e30
+
+            if _tidal_needed:
+                try:
+                    Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
+                        theta_dict, structure_data,
+                        return_heating=False, arrhenius_params=arrhenius_params
+                    )
+                except UnservableSampleError:
+                    return -1e30
+                if np.isnan(Re_k2):
+                    return -1e30
+            else:
+                # No tidal observable + isostatic gravity (Enceladus zbw):
+                # k2/h2 are never read below; skip the solve and its NaN reject.
+                Re_k2 = Im_k2 = Re_h2 = Im_h2 = np.nan
+            chi2 = 0.0
+            if 'Re_k2' in observables:
+                obs_val, obs_err = observables['Re_k2']
+                obs_err = _inflate_sigma('Re_k2', obs_err)
+                chi2 += ((Re_k2 - obs_val) / obs_err) ** 2
+            if 'Im_k2' in observables or 'abs_Im_k2' in observables:
+                key = 'Im_k2' if 'Im_k2' in observables else 'abs_Im_k2'
+                obs_val, obs_err = observables[key]
+                obs_err = _inflate_sigma(key, obs_err)
+                chi2 += ((abs(Im_k2) - obs_val) / obs_err) ** 2
+            if 'k2' in observables:
+                obs_val, obs_err = observables['k2']
+                obs_err = _inflate_sigma('k2', obs_err)
+                chi2 += ((np.sqrt(Re_k2**2 + Im_k2**2) - obs_val) / obs_err) ** 2
+            # h2 observables (Mazarico et al. 2023 convention).
+            if 'Re_h2' in observables:
+                obs_val, obs_err = observables['Re_h2']
+                obs_err = _inflate_sigma('Re_h2', obs_err)
+                chi2 += ((Re_h2 - obs_val) / obs_err) ** 2
+            if 'Im_h2' in observables or 'abs_Im_h2' in observables:
+                key = 'Im_h2' if 'Im_h2' in observables else 'abs_Im_h2'
+                obs_val, obs_err = observables[key]
+                obs_err = _inflate_sigma(key, obs_err)
+                chi2 += ((abs(Im_h2) - obs_val) / obs_err) ** 2
+            if 'h2' in observables:
+                obs_val, obs_err = observables['h2']
+                obs_err = _inflate_sigma('h2', obs_err)
+                chi2 += ((np.sqrt(Re_h2**2 + Im_h2**2) - obs_val) / obs_err) ** 2
+            # Gravity coefficients. v4 geodesy configs
+            # (gravity_forward_model='clairaut_hydrostatic') COMPUTE the
+            # unnormalized hydrostatic pair per sample (Clairaut k_f over
+            # the composite profile + sampled non-hydrostatic offsets);
+            # legacy configs read J2/C22 from the structure cache as-is
+            # (blended via _BLEND_SCALAR_FIELDS).
+            if self._gravity_clairaut_active() and (
+                    'C20' in observables or 'C22' in observables
+                    or 'J2' in observables):
+                pair = self._derive_gravity_pair(theta_dict)
+                if pair is None:
+                    return -1e30
+                C20_m, C22_m = pair
+                # Correlated (C20, C22) conditioning: published degree-2
+                # solutions are ratio-driven and correlated (constraints
+                # doc, review-binding). metadata['observable_correlations']
+                # = {"C20,C22": rho} switches the pair to a bivariate
+                # Gaussian; anything else keeps independent terms.
+                _corr = (getattr(self.config, 'metadata', {}) or {}).get(
+                    'observable_correlations', {}) or {}
+                _rho = _corr.get('C20,C22')
+                if (_rho is not None and 'C20' in observables
+                        and 'C22' in observables):
+                    if not (np.isfinite(C20_m) and np.isfinite(C22_m)):
+                        return -1e30
+                    v20, s20 = observables['C20']
+                    v22, s22 = observables['C22']
+                    s20 = _inflate_sigma('C20', s20)
+                    s22 = _inflate_sigma('C22', s22)
+                    rho = float(_rho)
+                    det = (s20 * s22) ** 2 * (1.0 - rho ** 2)
+                    r0, r1 = C20_m - v20, C22_m - v22
+                    chi2 += (r0 ** 2 * s22 ** 2 + r1 ** 2 * s20 ** 2
+                             - 2.0 * rho * s20 * s22 * r0 * r1) / det
+                    if 'J2' in observables:
+                        obs_val, obs_err = observables['J2']
+                        obs_err = _inflate_sigma('J2', obs_err)
+                        chi2 += ((-C20_m - obs_val) / obs_err) ** 2
+                else:
+                    for _gname, _gpred in (('C20', C20_m), ('C22', C22_m),
+                                           ('J2', -C20_m)):
+                        if _gname in observables:
+                            obs_val, obs_err = observables[_gname]
+                            obs_err = _inflate_sigma(_gname, obs_err)
+                            if not np.isfinite(_gpred):
+                                return -1e30
+                            chi2 += ((_gpred - obs_val) / obs_err) ** 2
+            elif self._gravity_isostatic_active() and (
+                    'C20' in observables or 'C22' in observables
+                    or 'C30' in observables):
+                # Enceladus isostasy configs (gravity_forward_model=
+                # 'isostatic_hm2019'): C20/C22/C30 all come from the same
+                # H&M-2019 Airy-isostatic forward model
+                # (_derive_gravity_isostatic) -- see PlanetProfile.Gravity.
+                # isostasy and plans/active/enceladus-isostasy-module-spec.md.
+                iso_pred = self._derive_gravity_isostatic(theta_dict)
+                if iso_pred is None:
+                    return -1e30
+                C20_m = iso_pred.get((2, 0), np.nan)
+                C22_m = iso_pred.get((2, 2), np.nan)
+                C30_m = iso_pred.get((3, 0), np.nan)
+                # Same correlated-(C20,C22) handling as the Clairaut path
+                # above; C30 has no published correlation with C20/C22
+                # (observable_correlations_provenance, config) so it always
+                # enters as an independent term.
+                _corr = (getattr(self.config, 'metadata', {}) or {}).get(
+                    'observable_correlations', {}) or {}
+                _rho = _corr.get('C20,C22')
+                if (_rho is not None and 'C20' in observables
+                        and 'C22' in observables):
+                    if not (np.isfinite(C20_m) and np.isfinite(C22_m)):
+                        return -1e30
+                    v20, s20 = observables['C20']
+                    v22, s22 = observables['C22']
+                    s20 = _inflate_sigma('C20', s20)
+                    s22 = _inflate_sigma('C22', s22)
+                    rho = float(_rho)
+                    det = (s20 * s22) ** 2 * (1.0 - rho ** 2)
+                    r0, r1 = C20_m - v20, C22_m - v22
+                    chi2 += (r0 ** 2 * s22 ** 2 + r1 ** 2 * s20 ** 2
+                             - 2.0 * rho * s20 * s22 * r0 * r1) / det
+                else:
+                    for _gname, _gpred in (('C20', C20_m), ('C22', C22_m)):
+                        if _gname in observables:
+                            obs_val, obs_err = observables[_gname]
+                            obs_err = _inflate_sigma(_gname, obs_err)
+                            if not np.isfinite(_gpred):
+                                return -1e30
+                            chi2 += ((_gpred - obs_val) / obs_err) ** 2
+                if 'C30' in observables:
+                    obs_val, obs_err = observables['C30']
+                    obs_err = _inflate_sigma('C30', obs_err)
+                    if not np.isfinite(C30_m):
+                        return -1e30
+                    chi2 += ((C30_m - obs_val) / obs_err) ** 2
+            else:
+                if 'J2' in observables:
+                    obs_val, obs_err = observables['J2']
+                    obs_err = _inflate_sigma('J2', obs_err)
+                    pred = float(modified.get('J2', np.nan))
+                    if not np.isfinite(pred):
+                        return -1e30
+                    chi2 += ((pred - obs_val) / obs_err) ** 2
+                if 'C22' in observables:
+                    obs_val, obs_err = observables['C22']
+                    obs_err = _inflate_sigma('C22', obs_err)
+                    pred = float(modified.get('C22', np.nan))
+                    if not np.isfinite(pred):
+                        return -1e30
+                    chi2 += ((pred - obs_val) / obs_err) ** 2
+                if 'C30' in observables:
+                    obs_val, obs_err = observables['C30']
+                    obs_err = _inflate_sigma('C30', obs_err)
+                    pred = float(modified.get('C30', np.nan))
+                    if not np.isfinite(pred):
+                        return -1e30
+                    chi2 += ((pred - obs_val) / obs_err) ** 2
+            # Forced libration amplitude [deg] (Cassini-Enceladus era;
+            # rigid three-layer Van Hoolst 2008 forward model from the
+            # merged Librations.py — see _derive_libration_deg).
+            if 'libration_deg' in observables:
+                obs_val, obs_err = observables['libration_deg']
+                obs_err = _inflate_sigma('libration_deg', obs_err)
+                pred = self._derive_libration_deg(theta_dict)
+                if pred is None:
+                    return -1e30
+                chi2 += ((pred - obs_val) / obs_err) ** 2
+            if 'CMR2' in observables:
+                obs_val, obs_err = observables['CMR2']
+                obs_err = _inflate_sigma('CMR2', obs_err)
+
+                if use_derived_rho_sil:
+                    # v2 path: mass-conserve rho_sil from the sampled core,
+                    # then recompute CMR² from the assembled body (sampled
+                    # core + derived silicate + cached hydrosphere). Factored
+                    # into _derive_cmr2_via_mass_conservation (restructure
+                    # only, 2026-07 CMR2-reporting-path fix — logic below is
+                    # unchanged, just moved into a method so run()'s
+                    # cmr2_results and generate_sbi_dataset's CMR2 column can
+                    # share the identical derivation instead of silently
+                    # falling back to the no-core cache placeholder).
+                    derived = self._derive_cmr2_via_mass_conservation(theta_dict)
+                    if derived is None:
+                        return -1e30
+                    cmr2_val = derived
+                else:
+                    # v1 path: read precomputed CMR² from the cache as-is.
+                    # Pick the per-sample structure dict for CMR² lookup.
+                    # Three cache layouts are supported:
+                    #   (a) v2.1 list format: {'Tb_K_grid': arr, 'structures': [..]}
+                    #       — what cache_builder.build_phase_c1_cache produces.
+                    #   (b) legacy dict format: {'grid_cache': {Tb: struct}, 'grid_Tb_values': arr}
+                    #       — what _load_grid_cache wraps Format-A caches into.
+                    #   (c) single struct (no Tb grid).
+                    # The earlier code only handled (b) and silently fell through to
+                    # struct_for_cmr2 = structure_data for (a), which lacks
+                    # Mtot_kg/R_body_m at top level → NaN → -1e30 rejection of every
+                    # sample. Verified 2026-05-23 against europa_seawater cache.
+                    Tb_sample = theta_dict.get('Tb_K')
+                    if (Tb_sample is not None
+                            and 'Tb_K_grid' in structure_data
+                            and 'structures' in structure_data):
+                        grid_Tb_values = np.asarray(structure_data['Tb_K_grid'])
+                        idx = int(np.argmin(np.abs(grid_Tb_values - Tb_sample)))
+                        struct_for_cmr2 = structure_data['structures'][idx]
+                    elif 'grid_cache' in structure_data and Tb_sample is not None:
+                        grid_Tb_values = structure_data['grid_Tb_values']
+                        idx = int(np.argmin(np.abs(grid_Tb_values - Tb_sample)))
+                        struct_for_cmr2 = structure_data['grid_cache'][grid_Tb_values[idx]]
+                    else:
+                        struct_for_cmr2 = structure_data
+                    cmr2_val = struct_for_cmr2.get('CMR2', np.nan)
+
+                if np.isfinite(cmr2_val):
+                    chi2 += ((cmr2_val - obs_val) / obs_err) ** 2
+            if 'Mtot_kg' in observables:
+                obs_val, obs_err = observables['Mtot_kg']
+                obs_err = _inflate_sigma('Mtot_kg', obs_err)
+                mtot_val = structure_data.get('Mtot_kg', np.nan)
+                if np.isfinite(mtot_val):
+                    chi2 += ((mtot_val - obs_val) / obs_err) ** 2
+
+            # Magnetic induction observables (C2-B). The runner accepts
+            # observables in two equivalent forms:
+            #   1. Re/Im (default, Europa-Clipper convention):
+            #          Ae_<label>_real, Ae_<label>_imag
+            #   2. Amplitude/phase (legacy, paper convention):
+            #          BiAmp_<label>, BiPhase_<label>_deg
+            # Both pull from the same forward_model_induction call; <label>
+            # is one of the canonical PP excitation names ('synodic',
+            # 'orbital', 'synodic 2nd', 'true anomaly') matching keys in
+            # the cached Texc_hr dict. The runner only invokes the
+            # induction forward model if at least one such observable is
+            # present, so existing CMR²/k₂ configs are unaffected.
+            induction_keys_real = [k for k in observables
+                                   if k.startswith('Ae_') and k.endswith('_real')]
+            induction_keys_imag = [k for k in observables
+                                   if k.startswith('Ae_') and k.endswith('_imag')]
+            induction_keys_amp = [k for k in observables
+                                  if k.startswith('BiAmp_')]
+            induction_keys_phase = [k for k in observables
+                                    if k.startswith('BiPhase_')
+                                    and k.endswith('_deg')]
+            # Bind_<label>_<comp>_<part>: induced dipole coefficient as
+            # equivalent surface field, Bind_comp = Ae * Be_comp (nT, signed
+            # real/imag). Europa Clipper v2 measurement-space channels.
+            induction_keys_bind = [(k, p) for k in observables
+                                   if (p := _parse_bind_channel(k)) is not None]
+            # induction_bounds (ratified 2026-07-12): one-sided support cuts
+            # on Ae per label (amp_min: reject |Ae| < amp_min; im_abs_max:
+            # reject |Im Ae| > im_abs_max). Hard rejection, not chi^2 terms.
+            induction_bounds = getattr(self.config, 'induction_bounds', {}) or {}
+            need_induction = bool(induction_keys_real or induction_keys_imag
+                                  or induction_keys_amp or induction_keys_phase
+                                  or induction_keys_bind or induction_bounds)
+            if need_induction:
+                # Collect all requested frequency labels.
+                requested_labels = set(induction_bounds)
+                for k in induction_keys_real:
+                    requested_labels.add(k[len('Ae_'):-len('_real')])
+                for k in induction_keys_imag:
+                    requested_labels.add(k[len('Ae_'):-len('_imag')])
+                for k in induction_keys_amp:
+                    requested_labels.add(k[len('BiAmp_'):])
+                for k in induction_keys_phase:
+                    requested_labels.add(k[len('BiPhase_'):-len('_deg')])
+                for _k, (lbl, _comp, _part) in induction_keys_bind:
+                    requested_labels.add(lbl)
+
+                # Fast path: look up pre-computed Ae from the grid cache
+                # (avoids ~1.5 s/call mpmath cost on every likelihood eval).
+                # Shared interpolant: nearest-Tb for 1D caches, bilinear
+                # (Tb, log10 w) for 2D v3.0 caches — identical to the support
+                # guard (_check_induction_bounds) by construction.
+                Tb_sample = theta_dict.get('Tb_K')
+                if (self._ae_grid_cache
+                        and Tb_sample is not None
+                        and 'Tb_K_grid' in structure_data
+                        and 'structures' in structure_data):
+                    Ae_dict = self._blended_ae_dict(theta_dict)
+                else:
+                    # Fallback: compute on-the-fly (single-struct or no-grid configs).
+                    from .forward_models import forward_model_induction
+                    Texc_hr_full = modified.get('Texc_hr')
+                    if not Texc_hr_full:
+                        return -1e30
+                    freq_dict = {label: Texc_hr_full[label]
+                                 for label in requested_labels
+                                 if label in Texc_hr_full}
+                    if not freq_dict:
+                        return -1e30
+                    Ae_dict = forward_model_induction(modified, freq_dict)
+
+                if Ae_dict is None:
+                    return -1e30
+                for label in requested_labels:
+                    Ae = Ae_dict.get(label)
+                    if Ae is None or not np.isfinite(complex(Ae).real):
+                        return -1e30
+                    Ae = complex(Ae)
+                    bounds_spec = induction_bounds.get(label)
+                    if bounds_spec:
+                        amp_min = bounds_spec.get('amp_min')
+                        if amp_min is not None and abs(Ae) < float(amp_min):
+                            return -1e30
+                        im_abs_max = bounds_spec.get('im_abs_max')
+                        if im_abs_max is not None and abs(Ae.imag) > float(im_abs_max):
+                            return -1e30
+                        # Degree-based phase-delay cap. |angle(Ae)| is the phase
+                        # delay magnitude in the Ae^(-i phi) convention (PP stores
+                        # Im<0 for a delay); a proper degree cap is amplitude-
+                        # independent, unlike the |Im| proxy which mismaps to phase
+                        # at low |Ae| (per-frequency induction, Vance et al. 2021).
+                        phase_deg_max = bounds_spec.get('phase_deg_max')
+                        if (phase_deg_max is not None
+                                and abs(float(np.degrees(np.angle(Ae)))) > float(phase_deg_max)):
+                            return -1e30
+                    re_key = f'Ae_{label}_real'
+                    im_key = f'Ae_{label}_imag'
+                    amp_key = f'BiAmp_{label}'
+                    ph_key = f'BiPhase_{label}_deg'
+                    if re_key in observables:
+                        v, s = observables[re_key]
+                        s = _inflate_sigma(re_key, s)
+                        chi2 += ((Ae.real - v) / s) ** 2
+                    if im_key in observables:
+                        v, s = observables[im_key]
+                        s = _inflate_sigma(im_key, s)
+                        chi2 += ((Ae.imag - v) / s) ** 2
+                    if amp_key in observables:
+                        v, s = observables[amp_key]
+                        s = _inflate_sigma(amp_key, s)
+                        chi2 += ((abs(Ae) - v) / s) ** 2
+                    if ph_key in observables:
+                        v, s = observables[ph_key]
+                        s = _inflate_sigma(ph_key, s)
+                        # Phase wrap into (-180, 180] before residualizing.
+                        pred = float(np.degrees(np.angle(Ae)))
+                        delta = ((pred - v + 180.0) % 360.0) - 180.0
+                        chi2 += (delta / s) ** 2
+
+                # Bind_ channels: Bind_comp = Ae * Be_comp (nT, signed
+                # real/imag). Loop by observable key so labels with the same
+                # frequency but different components each contribute.
+                for _bkey, (blabel, bcomp, bpart) in induction_keys_bind:
+                    Ae = Ae_dict.get(blabel)
+                    if Ae is None or not np.isfinite(complex(Ae).real):
+                        return -1e30
+                    if not self._be_excitation:
+                        return -1e30
+                    Be_comp = self._be_excitation.get(blabel)
+                    if Be_comp is None:
+                        return -1e30
+                    Bind = complex(Ae) * Be_comp[bcomp]
+                    pred = Bind.real if bpart == 'real' else Bind.imag
+                    v, s = observables[_bkey]
+                    s = _inflate_sigma(_bkey, s)
+                    chi2 += ((pred - v) / s) ** 2
+
+            return -0.5 * chi2
+
+        return log_likelihood
+
+    def _inject_derived_Tb(self, theta_dict: Dict[str, float]) -> None:
+        """v5: derive Tb_K from the sampled (D_iceIh_km, w) and inject it.
+
+        In place. When ``D_iceIh_km`` is a sampled parameter, Tb is NOT sampled;
+        it is obtained by inverting the cached D_iceIh(Tb, w) field at the drawn
+        salinity via :func:`grid_interp_2d.invert_d_iceIh_to_Tb` — the exact
+        inverse of the same bilinear operator every downstream (Tb, w) consumer
+        uses (byte-identical support; reviewer-binding). If the drawn thickness
+        is outside the achievable band at this salinity (melt edge / cold-floor
+        edge), the inversion returns None and we inject ``Tb_K = NaN`` so the 2D
+        structural hook raises ``UnservableSampleError`` and the likelihood
+        rejects the draw (−1e30) — never clip to the edge (reviewer). No-op when
+        D_iceIh_km is not sampled (v1–v4 configs keep sampling Tb_K directly).
+        """
+        if not self._samples_D_iceIh:
+            return
+        w_ppt = wOcean_ppt_from_theta(theta_dict)
+        Tb = invert_d_iceIh_to_Tb(
+            self.structure_data['Tb_K_grid'],
+            self.structure_data['wOcean_ppt_grid'],
+            self._d_iceIh_flat,
+            float(theta_dict['D_iceIh_km']),
+            w_ppt,
+        )
+        theta_dict['Tb_K'] = float('nan') if Tb is None else float(Tb)
+
+    def _expand_theta(self, theta: np.ndarray) -> Dict[str, float]:
+        """Expand sampled array with groups and fixed params into a dict."""
+        theta_dict = dict(zip(self.param_names, theta))
+        for group_key, members in self.param_groups.items():
+            if group_key in theta_dict:
+                for m in members:
+                    theta_dict[m] = theta_dict[group_key]
+        theta_dict.update(self.fixed_params)
+        self._inject_derived_Tb(theta_dict)
+        return theta_dict
+
+    def _collect_posterior_Ae(self, samples: np.ndarray) -> Optional[Dict[str, Any]]:
+        """Per-sample complex induction response Ae for result metadata.
+
+        Maps each posterior sample to the precomputed Ae grid via the SAME
+        interpolant the likelihood uses (:meth:`_blended_ae_dict`): nearest-Tb
+        node for 1D v1/v2 caches, bilinear (Tb, log w) blend for 2D v3.0
+        caches. Returns a JSON-safe ``{label: {'re': [...], 'im': [...]}}`` with
+        one entry per sample per excitation label. Returns None when no Ae grid
+        is cached (config without induction observables/bounds) or Tb_K is not
+        a sampled parameter.
+
+        For a 2D cache this MUST be w-aware — the earlier nearest-Tb-only
+        broadcast reported the wrong w-slice for v3 (scientific review
+        2026-07-18). It now blends per-sample through _blended_ae_dict, so the
+        reported posterior Ae matches the likelihood's Ae at each (Tb, w).
+        """
+        if (not self._ae_grid_cache or 'Tb_K' not in self.param_names
+                or 'Tb_K_grid' not in self.structure_data):
+            return None
+        samples = np.asarray(samples)
+        labels = sorted({lab for d in self._ae_grid_cache.values() if d
+                         for lab in d})
+        if not labels:
+            return None
+        nan_c = complex(float('nan'), float('nan'))
+
+        if is_2d_cache(self.structure_data):
+            # w-aware: blend per sample through the shared interpolant.
+            out = {lab: {'re': [], 'im': []} for lab in labels}
+            for row in samples:
+                theta_dict = self._expand_theta(row)
+                ae = self._blended_ae_dict(theta_dict) or {}
+                for lab in labels:
+                    v = ae.get(lab, nan_c)
+                    v = nan_c if v is None else complex(v)
+                    out[lab]['re'].append(float(v.real))
+                    out[lab]['im'].append(float(v.imag))
+            return out
+
+        # 1D fast path: Ae is Tb-only, evaluate once per unique node + broadcast.
+        grid_Tb = np.asarray(self.structure_data['Tb_K_grid'])
+        tb = samples[:, self.param_names.index('Tb_K')].astype(float)
+        idx = np.argmin(np.abs(grid_Tb[None, :] - tb[:, None]), axis=1)
+        out = {}
+        for lab in labels:
+            node_ae = {i: complex((self._ae_grid_cache.get(int(i)) or {})
+                                  .get(lab, nan_c))
+                       for i in np.unique(idx)}
+            vals = [node_ae[int(i)] for i in idx]
+            out[lab] = {'re': [float(v.real) for v in vals],
+                        'im': [float(v.imag) for v in vals]}
+        return out
+
+    def _be_excitation_metadata(self) -> Optional[Dict[str, Any]]:
+        """JSON-safe excitation moments {label: {comp: [re, im]}} (nT) when
+        Bind_ observables loaded them; None otherwise (e.g. Ae-bound-only
+        configs, which never touch Be)."""
+        be = getattr(self, '_be_excitation', None)
+        if not be:
+            return None
+        return {lab: {comp: [float(v.real), float(v.imag)]
+                      for comp, v in comps.items()}
+                for lab, comps in be.items()}
+
+    def _get_cache_scalar(self, theta_dict: Dict[str, float], key: str) -> float:
+        """Extract scalar from interpolated structure for grid caches.
+
+        Returns NaN for a sample in an unbuilt 2D-cache corner (the reporting
+        loops run over posterior draws, which are in-support, but an edge draw
+        must degrade to NaN rather than crash post-processing)."""
+        from .forward_models import apply_parameters, UnservableSampleError
+        try:
+            modified = apply_parameters(theta_dict, self.structure_data)
+        except UnservableSampleError:
+            return np.nan
+        val = modified.get(key, np.nan)
+        return float(val) if np.isfinite(float(val)) else np.nan
+
+    def _ice_phase_thicknesses_km(self, theta_dict: Dict[str, float]
+                                  ) -> Dict[str, float]:
+        """Per-phase HP-ice thicknesses (km) for this sample as
+        {'III','V','VI'}. Missing/NaN keys coalesce to 0.0 (HP-free bodies
+        report 0.0; older caches unaffected)."""
+        out = {}
+        for phase, key in (('III', 'D_iceIII_km'), ('V', 'D_iceV_km'),
+                           ('VI', 'D_iceVI_km')):
+            v = self._get_cache_scalar(theta_dict, key)
+            out[phase] = float(v) if np.isfinite(v) else 0.0
+        return out
+
+    def _ocean_clath_thickness_km(self, theta_dict: Dict[str, float]
+                                  ) -> Dict[str, float]:
+        """Ocean + clathrate thicknesses (km) computed DIRECTLY from the
+        interpolated structure's phase layers, as {'ocean','clath'}.
+
+        Returns the sum of liquid (phase 0) and clathrate (Constants.phaseClath)
+        layer thicknesses — the same direct-sum convention as
+        find_tb_bounds.py:156-157. Preferred over the cache's D_ocean_km scalar,
+        which older caches computed as D_hsphere − Σ(4 ice phases): that formula
+        omitted the clathrate shell and inter-layer node gaps, so a fully frozen
+        hydrosphere reported a spurious ~16 km ocean (scientific-reviewer
+        2026-07-24). Computing from phase layers here makes the DISPLAY correct
+        even on caches built before the cache_builder fix (no rebuild needed).
+        Degrades to NaN if the structure lacks the phase arrays."""
+        from .forward_models import apply_parameters, UnservableSampleError
+        from PlanetProfile.Utilities.defineStructs import Constants
+        try:
+            modified = apply_parameters(theta_dict, self.structure_data)
+        except UnservableSampleError:
+            return {'ocean': np.nan, 'clath': np.nan}
+        r_m = modified.get('r_m')
+        ci = modified.get('changeIndices')
+        ph = modified.get('phases')
+        n_layers = modified.get('n_layers')
+        if r_m is None or ci is None or ph is None or n_layers is None:
+            return {'ocean': np.nan, 'clath': np.nan}
+        r_m = np.asarray(r_m); ci = np.asarray(ci); ph = np.asarray(ph)
+        d_ocean = d_clath = 0.0
+        for k in range(int(n_layers)):
+            s = int(ci[k]); e = int(ci[k + 1])
+            p = int(ph[s])
+            thick_km = (r_m[e - 1] - r_m[s]) / 1e3
+            if p == 0:
+                d_ocean += thick_km
+            elif p == Constants.phaseClath:
+                d_clath += thick_km
+        return {'ocean': float(d_ocean), 'clath': float(d_clath)}
+
+    def _hp_ice_thickness_km(self, theta_dict: Dict[str, float]) -> float:
+        """Aggregate high-pressure-ice (III + V + VI) shell thickness (km).
+        Sums the per-phase thicknesses (all coalesced to 0.0 when absent)."""
+        return sum(self._ice_phase_thicknesses_km(theta_dict).values())
+
+    def _load_cmr2_offset_sidecar(self) -> Optional[Dict[str, np.ndarray]]:
+        """Lazily load the per-Tb CMR2 discretization-offset sidecar, once.
+
+        Test52 Phase 2 (plans/test52-differentiated-titan-plan.md, decision
+        1). ``structure_derivation.compute_cmr2`` evaluated on the reduced
+        (core + derived-silicate + cached-hydrosphere) shell stack
+        under-reports CMR2 by a small, stable, core-independent offset
+        relative to the PP-native CMR2mean for the cached template (pure
+        hydrosphere radial-discretization error). ``cache_builder`` records
+        this offset per Tb grid point in a sidecar JSON next to the
+        structure cache pickle, named ``<cache_stem>_offsets.json`` (e.g.
+        ``titan_diff_noocean_structure_grid.pkl`` ->
+        ``titan_diff_noocean_structure_grid_offsets.json``).
+
+        Looked up exactly once per ``MCMCRunner`` instance and cached on
+        ``self._cmr2_offset_sidecar``/``self._cmr2_offset_sidecar_checked``
+        (loop callers hit this every likelihood evaluation, so re-reading
+        the file per-call would be wasteful and is unnecessary — the
+        sidecar is immutable for the lifetime of a run).
+
+        Returns
+        -------
+        None
+            if ``config.structure_cache_path`` is unset or no sidecar file
+            exists next to it. This is the case for every config that
+            predates Test52 (including all Callisto configs) — by design,
+            those configs get NO offset applied and their CMR2 numerics are
+            therefore byte-identical to before this change. Only configs
+            whose cache has been (re)built with a sidecar (currently just
+            Test52) are affected. This is an explicit, documented decision,
+            not an oversight: Callisto's own +0.00095-scale offset is not
+            yet applied because its cache has not been regenerated with a
+            sidecar (tracked separately; see plan decision 1 disclosure
+            note re: "+0.23sigma shift" upon Callisto regeneration).
+        dict
+            ``{'Tb_K_grid': ndarray, 'offsets': ndarray}`` otherwise, sorted
+            to match the sidecar's own grid ordering (verified ascending at
+            build time; not re-sorted here).
+        """
+        if self._cmr2_offset_sidecar_checked:
+            return self._cmr2_offset_sidecar
+
+        self._cmr2_offset_sidecar_checked = True
+        cache_path_str = getattr(self.config, 'structure_cache_path', None)
+        if not cache_path_str:
+            return None
+
+        cache_path = getattr(self, '_resolved_cache_path', None) or Path(cache_path_str)
+        sidecar_path = cache_path.with_name(cache_path.stem + '_offsets.json')
+        if not sidecar_path.exists():
+            log.debug(
+                f"No CMR2 offset sidecar at {sidecar_path} — proceeding "
+                f"without an anchor correction (unchanged pre-Test52 "
+                f"behavior for this config)."
+            )
+            return None
+
+        with open(sidecar_path, 'r') as f:
+            data = json.load(f)
+        Tb_grid = np.asarray(data['Tb_K_grid'], dtype=float)
+        offsets = np.asarray(data['CMR2_offset_per_point'], dtype=float)
+        sidecar = {'Tb_K_grid': Tb_grid, 'offsets': offsets}
+        self._cmr2_offset_sidecar = sidecar
+        log.info(
+            f"CMR2 offset anchor sidecar found and will be applied: "
+            f"{sidecar_path} (n={len(offsets)} Tb points, "
+            f"mean={float(np.mean(offsets)):.6f}, "
+            f"std={float(np.std(offsets)):.2e})"
+        )
+        return sidecar
+
+    def _derive_cmr2_via_mass_conservation(
+        self, theta_dict: Dict[str, float]
+    ) -> Optional[float]:
+        """Re-derive CMR² for v2 (mass-conservation) configs.
+
+        Verbatim factoring (2026-07 CMR2-reporting-path fix; pure
+        restructure, no numerical change) of the CMR² branch that used to
+        live inline in ``_make_flexible_log_likelihood``'s ``'CMR2'``
+        observable handling, reached only when
+        ``config.derived_params.rho_sil_kgm3.derivation ==
+        'mass_conservation'``. Given the sampled core (``R_core_km``,
+        ``rho_core_kgm3``), re-derives silicate density via mass
+        conservation (``structure_derivation.derive_silicate_density``)
+        against the cached hydrosphere
+        (``structure_derivation.extract_hydrosphere_layers``), then
+        assembles core + silicate + hydrosphere shells and recomputes CMR²
+        (``structure_derivation.compute_cmr2``).
+
+        This is now the ONLY place this derivation sequence is
+        implemented: both the likelihood (``_make_flexible_log_
+        likelihood``, via this same method) and the reporting paths
+        (``_compute_model_cmr2``, used by ``run()``'s ``cmr2_results`` and
+        ``generate_sbi_dataset``'s ``CMR2`` column) call it, so they can
+        never again diverge. (Bug: reporting previously called
+        ``_get_cache_scalar('CMR2')`` unconditionally, which ignores
+        sampled core parameters and reports the cache-builder's no-core
+        placeholder for v2 configs.)
+
+        Test52 Phase 2 additions (plans/test52-differentiated-titan-plan.md):
+
+        1. **CMR2 discretization-offset anchor.** If a sidecar offset file
+           exists next to ``config.structure_cache_path`` (see
+           ``_load_cmr2_offset_sidecar``), the per-Tb offset — linearly
+           interpolated in ``Tb_K`` — is ADDED to the reconstructed CMR2
+           before it is returned, correcting the reduced-stack
+           radial-discretization under-report identified for Test52. When
+           no sidecar exists (every pre-Test52 config, including all
+           current Callisto configs), NO offset is added and this method's
+           numerics are byte-identical to before this change — an explicit
+           decision, not an oversight (see plan decision 1).
+        2. **Density-inversion guard.** If
+           ``derived_params.rho_sil_kgm3.density_inversion_guard`` is
+           truthy in the config, a sample whose derived ``rho_sil`` exceeds
+           the sampled ``rho_core_kgm3`` (gravitationally unstable: mantle
+           denser than core) is hard-rejected (``None``) exactly like the
+           existing ``reject_if_outside_bounds`` check. Absent or false for
+           every config that predates this key (including Callisto), so
+           this is a no-op there.
+
+        Both additions set ``self._last_cmr2_reject_reason`` (see
+        ``__init__``) to a short string identifying which check produced a
+        ``None`` return, so ``generate_sbi_dataset`` can distinguish a
+        density-inversion rejection from other reject-causes for its
+        support-guard bookkeeping without duplicating this derivation.
+
+        Returns
+        -------
+        None
+            if the sample must be hard-rejected: missing/non-finite
+            ``R_body_m``/``Mtot_kg`` on the selected structure or missing
+            core params in ``theta_dict``; non-contiguous or empty
+            hydrosphere; derived ``rho_sil`` outside ``bounds`` when
+            ``reject_if_outside_bounds`` is True; derived ``rho_sil >
+            rho_core_kgm3`` when ``density_inversion_guard`` is True; or a
+            degenerate mass/radius in ``compute_cmr2``. Likelihood callers
+            must treat ``None`` exactly like the original inline
+            early-returns (return ``-1e30`` immediately, short-circuiting
+            the rest of the likelihood). Reporting callers should map
+            ``None`` to ``NaN``.
+        float
+            the derived CMR² otherwise (offset-corrected when a sidecar is
+            present). May be non-finite in the (pathological, not hit by
+            any current config) case where ``reject_if_outside_bounds`` is
+            False and an upstream input is non-finite despite passing the
+            earlier explicit checks — the original code guarded this with
+            ``if np.isfinite(cmr2_val)`` before adding the chi² term rather
+            than rejecting; callers must preserve that same guard rather
+            than treating a non-finite return here as a hard reject.
+        """
+        from .structure_derivation import (
+            compute_cmr2,
+            derive_silicate_density,
+            extract_hydrosphere_layers,
+        )
+
+        self._last_cmr2_reject_reason = None
+
+        derived_params_cfg = getattr(self.config, 'derived_params', {}) or {}
+        rho_sil_cfg = derived_params_cfg.get('rho_sil_kgm3', {}) or {}
+        rho_sil_bounds = tuple(rho_sil_cfg.get('bounds', (2200.0, 3500.0)))
+        rho_sil_reject = bool(rho_sil_cfg.get('reject_if_outside_bounds', True))
+        density_inversion_guard = bool(rho_sil_cfg.get('density_inversion_guard', False))
+
+        # Shared struct selection (nearest-Tb 1D / bilinear (Tb, log w) 2D) so
+        # the mass-conservation hydrosphere is read at the same (Tb, w) as the
+        # induction Ae. Returns None for an all-None 2D corner → hard reject.
+        struct_for_cmr2 = self._struct_for_hydrosphere(theta_dict)
+        if struct_for_cmr2 is None:
+            self._last_cmr2_reject_reason = 'none_corner_2d'
+            return None
+        # Tb of this sample — used by the optional CMR2-offset sidecar
+        # interpolation below (the sidecar is defined on a Tb grid; for a 2D
+        # (Tb, w) cache it is interpolated in Tb only and assumed w-independent
+        # unless a future sidecar carries a w axis). Restored here after the
+        # struct-selection was factored into _struct_for_hydrosphere, which
+        # otherwise left Tb_sample undefined on the sidecar path.
+        Tb_sample = theta_dict.get('Tb_K')
+
+        R_body_m = struct_for_cmr2.get('R_body_m', np.nan)
+        M_total_kg = struct_for_cmr2.get('Mtot_kg', np.nan)
+        R_core_km = theta_dict.get('R_core_km')
+        rho_core_kgm3 = theta_dict.get('rho_core_kgm3')
+        if not (np.isfinite(R_body_m) and np.isfinite(M_total_kg)
+                and R_core_km is not None and rho_core_kgm3 is not None):
+            self._last_cmr2_reject_reason = 'missing_inputs'
+            return None
+        R_core_m = float(R_core_km) * 1000.0
+        try:
+            hydro_layers, R_oceanbot_m, M_hydro_kg = (
+                extract_hydrosphere_layers(struct_for_cmr2)
+            )
+        except (KeyError, ValueError):
+            self._last_cmr2_reject_reason = 'hydrosphere_error'
+            return None
+        if not hydro_layers:
+            self._last_cmr2_reject_reason = 'hydrosphere_empty'
+            return None
+        rho_sil, accepted = derive_silicate_density(
+            M_total_kg=float(M_total_kg),
+            M_hydrosphere_kg=M_hydro_kg,
+            R_oceanbot_m=R_oceanbot_m,
+            R_core_m=R_core_m,
+            rho_core_kgm3=float(rho_core_kgm3),
+            bounds=rho_sil_bounds,
+        )
+        if rho_sil_reject and not accepted:
+            self._last_cmr2_reject_reason = 'rho_sil_bounds'
+            return None
+        # Density-inversion guard (Test52 Phase 2, plan decision 3): reject
+        # gravitationally unstable configurations where the derived
+        # silicate mantle is denser than the sampled core. Only active when
+        # the config explicitly sets density_inversion_guard=True (absent
+        # for every pre-Test52 config, including Callisto, so this is a
+        # no-op there).
+        if (density_inversion_guard and np.isfinite(rho_sil)
+                and rho_sil > float(rho_core_kgm3)):
+            self._last_cmr2_reject_reason = 'density_inversion'
+            return None
+        # Assemble layers; skip zero-volume core shell at R_core = 0
+        assembled = []
+        if R_core_m > 0.0:
+            assembled.append((0.0, R_core_m, float(rho_core_kgm3)))
+        assembled.append((R_core_m, R_oceanbot_m, rho_sil))
+        assembled.extend(hydro_layers)
+        # Cache the composite profile for same-sample consumers (v4 gravity:
+        # _derive_gravity_pair must integrate Clairaut over the IDENTICAL
+        # profile this CMR2 derivation used — reviewer-binding, v4 plan).
+        self._last_composite_layers = (assembled, float(R_body_m),
+                                       float(M_total_kg))
+        try:
+            cmr2_val = compute_cmr2(
+                assembled,
+                R_body_m=float(R_body_m),
+                M_body_kg=float(M_total_kg),
+            )
+        except ValueError:
+            self._last_cmr2_reject_reason = 'cmr2_valueerror'
+            return None
+
+        # CMR2 discretization-offset anchor (Test52 Phase 2, plan decision
+        # 1): add the per-Tb offset recorded in the cache's sidecar file,
+        # if one exists. No sidecar (every pre-Test52 config) -> no offset,
+        # numerics unchanged.
+        offset_sidecar = self._load_cmr2_offset_sidecar()
+        if offset_sidecar is not None and Tb_sample is not None:
+            offset = float(np.interp(
+                Tb_sample, offset_sidecar['Tb_K_grid'], offset_sidecar['offsets']
+            ))
+            cmr2_val = cmr2_val + offset
+
+        return cmr2_val
+
+    def _compute_model_cmr2(self, theta_dict: Dict[str, float]) -> float:
+        """Reporting-path CMR²: the single call site for ``run()``'s
+        ``cmr2_results`` and ``generate_sbi_dataset``'s ``CMR2`` column.
+
+        Dispatches on the same ``derived_params.rho_sil_kgm3.derivation ==
+        'mass_conservation'`` flag the likelihood uses:
+
+        - v2 (mass-conservation) configs (e.g. ``callisto_nacl_andrade_8D``):
+          calls ``_derive_cmr2_via_mass_conservation`` — the identical
+          core-sensitive derivation the likelihood evaluates for its
+          ``'CMR2'`` observable term. A hard-reject (``None``) is mapped to
+          ``NaN`` since there is no log-likelihood to reject on a reporting
+          path.
+        - v1 configs with no ``derived_params`` (e.g. Titan Test50): falls
+          back to ``_get_cache_scalar(theta_dict, 'CMR2')`` — the
+          cache-builder's precomputed, core-independent CMR², unchanged
+          from before this fix.
+
+        Fixes a reporting-path bug (2026-07): ``InferenceResult.cmr2_results``
+        and the SBI dataset's ``CMR2`` column used to call
+        ``_get_cache_scalar`` unconditionally for every config, silently
+        ignoring sampled ``R_core_km``/``rho_core_kgm3`` for v2 configs and
+        reporting a CMR² that could disagree with the likelihood's own CMR²
+        by several sigma (verified: Callisto reported ~0.3412 vs. the true
+        likelihood value ~0.3558). The likelihood itself was never affected
+        by this bug — only these two reporting paths.
+        """
+        derived_params_cfg = getattr(self.config, 'derived_params', {}) or {}
+        rho_sil_cfg = derived_params_cfg.get('rho_sil_kgm3', {}) or {}
+        use_derived_rho_sil = rho_sil_cfg.get('derivation') == 'mass_conservation'
+        if use_derived_rho_sil:
+            derived = self._derive_cmr2_via_mass_conservation(theta_dict)
+            return derived if derived is not None else np.nan
+        return self._get_cache_scalar(theta_dict, 'CMR2')
+
+    def _gravity_clairaut_active(self) -> bool:
+        """True when the config opts into the v4 computed-gravity forward
+        model (gravity_forward_model == 'clairaut_hydrostatic')."""
+        return (getattr(self.config, 'gravity_forward_model', None)
+                == 'clairaut_hydrostatic')
+
+    def _gravity_isostatic_active(self) -> bool:
+        """True when the config opts into the Hemingway & Mittal (2019)
+        Airy-isostatic forward model (gravity_forward_model ==
+        'isostatic_hm2019'). See PlanetProfile.Gravity.isostasy and
+        plans/active/enceladus-isostasy-module-spec.md. The Clairaut/
+        Radau-Darwin path (gravity_j2_over_c22 etc.) MUST NOT be used by
+        this forward model (config gravity_forward_model_contract)."""
+        return (getattr(self.config, 'gravity_forward_model', None)
+                == 'isostatic_hm2019')
+
+    _TIDAL_OBSERVABLES = frozenset({
+        'Re_k2', 'Im_k2', 'abs_Im_k2', 'k2',
+        'Re_h2', 'Im_h2', 'abs_Im_h2', 'h2', 'total_heating_W',
+    })
+
+    def _tidal_solve_needed(self) -> bool:
+        """False ONLY when no tidal (k2/h2) observable is configured AND the
+        isostatic (H&M-2019) gravity model is active; True otherwise.
+
+        The k2 solve (``forward_model_k2_flexible``) feeds only the k2/h2
+        observables (induction observables use the cached Ae grid, heating
+        is a posterior diagnostic, not a likelihood term). The Enceladus
+        isostasy configs observe C20/C22/C30/libration only and sample a
+        (zb, log10 w) zbw cache whose nodes carry no tidal-solver inputs
+        (e.g. ``eta_Pa_base``), so the solve must be skipped there. Every
+        other config (Europa/Titan/Clairaut/legacy) keeps the solve and its
+        NaN-reject exactly as before."""
+        obs = getattr(self.config, 'observables', None) or {}
+        if any(k in self._TIDAL_OBSERVABLES for k in obs):
+            return True
+        return not self._gravity_isostatic_active()
+
+    def _isostasy_physics_config(self) -> Dict[str, Any]:
+        """Isostasy physics inputs (observed shape H_obs_lm, reference
+        radii, finite-amplitude flag) for the isostatic_hm2019 forward
+        model.
+
+        Reads a top-level ``config.isostasy`` attribute first (forward-
+        compatible with a future ``InferenceConfig`` field carrying this
+        block verbatim), falling back to ``config.metadata['isostasy']`` --
+        matching the existing convention that campaign-specific physics
+        inputs like ``gravity_ref_radius_m`` live under ``metadata`` (see
+        ``_derive_gravity_pair``). CORRECTED 2026-08-16 (r5 documentation
+        item): this docstring used to say the enceladus_cassini_isostasy_7D
+        candidate "does not parse via ``InferenceConfig.from_json`` today"
+        because it carried ``isostasy`` and six sibling blocks as top-level
+        JSON keys. That was fixed by the config-schema reconciliation --
+        those blocks now live under ``metadata`` and
+        ``tests/config_schema_reconciliation_test.py`` pins that
+        ``from_json`` succeeds on the file. The top-level lookup below is
+        kept as forward compatibility for a future dataclass field, not as
+        a workaround for a broken config."""
+        top = getattr(self.config, 'isostasy', None)
+        if isinstance(top, dict) and top:
+            return top
+        meta = getattr(self.config, 'metadata', {}) or {}
+        nested = meta.get('isostasy')
+        return nested if isinstance(nested, dict) else {}
+
+    def _libration_model_cfg(self) -> Dict[str, Any]:
+        """The config's ``metadata['libration_model_correction']`` block.
+
+        Carries the RULED libration treatment for the Enceladus isostasy
+        campaign: the B2' figure convention (``figure_convention``,
+        ``H22_obs_m``), the deterministic +0.8% formulation-bias correction
+        (``multiplicative_factor``) and its symmetric residual
+        (``residual_frac_symmetric``, the width the sampled
+        ``libration_sys_frac`` nuisance carries). Empty dict when the config
+        declares no block -- every consumer below then reduces to
+        PlanetProfile's historical behaviour EXACTLY (factor 1.0, no figure
+        kwargs), which is what keeps every non-Enceladus config on a
+        byte-identical path.
+        """
+        meta = getattr(self.config, 'metadata', {}) or {}
+        blk = meta.get('libration_model_correction')
+        return blk if isinstance(blk, dict) else {}
+
+    def _libration_figure_kwargs(
+        self, theta_dict: Dict[str, float], lib_cfg: Dict[str, Any]
+    ) -> Dict[str, float]:
+        """Figure-convention kwargs for the OCEAN-branch ``librations()`` call.
+
+        r5 defect D3. The ruled B2' treatment (user ruling 2026-08-15,
+        ``metadata.libration_model_correction.figure_convention_ruling``;
+        validation_reports/enceladus_isostasy/
+        b2prime_ADJUDICATED_drho_weighting.json) sets the shell's OUTER
+        figure to the OBSERVED non-hydrostatic surface figure and gives the
+        ice/ocean interface the Airy-isostatic response to that load (H&M
+        Eq. 12), scaled by the SAMPLED ``compensation_C2``. It was
+        implemented in ``Librations.librations`` but never wired at either
+        production call site, so the likelihood ran the historical
+        hydrostatic convention -- worth 1.3-2.6 km on the campaign's
+        headline deliverable, with ``dlibration/dC2`` identically zero as
+        shipped.
+
+        Gated on ``figure_convention == 'drho_consistent_eq12'``: any other
+        (or absent) declaration returns ``{}`` and leaves the hydrostatic
+        path untouched, because the RESCINDED whole-difference treatment and
+        the surface-only treatment are different physics and must not be
+        selected by accident.
+
+        ``H22_obs_m`` comes from the block, falling back to the (2,2) entry
+        of ``metadata.isostasy.H_obs_lm_m`` -- the same Tajeddine 857 m the
+        gravity channel and the B13 gate use, which is what makes the shape
+        input shared between the two channels rather than duplicated.
+
+        ``compensation_C2`` is forwarded only when the sample carries it.
+        Absent (the frozen theta space, or a gravity-only config), the base
+        keeps its hydrostatic figure -- the exact C2 -> 0 limit, i.e. the
+        surface-only treatment (pinned by
+        tests/librations_test.py::test_surface_only_treatment_is_the_C2_zero
+        _limit_exactly).
+        """
+        if str(lib_cfg.get('figure_convention', '')) != 'drho_consistent_eq12':
+            return {}
+        H22 = lib_cfg.get('H22_obs_m')
+        if H22 is None:
+            iso = self._isostasy_physics_config()
+            H_obs = iso.get('H_obs_lm_m') or iso.get('H_obs_lm') or {}
+            H22 = H_obs.get('2,2', H_obs.get((2, 2)))
+        if H22 is None:
+            return {}
+        try:
+            H22 = float(H22)
+        except (TypeError, ValueError):
+            return {}
+        if not np.isfinite(H22):
+            return {}
+        out: Dict[str, float] = {'H22_obs_m': H22}
+        C2 = theta_dict.get('compensation_C2')
+        if C2 is not None:
+            try:
+                C2 = float(C2)
+            except (TypeError, ValueError):
+                return out
+            if np.isfinite(C2):
+                out['compensation_C2'] = C2
+        return out
+
+    def _apply_libration_model_budget(
+        self, lib_deg: float, theta_dict: Dict[str, float],
+        lib_cfg: Dict[str, Any]
+    ) -> Optional[float]:
+        """The libration model budget: deterministic correction x nuisance.
+
+        r5 defects D4 and D5, applied to the model prediction so they reach
+        BOTH the likelihood's chi2 and ``generate_sbi_dataset``'s observable
+        vector through the one code path::
+
+            libration_pred = libration_model
+                             * multiplicative_factor
+                             * (1 + libration_sys_frac)
+
+        D4 -- ``multiplicative_factor`` (1.008 for this campaign) is the
+        +0.8% B2 formulation-bias correction. It is a KNOWN ONE-SIDED bias,
+        not an uncertainty, so the config applies it deterministically
+        (``metadata.libration_model_correction_provenance``: a rigid-branch
+        K_int normalization defect +1.9% plus linearized ocean-pressure
+        figure moments +1.6%, cancelling the real elastic reduction -2.6%;
+        net, the shipped rigid channel reads ~+0.75-0.8% LOW). It was never
+        applied anywhere in the inference code.
+
+        D5 -- ``libration_sys_frac`` is the sampled fractional nuisance
+        carrying that correction's symmetric +/-0.4% zb-dependence residual
+        (``metadata.libration_sys_frac_rationale``: "Sampled fractional
+        nuisance ON THE MODEL LIBRATION"). It was sampled and registered but
+        never entered chi2 -- a dead parameter by the campaign's own
+        CRITICAL-1 criterion, leaving the residual it exists to marginalize
+        unmarginalized.
+
+        BRANCH SCOPE, stated because it is a choice and not a derivation:
+        both factors are applied on the FROZEN branch too. The config
+        declares ``libration_sys_frac`` as a sampled parameter of BOTH
+        branches (``metadata.branch_model.frozen_branch.sampled``), so
+        scoping the nuisance to the ocean branch would re-create exactly the
+        dead-parameter defect D5 names, on the other branch; and scoping
+        either factor by branch would add a fourth likelihood-level branch
+        asymmetry, which is the defect class D6 is. The B2 decomposition
+        that DERIVED 1.008 is nonetheless an ocean-branch derivation (K_int
+        and the ocean-pressure figure moments do not exist in the oceanless
+        rigid solve), so its transfer to the frozen branch is an assumption;
+        it is immaterial there (the frozen branch is rejected at 19-20
+        sigma on this channel, and 0.8% of a near-zero decoupled amplitude
+        is orders below that) and is flagged for reviewer ratification
+        rather than presented as settled.
+
+        Returns ``None`` (sample rejected) on a non-finite budget, matching
+        every other reject path in this method.
+        """
+        try:
+            factor = float(lib_cfg.get('multiplicative_factor', 1.0))
+        except (TypeError, ValueError):
+            return None
+        sys_frac = theta_dict.get('libration_sys_frac')
+        try:
+            s = float(sys_frac) if sys_frac is not None else 0.0
+        except (TypeError, ValueError):
+            return None
+        if not (np.isfinite(factor) and np.isfinite(s)):
+            return None
+        out = float(lib_deg) * factor * (1.0 + s)
+        return out if np.isfinite(out) else None
+
+    def _frozen_struct_for_theta(
+        self, theta_dict: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """Interpolated frozen-branch structure for a sampled
+        ``(rho_rock_kgm3, rho_ice_kgm3)`` (A8, frozen-branch design ruling
+        follow-up).
+
+        The frozen cache (schema v3.2-zbw-joint,
+        :func:`PlanetProfile.Inference.cache_builder.build_zbw_grid_cache`)
+        stores one node per ``frozen_zb_km_grid`` entry, indexed by shell
+        thickness -- but the sampled coordinate is
+        ``(rho_rock_kgm3, rho_ice_kgm3)``, not ``zb``. This method closes
+        that gap:
+
+        1. Map the sample to build space via the analytic bijection
+           ``isostasy.frozen_zb_from_mass`` (exact, no iteration) using the
+           template mass/radius the cache was built against
+           (``frozen_build_spec['M_body_kg'/'R_body_m']``).
+        2. Locate the two bracketing nodes in ``frozen_zb_km_grid`` and
+           INTERPOLATE their stored structures 1-D linearly in zb, reusing
+           ``forward_models._blend_b_layered`` -- the SAME per-layer
+           boundary-blend + intra-layer resample the ocean branch's 2D
+           (Tb, w) dispatch already uses (module ``forward_models.py``,
+           ``_apply_bottom_temperature_2d`` / ``_blend_pair``). This is
+           deliberately never a nearest-node snap: per the design ruling a
+           quarter-step snap alone would eat ~80% of invariant I-F5's
+           margin.
+        3. At an exact node (including the grid edges) the blend weight is
+           exactly 0 or 1, so the interpolant reproduces that node's own
+           structure bit-for-bit -- no separate exact-match branch is
+           needed.
+
+        Rejects to ``None`` (no fallback) when:
+
+        - the cache has no frozen axis, or the sample lacks either density;
+        - ``frozen_zb_from_mass`` finds no physical two-layer solution;
+        - the derived zb falls OUTSIDE ``frozen_zb_km_grid``'s span
+          (out-of-support);
+        - either bracketing node is ``None`` (build-time reject) -- serving
+          the OTHER bracketing node alone would be exactly the forbidden
+          nearest-node snap;
+        - the two bracketing nodes' layer sets differ
+          (``forward_models._regions_match`` False) -- there is no defined
+          per-layer blend across a region-set change here (unlike the 2D
+          ocean dispatch, which falls back to nearest-corner for that case
+          across a genuine phase transition; the frozen axis has no
+          equivalent transition to fall back across, so this is a hard
+          reject too).
+
+        The returned structure's ``phases`` array carries ZERO phase-0
+        (liquid) cells by construction (I-F2 at build time), so the
+        downstream ``ocean.size == 0`` checks in
+        :meth:`_derive_gravity_isostatic` / :meth:`_derive_libration_deg`
+        route it to the frozen (rigid, uncompensated / ``ocean=False``)
+        forward models automatically -- this method only serves the
+        structure; the I-F5 per-sample loop-closure assert stays inside
+        :meth:`_frozen_two_layer_stack`, downstream of here, and is applied
+        to the INTERPOLATED stack this method returns.
+        """
+        sd = self.structure_data
+        grid = np.asarray(sd.get('frozen_zb_km_grid'), dtype=float)
+        structs = sd.get('frozen_structures')
+        if grid.size == 0 or not structs:
+            return None
+
+        rho_rock = theta_dict.get('rho_rock_kgm3')
+        rho_ice = theta_dict.get('rho_ice_kgm3')
+        if rho_rock is None or rho_ice is None:
+            return None
+        try:
+            rho_rock = float(rho_rock)
+            rho_ice = float(rho_ice)
+        except (TypeError, ValueError):
+            return None
+        if not (np.isfinite(rho_rock) and np.isfinite(rho_ice)):
+            return None
+
+        spec = sd.get('frozen_build_spec') or {}
+        M_body_kg = spec.get('M_body_kg')
+        R_body_m = spec.get('R_body_m')
+        if M_body_kg is None or R_body_m is None:
+            # Legacy/degraded cache without a saved build spec: fall back to
+            # any surviving node's own template fields (same values, since
+            # every node in one cache build shares one template).
+            for s in structs:
+                if s is not None:
+                    M_body_kg = s.get('Mtot_kg')
+                    R_body_m = s.get('R_body_m')
+                    break
+        if M_body_kg is None or R_body_m is None:
+            return None
+        try:
+            M_body_kg = float(M_body_kg)
+            R_body_m = float(R_body_m)
+        except (TypeError, ValueError):
+            return None
+        if not (np.isfinite(M_body_kg) and np.isfinite(R_body_m)
+                and M_body_kg > 0 and R_body_m > 0):
+            return None
+
+        from PlanetProfile.Gravity.isostasy import frozen_zb_from_mass
+        zb_m = frozen_zb_from_mass(M_body_kg, R_body_m, rho_rock, rho_ice)
+        if zb_m is None:
+            return None  # no physical two-layer solution at this sample
+        zb_km = zb_m / 1e3
+        if not np.isfinite(zb_km):
+            return None
+
+        n = grid.size
+        # Floating-point slack on the boundary only -- frozen_zb_from_mass /
+        # frozen_rho_rock_from_zb round-trip a grid edge to ~1e-13 km, not
+        # bit-exactly, so a strict compare would spuriously reject a sample
+        # that lands EXACTLY on grid[0]/grid[-1]. 1e-6 km is far above that
+        # float noise and far below any real grid spacing (0.5 km); it is
+        # not a physical out-of-support tolerance.
+        if zb_km < grid[0] - _ZB_SUPPORT_EPS_KM or zb_km > grid[-1] + _ZB_SUPPORT_EPS_KM:
+            return None  # out-of-support: outside frozen_zb_km_grid's span
+        zb_km = float(np.clip(zb_km, grid[0], grid[-1]))
+
+        from PlanetProfile.Inference.forward_models import (
+            _blend_b_layered, _regions_match, _copy_struct)
+
+        def _node(i: int) -> Optional[Dict[str, Any]]:
+            s = structs[int(i)]
+            return _copy_struct(s) if s is not None else None
+
+        if zb_km <= grid[0]:
+            return _node(0)
+        if zb_km >= grid[-1]:
+            return _node(n - 1)
+
+        idx = int(np.searchsorted(grid, zb_km, side='right'))
+        i0, i1 = idx - 1, idx
+        z0, z1 = float(grid[i0]), float(grid[i1])
+        if not (z1 > z0):
+            return _node(i0)  # degenerate (duplicate) grid spacing; defensive
+
+        t = (zb_km - z0) / (z1 - z0)
+        if t <= 0.0:
+            return _node(i0)
+        if t >= 1.0:
+            return _node(i1)
+
+        s0, s1 = structs[i0], structs[i1]
+        if s0 is None or s1 is None:
+            # A bracketing node was rejected at build time. Serving the
+            # surviving neighbour alone would be the forbidden nearest-node
+            # snap; reject instead.
+            return None
+        if not _regions_match(s0, s1):
+            return None
+        return _blend_b_layered(s0, s1, t)
+
+    def _ocean_zbw_struct_for_theta(
+        self, theta_dict: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """Interpolated OCEAN-branch structure for a sampled ``(zb_km, w)``
+        (r6 training blocker E2).
+
+        The ocean-branch analogue of :meth:`_frozen_struct_for_theta`. The
+        zb x w cache (schema ``v3.1-zbw`` / ``v3.2-zbw-joint``,
+        :func:`PlanetProfile.Inference.cache_builder.build_zbw_grid_cache`)
+        stores one node per ``(zb_km_grid[i], wOcean_ppt_grid[j])``, row-major
+        at flat index ``i * n_w + j``. Its FROZEN axis got a lookup when A8
+        landed; its OCEAN axis never did, so ``_struct_for_hydrosphere`` fell
+        through every ocean sample to ``return sd`` -- handing the whole cache
+        dict back as if it were a structure. Nothing downstream finds ``r_m``
+        in that dict, so every ocean sample rejected to ``-inf`` and no
+        training run could have produced a posterior.
+
+        Interpolation is BILINEAR in ``(zb, log10 w)``, through the same two
+        shared pieces every other 2-D cache axis pair uses:
+        :func:`grid_interp_2d.bilinear_weights` for the corners and weights
+        (linear on the first axis, log10 on the salinity axis -- the salinity
+        grid is log-spaced and the sampled coordinate is
+        ``log10_wOcean_ppt``, so weighting in ppt would tilt the interpolant)
+        and :func:`forward_models.blend_bilinear_corners` for the per-layer
+        boundary blend + intra-layer resample.
+
+        Rejects to ``None`` (NO fallback) when:
+
+        - the cache has no ocean axis, or the sample carries no ``zb_km``;
+        - ``zb`` or ``w`` falls outside the built grid's span
+          (out-of-support);
+        - ANY of the four bracketing corners is ``None``.
+
+        That last rule is where this deliberately differs from the (Tb, w)
+        v3.0 path, which renormalizes over the surviving corners. Two reasons.
+        (i) It is the rule already ruled for this campaign's other branch: a
+        rejected build-time node means the sample's own coordinates were never
+        built, and serving its neighbours instead silently answers a question
+        the sample did not ask -- the frozen branch rejects for exactly this
+        reason, and the r3 ratification of the ragged axis was made
+        conditional on a ``-inf``/no-fallback test. (ii) The renormalizing
+        rule degrades toward the nearest built node, which on a zb axis is a
+        SHELL-THICKNESS snap on the campaign's sole thickness channel.
+        A support region that cannot be built must be declared and excluded,
+        never silently interpolated across.
+        """
+        sd = self.structure_data
+        if not is_zbw_cache(sd):
+            return None
+        zb_grid = np.asarray(sd.get('zb_km_grid'), dtype=float)
+        w_grid = np.asarray(sd.get('wOcean_ppt_grid'), dtype=float)
+        structs = sd.get('structures')
+        if zb_grid.size == 0 or w_grid.size == 0 or not structs:
+            return None
+
+        zb_km = theta_dict.get('zb_km')
+        if zb_km is None:
+            return None
+        try:
+            zb_km = float(zb_km)
+            w_ppt = float(wOcean_ppt_from_theta(theta_dict))
+        except (KeyError, TypeError, ValueError):
+            return None
+        if not (np.isfinite(zb_km) and np.isfinite(w_ppt) and w_ppt > 0):
+            return None
+
+        # Out-of-support -> reject. The float slack is the same
+        # boundary-noise allowance the frozen axis uses (_ZB_SUPPORT_EPS_KM),
+        # not a physical tolerance: a sample landing exactly on a box edge
+        # must be servable, and a strict compare would reject it on float
+        # noise. On the salinity axis the equivalent slack is applied in
+        # log10 w, the coordinate the prior is uniform in.
+        if (zb_km < zb_grid[0] - _ZB_SUPPORT_EPS_KM
+                or zb_km > zb_grid[-1] + _ZB_SUPPORT_EPS_KM):
+            return None
+        logw = np.log10(w_ppt)
+        logw_grid = np.log10(w_grid)
+        if (logw < logw_grid[0] - _LOGW_SUPPORT_EPS
+                or logw > logw_grid[-1] + _LOGW_SUPPORT_EPS):
+            return None
+
+        corners, weights = bilinear_weights(zb_grid, w_grid, zb_km, w_ppt)
+        if any(structs[c] is None for c in corners):
+            return None  # an unbuilt bracketing corner: declared reject
+
+        from PlanetProfile.Inference.forward_models import (
+            blend_bilinear_corners)
+        out = blend_bilinear_corners(structs, corners, weights, w_grid.size)
+        # Sampled coordinates, for downstream hooks and diagnostics. The grid
+        # arrays and the `structures` list are deliberately NOT copied onto
+        # the returned structure: handing cache containers back as structure
+        # fields is what made defect E2 look like a working path.
+        out['zb_km_sampled'] = zb_km
+        out['wOcean_ppt_sampled'] = w_ppt
+        return out
+
+    def _frozen_two_layer_stack(
+        self,
+        theta_dict: Dict[str, float],
+        r_m: np.ndarray,
+        rho: np.ndarray,
+        phases: np.ndarray,
+        rho_shell_override: Optional[float],
+    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        """Reduced (interior, ice shell) stack for a FROZEN-branch sample.
+
+        The frozen branch has no ice/ocean interface, so the three-layer
+        interior/ocean/shell reduction the ocean branch uses does not exist.
+        The body reduces to TWO uniform layers -- a rock interior and an ice
+        shell -- which is the same partition the analytic mass closure
+        (``isostasy.frozen_zb_from_mass``) is defined on, so the sampling
+        coordinate ``rho_rock_kgm3`` and the stack's interior density are
+        the same quantity by construction.
+
+        The EOS nuisance ``rho_ice_kgm3`` is applied MASS-NEUTRALLY with
+        ``shell_idx=1, interior_idx=0`` (the two-layer analogue of the ocean
+        branch's ``shell_idx=2, interior_idx=0``), conserving against the
+        REDUCED STACK's own mass -- never ``struct['Mtot_kg']``, which would
+        re-inject the coarse-graining residual as a bias merely by enabling
+        the nuisance.
+
+        INVARIANT I-F5 (per-sample loop closure). The sampled point entered
+        build space as ``zb = frozen_zb_from_mass(M, R, rho_rock, rho_ice)``
+        and is being read back out as the interior density that mass
+        conservation demands at the cached node's zb. Those two must agree:
+        the check is ``abs(rho_interior_new / rho_rock_sampled - 1) <=
+        3e-3``. A failure means the node the sample was served is not the
+        node its coordinates name -- grid snapping too coarse, a stale
+        cache, or a mismatched ice density -- and the sample is REJECTED
+        (``None`` -> -1e30 log-likelihood at the call site). There is NO
+        fallback to a neighbouring node: falling back would silently answer
+        a question the sample did not ask.
+
+        Returns ``(reduced_r, reduced_rho)`` or ``None`` on any reject.
+        """
+        from PlanetProfile.Gravity.isostasy import mass_neutral_shell_density
+
+        # Interior = the contiguous rock/core block at the bottom of the
+        # stack (PP phase codes: silicate 50+, iron core 100+). Read from
+        # the PHASE ARRAY, never from a thickness field.
+        interior = np.where(phases >= 50)[0]
+        if interior.size == 0:
+            return None
+        last_int = int(interior[-1])
+        if last_int >= r_m.size - 1:
+            return None  # no shell above the interior
+        if not np.all(phases[:last_int + 1] >= 50):
+            return None  # non-contiguous interior
+
+        def _vw_rho(i0, i1):
+            r_in = np.concatenate(([0.0], r_m))[i0:i1 + 1]
+            r_out = r_m[i0:i1 + 1]
+            vol = r_out ** 3 - r_in ** 3
+            good = vol > 0
+            if not np.any(good):
+                return np.nan
+            return float(np.sum(rho[i0:i1 + 1][good] * vol[good])
+                         / np.sum(vol[good]))
+
+        reduced_r = np.array([r_m[last_int], r_m[-1]])
+        reduced_rho = np.array([_vw_rho(0, last_int),
+                                _vw_rho(last_int + 1, r_m.size - 1)])
+        if not np.all(np.isfinite(reduced_rho)):
+            return None
+        if not (reduced_r[0] > 0 and reduced_r[1] > reduced_r[0]):
+            return None
+
+        _r_in = np.array([0.0, reduced_r[0]])
+        M_stack = float(np.sum(reduced_rho * (4.0 * np.pi / 3.0)
+                               * (reduced_r ** 3 - _r_in ** 3)))
+        if not np.isfinite(M_stack) or M_stack <= 0:
+            return None
+
+        # An absent override is the identity: conserving against the stack's
+        # own mass makes that an exact no-op, so I-F5 still reads the
+        # stack's interior density against the sampled rock density.
+        shell_rho = (float(rho_shell_override) if rho_shell_override is not None
+                     else float(reduced_rho[1]))
+        try:
+            reduced_rho, _ = mass_neutral_shell_density(
+                reduced_r, reduced_rho, shell_rho, M_stack,
+                shell_idx=1, interior_idx=0)
+        except ValueError:
+            return None
+
+        rho_rock_sampled = theta_dict.get('rho_rock_kgm3')
+        if rho_rock_sampled is not None:
+            rho_rock_sampled = float(rho_rock_sampled)
+            if not np.isfinite(rho_rock_sampled) or rho_rock_sampled <= 0:
+                return None
+            closure = abs(float(reduced_rho[0]) / rho_rock_sampled - 1.0)
+            if not (closure <= _FROZEN_LOOP_CLOSURE_TOL):
+                log.debug(
+                    "I-F5 loop closure FAILED: served interior density "
+                    f"{reduced_rho[0]:.4f} vs sampled rho_rock "
+                    f"{rho_rock_sampled:.4f} kg/m^3 (relative {closure:.3e} "
+                    f"> {_FROZEN_LOOP_CLOSURE_TOL:.1e}); sample rejected "
+                    "with no nearest-node fallback.")
+                return None
+        return reduced_r, reduced_rho
+
+    def _check_ocean_rho_rock_config(self) -> None:
+        """Ocean theta (zb_km sampled) + rho_rock_kgm3 is only meaningful
+        under stack_mass_closure='mass_rho_rock'; otherwise rho_rock_kgm3
+        would be a silently inert (prior-dominated) dimension. Raises
+        ValueError."""
+        names = set(self.param_names) | set(self.fixed_params)
+        if ('zb_km' in names and 'rho_rock_kgm3' in names
+                and self._stack_mass_closure_mode() != 'mass_rho_rock'):
+            raise ValueError(
+                "rho_rock_kgm3 together with zb_km (ocean theta) requires "
+                "metadata.isostasy.stack_mass_closure='mass_rho_rock'; "
+                "otherwise rho_rock_kgm3 would be silently ignored.")
+
+    def _stack_mass_closure_mode(self) -> str:
+        """Config switch ``metadata.isostasy.stack_mass_closure``.
+
+        ``"rock_density"`` closes the reduced 3-layer stack mass to the
+        structure's target ``Mtot_kg`` by rescaling the interior (rock)
+        density, as ``structure_derivation.derive_silicate_density`` does
+        for the Clairaut campaigns (2026-10-21 reviewer ruling on the
+        Enceladus C20/C22 mass-deficit defect). Absent / any other value
+        keeps the historical behaviour exactly (stack normalised by its own
+        mass)."""
+        cfg = self._isostasy_physics_config()
+        mode = cfg.get('stack_mass_closure')
+        mode = str(mode) if mode else 'none'
+        if mode == 'mass_rho_rock' and cfg.get('moi_target') is not None:
+            # User decision 2026-10-23: C/MR^2 is DERIVED in this mode; a
+            # live fixed moi_target would silently reinstate the Iess 2014
+            # double-count (and the Cmeasured consistency guard would be
+            # bypassed). Refuse rather than ignore it.
+            raise ValueError(
+                "metadata.isostasy.stack_mass_closure='mass_rho_rock' "
+                "frees C/MR^2 (derived from the sampled rho_rock_kgm3); "
+                "metadata.isostasy.moi_target must be absent -- both live "
+                "would double-count the Iess et al. 2014 moment factor.")
+        return mode
+
+    def _stack_moi_target(self) -> Optional[float]:
+        """MoI-equality target C/(M R^2) for ``stack_mass_closure ==
+        "mass_moi"``: ``metadata.isostasy.moi_target`` (the config records
+        Bulk.Cmeasured, Iess et al. 2014, there). None if absent/invalid."""
+        v = self._isostasy_physics_config().get('moi_target')
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return None
+        if not (np.isfinite(v) and 0.0 < v < 0.4):
+            return None
+        self._check_moi_target_consistency(v)
+        return v
+
+    def _check_moi_target_consistency(self, moi_target: float) -> None:
+        """Reviewer guard (2026-10-22): ``moi_target`` must equal the
+        Bulk.Cmeasured the structures were built against --
+        ``metadata.bulk_overrides['Cmeasured']`` if declared, else the
+        template's ``Planet.Bulk.Cmeasured``. Raises ValueError on a
+        difference > 1e-9; silently skipped when neither is resolvable (no
+        template module on the config). Checked once per runner."""
+        if getattr(self, '_moi_target_checked', None) == moi_target:
+            return
+        meta = getattr(self.config, 'metadata', {}) or {}
+        ref, src = None, None
+        bo = meta.get('bulk_overrides') or {}
+        if bo.get('Cmeasured') is not None:
+            ref, src = float(bo['Cmeasured']), 'metadata.bulk_overrides'
+        else:
+            mod = getattr(self.config, 'planet_template_module', None)
+            if mod:
+                from .cache_builder import _template_cmeasured
+                ref = _template_cmeasured(mod)
+                src = f'{mod}.Planet.Bulk.Cmeasured'
+        if ref is not None and abs(float(moi_target) - ref) > 1e-9:
+            raise ValueError(
+                f"metadata.isostasy.moi_target={moi_target!r} differs from "
+                f"{src}={ref!r} by more than 1e-9: the mass_moi closure "
+                "target must equal the Cmeasured the structures were built "
+                "against.")
+        self._moi_target_checked = moi_target
+
+    @staticmethod
+    def _stack_cmr2(r, rho):
+        """C/(M R^2) of a concentric-shell stack (layer i spans
+        [r[i-1], r[i]]; R = r[-1])."""
+        r = np.asarray(r, float)
+        rho = np.asarray(rho, float)
+        r_in = np.concatenate(([0.0], r[:-1]))
+        M = float(np.sum(rho * (4.0 * np.pi / 3.0) * (r ** 3 - r_in ** 3)))
+        C = float(np.sum(rho * (8.0 * np.pi / 15.0) * (r ** 5 - r_in ** 5)))
+        return C / (M * float(r[-1]) ** 2)
+
+    def _close_reduced_stack_mass_moi(self, reduced_r, reduced_rho, struct,
+                                      rho_ice_override=None):
+        """``stack_mass_closure == "mass_moi"`` (user-approved 2026-10-22,
+        "MoI-equality assumption"): hold rho_o, rho_i, R_o = reduced_r[1]
+        (ocean top / ice bottom) and R = reduced_r[-1] fixed and solve in
+        closed form for the rock layer (R_s = reduced_r[0], rho_s =
+        reduced_rho[0]) so M_stack = Mtot_kg and C/(M R^2) = moi_target.
+
+        Layers: [0,R_s] rock, [R_s,R_o] ocean, [R_o,R] ice, so
+          (rho_s - rho_o) R_s^3 = a = 3M/4pi - rho_o R_o^3 - rho_i (R^3-R_o^3)
+          (rho_s - rho_o) R_s^5 = b = 15 C M R^2/(8 pi)
+                                      - rho_o R_o^5 - rho_i (R^5-R_o^5)
+          R_s^2 = b/a,  rho_s = rho_o + a/R_s^3.
+        ``rho_ice_override`` replaces rho_i BEFORE closing (so the sampled
+        ice density is held exactly; the pre-closure 1% mass guard still
+        reads the unmodified stack). Returns (new_r, new_rho) or None;
+        every outcome is recorded in ``self.last_mass_closure``.
+
+        Loose physical rejects (after the feasibility checks): rho_s <=
+        rho_grain_max (``rho_s_above_grain_max``) and |R_s - R_sil(PP)| <=
+        10 km (``dR_s_gt_10km``)."""
+        diag = {'mode': 'mass_moi', 'feasible': False, 'reason': None}
+        self.last_mass_closure = diag
+        r0 = np.asarray(reduced_r, float)
+        rho0 = np.asarray(reduced_rho, float)
+        if r0.size != 3 or rho0.size != 3:
+            diag['reason'] = 'not_a_3_layer_stack'
+            return None
+        try:
+            M = float(struct.get('Mtot_kg', np.nan))
+        except (TypeError, ValueError):
+            M = np.nan
+        C_t = self._stack_moi_target()
+        if not np.isfinite(M) or M <= 0:
+            diag['reason'] = 'missing_mass_target'
+            return None
+        if C_t is None:
+            diag['reason'] = 'missing_moi_target'
+            return None
+        r_in = np.concatenate(([0.0], r0[:-1]))
+        M_stack = float(np.sum(rho0 * (4.0 * np.pi / 3.0)
+                               * (r0 ** 3 - r_in ** 3)))
+        resid = (M_stack - M) / M
+        diag.update({
+            'pre_closure_residual_frac': resid,
+            'moi_target': C_t,
+            'moi_stack_before': self._stack_cmr2(r0, rho0),
+            'R_sil_pp_m': float(r0[0]), 'rho_sil_pp': float(rho0[0])})
+        if not np.isfinite(resid) or abs(resid) > _STACK_CLOSURE_MAX_ABS_RESIDUAL:
+            diag['reason'] = 'pre_closure_mass_residual_gt_1pct'
+            return None
+        R_o, R = float(r0[1]), float(r0[2])
+        rho_o = float(rho0[1])
+        rho_i = float(rho0[2] if rho_ice_override is None
+                      else rho_ice_override)
+        a = 3.0 * M / (4.0 * np.pi) - rho_o * R_o ** 3 \
+            - rho_i * (R ** 3 - R_o ** 3)
+        b = (15.0 / (8.0 * np.pi)) * C_t * M * R ** 2 \
+            - rho_o * R_o ** 5 - rho_i * (R ** 5 - R_o ** 5)
+        diag.update({'a': a, 'b': b})
+        if not (np.isfinite(a) and a > 0):
+            diag['reason'] = 'a_not_positive'
+            return None
+        if not (np.isfinite(b) and b > 0):
+            diag['reason'] = 'b_not_positive'
+            return None
+        R_s = float(np.sqrt(b / a))
+        rho_s = rho_o + a / R_s ** 3
+        diag.update({'R_s_m': R_s, 'rho_s': rho_s,
+                     'dR_s_vs_pp_m': R_s - float(r0[0]),
+                     'drho_s_vs_pp': rho_s - float(rho0[0])})
+        if not (0.0 < R_s < R_o):
+            diag['reason'] = 'R_s_not_in_0_Ro'
+            return None
+        if not (np.isfinite(rho_s) and rho_s > rho_o):
+            diag['reason'] = 'rho_s_not_gt_rho_o'
+            return None
+        rho_grain = self._isostasy_physics_config().get('rho_grain_max_kgm3')
+        if rho_grain is not None:
+            rho_grain = float(rho_grain)
+            diag['rho_grain_max'] = rho_grain
+            if not (rho_s <= rho_grain):
+                diag['reason'] = 'rho_s_above_grain_max'
+                return None
+        if not (abs(R_s - float(r0[0])) <= _STACK_CLOSURE_MAX_DR_S_M):
+            diag['reason'] = 'dR_s_gt_10km'
+            return None
+        out_r = np.array([R_s, R_o, R])
+        out_rho = np.array([rho_s, rho_o, rho_i])
+        diag['moi_stack_after'] = self._stack_cmr2(out_r, out_rho)
+        diag['mass_residual_after'] = float(np.sum(
+            out_rho * (4.0 * np.pi / 3.0)
+            * (out_r ** 3 - np.concatenate(([0.0], out_r[:-1])) ** 3))
+            / M - 1.0)
+        diag['feasible'] = True
+        return out_r, out_rho
+
+    def _close_reduced_stack_mass_rho_rock(self, reduced_r, reduced_rho,
+                                           struct, rho_ice_override=None,
+                                           rho_rock=None):
+        """``stack_mass_closure == "mass_rho_rock"`` (user decision
+        2026-10-23): the rock density rho_s is the SAMPLED nuisance
+        ``rho_rock_kgm3`` ~ U[2200, 2600] (same prior as the frozen branch)
+        and C/(M R^2) is DERIVED, not fixed. Hold rho_o = reduced_rho[1],
+        rho_i (``rho_ice_override`` if given, as in mass_moi), R_o =
+        reduced_r[1] and R = reduced_r[-1] fixed and solve R_s from mass:
+
+          a = 3M/(4 pi) - rho_o R_o^3 - rho_i (R^3 - R_o^3)
+          R_s = (a / (rho_s - rho_o))^(1/3)
+
+        so M_stack = Mtot_kg exactly. Independent of the PP candidate's
+        (R_sil, rho_sil). Rejects (None, -1e30 upstream, no fallback):
+        pre-closure 1% mass guard, a <= 0, rho_s <= rho_o, R_s not in
+        (0, R_o), rho_s > rho_grain_max. |R_s - R_sil(PP)| is RECORDED
+        (``dR_s_vs_pp_m``) but not rejected on (see
+        ``_MASS_RHO_ROCK_APPLY_DR_S_REJECT``). Records in
+        ``self.last_mass_closure``: rho_s, R_s_m, cmr2_derived,
+        dR_s_vs_pp_m, ocean_thickness_m, reason."""
+        diag = {'mode': 'mass_rho_rock', 'feasible': False, 'reason': None}
+        self.last_mass_closure = diag
+        r0 = np.asarray(reduced_r, float)
+        rho0 = np.asarray(reduced_rho, float)
+        if r0.size != 3 or rho0.size != 3:
+            diag['reason'] = 'not_a_3_layer_stack'
+            return None
+        try:
+            M = float(struct.get('Mtot_kg', np.nan))
+        except (TypeError, ValueError):
+            M = np.nan
+        if not np.isfinite(M) or M <= 0:
+            diag['reason'] = 'missing_mass_target'
+            return None
+        try:
+            rho_s = float(rho_rock)
+        except (TypeError, ValueError):
+            rho_s = np.nan
+        if not np.isfinite(rho_s) or rho_s <= 0:
+            diag['reason'] = 'missing_rho_rock'
+            return None
+        diag['rho_s'] = rho_s
+        r_in = np.concatenate(([0.0], r0[:-1]))
+        M_stack = float(np.sum(rho0 * (4.0 * np.pi / 3.0)
+                               * (r0 ** 3 - r_in ** 3)))
+        resid = (M_stack - M) / M
+        diag.update({'pre_closure_residual_frac': resid,
+                     'R_sil_pp_m': float(r0[0]), 'rho_sil_pp': float(rho0[0])})
+        if not np.isfinite(resid) or abs(resid) > _STACK_CLOSURE_MAX_ABS_RESIDUAL:
+            diag['reason'] = 'pre_closure_mass_residual_gt_1pct'
+            return None
+        R_o, R = float(r0[1]), float(r0[2])
+        rho_o = float(rho0[1])
+        rho_i = float(rho0[2] if rho_ice_override is None
+                      else rho_ice_override)
+        a = 3.0 * M / (4.0 * np.pi) - rho_o * R_o ** 3 \
+            - rho_i * (R ** 3 - R_o ** 3)
+        diag['a'] = a
+        if not (np.isfinite(a) and a > 0):
+            diag['reason'] = 'a_not_positive'
+            return None
+        if not (rho_s > rho_o):
+            diag['reason'] = 'rho_s_not_gt_rho_o'
+            return None
+        R_s = float((a / (rho_s - rho_o)) ** (1.0 / 3.0))
+        diag.update({'R_s_m': R_s, 'dR_s_vs_pp_m': R_s - float(r0[0]),
+                     'ocean_thickness_m': R_o - R_s})
+        if not (np.isfinite(R_s) and 0.0 < R_s < R_o):
+            diag['reason'] = 'R_s_not_in_0_Ro'
+            return None
+        rho_grain = self._isostasy_physics_config().get('rho_grain_max_kgm3')
+        if rho_grain is not None:
+            rho_grain = float(rho_grain)
+            diag['rho_grain_max'] = rho_grain
+            if not (rho_s <= rho_grain):
+                diag['reason'] = 'rho_s_above_grain_max'
+                return None
+        if (_MASS_RHO_ROCK_APPLY_DR_S_REJECT
+                and not abs(R_s - float(r0[0])) <= _STACK_CLOSURE_MAX_DR_S_M):
+            diag['reason'] = 'dR_s_gt_10km'
+            return None
+        out_r = np.array([R_s, R_o, R])
+        out_rho = np.array([rho_s, rho_o, rho_i])
+        diag['cmr2_derived'] = self._stack_cmr2(out_r, out_rho)
+        diag['mass_residual_after'] = float(np.sum(
+            out_rho * (4.0 * np.pi / 3.0)
+            * (out_r ** 3 - np.concatenate(([0.0], out_r[:-1])) ** 3))
+            / M - 1.0)
+        diag['feasible'] = True
+        return out_r, out_rho
+
+    def _close_reduced_stack_mass(self, reduced_r, reduced_rho, struct):
+        """Rescale ``reduced_rho[0]`` so the 3-layer stack mass equals
+        ``struct['Mtot_kg']`` (relative error ~1e-15). Returns the new
+        density array, or None on missing/non-finite target or an
+        unphysical (non-positive) rock density. Records the diagnostic in
+        ``self.last_mass_closure`` (pre-closure residual fraction
+        (M_stack - M)/M and the applied rock-density factor)."""
+        M_target = struct.get('Mtot_kg', np.nan)
+        try:
+            M_target = float(M_target)
+        except (TypeError, ValueError):
+            return None
+        if not np.isfinite(M_target) or M_target <= 0:
+            return None
+        r_in = np.concatenate(([0.0], reduced_r[:-1]))
+        m_layer = reduced_rho * (4.0 * np.pi / 3.0) * (reduced_r ** 3
+                                                       - r_in ** 3)
+        M_stack = float(np.sum(m_layer))
+        V0 = (4.0 * np.pi / 3.0) * float(reduced_r[0]) ** 3
+        if abs(M_stack - M_target) / M_target > _STACK_CLOSURE_MAX_ABS_RESIDUAL:
+            return None  # broken node: reject (-1e30 / SBI drop), never close
+        rho0 = (M_target - float(np.sum(m_layer[1:]))) / V0
+        if not np.isfinite(rho0) or rho0 <= 0:
+            return None
+        out = np.array(reduced_rho, dtype=float)
+        out[0] = rho0
+        self.last_mass_closure = {
+            'pre_closure_residual_frac': (M_stack - M_target) / M_target,
+            'rock_density_factor': rho0 / float(reduced_rho[0]),
+        }
+        return out
+
+    def _derive_gravity_isostatic(
+        self, theta_dict: Dict[str, float]
+    ) -> Optional[Dict[Tuple[int, int], float]]:
+        """Model-predicted unnormalized {(l,m): C_lm} for the
+        ``isostatic_hm2019`` forward model (Hemingway & Mittal 2019).
+
+        Total predicted C_lm = C_lm_hyd + C_lm_nh(isostatic) (module spec
+        Physics map item 4):
+
+        - C_lm_hyd: hydrostatic Tricarico interface-figure sum over the
+          reduced 3-layer (interior / ocean / shell) stack -- per-interface
+          eccentricities (``Librations.compute_eccentricities``) converted
+          to degree-2 shape coefficients (``isostasy.triaxial_to_H2m``),
+          finite-amplitude adjusted, and summed via
+          ``isostasy.interface_gravity_coeff`` (module spec item 1).
+        - C_lm_nh(isostatic): ``isostasy.isostatic_gravity`` -- the
+          observed-shape non-hydrostatic part, Airy-compensated at the
+          ice/ocean interface with the sampled ``compensation_C2``
+          (module spec items 2-4).
+
+        Both parts are computed at the shape reference radius
+        (``isostasy.shape_ref_radius_m``, Tajeddine convention) and then
+        rescaled (B14, ``isostasy.rescale_coeff``) to the gravity reference
+        radius (``metadata.gravity_ref_radius_m`` / ``isostasy.
+        gravity_ref_radius_m``, Park convention) for comparison against the
+        conditioned observables.
+
+        BOTH BRANCHES (A5). A structure with a phase-0 ocean layer takes the
+        three-layer Airy-compensated path above. A structure with NO ocean
+        layer is dispatched to :meth:`_gravity_isostatic_frozen`, which runs
+        the same two-part sum over a reduced TWO-layer stack with
+        ``isostatic_gravity(R_b=None)`` -- rigid uncompensated support. The
+        frozen branch is a real prediction here, not a rejection: it is what
+        keeps no-ocean interiors in the posterior (user ruling) while
+        letting the data discriminate them.
+
+        The ``rho_ice_kgm3`` EOS nuisance, when present in ``theta_dict``,
+        is applied mass-neutrally
+        (``isostasy.mass_neutral_shell_density``) to the reduced stack
+        before either sum is computed, mirroring
+        ``_derive_libration_deg``'s ``rho_shell_override`` handling.
+
+        Returns None on any hard-reject condition (no ocean, non-finite
+        inputs, unphysical override, missing isostasy config).
+        """
+        from PlanetProfile.Gravity.isostasy import (
+            isostatic_gravity, finite_amplitude_coeffs,
+            interface_gravity_coeff, eccentricities_to_axes,
+            triaxial_to_H2m, mass_neutral_shell_density, rescale_coeff)
+        from PlanetProfile.Gravity.Librations import compute_eccentricities
+
+        iso_cfg = self._isostasy_physics_config()
+        H_obs_raw = iso_cfg.get('H_obs_lm_m') or iso_cfg.get('H_obs_lm')
+        if not H_obs_raw:
+            return None
+        try:
+            H_obs_lm = {tuple(int(x) for x in str(k).split(',')): float(v)
+                        for k, v in H_obs_raw.items()}
+        except (TypeError, ValueError):
+            return None
+        R_ref_shape = float(iso_cfg.get('shape_ref_radius_m', np.nan))
+        if not np.isfinite(R_ref_shape):
+            return None
+        gm = (getattr(self.config, 'metadata', {}) or {})
+        R_ref_gravity = float(gm.get(
+            'gravity_ref_radius_m',
+            iso_cfg.get('gravity_ref_radius_m', R_ref_shape)))
+        finite_amplitude = bool(iso_cfg.get('finite_amplitude', True))
+
+        struct = self._struct_for_hydrosphere(theta_dict)
+        if struct is None:
+            return None
+        r_m = np.asarray(struct.get('r_m'), dtype=float)
+        rho = np.asarray(struct.get('rho'), dtype=float)
+        phases = np.asarray(struct.get('phases'))
+        omega = float(struct.get('omega', np.nan))
+        if not np.isfinite(omega) or r_m.size < 3:
+            return None
+        order = np.argsort(r_m)
+        r_m, rho, phases = r_m[order], rho[order], phases[order]
+        keep = np.isfinite(r_m) & np.isfinite(rho) & (r_m > 0)
+        r_m, rho, phases = r_m[keep], rho[keep], phases[keep]
+
+        ocean = np.where(phases == 0)[0]
+        if ocean.size == 0:
+            # FROZEN BRANCH (A5). Rigid, UNCOMPENSATED support: there is no
+            # ice/ocean interface, so there is no Airy root and no
+            # compensation_C2 -- isostatic_gravity(R_b=None) keeps the
+            # surface term alone. That is a real physical prediction, not a
+            # fallback, and it is what lets the joint posterior discriminate
+            # the branches (config support_provenance /
+            # open_tension_airy_vs_frozen).
+            return self._gravity_isostatic_frozen(
+                theta_dict, r_m, rho, phases, H_obs_lm, R_ref_shape,
+                R_ref_gravity, finite_amplitude, omega)
+        first, last = int(ocean[0]), int(ocean[-1])
+        if not np.all(phases[first:last + 1] == 0):
+            return None
+        if first == 0 or last == r_m.size - 1:
+            return None
+
+        def _vw_rho(i0, i1):
+            r_in = np.concatenate(([0.0], r_m))[i0:i1 + 1]
+            r_out = r_m[i0:i1 + 1]
+            vol = r_out ** 3 - r_in ** 3
+            good = vol > 0
+            if not np.any(good):
+                return np.nan
+            return float(np.sum(rho[i0:i1 + 1][good] * vol[good])
+                         / np.sum(vol[good]))
+
+        reduced_r = np.array([r_m[first - 1], r_m[last], r_m[-1]])
+        reduced_rho = np.array([_vw_rho(0, first - 1),
+                                _vw_rho(first, last),
+                                _vw_rho(last + 1, r_m.size - 1)])
+        if not np.all(np.isfinite(reduced_rho)):
+            return None
+
+        rho_ice_override = theta_dict.get('rho_ice_kgm3')
+        _mode = self._stack_mass_closure_mode()
+        if _mode in ('mass_moi', 'mass_rho_rock'):
+            # rho_i (sampled override applied inside) is held exactly; the
+            # rock layer (R_s, rho_s) absorbs mass (and MoI for mass_moi), so
+            # the mass-neutral shell step below must not run.
+            if _mode == 'mass_moi':
+                closed = self._close_reduced_stack_mass_moi(
+                    reduced_r, reduced_rho, struct, rho_ice_override)
+            else:
+                closed = self._close_reduced_stack_mass_rho_rock(
+                    reduced_r, reduced_rho, struct, rho_ice_override,
+                    theta_dict.get('rho_rock_kgm3'))
+            if closed is None:
+                return None
+            reduced_r, reduced_rho = closed
+            rho_ice_override = None
+        elif self._stack_mass_closure_mode() == 'rock_density':
+            reduced_rho = self._close_reduced_stack_mass(
+                reduced_r, reduced_rho, struct)
+            if reduced_rho is None:
+                return None
+
+        if rho_ice_override is not None:
+            _r_in = np.concatenate(([0.0], reduced_r[:-1]))
+            M_stack = float(np.sum(reduced_rho * (4.0 * np.pi / 3.0)
+                                   * (reduced_r ** 3 - _r_in ** 3)))
+            if not np.isfinite(M_stack) or M_stack <= 0:
+                return None
+            try:
+                reduced_rho, _ = mass_neutral_shell_density(
+                    reduced_r, reduced_rho, float(rho_ice_override),
+                    M_stack, shell_idx=2, interior_idx=0)
+            except ValueError:
+                return None
+
+        n = reduced_r.size
+        M_body = float(np.sum(
+            reduced_rho * (4.0 * np.pi / 3.0)
+            * (reduced_r ** 3 - np.concatenate(([0.0], reduced_r[:-1])) ** 3)))
+        if not np.isfinite(M_body) or M_body <= 0:
+            return None
+
+        try:
+            ep, eq = compute_eccentricities(reduced_r, reduced_rho, omega)
+        except Exception:
+            return None
+        ep = np.asarray(ep, dtype=float)
+        eq = np.asarray(eq, dtype=float)
+        if not (np.all(np.isfinite(ep)) and np.all(np.isfinite(eq))):
+            return None
+
+        H_hyd = []
+        for i, R_i in enumerate(reduced_r):
+            a, b, c = eccentricities_to_axes(float(R_i), float(ep[i]),
+                                             float(eq[i]))
+            H20, H22 = triaxial_to_H2m(a, b, c)
+            H_hyd.append({(2, 0): H20, (2, 2): H22})
+
+        # Hydrostatic Tricarico interface-figure sum (module spec item 1/4):
+        # every interface, H_hyd only. PP layer convention: layer i spans
+        # [r[i-1], r[i]] (implicit inner edge 0), so the interface AT r[i]
+        # has "below" = layer i, "above" = layer i+1 (vacuum for the
+        # outermost) -- drho = rho[i] - rho[i+1] (0 at the surface).
+        _LM = ((2, 0), (2, 2), (3, 0))
+        C_hyd = {lm: 0.0 for lm in _LM}
+        for i in range(n):
+            R_i = float(reduced_r[i])
+            drho = float(reduced_rho[i]
+                        - (reduced_rho[i + 1] if i + 1 < n else 0.0))
+            H_i = (finite_amplitude_coeffs(H_hyd[i], R_i) if finite_amplitude
+                  else H_hyd[i])
+            for lm in _LM:
+                C_hyd[lm] += interface_gravity_coeff(
+                    H_i.get(lm, 0.0), drho, R_i, lm[0], M_body, R_ref_shape)
+
+        # Non-hydrostatic Airy-isostatic gravity (module spec items 2-4).
+        # Ocean branch: R_b = ice/ocean interface radius (reduced_r[1]).
+        C2 = float(theta_dict.get('compensation_C2', 1.0))
+        try:
+            C_nh = isostatic_gravity(
+                H_obs_lm=H_obs_lm, H_hyd_t_lm=H_hyd[-1],
+                R_t=float(reduced_r[-1]), R_b=float(reduced_r[1]),
+                rho_ice=float(reduced_rho[2]), rho_ocean=float(reduced_rho[1]),
+                M_body=M_body, R_ref=R_ref_shape, C2=C2,
+                finite_amplitude=finite_amplitude)
+        except ValueError:
+            return None
+
+        C_total_shape_ref = {lm: C_hyd[lm] + C_nh.get(lm, 0.0)
+                             for lm in _LM}
+        if not all(np.isfinite(v) for v in C_total_shape_ref.values()):
+            return None
+
+        # B14 reference-radius conversion: shape convention -> gravity
+        # convention, so the caller compares against Park-era observables.
+        return {lm: rescale_coeff(v, lm[0], R_ref_shape, R_ref_gravity)
+                for lm, v in C_total_shape_ref.items()}
+
+    def _gravity_isostatic_frozen(
+        self,
+        theta_dict: Dict[str, float],
+        r_m: np.ndarray,
+        rho: np.ndarray,
+        phases: np.ndarray,
+        H_obs_lm: Dict[Tuple[int, int], float],
+        R_ref_shape: float,
+        R_ref_gravity: float,
+        finite_amplitude: bool,
+        omega: float,
+    ) -> Optional[Dict[Tuple[int, int], float]]:
+        """FROZEN-branch total C_lm (A5), on the reduced two-layer stack.
+
+        Same two-part sum as the ocean branch -- hydrostatic Tricarico
+        interface-figure sum plus the observed-shape non-hydrostatic part --
+        but over (interior, ice shell) with RIGID UNCOMPENSATED support:
+        ``isostatic_gravity(R_b=None)`` keeps the surface term alone. There
+        is no ice/ocean interface, hence no Airy root, hence no
+        ``compensation_C2`` (config ``branch_model.frozen_branch.
+        not_sampled_here``); passing one here would be meaningless, so it is
+        deliberately not forwarded.
+
+        Consequence worth stating because it is a claim the campaign makes:
+        with no root, the frozen C30 is the surface term alone and is
+        therefore INDEPENDENT of zb, so the ocean branch's C30
+        shell-thickness reading does not carry over to this branch.
+
+        Returns None on any hard reject (I-F5 loop closure, non-finite
+        inputs, degenerate figure solve).
+        """
+        from PlanetProfile.Gravity.isostasy import (
+            isostatic_gravity, finite_amplitude_coeffs,
+            interface_gravity_coeff, eccentricities_to_axes,
+            triaxial_to_H2m, rescale_coeff)
+        from PlanetProfile.Gravity.Librations import compute_eccentricities
+
+        stack = self._frozen_two_layer_stack(
+            theta_dict, r_m, rho, phases, theta_dict.get('rho_ice_kgm3'))
+        if stack is None:
+            return None
+        reduced_r, reduced_rho = stack
+
+        n = reduced_r.size
+        M_body = float(np.sum(
+            reduced_rho * (4.0 * np.pi / 3.0)
+            * (reduced_r ** 3 - np.concatenate(([0.0], reduced_r[:-1])) ** 3)))
+        if not np.isfinite(M_body) or M_body <= 0:
+            return None
+
+        try:
+            ep, eq = compute_eccentricities(reduced_r, reduced_rho, omega)
+        except Exception:
+            return None
+        ep = np.asarray(ep, dtype=float)
+        eq = np.asarray(eq, dtype=float)
+        if not (np.all(np.isfinite(ep)) and np.all(np.isfinite(eq))):
+            return None
+
+        H_hyd = []
+        for i, R_i in enumerate(reduced_r):
+            a, b, c = eccentricities_to_axes(float(R_i), float(ep[i]),
+                                             float(eq[i]))
+            H20, H22 = triaxial_to_H2m(a, b, c)
+            H_hyd.append({(2, 0): H20, (2, 2): H22})
+
+        _LM = ((2, 0), (2, 2), (3, 0))
+        C_hyd = {lm: 0.0 for lm in _LM}
+        for i in range(n):
+            R_i = float(reduced_r[i])
+            drho = float(reduced_rho[i]
+                         - (reduced_rho[i + 1] if i + 1 < n else 0.0))
+            H_i = (finite_amplitude_coeffs(H_hyd[i], R_i) if finite_amplitude
+                   else H_hyd[i])
+            for lm in _LM:
+                C_hyd[lm] += interface_gravity_coeff(
+                    H_i.get(lm, 0.0), drho, R_i, lm[0], M_body, R_ref_shape)
+
+        try:
+            C_nh = isostatic_gravity(
+                H_obs_lm=H_obs_lm, H_hyd_t_lm=H_hyd[-1],
+                R_t=float(reduced_r[-1]), R_b=None,
+                rho_ice=float(reduced_rho[-1]), rho_ocean=None,
+                M_body=M_body, R_ref=R_ref_shape,
+                finite_amplitude=finite_amplitude)
+        except ValueError:
+            return None
+
+        C_total_shape_ref = {lm: C_hyd[lm] + C_nh.get(lm, 0.0) for lm in _LM}
+        if not all(np.isfinite(v) for v in C_total_shape_ref.values()):
+            return None
+        return {lm: rescale_coeff(v, lm[0], R_ref_shape, R_ref_gravity)
+                for lm, v in C_total_shape_ref.items()}
+
+    def _derive_gravity_pair(
+        self, theta_dict: Dict[str, float]
+    ) -> Optional[Tuple[float, float]]:
+        """Model-predicted unnormalized (C20, C22) for v4 geodesy configs.
+
+        Hydrostatic part: fluid Love number k_f by Clairaut integration
+        (gravity_obs.clairaut_kf) over the SAME per-sample composite
+        density profile the CMR2 mass-conservation derivation assembles
+        (sampled core + derived silicate + cached hydrosphere) — obtained
+        by invoking that derivation and reading its `_last_composite_layers`
+        side channel, so the two can never diverge (reviewer-binding).
+        Configs without the mass-conservation block fall back to the raw
+        cached profile (no sampled core to fold in). Then
+        C22_h = k_f q_r / 4 rescaled to the GC21 1565 km reference radius,
+        C20_h = -3.324 C22_h (Tricarico rapid-rotation ratio), plus the
+        sampled non-hydrostatic offsets dC20_nh / dC22_nh (0 when not in
+        the parameter space).
+
+        Returns None on hard-reject (same causes as the CMR2 derivation,
+        plus non-finite cache scalars); callers treat it like any other
+        -1e30 rejection (likelihood) or NaN (reporting).
+        """
+        from .gravity_obs import clairaut_kf, hydrostatic_c20_c22
+
+        # Reset the hydrostatic-reference C/MR² side channel; filled below on
+        # success (see _last_cmr2_hydro doc). None => not computed this call.
+        self._last_cmr2_hydro = None
+        derived_params_cfg = getattr(self.config, 'derived_params', {}) or {}
+        rho_sil_cfg = derived_params_cfg.get('rho_sil_kgm3', {}) or {}
+        if rho_sil_cfg.get('derivation') == 'mass_conservation':
+            self._last_composite_layers = None
+            if self._derive_cmr2_via_mass_conservation(theta_dict) is None:
+                return None
+            if self._last_composite_layers is None:
+                return None
+            assembled, R_body_m, M_total_kg = self._last_composite_layers
+            # Piecewise-constant shells -> (outer radius, density) arrays;
+            # clairaut_kf treats rho as constant down to the previous edge,
+            # which matches the (r_in, r_out, rho) stack exactly since the
+            # assembly is contiguous from r = 0.
+            r_arr = np.array([ro for (_, ro, _) in assembled], dtype=float)
+            rho_arr = np.array([rh for (_, _, rh) in assembled], dtype=float)
+        else:
+            struct = self._struct_for_hydrosphere(theta_dict)
+            if struct is None:
+                return None
+            r_arr = np.asarray(struct.get('r_m'), dtype=float)
+            rho_arr = np.asarray(struct.get('rho'), dtype=float)
+            R_body_m = float(struct.get('R_body_m', np.nan))
+            M_total_kg = float(struct.get('Mtot_kg', np.nan))
+
+        struct_scal = self._struct_for_hydrosphere(theta_dict)
+        omega = float((struct_scal or {}).get('omega', np.nan))
+        if not (np.isfinite(R_body_m) and np.isfinite(M_total_kg)
+                and np.isfinite(omega)):
+            return None
+        try:
+            kf = clairaut_kf(r_arr, rho_arr)
+        except ValueError:
+            return None
+        # Body-dependent conventions (mission-body constraints doc,
+        # review-binding): reference radius and Tricarico-corrected
+        # hydrostatic ratio come from the config when set; defaults are
+        # Europa's (GC21 1565 km, 3.324).
+        gm = (getattr(self.config, 'metadata', {}) or {})
+        kwargs = {}
+        if gm.get('gravity_ref_radius_m'):
+            kwargs['R_ref_m'] = float(gm['gravity_ref_radius_m'])
+        if gm.get('gravity_j2_over_c22'):
+            kwargs['j2_over_c22'] = float(gm['gravity_j2_over_c22'])
+        c20_h, c22_h = hydrostatic_c20_c22(kf, omega, R_body_m,
+                                           M_total_kg, **kwargs)
+        c20 = c20_h + float(theta_dict.get('dC20_nh', 0.0))
+        c22 = c22_h + float(theta_dict.get('dC22_nh', 0.0))
+        # Hydrostatic-reference C/MR²: the C/MR² this model C22 would imply IF
+        # the body were hydrostatic (Radau–Darwin inverse of the SAME map used
+        # above — identical omega/R/M/R_ref — so it cannot diverge from the
+        # forward gravity channel). Stored on a side channel like
+        # _last_composite_layers; the caller pairs it with the structure
+        # moment-integral C/MR² so the gap is the inferred non-hydrostaticity.
+        from .gravity_obs import cmr2_from_c22_rd
+        try:
+            self._last_cmr2_hydro = float(
+                cmr2_from_c22_rd(c22, omega, R_body_m, M_total_kg,
+                                 **({'R_ref_m': kwargs['R_ref_m']}
+                                    if 'R_ref_m' in kwargs else {})))
+        except (ValueError, ZeroDivisionError):
+            # C22 outside the RD-physical range (C/MR² > 2/3) — leave None.
+            self._last_cmr2_hydro = None
+        return (c20, c22)
+
+    def _derive_libration_deg(
+        self, theta_dict: Dict[str, float],
+        rho_shell_override: Optional[float] = None,
+    ) -> Optional[float]:
+        """Forced libration amplitude [degrees] from the per-sample
+        structure, via the merged Gravity/Librations.py forward model
+        (rigid three-layer reduction: interior / ocean / outer shell,
+        Van Hoolst et al. 2008 formalism as invoked by the PP pipeline).
+
+        Rigid-shell approximation (test-run scope): the elastic (y1/k2)
+        correction requires per-sample radial y-functions — a documented
+        production refinement (extractable from the TidalPy solution).
+        Returns None when the sample's structure has no contiguous
+        interior/ocean/shell partition or inputs are non-finite.
+
+        FROZEN BRANCH (A5): a structure with no phase-0 layer is reduced to
+        the two-layer (interior, ice shell) stack and evaluated on
+        ``librations(..., ocean=False)`` -- the rigid oceanless branch. No
+        ocean means no decoupling, so the amplitude is the whole-body rigid
+        value; that near-zero decoupling is one of the two legs of the
+        branch discrimination. Invariant I-F5 (loop closure against the
+        sampled ``rho_rock_kgm3``) is enforced inside
+        :meth:`_frozen_two_layer_stack` and rejects to ``None`` -> -1e30 with
+        NO nearest-node fallback.
+
+        CONFIG-DRIVEN LIBRATION MODEL (r5 defects D3/D4/D5). When the
+        config declares ``metadata['libration_model_correction']`` the
+        ocean-branch call runs the ruled B2' figure treatment
+        (``H22_obs_m`` + the sampled ``compensation_C2``, see
+        :meth:`_libration_figure_kwargs`) and BOTH branches' predictions
+        carry the model budget ``x multiplicative_factor x
+        (1 + libration_sys_frac)`` (see
+        :meth:`_apply_libration_model_budget`). With no such block declared
+        every one of those reduces to identity and the path is unchanged.
+
+        Args:
+            rho_shell_override: OPTIONAL EOS-nuisance override for the
+                reduced stack's outer-shell density (kg/m^3). When
+                ``None``, it FALLS BACK to the sampled
+                ``theta_dict['rho_ice_kgm3']`` on both branches (r5 defect
+                D6 -- the ocean branch previously ignored the sampled
+                nuisance entirely, while the frozen branch and the gravity
+                channel both read it). When neither is present behaviour is
+                UNCHANGED from the historical path. When set, the override
+                is applied
+                MASS-NEUTRALLY via
+                :func:`PlanetProfile.Gravity.isostasy.mass_neutral_shell_density`
+                — the shell-mass delta is absorbed into the reduced
+                stack's interior density (index 0) so the body's total
+                mass (``struct['Mtot_kg']``) is conserved exactly, rather
+                than silently drifting (see
+                metadata.blockers_open.NEW_MAJOR_1_rho_ice_mass_neutrality
+                in enceladus_cassini_isostasy_7D.json). Returns None
+                (sample rejected) if ``Mtot_kg`` is missing/non-finite or
+                if the required interior density is unphysical.
+        """
+        from PlanetProfile.Gravity.Librations import librations
+
+        lib_cfg = self._libration_model_cfg()
+
+        struct = self._struct_for_hydrosphere(theta_dict)
+        if struct is None:
+            return None
+        r_m = np.asarray(struct.get('r_m'), dtype=float)
+        rho = np.asarray(struct.get('rho'), dtype=float)
+        phases = np.asarray(struct.get('phases'))
+        omega = float(struct.get('omega', np.nan))
+        ecc = float(struct.get('eccentricity', np.nan))
+        if not (np.isfinite(omega) and np.isfinite(ecc)) or r_m.size < 3:
+            return None
+        order = np.argsort(r_m)
+        r_m, rho, phases = r_m[order], rho[order], phases[order]
+        keep = np.isfinite(r_m) & np.isfinite(rho) & (r_m > 0)
+        r_m, rho, phases = r_m[keep], rho[keep], phases[keep]
+
+        ocean = np.where(phases == 0)[0]
+        if ocean.size == 0:
+            # FROZEN BRANCH (A5). No ocean means no decoupled shell: the
+            # body librates as one rigid piece, which is
+            # ``librations(..., ocean=False)`` -- the Van Hoolst rigid
+            # oceanless branch, summing A/B/C over the whole reduced stack.
+            # This is the second leg of the branch discrimination (near-zero
+            # libration decoupling), and it must be a real prediction rather
+            # than a None, or the frozen branch would leave the posterior by
+            # returning -inf everywhere -- which is exactly the user ruling
+            # this design exists to honour.
+            stack = self._frozen_two_layer_stack(
+                theta_dict, r_m, rho, phases,
+                rho_shell_override if rho_shell_override is not None
+                else theta_dict.get('rho_ice_kgm3'))
+            if stack is None:
+                return None
+            reduced_r, reduced_rho = stack
+            try:
+                lib_m = librations(reduced_r, reduced_rho, omega, ecc,
+                                   rigid=True, ocean=False)
+            except Exception:
+                return None
+            if lib_m is None or not np.isfinite(lib_m):
+                return None
+            # D4/D5 budget applies on BOTH branches -- see
+            # _apply_libration_model_budget's BRANCH SCOPE note. No figure
+            # kwargs here: with no ice/ocean interface there is no Airy root
+            # (librations() raises NotImplementedError for ocean=False), and
+            # the frozen branch's rigid uncompensated support is the config's
+            # declared physics (metadata.isostasy.frozen_branch_support).
+            return self._apply_libration_model_budget(
+                float(np.degrees(lib_m / r_m[-1])), theta_dict, lib_cfg)
+        first, last = int(ocean[0]), int(ocean[-1])
+        if not np.all(phases[first:last + 1] == 0):
+            return None
+        if first == 0 or last == r_m.size - 1:
+            return None
+
+        def _vw_rho(i0, i1):
+            r_in = np.concatenate(([0.0], r_m))[i0:i1 + 1]
+            r_out = r_m[i0:i1 + 1]
+            vol = r_out ** 3 - r_in ** 3
+            good = vol > 0
+            if not np.any(good):
+                return np.nan
+            return float(np.sum(rho[i0:i1 + 1][good] * vol[good])
+                         / np.sum(vol[good]))
+
+        reduced_r = np.array([r_m[first - 1], r_m[last], r_m[-1]])
+        reduced_rho = np.array([_vw_rho(0, first - 1),
+                                _vw_rho(first, last),
+                                _vw_rho(last + 1, r_m.size - 1)])
+        if not np.all(np.isfinite(reduced_rho)):
+            return None
+
+        # Mass closure (config-gated, default off): the libration stack is
+        # the same reduced 3-layer stack as the gravity channel, so it gets
+        # the same closed stack (see _stack_mass_closure_mode).
+        _moi_closed = False
+        _mode = self._stack_mass_closure_mode()
+        if _mode in ('mass_moi', 'mass_rho_rock'):
+            _ov = (rho_shell_override if rho_shell_override is not None
+                   else theta_dict.get('rho_ice_kgm3'))
+            if _mode == 'mass_moi':
+                closed = self._close_reduced_stack_mass_moi(
+                    reduced_r, reduced_rho, struct, _ov)
+            else:
+                closed = self._close_reduced_stack_mass_rho_rock(
+                    reduced_r, reduced_rho, struct, _ov,
+                    theta_dict.get('rho_rock_kgm3'))
+            if closed is None:
+                return None
+            reduced_r, reduced_rho = closed
+            _moi_closed = True
+        elif self._stack_mass_closure_mode() == 'rock_density':
+            reduced_rho = self._close_reduced_stack_mass(
+                reduced_r, reduced_rho, struct)
+            if reduced_rho is None:
+                return None
+
+        # D6: the sampled EOS nuisance rho_ice_kgm3 must reach the OCEAN
+        # branch's libration too. Before this, rho_shell_override was
+        # reachable only by an explicit caller argument and the likelihood
+        # passed none -- so rho_ice moved the frozen branch's libration
+        # (which already read theta_dict) and the ocean branch's gravity
+        # (_derive_gravity_isostatic reads theta_dict at line ~2089) but NOT
+        # the ocean branch's libration: a branch asymmetry inside the
+        # likelihood, on the sole thickness channel. The explicit argument
+        # still wins, so the mass-neutrality unit tests that drive it
+        # directly are unaffected.
+        rho_shell_override = (
+            rho_shell_override if rho_shell_override is not None
+            else theta_dict.get('rho_ice_kgm3'))
+        if _moi_closed:
+            rho_shell_override = None  # already held exactly by the closure
+        if rho_shell_override is not None:
+            from PlanetProfile.Gravity.isostasy import (
+                mass_neutral_shell_density)
+            # Conserve against the mass of the REDUCED STACK, not against
+            # struct['Mtot_kg'] (the template target). The reduced 3-layer
+            # stack carries its own residual from volume-weighted
+            # coarse-graining -- measured at -0.312% on the Enceladus ocean
+            # node and +0.835% on a Titan NH3 node -- so conserving against
+            # the target would make an IDENTITY override (rho_shell_override
+            # equal to the stack's own shell density) shift the interior
+            # density by that residual and bias the libration by ~0.19
+            # sigma_obs. That is a silent bias injected merely by enabling
+            # the nuisance. Using the stack's own mass makes identity an
+            # exact no-op, which is what
+            # test_rho_shell_override_identity_is_a_noop pins.
+            _r_in = np.concatenate(([0.0], reduced_r[:-1]))
+            M_body = float(np.sum(reduced_rho * (4.0 * np.pi / 3.0)
+                                  * (reduced_r ** 3 - _r_in ** 3)))
+            if not np.isfinite(M_body) or M_body <= 0:
+                return None
+            try:
+                reduced_rho, _mass_residual_frac = mass_neutral_shell_density(
+                    reduced_r, reduced_rho, rho_shell_override, M_body,
+                    shell_idx=2, interior_idx=0)
+            except ValueError:
+                return None
+
+        # D3: the ruled B2' figure treatment, from the config. Empty kwargs
+        # (no block, or a different declared convention) leaves this call
+        # byte-identical to the historical hydrostatic path.
+        try:
+            lib_m = librations(reduced_r, reduced_rho, omega, ecc,
+                               rigid=True, ocean=True, ocean_idx=1,
+                               **self._libration_figure_kwargs(
+                                   theta_dict, lib_cfg))
+        except Exception:
+            return None
+        if lib_m is None or not np.isfinite(lib_m):
+            return None
+        return self._apply_libration_model_budget(
+            float(np.degrees(lib_m / r_m[-1])), theta_dict, lib_cfg)
+
+    def run(self, progress_callback: Optional[Callable] = None,
+            progress_jsonl_path: Optional[str] = None):
+        """
+        Run MCMC sampling with pocoMC.
+
+        Args:
+            progress_callback: Optional function called with progress dict:
+                {'iteration': int, 'n_total': int, 'acceptance_rate': float,
+                 'n_samples': int, 'ess': float}
+            progress_jsonl_path: Optional path to a JSONL file.  When set,
+                one JSON line is appended after each sampler iteration with
+                fields: iteration, log_Z, log_Z_err, ESS, n_accepted,
+                n_total, elapsed_s, timestamp.  Fields unavailable for the
+                current sampler state are written as null.  When None (the
+                default) no file is written and behaviour is unchanged.
+
+        Returns:
+            InferenceResult object with samples, log-likelihoods, and convergence metrics
+        """
+        from .inference_core import InferenceResult
+
+        try:
+            import pocomc as pc
+        except ImportError as e:
+            raise ImportError("pocoMC not installed. Run: pip install pocomc") from e
+
+        log.info(f"Starting MCMC with pocoMC (target n_eff={self.n_effective})")
+        log.info(f"Parameter space ({len(self.param_names)}D): {self.param_names}")
+        log.info(f"Observables: {list(self.config.observables.keys())}")
+
+        t0 = time.time()
+
+        # Initialize sampler
+        def _log_like(theta):
+            return self.log_likelihood_fn(theta)
+
+        _sampler_kwargs = dict(
+            prior=self.prior,
+            likelihood=_log_like,
+            n_effective=self.n_effective,
+            random_state=self.random_state,
+        )
+        if self.n_active is not None:
+            _sampler_kwargs['n_active'] = int(self.n_active)
+        sampler = pc.Sampler(**_sampler_kwargs)
+
+        # --- JSONL progress streaming ----------------------------------------
+        # pocoMC's run() is a blocking call with no native per-iteration
+        # callback.  We launch a background thread that polls sampler.t (the
+        # iteration counter) at a fixed interval and writes one JSONL record
+        # whenever the counter advances.  The thread stops cleanly once the
+        # main run() returns.
+        _jsonl_stop_event = threading.Event()
+
+        def _jsonl_writer_thread(path: str, stop: threading.Event,
+                                  run_t0: float) -> None:
+            """Background thread: poll sampler state and append JSONL lines."""
+            jsonl_path = Path(path)
+            jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+            last_iter = -1
+            try:
+                with open(jsonl_path, 'a', buffering=1) as fh:
+                    while not stop.is_set():
+                        try:
+                            current_t = getattr(sampler, 't', None)
+                            if current_t is not None and current_t != last_iter:
+                                # Read particle stats; particles.get returns
+                                # scalar when the key exists, -1 sentinel otherwise.
+                                def _safe(key, sentinel=-1):
+                                    try:
+                                        v = sampler.particles.get(key, sentinel)
+                                        v = float(v)
+                                        return None if v == sentinel else v
+                                    except Exception:
+                                        return None
+
+                                ess_val = _safe('ess')
+                                logz_val = _safe('logz')
+                                n_calls = getattr(sampler, 'calls', None)
+                                accept_val = _safe('accept')
+                                # n_accepted: accept rate * n_active particles
+                                n_active = getattr(sampler, 'n_active', None)
+                                if accept_val is not None and n_active is not None:
+                                    n_accepted = int(round(accept_val * n_active))
+                                else:
+                                    n_accepted = None
+
+                                record = {
+                                    'iteration': current_t,
+                                    'log_Z': logz_val,
+                                    'log_Z_err': None,  # pocoMC sets this only at end
+                                    'ESS': int(ess_val) if ess_val is not None else None,
+                                    'n_accepted': n_accepted,
+                                    'n_total': int(n_calls) if n_calls is not None else None,
+                                    'elapsed_s': round(time.time() - run_t0, 2),
+                                    'timestamp': datetime.now(timezone.utc).strftime(
+                                        '%Y-%m-%dT%H:%M:%SZ'),
+                                }
+                                fh.write(json.dumps(record) + '\n')
+                                last_iter = current_t
+                        except Exception:
+                            pass  # Never crash the monitor thread
+                        stop.wait(timeout=2.0)
+            except Exception as exc:
+                log.warning(f"JSONL progress writer failed: {exc}")
+
+        if progress_jsonl_path is not None:
+            _jsonl_thread = threading.Thread(
+                target=_jsonl_writer_thread,
+                args=(progress_jsonl_path, _jsonl_stop_event, t0),
+                daemon=True,
+                name='mcmc-jsonl-progress',
+            )
+            _jsonl_thread.start()
+        else:
+            _jsonl_thread = None
+        # ---------------------------------------------------------------------
+
+        try:
+            # Run — pocoMC stops internally when ESS >= n_ess
+            sampler.run(n_total=4096, progress=True)
+        finally:
+            # Signal the writer thread to stop and wait briefly for it to flush
+            _jsonl_stop_event.set()
+            if _jsonl_thread is not None:
+                _jsonl_thread.join(timeout=5.0)
+                # Write a final record with end-of-run logz / logz_err
+                if progress_jsonl_path is not None:
+                    try:
+                        jsonl_path = Path(progress_jsonl_path)
+                        final_logz = getattr(sampler, 'logz', None)
+                        final_logz_err = getattr(sampler, 'logz_err', None)
+                        n_calls_final = getattr(sampler, 'calls', None)
+                        try:
+                            _s_final, _, _, _ = sampler.posterior()
+                            ess_final = len(_s_final)
+                        except Exception:
+                            ess_final = None
+                        final_record = {
+                            'iteration': getattr(sampler, 't', None),
+                            'log_Z': float(final_logz) if final_logz is not None else None,
+                            'log_Z_err': float(final_logz_err) if final_logz_err is not None else None,
+                            'ESS': ess_final,
+                            'n_accepted': None,
+                            'n_total': int(n_calls_final) if n_calls_final is not None else None,
+                            'elapsed_s': round(time.time() - t0, 2),
+                            'timestamp': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                        }
+                        with open(jsonl_path, 'a', buffering=1) as fh:
+                            fh.write(json.dumps(final_record) + '\n')
+                    except Exception as exc:
+                        log.warning(f"JSONL final record write failed: {exc}")
+
+        # Single progress update on completion (for GUI)
+        if progress_callback is not None:
+            try:
+                _s, _ll, _, _ = sampler.posterior()
+                _ess = sampler.n_eff if hasattr(sampler, 'n_eff') else len(_s)
+                progress_callback({
+                    'iteration': 1,
+                    'n_total': 1,
+                    'n_samples': len(_s),
+                    'ess': _ess,
+                    'acceptance_rate': sampler.pbar.info.get('acc') if hasattr(sampler, 'pbar') and sampler.pbar is not None else None,
+                })
+            except Exception:
+                pass
+
+        # Final posterior extraction. pocoMC's posterior() returns
+        #   (samples, weights, logl, logp)
+        # NOT (samples, logl, logp, weights). The earlier unpack stored
+        # importance weights into the log_likelihoods field (=~1/N after
+        # trimming) and log-likelihoods into log_posteriors — verified by
+        # reading pocomc/sampler.py::posterior.
+        samples, _weights, log_likes, _log_prior = sampler.posterior()
+        n_samples = len(samples)
+
+        elapsed = time.time() - t0
+        log.info(f"MCMC complete: {n_samples} samples in {elapsed/60:.1f} min")
+
+        # --- Capture run-level metadata from pocoMC ----------------------------
+
+        # git SHA for audit / pre-bugfix flag
+        try:
+            _git_sha = subprocess.check_output(
+                ['git', 'rev-parse', '--short', 'HEAD'],
+                cwd=os.path.dirname(os.path.abspath(__file__)),
+                stderr=subprocess.DEVNULL,
+            ).decode().strip()
+        except Exception:
+            _git_sha = None
+
+        # log-evidence and its MC error (set by pocoMC at end of run)
+        _log_Z = getattr(sampler, 'logz', None)
+        _log_Z_err = getattr(sampler, 'logz_err', None)
+        _log_Z = float(_log_Z) if _log_Z is not None else None
+        _log_Z_err = float(_log_Z_err) if _log_Z_err is not None else None
+
+        # True ESS from importance weights:  (sum w)^2 / sum(w^2)
+        # _weights from posterior() are already normalised (sum ≈ 1).
+        # Avoid division by zero for uniform (resampled) case.
+        try:
+            _w = np.asarray(_weights, dtype=float)
+            _w_sum2 = float(np.sum(_w) ** 2)
+            _w2_sum = float(np.sum(_w ** 2))
+            _true_ess = _w_sum2 / _w2_sum if _w2_sum > 0 else float(n_samples)
+        except Exception:
+            _true_ess = float(n_samples)
+
+        # Compute convergence metrics
+        convergence_metrics = self._compute_convergence(samples, log_likes, sampler,
+                                                        true_ess=_true_ess)
+
+        # Recompute k2 for posterior samples — always dict-based so param order
+        # in param_space never causes wrong positional mapping.
+        log.info(f"Recomputing k2 for {n_samples} posterior samples...")
+        rheology = self._infer_rheology() if not self._use_flexible else None
+
+        from .forward_models import (forward_model_k2_flexible,
+                                     UnservableSampleError)
+
+        k2_results = []
+        h2_results = []
+        cmr2_results = []
+        D_ocean_results = []
+        D_clath_results = []
+        D_iceIh_results = []
+        D_hsphere_results = []
+        D_iceHP_results = []
+        D_iceIII_results, D_iceV_results, D_iceVI_results = [], [], []
+        gravity_active = self._gravity_clairaut_active()
+        c20_results = [] if gravity_active else None
+        c22_results = [] if gravity_active else None
+        cmr2_hydro_results = [] if gravity_active else None
+        tidal_needed = self._tidal_solve_needed()
+        # Isostatic (Enceladus) arm: per-draw gravity prediction + the
+        # mass-closure derived quantities recorded by
+        # _derive_gravity_isostatic (self.last_mass_closure).
+        iso_active = self._gravity_isostatic_active()
+        _ISO_DIAG_KEYS = ('cmr2_derived', 'R_s_m', 'rho_s', 'dR_s_vs_pp_m',
+                          'ocean_thickness_m', 'mass_residual_after')
+        iso_derived = ({k: [] for k in ('C20', 'C22', 'C30') + _ISO_DIAG_KEYS}
+                       if iso_active else None)
+        for i, theta in enumerate(samples):
+            theta_dict = self._expand_theta(theta)
+            if not tidal_needed:
+                # No tidal observable + isostatic gravity: zbw-cache nodes
+                # carry no tidal-solver inputs. Record NaN, no solver call.
+                Re_k2 = Im_k2 = Re_h2 = Im_h2 = np.nan
+            else:
+                try:
+                    Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
+                        theta_dict, self.structure_data,
+                        return_heating=False,
+                        arrhenius_params=self.arrhenius_params
+                    )
+                except UnservableSampleError:
+                    # Posterior draw in an unbuilt 2D-cache corner (rare edge
+                    # draw): report NaN k2/h2 rather than crash the loop.
+                    Re_k2 = Im_k2 = Re_h2 = Im_h2 = np.nan
+            k2_results.append((Re_k2, Im_k2))
+            h2_results.append((Re_h2, Im_h2))
+            cmr2_results.append(self._compute_model_cmr2(theta_dict))
+            # Compute ocean/clathrate thicknesses DIRECTLY from the structure's
+            # phase layers (not the cache's D_ocean_km scalar, which older
+            # caches mis-derived — see _ocean_clath_thickness_km). Correct even
+            # on pre-fix caches without a rebuild.
+            _oc = self._ocean_clath_thickness_km(theta_dict)
+            D_ocean_results.append(_oc['ocean'])
+            D_clath_results.append(_oc['clath'])
+            D_iceIh_results.append(self._get_cache_scalar(theta_dict, 'D_iceIh_km'))
+            D_hsphere_results.append(self._get_cache_scalar(theta_dict, 'D_hsphere_km'))
+            _phases = self._ice_phase_thicknesses_km(theta_dict)
+            D_iceIII_results.append(_phases['III'])
+            D_iceV_results.append(_phases['V'])
+            D_iceVI_results.append(_phases['VI'])
+            D_iceHP_results.append(_phases['III'] + _phases['V'] + _phases['VI'])
+            if gravity_active:
+                pair = self._derive_gravity_pair(theta_dict)
+                c20_results.append(pair[0] if pair is not None else np.nan)
+                c22_results.append(pair[1] if pair is not None else np.nan)
+                _h = getattr(self, '_last_cmr2_hydro', None)
+                cmr2_hydro_results.append(_h if _h is not None else np.nan)
+            if iso_active:
+                self.last_mass_closure = None
+                try:
+                    _iso = self._derive_gravity_isostatic(theta_dict)
+                except Exception:
+                    _iso = None
+                _iso = _iso or {}
+                iso_derived['C20'].append(float(_iso.get((2, 0), np.nan)))
+                iso_derived['C22'].append(float(_iso.get((2, 2), np.nan)))
+                iso_derived['C30'].append(float(_iso.get((3, 0), np.nan)))
+                _mc = getattr(self, 'last_mass_closure', None) or {}
+                # Closure diagnostics are written before some late rejects
+                # (R_s_not_in_0_Ro, rho_s_above_grain_max): only trust them
+                # for a feasible draw.
+                _ok = bool(_iso) and bool(_mc.get('feasible', True))
+                for _k in _ISO_DIAG_KEYS:
+                    _v = _mc.get(_k, np.nan) if _ok else np.nan
+                    iso_derived[_k].append(
+                        float(_v) if _v is not None else np.nan)
+            if (i + 1) % 100 == 0:
+                log.info(f"  {i+1}/{n_samples} samples recomputed")
+
+        k2_results = np.array(k2_results)
+        h2_results = np.array(h2_results)
+        cmr2_results = np.array(cmr2_results)
+        D_ocean_results = np.array(D_ocean_results)
+        D_clath_results = np.array(D_clath_results)
+        D_iceIh_results = np.array(D_iceIh_results)
+        D_hsphere_results = np.array(D_hsphere_results)
+        D_iceHP_results = np.array(D_iceHP_results)
+        D_icePhase_results = {'III': np.array(D_iceIII_results),
+                              'V': np.array(D_iceV_results),
+                              'VI': np.array(D_iceVI_results)}
+        if gravity_active:
+            c20_results = np.array(c20_results)
+            c22_results = np.array(c22_results)
+            cmr2_hydro_results = np.array(cmr2_hydro_results)
+
+        # Recompute heating on subset — same dict-based approach
+        n_reeval = min(self.n_reeval, n_samples) if tidal_needed else 0
+        if tidal_needed:
+            log.info(f"Recomputing heating for {n_reeval} posterior samples...")
+        else:
+            log.info("No tidal observable + isostatic gravity: skipping "
+                     "k2/heating recompute (k2/h2 recorded as NaN).")
+
+        rng = np.random.RandomState(self.random_state)
+        idx_heat = rng.choice(n_samples, n_reeval, replace=False)
+        idx_heat.sort()
+        heating_results = []
+        for si in idx_heat:
+            theta_dict = self._expand_theta(samples[si])
+            try:
+                _, _, _, _, perPhase_W = forward_model_k2_flexible(
+                    theta_dict, self.structure_data,
+                    return_heating=True, arrhenius_params=self.arrhenius_params
+                )
+            except UnservableSampleError:
+                perPhase_W = None
+            heating_results.append(perPhase_W if perPhase_W is not None else {})
+        heating_indices = idx_heat
+
+        # Build result object
+        result = InferenceResult(
+            config=self.config,
+            samples=samples,
+            log_likelihoods=log_likes,
+            param_names=self.param_names,
+            param_labels=self.param_labels,
+            k2_results=k2_results,
+            h2_results=h2_results,
+            cmr2_results=cmr2_results,
+            D_ocean_results=D_ocean_results,
+            D_clath_results=D_clath_results,
+            D_iceIh_results=D_iceIh_results,
+            D_hsphere_results=D_hsphere_results,
+            D_iceHP_results=D_iceHP_results,
+            D_icePhase_results=D_icePhase_results,
+            c20_results=c20_results,
+            c22_results=c22_results,
+            cmr2_hydro_results=cmr2_hydro_results,
+            heating_results=heating_results,
+            convergence_metrics=convergence_metrics,
+            metadata={
+                'elapsed_time_s': elapsed,
+                'n_iterations': len(samples) if samples is not None else 0,
+                'rheology': rheology,
+                'heating_indices': heating_indices,
+                # True => k2/h2 NaN mean "not computed" (no tidal
+                # observable; isostatic_hm2019), NOT "rejected".
+                'tidal_solve_skipped': not tidal_needed,
+                'tidal_solve_skipped_note': (
+                    'k2/h2 NaN = not computed (no tidal observable; '
+                    'isostatic_hm2019), not rejected' if not tidal_needed
+                    else None),
+                # Isostatic (Enceladus) per-draw derived arrays: predicted
+                # C20/C22/C30 and the mass-closure outputs (derived C/MR^2,
+                # R_s, rho_s, ...) from last_mass_closure. None otherwise.
+                'isostatic_derived': ({k: np.array(v) for k, v in
+                                       iso_derived.items()}
+                                      if iso_derived is not None else None),
+                # Body radius (constant across the Tb grid) so the GUI can
+                # derive mantle thickness = R_body - D_hsphere - R_core.
+                'R_body_km': _structure_R_body_km(self.structure_data),
+                # Posterior induction response (complex Ae per excitation
+                # label per sample) + excitation moments, for the GUI's
+                # complex-plane plots. None when no induction in config.
+                'induction_Ae': self._collect_posterior_Ae(samples),
+                'Be_nT': self._be_excitation_metadata(),
+                # Audit / reproducibility fields
+                'git_sha': _git_sha,
+                'log_Z': _log_Z,
+                'log_Z_err': _log_Z_err,
+            },
+            weights=_weights,
+        )
+
+        log.info("MCMC inference complete")
+        return result
+
+    def _compute_convergence(self, samples, log_likes, sampler,
+                             true_ess: Optional[float] = None) -> Dict[str, float]:
+        """Compute convergence diagnostics (ESS, R-hat, acceptance rate).
+
+        Args:
+            true_ess: Pre-computed ESS from importance weights,
+                ``(sum w)^2 / sum(w^2)``.  When provided this is used
+                directly; otherwise falls back to ``sampler.n_eff`` or
+                ``n_samples`` (the old behaviour).
+        """
+        n_samples = len(samples)
+
+        # ESS (effective sample size)
+        # Prefer the true weight-based ESS passed in from run(); fall back to
+        # sampler.n_eff (pocoMC's internal target count), then n_samples.
+        if true_ess is not None:
+            ess = true_ess
+        else:
+            try:
+                ess = sampler.n_eff if hasattr(sampler, 'n_eff') else n_samples
+            except Exception:
+                ess = n_samples
+
+        # Acceptance rate — pocoMC stores this in pbar.info['acc'] after run
+        try:
+            acceptance_rate = sampler.pbar.info.get('acc')
+        except Exception:
+            acceptance_rate = None
+
+        # R-hat (Gelman-Rubin) - requires multiple chains, skip if not available
+        # pocoMC doesn't expose chains directly, so we approximate with single chain
+        r_hat = 1.0  # Perfect convergence assumed (posterior-weighted samples)
+
+        metrics = {
+            'ess': float(ess),
+            'acceptance_rate': acceptance_rate,  # None if unavailable
+            'r_hat': float(r_hat),
+            'n_samples': int(n_samples),
+        }
+
+        acc_str = f"{acceptance_rate:.2%}" if acceptance_rate is not None else "N/A"
+        log.info(f"Convergence: ESS={ess:.0f}, accept={acc_str}, R-hat={r_hat:.3f}")
+
+        return metrics
+
+    def save_checkpoint(self, sampler, iteration: int, filepath: str) -> None:
+        """
+        Save MCMC checkpoint for resuming long runs.
+
+        Args:
+            sampler: pocoMC Sampler object
+            iteration: Current iteration number
+            filepath: Path to save checkpoint
+        """
+        checkpoint = {
+            'iteration': iteration,
+            'sampler_state': sampler.__dict__.copy(),  # Save internal state
+            'config': self.config,
+            'random_state': self.random_state,
+        }
+
+        with open(filepath, 'wb') as f:
+            pickle.dump(checkpoint, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+        log.info(f"Checkpoint saved: {filepath}")
+
+    def load_checkpoint(self, filepath: str):
+        """
+        Load MCMC checkpoint to resume run.
+
+        Args:
+            filepath: Path to checkpoint file
+
+        Returns:
+            (sampler, iteration) tuple
+        """
+        with open(filepath, 'rb') as f:
+            checkpoint = pickle.load(f)
+
+        # Rebuild sampler from saved state
+        import pocomc as pc
+
+        _sampler_kwargs = dict(
+            prior=self.prior,
+            likelihood=self.log_likelihood_fn,
+            n_effective=self.n_effective,
+            random_state=checkpoint['random_state'],
+        )
+        if self.n_active is not None:
+            _sampler_kwargs['n_active'] = int(self.n_active)
+        sampler = pc.Sampler(**_sampler_kwargs)
+
+        # Restore internal state
+        sampler.__dict__.update(checkpoint['sampler_state'])
+
+        iteration = checkpoint['iteration']
+        log.info(f"Checkpoint loaded from iteration {iteration}")
+
+        return sampler, iteration
+
+    def generate_sbi_dataset(self, n_samples: int = 10000, output_path: Optional[str] = None,
+                             apply_support_guard: bool = False, imag_convention: str = 'signed',
+                             drop_nonfinite: bool = False, seed: Optional[int] = None,
+                             provenance: Optional[dict] = None,
+                             obs_noise: bool = False, noise_seed: Optional[int] = None,
+                             theta_override: Optional[np.ndarray] = None):
+        """
+        Generate (theta, x) dataset by sampling from the prior.
+
+        Args:
+            n_samples: Number of simulations to run
+            output_path: Optional path to save .npz file
+            apply_support_guard: If True, apply the same no-ocean phase-stability
+                guard used by ``_make_flexible_log_likelihood`` (see
+                ``sampler_settings['phase_stability']``) and drop any sampled
+                row for which it would trigger, so the SBI training-set support
+                matches the MCMC posterior support. Rejected rows are excluded
+                from the returned/saved arrays and counted in
+                ``n_rejected_support``. Default False preserves current
+                behavior byte-identically (no rows dropped).
+            imag_convention: 'signed' (default, unchanged behavior) stores the
+                signed Im(k2) for observable name 'Im_k2' and silently NaN-fills
+                any unrecognized observable name (including 'abs_Im_k2'), exactly
+                as before. 'abs' stores |Im(k2)| for both the 'Im_k2' and
+                'abs_Im_k2' observable names (matching the MCMC likelihood's and
+                GUI's |Im k2| convention). Any other value raises ValueError.
+                Induction channels (``Ae_<label>_real/_imag``,
+                ``BiAmp_<label>``, ``BiPhase_<label>_deg``) are computed from
+                the same precomputed Tb-grid Ae cache the likelihood uses
+                (2026-07-10; previously these were silently NaN-filled).
+                NaN when the cache/label is unavailable — pair with
+                ``drop_nonfinite=True`` for SBI datasets. Note the BiPhase
+                channel is in degrees; ``obs_noise`` adds unwrapped Gaussian
+                noise there (the likelihood wraps residuals, which only
+                matters near +/-180 deg).
+            drop_nonfinite: If True, drop any row whose x vector contains a
+                non-finite value (e.g. TidalPy forward-model failures), counted
+                in ``n_rejected_nonfinite``. Default False preserves current
+                behavior byte-identically (NaN rows kept). If the combined
+                rejection rate (support guard + non-finite) exceeds 20%, a loud
+                warning is logged (not raised).
+            seed: Optional int to seed prior sampling reproducibly. pocoMC's
+                installed ``Prior`` class (checked at
+                site-packages/pocomc/prior.py, pocomc 1.2.6) exposes only
+                ``.rvs(size)`` — there is no ``.sample()`` method and ``.rvs``
+                accepts no ``random_state``/seed argument of its own (it calls
+                each underlying scipy-frozen distribution's ``.rvs(size=size)``
+                with no random_state, so draws depend on the global numpy RNG
+                state). Reproducible seeding is therefore done via
+                ``np.random.seed(seed)`` immediately before sampling. Default
+                None leaves the global RNG state untouched, preserving current
+                behavior.
+            provenance: Optional dict merged (additively) into the saved .npz
+                metadata when any of the above opt-in options are used. Ignored
+                when all new kwargs are left at their defaults.
+            obs_noise: If True (requires imag_convention='abs'), add Gaussian
+                observation noise to every x column after the forward model:
+                x_k += N(0, sigma_k) with sigma_k taken from
+                ``config.observables[name][1]``. The noise is added AFTER the
+                |Im k2| fold and the result is NOT re-folded, matching the
+                committed diagonal-Gaussian likelihood's implied generative
+                model (data = |Im_model| + noise, may be negative near zero).
+                Required for NPE training to target the same posterior the
+                MCMC likelihood defines (ratified 2026-07-09; without it the
+                flow targets the singular noiseless conditional and fails
+                SBC/crosscheck). Default False preserves existing behavior
+                byte-identically.
+            noise_seed: Seed for a dedicated numpy Generator used only for
+                observation noise (independent of the prior-draw ``seed`` so
+                the same theta set can be re-noised reproducibly). None draws
+                from a fresh nondeterministic Generator.
+            theta_override: If provided, evaluate the forward model on THIS
+                (n, D) theta array instead of drawing n_samples from the prior
+                (``n_samples`` is then ignored and set to len(theta_override)).
+                Used by the posterior-predictive-check diagnostic to push
+                posterior draws back through the identical theta->x loop the
+                training set uses — guaranteeing byte-identical forward
+                physics (same ``_derive_gravity_pair`` / ``forward_model_k2_
+                flexible`` / support-guard code) with no re-implementation.
+                Default None preserves prior-draw behavior byte-identically.
+
+        Returns:
+            (theta, x) tuple. When ``apply_support_guard`` or
+            ``drop_nonfinite`` is used, ``theta``/``x`` contain fewer than
+            ``n_samples`` rows (rejected rows excluded). Rejection statistics
+            are never returned inline (to keep this return signature stable);
+            they are attached to ``self.last_sbi_dataset_stats`` (dict) and,
+            when ``output_path`` is given, saved into the .npz as additive
+            keys. The default call (no new kwargs) saves exactly the original
+            4 .npz keys (theta, x, param_names, obs_names) unchanged.
+        """
+        if imag_convention not in ('signed', 'abs'):
+            raise ValueError(
+                f"imag_convention must be 'signed' or 'abs', got '{imag_convention}'"
+            )
+        if obs_noise and imag_convention != 'abs':
+            raise ValueError(
+                "obs_noise=True requires imag_convention='abs': the noise model "
+                "is data = |Im_model| + noise, matching the likelihood's |Im k2| "
+                "convention; with signed Im the generative model is ambiguous."
+            )
+
+        log.info(f"Generating SBI dataset with {n_samples} samples...")
+
+        # Reproducible seeding: pocoMC's Prior.rvs() has no seed/random_state
+        # argument of its own (verified against installed pocomc/prior.py),
+        # so we seed the global numpy RNG that the underlying scipy frozen
+        # distributions draw from.
+        if seed is not None:
+            np.random.seed(seed)
+
+        # Sample from prior — unless the caller supplied an explicit theta
+        # array (posterior-predictive-check diagnostic): then evaluate the
+        # forward model on those exact draws through the identical loop below.
+        if theta_override is not None:
+            theta = np.asarray(theta_override, dtype=float)
+            n_samples = len(theta)
+        else:
+            theta = self.prior.rvs(n_samples)
+
+        x = []
+        theta_kept = []
+        obs_names = list(self.config.observables.keys())
+
+        from .forward_models import (apply_parameters, forward_model_k2_flexible,
+                                      UnservableSampleError)
+
+        # Support guard: identical logic to
+        # MCMCRunner._make_flexible_log_likelihood's nested _check_no_ocean
+        # (kept in sync manually — that guard is a closure local to the
+        # likelihood builder and is not otherwise importable without
+        # refactoring the likelihood, which is out of scope here).
+        phase_stability_cfg = self.config.sampler_settings.get('phase_stability', {})
+        no_ocean_guard = apply_support_guard and phase_stability_cfg.get('enforce') == 'no_ocean_Ih'
+        no_ocean_margin_K = float(phase_stability_cfg.get('margin_K', 0.1))
+
+        # Density-inversion guard (Test52 Phase 2, plan decision 3): wired
+        # into the support-guard counting exactly like the no-ocean guard
+        # above, but only takes effect when BOTH apply_support_guard=True
+        # AND the config's derived_params.rho_sil_kgm3.density_inversion_
+        # guard is truthy (absent for every pre-Test52 config, including
+        # Callisto). With apply_support_guard's default of False, or for
+        # any config without this key, density_inversion_guard_active is
+        # False and the block below never executes — behavior for every
+        # existing config/call site is therefore unchanged.
+        _derived_params_cfg = getattr(self.config, 'derived_params', {}) or {}
+        _rho_sil_cfg = _derived_params_cfg.get('rho_sil_kgm3', {}) or {}
+        density_inversion_guard_active = (
+            apply_support_guard
+            and _rho_sil_cfg.get('derivation') == 'mass_conservation'
+            and bool(_rho_sil_cfg.get('density_inversion_guard', False))
+        )
+
+        # Physical-k2 support guard (Titan free-gravity, plan Phase A
+        # re-gate 2026-07-24, scientific-reviewer a2d7f121 ruling). Drops
+        # forward-model outputs whose Love numbers are numerically
+        # degenerate (near-zero-rigidity interiors / the tidal integrator on
+        # its unstable branch — the same rows that emit Re_k2~82, |Im_k2|~62
+        # while physical Titan k2 ~ 0.1-0.6). These pass drop_nonfinite
+        # because they are finite, but their extreme tail stretches the NSF
+        # spline knot range and destroys calibration (sbi's ">10x IQR
+        # z-scoring precision loss" warning). This is training-set hygiene
+        # analogous to drop_nonfinite, NOT a changed assumption: the MCMC
+        # likelihood already assigns these interiors ~1e-200 weight, so the
+        # target posterior at any physical x_obs is unchanged (reviewer
+        # verified). Bounds anchored on physics (fluid-limit secular Love
+        # ceiling k2 <= 3/2; dissipation cannot exceed elastic response),
+        # NOT tuned to pass. Active ONLY when apply_support_guard=True AND
+        # the config sets sampler_settings.k2_support_bounds — every
+        # pre-existing config (no key) is byte-identical, exactly like the
+        # induction / density-inversion guards above.
+        _k2_bounds_cfg = (self.config.sampler_settings.get('k2_support_bounds', {})
+                          or {}) if apply_support_guard else {}
+        k2_support_guard_active = bool(_k2_bounds_cfg)
+
+        def _check_no_ocean(modified_structure) -> bool:
+            """Return True if sample should be rejected (ocean would form)."""
+            if not no_ocean_guard:
+                return False
+            phases = modified_structure.get('phases')
+            P_arr = modified_structure.get('P_MPa')
+            T_arr = modified_structure.get('T_K')
+            if phases is None or P_arr is None or T_arr is None:
+                return False
+            P_arr = np.asarray(P_arr)
+            T_arr = np.asarray(T_arr)
+            if P_arr.shape != T_arr.shape or P_arr.shape != np.asarray(phases).shape:
+                return False
+            Ih_mask = (np.asarray(phases) == 1)
+            if not np.any(Ih_mask):
+                return False
+            P_Ih = P_arr[Ih_mask]
+            T_Ih = T_arr[Ih_mask]
+            if not np.all(np.isfinite(P_Ih)):
+                return False
+            Tm_Ih_lin = 273.16 - 0.068 * P_Ih
+            return bool(np.any(T_Ih >= Tm_Ih_lin - no_ocean_margin_K))
+
+        def _induction_channel_value(name, theta_dict):
+            """Model value for an induction observable channel, mirroring the
+            likelihood's grid-cache lookup (nearest Tb index into the Ae grid
+            precomputed at __init__). Returns NaN when the cache/label is
+            unavailable — with drop_nonfinite=True such rows are rejected and
+            counted, closing the old landmine where these channels were
+            silently NaN-filled in SBI datasets.
+            """
+            # Shared interpolant (nearest-Tb 1D / bilinear 2D) — byte-identical
+            # to the likelihood and the support guard.
+            Ae_dict = self._blended_ae_dict(theta_dict)
+            if Ae_dict is None:
+                return np.nan
+            # Bind_<label>_<comp>_<part>: induced dipole coefficient expressed
+            # as equivalent surface field, Bind_comp = Ae(label) * Be_comp
+            # (plain complex product, in nT). Signed real/imag — never
+            # abs-folded (that fold is hardcoded to Im_k2/Im_h2). Uses the
+            # SAME unconjugated Ae as the likelihood (Europa Clipper v2).
+            bind_parsed = _parse_bind_channel(name)
+            if bind_parsed is not None:
+                label, comp, part = bind_parsed
+                if not self._be_excitation:
+                    return np.nan
+                Be_comp = self._be_excitation.get(label)
+                Ae = Ae_dict.get(label)
+                if Be_comp is None or Ae is None:
+                    return np.nan
+                Bind = complex(Ae) * Be_comp[comp]
+                return Bind.real if part == 'real' else Bind.imag
+            if name.startswith('Ae_') and name.endswith('_real'):
+                label, part = name[len('Ae_'):-len('_real')], 'real'
+            elif name.startswith('Ae_') and name.endswith('_imag'):
+                label, part = name[len('Ae_'):-len('_imag')], 'imag'
+            elif name.startswith('BiAmp_'):
+                label, part = name[len('BiAmp_'):], 'amp'
+            elif name.startswith('BiPhase_') and name.endswith('_deg'):
+                label, part = name[len('BiPhase_'):-len('_deg')], 'phase'
+            else:
+                return np.nan
+            Ae = Ae_dict.get(label)
+            if Ae is None:
+                return np.nan
+            Ae = complex(Ae)
+            if part == 'real':
+                return Ae.real
+            if part == 'imag':
+                return Ae.imag
+            if part == 'amp':
+                return abs(Ae)
+            return float(np.degrees(np.angle(Ae)))
+
+        # induction_bounds support cuts (ratified 2026-07-12): reject rows
+        # violating the one-sided Ae constraints so the SBI training support
+        # matches the MCMC likelihood support exactly (same precedent as the
+        # no-ocean guard). Uses the same Tb-grid Ae lookup as the likelihood.
+        induction_bounds_cfg = (getattr(self.config, 'induction_bounds', {}) or {}
+                                if apply_support_guard else {})
+
+        def _check_induction_bounds(theta_dict) -> bool:
+            """True when the sample violates an induction bound (reject).
+
+            Uses the SAME shared interpolant as the likelihood
+            (_blended_ae_dict): for a 2D v3.0 cache this is the bilinear
+            (Tb, log w) blend with the None-corner policy — so the SBI training
+            support and the MCMC likelihood support are identical by
+            construction (scientific-reviewer binding requirement).
+            """
+            if not induction_bounds_cfg:
+                return False
+            Ae_dict = self._blended_ae_dict(theta_dict)
+            if Ae_dict is None:
+                return True  # bound configured but unevaluable -> reject
+            for label, spec in induction_bounds_cfg.items():
+                Ae = Ae_dict.get(label)
+                if Ae is None:
+                    return True
+                Ae = complex(Ae)
+                amp_min = spec.get('amp_min')
+                if amp_min is not None and abs(Ae) < float(amp_min):
+                    return True
+                im_abs_max = spec.get('im_abs_max')
+                if im_abs_max is not None and abs(Ae.imag) > float(im_abs_max):
+                    return True
+                # Degree-based phase-delay cap (see the likelihood site): must be
+                # IDENTICAL here so SBI training support == MCMC likelihood support.
+                phase_deg_max = spec.get('phase_deg_max')
+                if (phase_deg_max is not None
+                        and abs(float(np.degrees(np.angle(Ae)))) > float(phase_deg_max)):
+                    return True
+            return False
+
+        n_rejected_support = 0
+        n_rejected_nonfinite = 0
+        _tidal_needed = self._tidal_solve_needed()
+
+        t0 = time.time()
+        for i in range(n_samples):
+            theta_dict = self._expand_theta(theta[i])
+
+            if apply_support_guard:
+                try:
+                    modified = apply_parameters(theta_dict, self.structure_data)
+                except UnservableSampleError:
+                    # 2D cache: draw in an unbuilt tilted-band corner → the same
+                    # support-reject the MCMC likelihood applies. Keeps the SBI
+                    # training support == reference-MCMC support.
+                    n_rejected_support += 1
+                    continue
+                if _check_no_ocean(modified):
+                    n_rejected_support += 1
+                    continue
+                if induction_bounds_cfg and _check_induction_bounds(theta_dict):
+                    n_rejected_support += 1
+                    continue
+
+            cmr2_precomputed = None
+            if density_inversion_guard_active:
+                # Evaluate the CMR2 derivation now (it internally applies
+                # the density-inversion guard and records the cause in
+                # self._last_cmr2_reject_reason). Only an inversion-caused
+                # rejection is counted/dropped as a support rejection here;
+                # any other None-cause (e.g. rho_sil bounds) keeps its
+                # existing behavior of flowing through as NaN in the CMR2
+                # column below, unchanged from before this fix.
+                cmr2_precomputed = self._compute_model_cmr2(theta_dict)
+                if (not np.isfinite(cmr2_precomputed)
+                        and self._last_cmr2_reject_reason == 'density_inversion'):
+                    n_rejected_support += 1
+                    continue
+
+            # Compute k2 (and h2 — same forward call returns both). Skipped
+            # (NaN, no row drop) when no tidal observable is configured and
+            # the isostatic gravity model is active (Enceladus zbw caches).
+            if not _tidal_needed:
+                Re_k2 = Im_k2 = Re_h2 = Im_h2 = np.nan
+            else:
+                try:
+                    Re_k2, Im_k2, Re_h2, Im_h2, _ = forward_model_k2_flexible(
+                        theta_dict, self.structure_data,
+                        return_heating=False,
+                        arrhenius_params=self.arrhenius_params
+                    )
+                except UnservableSampleError:
+                    # Unservable corner reached without the support guard (or
+                    # a config that samples w without induction bounds): drop
+                    # the row if drop_nonfinite is on; otherwise inject NaN so
+                    # it is caught by the caller's finiteness handling, never
+                    # a hard crash.
+                    if drop_nonfinite:
+                        n_rejected_nonfinite += 1
+                        continue
+                    Re_k2 = Im_k2 = Re_h2 = Im_h2 = np.nan
+
+            # Physical-k2 support guard on the NOISELESS forward output (must
+            # precede any noise added below). Degenerate-interior rows are
+            # support-rejected exactly like the no-ocean guard, so the SBI
+            # training support == the reference-MCMC effective support. Only
+            # applied to whichever k2 channels the config bounds; a finite
+            # but out-of-physical-range k2 is dropped, NaN is left to
+            # drop_nonfinite below.
+            if k2_support_guard_active and _tidal_needed:
+                _rej = False
+                _re_b = _k2_bounds_cfg.get('Re_k2')
+                _im_b = _k2_bounds_cfg.get('Im_k2')
+                if _re_b is not None and np.isfinite(Re_k2) and (
+                        Re_k2 < _re_b[0] or Re_k2 > _re_b[1]):
+                    _rej = True
+                _im_val = abs(Im_k2) if imag_convention == 'abs' else Im_k2
+                if (not _rej) and _im_b is not None and np.isfinite(_im_val) and (
+                        _im_val < _im_b[0] or _im_val > _im_b[1]):
+                    _rej = True
+                if _rej:
+                    n_rejected_support += 1
+                    continue
+
+            # v4 geodesy: compute the gravity pair once per sample when any
+            # gravity channel is present under the Clairaut forward model.
+            gravity_pair = None
+            if self._gravity_clairaut_active() and any(
+                    n in ('C20', 'C22', 'J2') for n in obs_names):
+                gravity_pair = self._derive_gravity_pair(theta_dict)
+                if gravity_pair is None:
+                    if drop_nonfinite:
+                        n_rejected_nonfinite += 1
+                        continue
+                    gravity_pair = (np.nan, np.nan)
+
+            # r5 defect D2: the Enceladus isostasy arm. Without it,
+            # generate_sbi_dataset could not produce the observable vector
+            # at all under gravity_forward_model='isostatic_hm2019':
+            # gravity_pair stayed None so the C20/C22 arms below fell
+            # through to the NaN default, and C30 -- wired for the
+            # LIKELIHOOD only -- had no arm anywhere, so drop_nonfinite
+            # rejected every row and the dataset came out EMPTY. Mirrors
+            # the likelihood's own dispatch (_derive_gravity_isostatic,
+            # both branches) so training data and MCMC target the same
+            # forward model.
+            iso_pred = None
+            if self._gravity_isostatic_active() and any(
+                    n in _ISOSTATIC_OBS_LM for n in obs_names):
+                iso_pred = self._derive_gravity_isostatic(theta_dict)
+                if iso_pred is None:
+                    if drop_nonfinite:
+                        n_rejected_nonfinite += 1
+                        continue
+                    iso_pred = {}
+
+            xi = []
+            for name in obs_names:
+                if name == 'Re_k2':
+                    xi.append(Re_k2)
+                elif name == 'Im_k2':
+                    xi.append(abs(Im_k2) if imag_convention == 'abs' else Im_k2)
+                elif name == 'abs_Im_k2' and imag_convention == 'abs':
+                    xi.append(abs(Im_k2))
+                elif name == 'k2':
+                    xi.append(np.sqrt(Re_k2 ** 2 + Im_k2 ** 2))
+                # h2 channels (2026-07-10; previously silently NaN-filled).
+                # Mirrors the likelihood: Re_h2 signed; the Im channel is
+                # |Im h2| under 'abs' (both spellings), signed 'Im_h2' under
+                # 'signed'; 'h2' is the modulus.
+                elif name == 'Re_h2':
+                    xi.append(Re_h2)
+                elif name == 'Im_h2':
+                    xi.append(abs(Im_h2) if imag_convention == 'abs' else Im_h2)
+                elif name == 'abs_Im_h2' and imag_convention == 'abs':
+                    xi.append(abs(Im_h2))
+                elif name == 'h2':
+                    xi.append(np.sqrt(Re_h2 ** 2 + Im_h2 ** 2))
+                elif name == 'CMR2':
+                    xi.append(cmr2_precomputed if cmr2_precomputed is not None
+                               else self._compute_model_cmr2(theta_dict))
+                elif name in _ISOSTATIC_OBS_LM and iso_pred is not None:
+                    # D2: C20/C22/C30 from the H&M-2019 isostatic forward
+                    # model. C30 exists ONLY here -- there is no Clairaut
+                    # degree-3 pair -- which is why it needed its own arm.
+                    xi.append(float(iso_pred.get(_ISOSTATIC_OBS_LM[name],
+                                                 np.nan)))
+                elif name == 'C20' and gravity_pair is not None:
+                    xi.append(gravity_pair[0])
+                elif name == 'C22' and gravity_pair is not None:
+                    xi.append(gravity_pair[1])
+                elif name == 'J2' and gravity_pair is not None:
+                    xi.append(-gravity_pair[0])
+                elif name == 'libration_deg':
+                    lib = self._derive_libration_deg(theta_dict)
+                    xi.append(lib if lib is not None else np.nan)
+                elif name == 'Mtot_kg':
+                    xi.append(self._get_cache_scalar(theta_dict, 'Mtot_kg'))
+                elif (name.startswith('Ae_') or name.startswith('BiAmp_')
+                        or name.startswith('BiPhase_')
+                        or name.startswith('Bind_')):
+                    xi.append(_induction_channel_value(name, theta_dict))
+                else:
+                    xi.append(np.nan)
+
+            if drop_nonfinite and not np.all(np.isfinite(xi)):
+                n_rejected_nonfinite += 1
+                continue
+
+            x.append(xi)
+            theta_kept.append(theta[i])
+
+            if (i + 1) % 100 == 0:
+                elapsed = time.time() - t0
+                eta = (elapsed / (i + 1)) * (n_samples - (i + 1))
+                log.info(f"  {i+1}/{n_samples} simulations complete (ETA: {eta/60:.1f} min)")
+
+        theta = np.array(theta_kept) if (apply_support_guard or drop_nonfinite) else np.array(theta)
+        x = np.array(x)
+
+        obs_noise_meta = None
+        if obs_noise and len(x):
+            # Gaussian observation noise, sigma per observable from the
+            # config. Added after the |Im| fold, NOT re-folded (see docstring).
+            sigmas = np.array([float(self.config.observables[name][1])
+                               for name in obs_names])
+            # The training generative model must match the likelihood, which
+            # inflates sigma by metadata.sigma_model_add (B15; _inflate_sigma
+            # in _make_flexible_log_likelihood). Configs without that key
+            # (every non-Enceladus campaign) are byte-identical.
+            _sma = ((getattr(self.config, 'metadata', {}) or {})
+                    .get('sigma_model_add', {}) or {})
+            if _sma:
+                sigmas = np.array([float(np.hypot(s_, float(_sma.get(n_, 0.0))))
+                                   for s_, n_ in zip(sigmas, obs_names)])
+            noise_rng = np.random.default_rng(noise_seed)
+            corr_cfg = (getattr(self.config, 'metadata', {}) or {}).get(
+                'observable_correlations', {}) or {}
+            applied_corr = {}
+            if corr_cfg:
+                # Correlated noise for configured pairs ("A,B": rho) — the
+                # training generative model must match the (correlated)
+                # MCMC likelihood (constraints doc, review-binding).
+                cov = np.diag(sigmas ** 2)
+                for pair_key, rho in corr_cfg.items():
+                    names = [p.strip() for p in pair_key.split(',')]
+                    if len(names) == 2 and all(n in obs_names for n in names):
+                        i, j = obs_names.index(names[0]), obs_names.index(names[1])
+                        cov[i, j] = cov[j, i] = float(rho) * sigmas[i] * sigmas[j]
+                        applied_corr[pair_key] = float(rho)
+                x = x + noise_rng.multivariate_normal(
+                    np.zeros(len(obs_names)), cov, size=x.shape[0])
+            else:
+                x = x + noise_rng.normal(0.0, 1.0, size=x.shape) * sigmas
+            obs_noise_meta = {
+                'type': ('gaussian_correlated' if applied_corr
+                         else 'gaussian_diagonal'),
+                'sigma': {name: float(s) for name, s in zip(obs_names, sigmas)},
+                'sigma_model_add_applied': (dict(_sma) if _sma else None),
+                'correlations': applied_corr or None,
+                'noise_seed': noise_seed,
+                'refold_im': False,
+            }
+
+        n_rejected_total = n_rejected_support + n_rejected_nonfinite
+        rejection_rate = (n_rejected_total / n_samples) if n_samples else 0.0
+        if (apply_support_guard or drop_nonfinite) and rejection_rate > 0.20:
+            log.warning(
+                f"generate_sbi_dataset: rejection_rate={rejection_rate:.1%} exceeds 20% "
+                f"(n_rejected_support={n_rejected_support}, "
+                f"n_rejected_nonfinite={n_rejected_nonfinite}, n_requested={n_samples}). "
+                f"Training-set support may be significantly reduced — inspect before proceeding."
+            )
+
+        stats = {
+            'tidal_solve_skipped': not _tidal_needed,
+            'n_requested': n_samples,
+            'n_rejected_support': n_rejected_support,
+            'n_rejected_nonfinite': n_rejected_nonfinite,
+            'rejection_rate': rejection_rate,
+            'imag_convention': imag_convention,
+            'seed': seed,
+        }
+        if obs_noise_meta is not None:
+            stats['obs_noise'] = obs_noise_meta
+        self.last_sbi_dataset_stats = stats
+
+        using_new_options = (apply_support_guard or imag_convention != 'signed'
+                             or drop_nonfinite or seed is not None or provenance is not None
+                             or obs_noise)
+
+        if output_path:
+            if not using_new_options:
+                # Exact original save path — untouched.
+                np.savez(output_path, theta=theta, x=x, param_names=self.param_names, obs_names=obs_names)
+            else:
+                # Additive keys only; old readers of the 4 original keys are unaffected.
+                from .parameter_registry import PARAMETER_REGISTRY
+
+                param_bounds = []
+                for name in self.param_names:
+                    cfg = self.config.param_space[name]
+                    bounds = cfg.get('bounds')
+                    if bounds is not None:
+                        param_bounds.append([float(bounds[0]), float(bounds[1])])
+                    else:
+                        # No natural hard bound for this prior_type (e.g. 'normal').
+                        param_bounds.append([np.nan, np.nan])
+                param_bounds = np.array(param_bounds)
+
+                param_units = [
+                    (PARAMETER_REGISTRY[name].units or '') if name in PARAMETER_REGISTRY else ''
+                    for name in self.param_names
+                ]
+
+                try:
+                    config_hash = self.config.generate_hash()
+                except Exception:
+                    config_hash = ''
+
+                try:
+                    git_sha = subprocess.check_output(
+                        ['git', 'rev-parse', '--short', 'HEAD'],
+                        cwd=os.path.dirname(os.path.abspath(__file__)),
+                        stderr=subprocess.DEVNULL,
+                    ).decode().strip()
+                except Exception:
+                    git_sha = ''
+
+                save_kwargs = dict(
+                    theta=theta, x=x, param_names=self.param_names, obs_names=obs_names,
+                    param_bounds=param_bounds, param_units=param_units,
+                    config_hash=config_hash, git_sha=git_sha,
+                    seed=(seed if seed is not None else -1),
+                    n_requested=n_samples,
+                    n_rejected_nonfinite=n_rejected_nonfinite,
+                    n_rejected_support=n_rejected_support,
+                    imag_convention=imag_convention,
+                )
+                if provenance:
+                    save_kwargs['provenance'] = json.dumps(provenance)
+                if obs_noise_meta is not None:
+                    save_kwargs['obs_noise'] = json.dumps(obs_noise_meta)
+                np.savez(output_path, **save_kwargs)
+            log.info(f"SBI dataset saved to {output_path}")
+
+        return theta, x

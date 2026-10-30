@@ -1,0 +1,69 @@
+{
+  "design": "single-Tb grid-walk; all frequencies co-vary from one physical Ae(Tb); PRIMARY W1 calibration gate",
+  "anchors": [
+    {
+      "tb_K": 261.5,
+      "grid_idx": 10,
+      "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors_gridwalk/anchor_tb261p50.json",
+      "amp_synodic": 0.7536,
+      "amp_synodic2nd": 0.8149,
+      "amp_orbital": 0.2245
+    },
+    {
+      "tb_K": 262.5,
+      "grid_idx": 12,
+      "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors_gridwalk/anchor_tb262p50.json",
+      "amp_synodic": 0.8188,
+      "amp_synodic2nd": 0.8394,
+      "amp_orbital": 0.3824
+    },
+    {
+      "tb_K": 263.5,
+      "grid_idx": 14,
+      "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors_gridwalk/anchor_tb263p50.json",
+      "amp_synodic": 0.842,
+      "amp_synodic2nd": 0.8516,
+      "amp_orbital": 0.5142
+    },
+    {
+      "tb_K": 264.5,
+      "grid_idx": 16,
+      "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors_gridwalk/anchor_tb264p50.json",
+      "amp_synodic": 0.8564,
+      "amp_synodic2nd": 0.8618,
+      "amp_orbital": 0.6206
+    },
+    {
+      "tb_K": 266.0,
+      "grid_idx": 19,
+      "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors_gridwalk/anchor_tb266p00.json",
+      "amp_synodic": 0.8741,
+      "amp_synodic2nd": 0.8774,
+      "amp_orbital": 0.7274
+    },
+    {
+      "tb_K": 268.0,
+      "grid_idx": 23,
+      "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors_gridwalk/anchor_tb268p00.json",
+      "amp_synodic": 0.8969,
+      "amp_synodic2nd": 0.9016,
+      "amp_orbital": 0.8165
+    },
+    {
+      "tb_K": 270.0,
+      "grid_idx": 33,
+      "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors_gridwalk/anchor_tb270p00.json",
+      "amp_synodic": 0.9239,
+      "amp_synodic2nd": 0.9339,
+      "amp_orbital": 0.8729
+    },
+    {
+      "tb_K": 271.0,
+      "grid_idx": 35,
+      "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors_gridwalk/anchor_tb271p00.json",
+      "amp_synodic": 0.939,
+      "amp_synodic2nd": 0.9535,
+      "amp_orbital": 0.8961
+    }
+  ]
+}

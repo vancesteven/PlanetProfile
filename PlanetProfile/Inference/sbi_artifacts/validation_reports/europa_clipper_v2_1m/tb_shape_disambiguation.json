@@ -1,0 +1,12 @@
+{
+  "test": "MCMC-vs-MCMC Tb_K shape-D disambiguation (reviewer Q3)",
+  "seed42_vs_seed7_KS_D": 0.0354,
+  "self_D_p99_floor": 0.0347,
+  "gate_tol_1.5x": 0.0521,
+  "sbi_vs_mcmc_D": 0.119,
+  "skew_seed42": 0.702,
+  "skew_seed7": 0.654,
+  "kurt_seed42": 1.185,
+  "kurt_seed7": 0.983,
+  "conclusion": "Reference MCMC is stable/reproducible (MCMC-vs-MCMC D=0.035 ~ self-D floor). The two chains agree on a genuine right-skew/leptokurtic Tb posterior. Therefore the SBI-vs-MCMC D=0.119 is a real FLOW shape defect (flow renders Tb near-Gaussian, misses true skew), NOT reference variance. Per scientific review: ACCEPTABLE-WITH-DOCUMENTATION as a candidate residual \u2014 sub-resolution (medians agree 0.01K), conservative direction (SBI 18pct wider). Attribute to flow."
+}

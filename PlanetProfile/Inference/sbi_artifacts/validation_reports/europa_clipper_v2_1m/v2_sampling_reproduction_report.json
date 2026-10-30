@@ -1,0 +1,146 @@
+{
+  "check": "v2_same_version_sampling_reproduction",
+  "machine": "B",
+  "date": "2026-07-18",
+  "artifact": "europa_seawater_andrade_clipper_v2.pt",
+  "reference_report": "crosscheck_report.json",
+  "n_samples": 4000,
+  "seed": 42,
+  "sampling_path": "SBIRunner.load_artifact (no config, no Ae precompute)",
+  "spline_guard_active_on_reject_true_path": true,
+  "reproduction": {
+    "gate": "|dmean| < 0.1*sigma_ref AND sigma_ratio in [0.9,1.1]",
+    "reject_outside_prior": true,
+    "per_parameter": [
+      {
+        "param": "alpha",
+        "new_mean": 0.30826513044908643,
+        "ref_mean": 0.30826581133045733,
+        "new_std": 0.08604468220299424,
+        "ref_std": 0.08588898773167723,
+        "dmean": -6.808813708958361e-07,
+        "dmean_tol": 0.008588898773167724,
+        "sigma_ratio": 1.0018127407881836,
+        "mean_pass": true,
+        "sigma_pass": true,
+        "pass": true
+      },
+      {
+        "param": "log10_zeta",
+        "new_mean": -0.2074279578361984,
+        "ref_mean": -0.20282605413395927,
+        "new_std": 1.2516643744344584,
+        "ref_std": 1.2561689935714786,
+        "dmean": -0.004601903702239146,
+        "dmean_tol": 0.12561689935714787,
+        "sigma_ratio": 0.9964140022878507,
+        "mean_pass": true,
+        "sigma_pass": true,
+        "pass": true
+      },
+      {
+        "param": "log10_eta_Ih",
+        "new_mean": 12.791581100940704,
+        "ref_mean": 12.78927761553966,
+        "new_std": 1.7001928098746841,
+        "ref_std": 1.694475726773835,
+        "dmean": 0.0023034854010433037,
+        "dmean_tol": 0.16944757267738353,
+        "sigma_ratio": 1.003373953967304,
+        "mean_pass": true,
+        "sigma_pass": true,
+        "pass": true
+      },
+      {
+        "param": "log10_eta_sil",
+        "new_mean": 20.09918341732025,
+        "ref_mean": 20.10032244710456,
+        "new_std": 1.1427981537057155,
+        "ref_std": 1.1457895124331716,
+        "dmean": -0.0011390297843085762,
+        "dmean_tol": 0.11457895124331717,
+        "sigma_ratio": 0.9973892598116876,
+        "mean_pass": true,
+        "sigma_pass": true,
+        "pass": true
+      },
+      {
+        "param": "Tb_K",
+        "new_mean": 264.5346181411743,
+        "ref_mean": 264.53546746879795,
+        "new_std": 0.26018246967560854,
+        "ref_std": 0.2588868991990756,
+        "dmean": -0.0008493276236549718,
+        "dmean_tol": 0.02588868991990756,
+        "sigma_ratio": 1.0050043879413793,
+        "mean_pass": true,
+        "sigma_pass": true,
+        "pass": true
+      },
+      {
+        "param": "R_core_km",
+        "new_mean": 538.3105244312286,
+        "ref_mean": 538.4229034626637,
+        "new_std": 71.9266024096328,
+        "ref_std": 71.84263776915807,
+        "dmean": -0.1123790314351254,
+        "dmean_tol": 7.184263776915808,
+        "sigma_ratio": 1.001168729922536,
+        "mean_pass": true,
+        "sigma_pass": true,
+        "pass": true
+      },
+      {
+        "param": "rho_core_kgm3",
+        "new_mean": 6417.869756835938,
+        "ref_mean": 6416.110340232703,
+        "new_std": 887.9976664527514,
+        "ref_std": 887.6063293389783,
+        "dmean": 1.7594166032349676,
+        "dmean_tol": 88.76063293389784,
+        "sigma_ratio": 1.0004408904047186,
+        "mean_pass": true,
+        "sigma_pass": true,
+        "pass": true
+      }
+    ],
+    "verdict": "PASS"
+  },
+  "signed_im_probe": {
+    "reject_outside_prior": false,
+    "note": "flips drive x off-manifold; reject=False matches validate_sbi off-manifold convention (lines 903/1012). reject=True here legitimately stalls at 0% acceptance.",
+    "signed_channel": "Bind_synodic_x_imag",
+    "abs_channel": "Im_k2",
+    "abs_probe_desc": "Im_k2 = +0.08 vs -0.08 (abs-fold -> identical |Im_k2|); same seed + reject=False -> byte-identical draws expected",
+    "abs_draws_byte_identical": true,
+    "im_h2_fold": {
+      "channel_convention": "abs",
+      "draws_byte_identical": false,
+      "max_shift_sigma": 0.0678709476419397,
+      "fold_applied": false,
+      "note": "Im_h2 is marked 'abs' and folded in training but _x_obs_vector (sbi_runner.py:674) folds only Im_k2 aliases. Immaterial here (Im_h2=0 at x_obs) but a latent train/sample mismatch on the public path if a signed Im_h2 is ever passed."
+    },
+    "signed_shift_sigma": {
+      "alpha": 1.718299677572942,
+      "log10_zeta": 0.4279207665293969,
+      "log10_eta_Ih": 2.005826310866905,
+      "log10_eta_sil": 0.43290728420564134,
+      "Tb_K": 20.662303934752465,
+      "R_core_km": 0.02637459482998297,
+      "rho_core_kgm3": 0.1300844498154209
+    },
+    "abs_shift_sigma": {
+      "alpha": 0.0,
+      "log10_zeta": 0.0,
+      "log10_eta_Ih": 0.0,
+      "log10_eta_sil": 0.0,
+      "Tb_K": 0.0,
+      "R_core_km": 0.0,
+      "rho_core_kgm3": 0.0
+    },
+    "max_signed_shift_sigma": 20.662303934752465,
+    "max_abs_shift_sigma": 0.0,
+    "verdict": "PASS"
+  },
+  "overall_verdict": "PASS"
+}

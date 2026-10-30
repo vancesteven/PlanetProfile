@@ -1,0 +1,19 @@
+{
+ "artifact": "/Users/svance/scratch/enc_sbi/enceladus_ocean6D_rhorock_posterior_1m.pt",
+ "artifact_sha256": "43255b3cce0cffd966b70d3459fe1685f4e474fb87ca17d342dfe261bf3070ee",
+ "train_seed": 75,
+ "density_estimator": "nsf",
+ "capacity": "deployed defaults (hidden 50, 5 transforms, 10 bins)",
+ "n_train": 1000953,
+ "train_seconds": 5594.345431089401,
+ "config": "/Users/svance/src/planetprofile-genai/PlanetProfile/Inference/configs/enceladus_cassini_isostasy_ocean6D_rhorock.json",
+ "config_hash": "8aeb033e7a74d6d5",
+ "cache_sha256": "a572f1f571f321be9304af6c5750d20e663502590e42b5ad8d25a29f676d2bbd",
+ "dataset_sha256": "8b07744f2358b572e7698e58857eeb404ac478cff23e2e5364b25443d2da1834",
+ "train_info": {
+  "density_estimator": "nsf",
+  "seed": 75,
+  "n_train_effective": 1000953,
+  "train_elapsed_s": 5590.849436044693
+ }
+}

@@ -1,0 +1,33 @@
+{
+  "cache_path": "/Users/svance/ppgenai/PlanetProfile/Test/mcmc_results/Titan/Test52_andrade_noocean_diff/titan_diff_noocean_structure_grid.pkl",
+  "Tb_K_grid": [
+    249.0,
+    249.245625,
+    249.49125,
+    249.736875,
+    249.98250000000002,
+    250.228125,
+    250.47375,
+    250.719375,
+    250.965
+  ],
+  "CMR2_offset_per_point": [
+    0.0009495957700405011,
+    0.0009496686783234121,
+    0.0009497110940006603,
+    0.000949749469961847,
+    0.0009498106154098851,
+    0.0009499428338637927,
+    0.0009499608934129822,
+    0.0009499739986957301,
+    0.0009500249281855777
+  ],
+  "offset_mean": 0.0009498264757660432,
+  "offset_std": 1.4543927697460858e-07,
+  "offset_min": 0.0009495957700405011,
+  "offset_max": 0.0009500249281855777,
+  "definition": "CMR2_offset = CMR2_pp_native (cached) - recon_nocore (structure_derivation.compute_cmr2 on R_core=0 reconstruction)",
+  "git_sha": "b77683cce6b7e02ea9d9d32f8d21ee2d18c96cd2",
+  "build_timestamp_utc": "2026-07-08T13:37:29.680176Z",
+  "note": "Phase 1 sidecar; NOT consumed by mcmc_runner.py in Phase 1. Phase 2 will decide whether/how to apply this as an anchor correction inside _derive_cmr2_via_mass_conservation."
+}

@@ -1,0 +1,237 @@
+{
+  "check": "limits",
+  "gate": "log10_eta_Ih: Wasserstein-1(flow, MCMC anchor) <= 0.25*sigma_anchor at every sweep point (ratified 2026-07-10, bimodality-stable); prior-box containment == 1.0",
+  "verdict": "FAIL",
+  "results": {
+    "mode": "anchor",
+    "sweep_obs": "Im_k2",
+    "sweep_values": [
+      0.05,
+      0.1,
+      0.15,
+      0.2,
+      0.25,
+      0.3
+    ],
+    "fixed_obs": {
+      "Re_k2": 0.608,
+      "CMR2": 0.343
+    },
+    "monotone_param": "log10_eta_Ih",
+    "anchor_sigma_frac": 0.25,
+    "grid": [
+      {
+        "sweep_value": 0.05,
+        "anchor_pkl": "/tmp/test52_anchors_im0.05.pkl",
+        "anchor_median": 12.148254620276813,
+        "anchor_sigma": 1.6058852256733127,
+        "anchor_ess": 4311.677130036968,
+        "flow_median": 12.365241050720215,
+        "median_diff": 0.21698643044340216,
+        "w1": 0.17107473858228758,
+        "w1_tol": 0.4014713064183282,
+        "anchor_pass": true,
+        "n_inside_box": 1969,
+        "n_samples": 2000
+      },
+      {
+        "sweep_value": 0.1,
+        "anchor_pkl": "/tmp/test52_anchors_im0.10.pkl",
+        "anchor_median": 12.604902568635463,
+        "anchor_sigma": 1.6289814946257688,
+        "anchor_ess": 4111.768354590127,
+        "flow_median": 12.702888488769531,
+        "median_diff": 0.09798592013406804,
+        "w1": 0.11429828140441922,
+        "w1_tol": 0.4072453736564422,
+        "anchor_pass": true,
+        "n_inside_box": 1968,
+        "n_samples": 2000
+      },
+      {
+        "sweep_value": 0.15,
+        "anchor_pkl": "/tmp/test52_anchors_im0.15.pkl",
+        "anchor_median": 12.698700236007529,
+        "anchor_sigma": 1.662789464554419,
+        "anchor_ess": 4077.686913866554,
+        "flow_median": 12.675326347351074,
+        "median_diff": 0.02337388865645451,
+        "w1": 0.06460137395784098,
+        "w1_tol": 0.41569736613860475,
+        "anchor_pass": true,
+        "n_inside_box": 1971,
+        "n_samples": 2000
+      },
+      {
+        "sweep_value": 0.2,
+        "anchor_pkl": "/tmp/test52_anchors_im0.20.pkl",
+        "anchor_median": 12.808822397390639,
+        "anchor_sigma": 1.608077483122074,
+        "anchor_ess": 4206.404678606125,
+        "flow_median": 12.457471370697021,
+        "median_diff": 0.3513510266936173,
+        "w1": 0.2760277583654008,
+        "w1_tol": 0.4020193707805185,
+        "anchor_pass": true,
+        "n_inside_box": 1959,
+        "n_samples": 2000
+      },
+      {
+        "sweep_value": 0.25,
+        "anchor_pkl": "/tmp/test52_anchors_im0.25.pkl",
+        "anchor_median": 12.148398082862567,
+        "anchor_sigma": 1.4141779960935463,
+        "anchor_ess": 4125.5708135542245,
+        "flow_median": 11.558863639831543,
+        "median_diff": 0.5895344430310239,
+        "w1": 0.2917891846068697,
+        "w1_tol": 0.3535444990233866,
+        "anchor_pass": true,
+        "n_inside_box": 1931,
+        "n_samples": 2000
+      },
+      {
+        "sweep_value": 0.3,
+        "anchor_pkl": "/tmp/test52_anchors_im0.30.pkl",
+        "anchor_median": 11.920109657699435,
+        "anchor_sigma": 1.1820556243294813,
+        "anchor_ess": 4136.945850738841,
+        "flow_median": 11.33524751663208,
+        "median_diff": 0.5848621410673545,
+        "w1": 0.4054284109665538,
+        "w1_tol": 0.2955139060823703,
+        "anchor_pass": false,
+        "n_inside_box": 1925,
+        "n_samples": 2000
+      }
+    ],
+    "medians": [
+      12.365241050720215,
+      12.702888488769531,
+      12.675326347351074,
+      12.457471370697021,
+      11.558863639831543,
+      11.33524751663208
+    ],
+    "anchor_medians": [
+      12.148254620276813,
+      12.604902568635463,
+      12.698700236007529,
+      12.808822397390639,
+      12.148398082862567,
+      11.920109657699435
+    ],
+    "anchors_all_pass": false,
+    "containment_fraction": 0.9769166666666667,
+    "containment_required": 1.0,
+    "containment_pass": false,
+    "all_pass": false
+  },
+  "artifact": "/tmp/titan_diff_noocean_andrade_test52_1m_v2.pt",
+  "artifact_meta": {
+    "schema_version": 1,
+    "config_hash": "2bf1f7b2d1708e28",
+    "bodyname": "Titan",
+    "git_sha": "5d7c27df",
+    "seed": 42,
+    "n_train_effective": 877883,
+    "sbi_version": "0.26.1",
+    "torch_version": "2.11.0",
+    "created_utc": "2026-07-11T22:44:21Z",
+    "density_estimator": "nsf",
+    "imag_convention": "abs",
+    "param_names": [
+      "alpha",
+      "log10_zeta",
+      "log10_eta_Ih",
+      "log10_eta_III",
+      "log10_eta_V",
+      "log10_eta_VI",
+      "log10_eta_sil",
+      "Tb_K",
+      "R_core_km",
+      "rho_core_kgm3"
+    ],
+    "param_bounds": [
+      [
+        0.15,
+        0.45
+      ],
+      [
+        -3.0,
+        2.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        10.0,
+        16.0
+      ],
+      [
+        18.0,
+        22.0
+      ],
+      [
+        249.0,
+        250.965
+      ],
+      [
+        0.0,
+        2000.0
+      ],
+      [
+        2591.0,
+        3600.0
+      ]
+    ],
+    "obs_names": [
+      "Re_k2",
+      "Im_k2",
+      "CMR2"
+    ],
+    "rejection_stats": {
+      "n_requested": 1000000,
+      "n_rejected_support": 0,
+      "n_rejected_nonfinite": 121585,
+      "rejection_rate": 0.121585,
+      "imag_convention": "abs",
+      "seed": 45,
+      "obs_noise": {
+        "type": "gaussian_diagonal",
+        "sigma": {
+          "Re_k2": 0.048,
+          "Im_k2": 0.035,
+          "CMR2": 0.001
+        },
+        "noise_seed": 4545,
+        "refold_im": false
+      },
+      "apply_support_guard": true,
+      "n_kept": 878415,
+      "note": "10xIQR_per_dim_filter",
+      "n_filtered": 532
+    }
+  },
+  "limits_plot": "/tmp/gate_limits_test52_v2/limits_median_trend.png",
+  "provenance": {
+    "seed": 42,
+    "timestamp_utc": "2026-07-11T23:49:28Z",
+    "git_sha": "5d7c27df",
+    "versions": {
+      "torch": "2.11.0",
+      "sbi": "0.26.1",
+      "scipy": "1.16.3",
+      "numpy": "2.4.6"
+    }
+  }
+}

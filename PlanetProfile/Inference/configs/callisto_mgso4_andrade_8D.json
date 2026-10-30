@@ -1,0 +1,53 @@
+{
+  "mode": "mcmc",
+  "bodyname": "Callisto",
+  "param_space": {
+    "alpha":           {"prior_type": "uniform", "bounds": [0.15, 0.45]},
+    "log10_zeta":      {"prior_type": "uniform", "bounds": [-3.0, 2.0]},
+    "log10_eta_Ih":    {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_HP":    {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_sil":   {"prior_type": "uniform", "bounds": [18.0, 22.0]},
+    "Tb_K":            {"prior_type": "uniform", "bounds": [252.2, 263.0]},
+    "R_core_km":       {"prior_type": "uniform", "bounds": [0.0, 1205.15]},
+    "rho_core_kgm3":   {"prior_type": "uniform", "bounds": [5000.0, 8000.0]}
+  },
+  "param_groups": {
+    "log10_eta_HP": ["log10_eta_III", "log10_eta_V", "log10_eta_VI"]
+  },
+  "derived_params": {
+    "rho_sil_kgm3": {
+      "derivation": "mass_conservation",
+      "bounds": [2200.0, 3500.0],
+      "reject_if_outside_bounds": true
+    }
+  },
+  "observables": {
+    "CMR2": [0.3549, 0.0042]
+  },
+  "sampler_settings": {
+    "n_effective": 500,
+    "n_reeval": 500,
+    "rheology": "andrade",
+    "arrhenius_params": {
+      "activation_energy_kJ_mol": {"Ih": 60.0},
+      "R_J_mol_K": 8.314462
+    }
+  },
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Callisto/C2_andrade/callisto_mgso4_structure_grid.pkl",
+  "random_state": 42,
+  "planet_template_module": "PlanetProfile.Default.Callisto.PPCallisto",
+  "metadata": {
+    "schema_version": "v2 (sampled Tb + sampled core + derived rho_sil) — DEPRECATED",
+    "deprecation_note": "Replaced by callisto_nacl_andrade_8D.json (2026-05-18). The MgSO4 EOS in PP's HydroEOS table only extends to P=800 MPa, which Callisto's ocean exceeds at all sampled Tb values, forcing slow extrapolation regeneration on every PP run. SeaFreeze NaCl extends to 5000 MPa and runs cleanly. A faster MgSO4 EOS in SeaFreeze is still under development; revisit this config when it lands.",
+    "description": "Phase C1 BodyConfig: Callisto with MgSO4 100 ppt ocean and Andrade rheology. HP ice shell present (Ice III/V/VI locked together). 8D problem. Less differentiated than Ganymede.",
+    "ocean_composition": "MgSO4 100 ppt",
+    "primary_constraint": "CMR2 from Anderson et al. (2001)",
+    "k2_status": "NOT INCLUDED - no published k2 measurement. Add when available.",
+    "Tb_bounds_rationale": "Lower bound 252.2 K = TtripleIh_III_L_K + 1 K (approaches but does not cross the no-ocean limit). Upper bound 263.0 K is preliminary, targeting ~50 km Ih shell at the thin end. Refine in Stage 3 by running PP at the boundary Tb values. Default PP Tb=262.0 K sits inside the range.",
+    "no_ocean_variant_note": "Callisto may have no ocean at all; that case will be modeled as a separate config (analogous to Test50 for Titan), not via this ocean-bearing config.",
+    "core_bounds_rationale": "R_core in [0, 0.5 R_body] permits the no-core limit; rho_core in [5000, 8000] kg/m^3 brackets metallic Fe / Fe-S compositions. rho_sil is derived from M_total mass conservation given the cached ice+ocean profile and sampled core; samples with rho_sil outside [2200, 3500] kg/m^3 are rejected by the likelihood.",
+    "next_step_after_C1": "Per-composition runs by adding 0.1 molal increments of NaCl to the ocean using the SeaFreeze NaCl representation (deferred - not part of Phase C1).",
+    "stage2_dependencies": "Toolkit must (a) parse the derived_params block, (b) implement the rho_sil mass-conservation solver and rejection, (c) extend the structure cache to include M_ice_kg / M_ocean_kg / R_oceanbot_m / M_total_kg per Tb point, (d) recompute CMR2 from the sampled core + derived rho_sil + cached ice/ocean profile.",
+    "stage3_dependencies": "Build Tb-grid structure cache for Callisto with MgSO4 ocean across the sampled Tb range."
+  }
+}

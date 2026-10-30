@@ -1,0 +1,68 @@
+{
+  "fiducial_tb_K": 264.5,
+  "sweeps": {
+    "synodic": [
+      {
+        "target_amp": 0.7,
+        "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors/anchor_synodic_0.70.json"
+      },
+      {
+        "target_amp": 0.75,
+        "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors/anchor_synodic_0.75.json"
+      },
+      {
+        "target_amp": 0.8,
+        "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors/anchor_synodic_0.80.json"
+      },
+      {
+        "target_amp": 0.85,
+        "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors/anchor_synodic_0.85.json"
+      },
+      {
+        "target_amp": 0.9,
+        "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors/anchor_synodic_0.90.json"
+      },
+      {
+        "target_amp": 0.95,
+        "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors/anchor_synodic_0.95.json"
+      }
+    ],
+    "synodic 2nd": [
+      {
+        "target_amp": 0.75,
+        "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors/anchor_synodic2nd_0.75.json"
+      },
+      {
+        "target_amp": 0.83,
+        "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors/anchor_synodic2nd_0.83.json"
+      },
+      {
+        "target_amp": 0.91,
+        "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors/anchor_synodic2nd_0.91.json"
+      }
+    ],
+    "orbital": [
+      {
+        "target_amp": 0.45,
+        "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors/anchor_orbital_0.45.json"
+      },
+      {
+        "target_amp": 0.62,
+        "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors/anchor_orbital_0.62.json"
+      },
+      {
+        "target_amp": 0.8,
+        "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors/anchor_orbital_0.80.json"
+      }
+    ]
+  },
+  "corner": {
+    "targets": {
+      "synodic": 0.75,
+      "synodic 2nd": 0.83,
+      "orbital": 0.8
+    },
+    "config": "PlanetProfile/Inference/configs/europa_clipper_v2_anchors/anchor_corner.json"
+  },
+  "design": "phase-preserving amplitude scaling of fiducial complex Ae; Be fixed; joint over kept comps; non-swept freqs at fiducial"
+}

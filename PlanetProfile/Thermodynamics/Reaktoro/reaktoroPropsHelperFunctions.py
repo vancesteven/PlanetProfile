@@ -1,0 +1,593 @@
+import copy
+# reaktoro is conda-forge-only (no pip wheel); optional so pip-only
+# deployments can import the module chain (Main -> SetupInit ->
+# CustomSolution -> reaktoroProps -> here). Any actual CustomSolution
+# use fails at call time with a NameError/ImportError upstream
+# (HydroEOS raises a clear message before reaching this module).
+try:
+    import reaktoro as rkt
+except ImportError:
+    rkt = None
+import numpy as np
+import logging
+import os
+import pickle as pickle
+from seafreeze import seafreeze as sfz
+from scipy.interpolate import BSpline, splrep
+from scipy import interpolate
+import pickle
+import gzip
+import uuid
+
+log = logging.getLogger('PlanetProfile')
+
+class ReaktoroConvergenceError(Exception):
+    """Exception raised when Reaktoro fails to converge on a solution."""
+    pass
+
+def supcrt_aqueous_species_generator(supcrtDb):
+    """ Function to turn aqueous species formulas and names in supcrt database into a dictionary
+    to allow quick lookup of species by formula or name in future functions (reduces runtime).
+    """
+    formulaDictionary = {}
+    nameDictionary = {}
+    aqueousSpecies = supcrtDb.species().withAggregateState(rkt.AggregateState.Aqueous)
+    for species in aqueousSpecies:
+        name = species.name()
+        nameDictionary[name] = name
+        formula = str(species.formula())
+        if formula not in formulaDictionary:
+            formulaDictionary[formula] = name
+    return formulaDictionary, nameDictionary
+
+def supcrt_solid_species_generator(supcrtDb):
+    """ Function to turn solid species names in supcrt database into a dictionary
+    to allow quick lookup of species by name in future functions (reduces runtime).
+    """
+    solidSpeciesLookup = {}
+    solidSpecies = supcrtDb.species().withAggregateState(rkt.AggregateState.Solid)
+    for species in solidSpecies:
+        name = species.name()
+        solidSpeciesLookup[name] = name
+    return solidSpeciesLookup
+
+def phreeqc_species_names_generator(phreeqcDb):
+    """ Function to turn all species names in the Phreeqc database into a set to allow quick lookup of species by name in future functions (reduces runtime). """
+    return {species.name() for species in phreeqcDb.species()}
+
+
+def save_dict_to_pkl(dictionary, filepath):
+    """ This code is used to save a dictionary to a pickle file in a way that is parellel processing safe. """
+    directory = os.path.dirname(filepath)        # directory where the final file will live (use "." if none given)
+    filename = os.path.basename(filepath)             # just the final file name (no directory)
+
+    temp_filepath = os.path.join(                 # build a temp path in the SAME directory as the final file
+        directory, f"{filename}.{os.getpid()}.{uuid.uuid4().hex}.tmp"  # unique name: base + process id + random UUID
+    )
+
+    with gzip.open(temp_filepath, "wb") as f:     # open the temp file for compressed binary writing
+        pickle.dump(dictionary, f, protocol=pickle.HIGHEST_PROTOCOL)  # write the whole dict into the temp file
+
+    os.replace(temp_filepath, filepath)             # atomically move temp -> final (final is always whole, never partial)
+
+
+def load_dict_from_pkl(filename):
+    with gzip.open(filename, "rb") as file:
+        return pickle.load(file)
+
+def PhreeqcGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, database_file, iterations = 200, rktDatabase = None):
+    """ Create a Phreeqc Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
+        Works for both core10.dat and frezchem.dat.
+    Args:
+        aqueous_species_list: aqueous species in reaction. Should be formatted in one long string with a space in between each species
+        speciation_ratio_per_kg: the ratio of species in the aqueous solution in per kg of water. Should be a dictionary
+            with the species as the key and its ratio as its value.
+        species_unit: "mol" or "g" that species ratio is in
+        database_file: file path of Phreeqc database
+    Returns:
+        db, system, state, conditions, solver, props, ice_name: Relevant reaktoro objects
+    """
+    # Initialize the database
+    if rktDatabase is None:
+        db = rkt.PhreeqcDatabase.fromFile(database_file)
+    else:
+        db = rktDatabase
+    # Prescribe the solution
+    solution = rkt.AqueousPhase(aqueous_species_list)
+    solution.setActivityModel(rkt.chain(rkt.ActivityModelPitzer(), rkt.ActivityModelPhreeqcIonicStrengthPressureCorrection()))
+    # Obtain all related solid phases
+    solids = rkt.MineralPhases()
+    # Initialize the system
+    system = rkt.ChemicalSystem(db, solution, solids)
+    # Create constraints on equilibrium - pressure and temperature
+    specs = rkt.EquilibriumSpecs(system)
+    specs.pressure()
+    specs.temperature()
+    # Create a solver object
+    solver = rkt.EquilibriumSolver(specs)
+    options = rkt.EquilibriumOptions()
+    options.optima.maxiters = iterations
+    solver.setOptions(options)
+    # Create a chemical state and its associated properties
+    state = rkt.ChemicalState(system)
+    props = rkt.ChemicalProps(state)
+    # Populate the state with the prescribed species at the given ratios
+    for ion, ratio in speciation_ratio_per_kg.items():
+        state.add(ion, ratio, species_unit)
+    # Create a conditions object
+    conditions = rkt.EquilibriumConditions(specs)
+    # Obtain ice name
+    if "frezchem" in database_file:
+        ice_name = "Ice(s)"
+    else:
+        ice_name = "Ice"
+    # Return the Reaktoro objects that user will need to interact with
+    return db, system, state, conditions, solver, props, ice_name, database_file
+
+
+def PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio_per_kg, species_unit, database_file, iterations, convergence_tolerance, rktDatabase = None):
+    """ Create a Phreeqc Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
+        Works for both core10.dat and frezchem.dat.
+        THIS IS DIFFERENT IN THAT IT ASSUMES TEMPERATURE IS UNKNOWN AND SPECIFIES CHEMICAL CONSTRAINT AT EQUILIBIRUM.
+    Args:
+        aqueous_species_list: aqueous species in reaction. Should be formatted in one long string with a space in between each species
+        speciation_ratio_per_kg: the ratio of species in the aqueous solution per kg of water. Should be a dictionary
+            with the species as the key and its ratio as its value.
+        species_unit: "mol" or "g" that species ratio is in
+        database_file: file path of Phreeqc database
+    Returns:
+        db, system, state, conditions, solver, props: Relevant reaktoro objects
+    """
+    # Initialize the database
+    if rktDatabase is None:
+        db = rkt.PhreeqcDatabase.fromFile(database_file)
+    else:
+        db = rktDatabase
+    # Prescribe the solution
+    solution = rkt.AqueousPhase(aqueous_species_list)
+    solution.setActivityModel(rkt.chain(rkt.ActivityModelPitzer(), rkt.ActivityModelPhreeqcIonicStrengthPressureCorrection()))
+    # Obtain all related solid phases
+    solids = rkt.MineralPhases()
+    # Initialize the system
+    system = rkt.ChemicalSystem(db, solution, solids)
+    # Create constraints on equilibrium - pressure and temperature
+    specs = rkt.EquilibriumSpecs(system)
+    specs.pressure()
+    specs.unknownTemperature()
+    # Create equilibrium constraint on the phase amount of ices to significant threshold
+    # This constraint will allow Reaktoro to query for the pressure at which ice begins to form at the prescribed pressure
+    idx_ice_phase = specs.addInput("IP")
+    ices_phase_constraint = rkt.EquationConstraint()
+    ices_phase_constraint.id = "icePhaseAmountConstraint"
+    ices_phase_constraint.fn = lambda props, w: ices_phases_amount_mol(props) - w[idx_ice_phase]
+    specs.addConstraint(ices_phase_constraint)
+    # Create a solver object
+    solver = rkt.EquilibriumSolver(specs)
+    options = rkt.EquilibriumOptions()
+    options.optima.maxiters = iterations
+    options.optima.convergence.tolerance = convergence_tolerance
+
+    # Create a chemical state and its associated properties
+    state = rkt.ChemicalState(system)
+    props = rkt.ChemicalProps(state)
+    # We need to increase the minimum mol treshold if we looking at small concentratiosn to prevent numerical errors since reaktoro,by default, increases all concentrations to 1e-16 even if they are below this number
+    if np.any([value < 1e-16 for value in speciation_ratio_per_kg.values()]):
+        state.setSpeciesAmounts(1e-40)
+        options.epsilon = 1e-30
+    solver.setOptions(options)
+    # Populate the state with the prescribed species at the given ratios
+    for ion, ratio in speciation_ratio_per_kg.items():
+        state.add(ion, ratio, species_unit)
+    # Create a conditions object
+    conditions = rkt.EquilibriumConditions(specs)
+    # Return the Reaktoro objects that user will need to interact with
+    return db, system, state, conditions, options, solver, props
+
+
+def SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, species_unit, databaseName, ocean_solid_species, PhreeqcToSupcrtNames, iterations = 200, convergence_tolerance = 1e-8, rktDatabase = None, supcrtAqueousLookupFormula = None, supcrtAqueousLookupName = None):
+    """ Create a Supcrt Reaktoro System with the solid and liquid phase whose relevant species are determined by the provided aqueous_species_list.
+    Args:
+        aqueous_species_list: aqueous species in reaction. Should be formatted in one long string with a space in between each species
+        speciation_ratio_per_kg: the ratio of species in the aqueous solution per kg of water. Should be a dictionary
+            with the species as the key and its ratio as its value.
+        species_unit: "mol" or "g" that species ratio is in
+        databaseName: Supcrt database to use
+        ocean_solid_phases: whether or not to consider solid phases in calculations
+        PhreeqcToSupcrtNames: Names that need to be converted in species list and speciation ratio per kg
+        iterations: maximum number of iterations to allow for when solving for equilibrium before throwing error
+        convergence_tolerance: convergence tolerance for calculations - increasing this from reaktoro default of 1e-8 can speed upcalcualtions but lead to less accurate thermodynamic calculations
+        It is recommended not to change this unless doing large scale explorations 
+        rktDatabase: Reaktoro database to use (passing in speeds up function). If None, then a new database is created.
+        supcrtAqueousLookup: Optional precomputed dict from build_supcrt_aqueous_lookups; if None, built once inside species_convertor.
+    Returns:
+        db, system, state, conditions, solver, props, ice_name: Relevant reaktoro objects
+    """
+    # Initialize the database
+    if rktDatabase is None:
+        db = rkt.SupcrtDatabase(databaseName)
+    else:
+        db = rktDatabase
+    aqueous_species_list, speciation_ratio_per_kg = species_convertor_compatible_with_supcrt(
+        db, aqueous_species_list, speciation_ratio_per_kg, PhreeqcToSupcrtNames, supcrtAqueousLookupFormula=supcrtAqueousLookupFormula, supcrtAqueousLookupName=supcrtAqueousLookupName
+    )
+    # Prescribe the solution
+    solution = rkt.AqueousPhase(aqueous_species_list)
+    solution.setActivityModel(rkt.chain(rkt.ActivityModelPitzer(), rkt.ActivityModelPhreeqcIonicStrengthPressureCorrection()))
+    # If we are considering solid phases, create a solid phase
+    if ocean_solid_species is not None:
+        solids = rkt.MineralPhases(ocean_solid_species)
+        system = rkt.ChemicalSystem(db, solution, solids)
+    else:
+        system = rkt.ChemicalSystem(db, solution)
+    # Initialize the system
+    # Create constraints on equilibrium - pressure and temperature
+    specs = rkt.EquilibriumSpecs(system)
+    specs.pressure()
+    specs.temperature()
+    # Create a solver object
+    solver = rkt.EquilibriumSolver(specs)
+    # Set # of iterations to use
+    options =rkt.EquilibriumOptions()
+    options.optima.maxiters = iterations
+    options.optima.convergence.tolerance = convergence_tolerance
+    # Create a chemical state and its associated properties
+    state = rkt.ChemicalState(system)
+    # We need to increase the minimum mol treshold if we looking at small concentratiosn to prevent numerical errors since reaktoro,by default, increases all concentrations to 1e-16 even if they are below this number
+    if np.any([value < 1e-16 for value in speciation_ratio_per_kg.values()]):
+        state.setSpeciesAmounts(1e-40)
+        options.epsilon = 1e-30
+    solver.setOptions(options)
+    # Populate the state with the prescribed species at the given ratios
+    for ion, ratio in speciation_ratio_per_kg.items():
+        state.add(ion, ratio, species_unit)
+    props = rkt.ChemicalProps(state)
+    # Create a conditions object
+    conditions = rkt.EquilibriumConditions(specs)
+    # Return the Reaktoro objects that user will need to interact with
+    return db, system, state, conditions, solver, props
+
+def RelevantSolidSpecies(db, aqueous_species_list, solid_phases_to_suppress):
+    """
+    Finds the relevant solid species to consider from a list of solid phases, or if solid phases is None, then return all solids
+    """
+    # Get all solid species in supcrt database
+    # Get all solid species that could form given the elements in aqueous species list
+    solution = rkt.AqueousPhase(aqueous_species_list)
+    minerals = rkt.MineralPhases()
+    system = rkt.ChemicalSystem(db, solution, minerals)
+    relevantSolidSpecies = system.species().withAggregateState(rkt.AggregateState.Solid)
+    relevantSolidSpeciesNamesList = [sp.name() for sp in relevantSolidSpecies]
+    solid_phases_to_suppress_set = set(solid_phases_to_suppress)
+    filteredSolidSpeciesNamesList = [
+        sp_name for sp_name in relevantSolidSpeciesNamesList if sp_name not in solid_phases_to_suppress_set
+    ]
+    return ' '.join(filteredSolidSpeciesNamesList)
+
+
+def ices_phases_amount_mol(props: 'rkt.ChemicalProps'):
+    '''
+    Helper equilibirum constraint function to constrain the total amount of moles of all ices in the current state using its associated properties. Function is used in
+    the ice constraint for rkt_p_freeze().
+    '''
+    # Get name of H2O ice (either Ice(s) for frezchem or Ice for core10.dat)
+    ice_name = ""
+    try:
+        # Check if ice is labeled as "Ice(s)" in database (core10.dat labeling)
+        props.system().database().species("Ice(s)")
+        ice_name = "Ice(s)"
+    except Exception as e:
+        # If exception is thrown, then we are using frezchem.dat database and ice_name should be "Ice"
+        ice_name = "Ice"
+    # Return the amount of solid H2O in the state, given by moles
+    ice_chem_potential = props.speciesChemicalPotential(ice_name)
+    water_chem_potential = props.speciesChemicalPotential("H2O")
+    return ice_chem_potential - water_chem_potential
+
+
+def species_convertor_compatible_with_supcrt(
+    supcrt_db, aqueous_species_string, speciation_ratio_per_kg, Phreeqc_to_Supcrt_names, supcrtAqueousLookupFormula=None, supcrtAqueousLookupName=None):
+    """
+    Converts aqueous species string and speciation ratio dictionary into formats compatible with supcrt. Namely, in phreeqc the liquid phase of H2O
+    is labeled "H2O", whereas in supcrt it requires "H2O(aq)". Thus, converts "H2O" in the string and speciation ratio dictionary to "H2O(aq)".
+    Importantly, since speciation_ratio_per_kg is a dictionary, we must make a deep copy before editing so as to not disturb the original dictionary, which
+    will still be used by the phreeqc database in the phase change function.
+    Args:
+        supcrt_db: Supcrt database that we are using
+        aqueous_species_string: String that has all species names that should be considered in aqueous phase
+        speciation_ratio_per_kg: Dictionary of active species and the values of their molar ratio (mol/kg of water)
+        Phreeqc_to_Supcrt_names: Dictionary of Phreeqc names that must be converted to Supcrt for compatibility
+        supcrtAqueousLookupFormula: Optional dict with keys by_formula from build_supcrt_aqueous_lookups; if None, built once from supcrt_db.
+        supcrtAqueousLookupName: Optional dict with keys by_name from build_supcrt_aqueous_lookups; if None, built once from supcrt_db.
+    Returns:
+        aqueous_species_string: Adapted string that has all species names in format compatible with supcrt
+        supcrt_speciation_ratio_per_kg: Deep copy of dictionary that has species names in format compatible with supcrt
+    """
+    # Since python passes dictionary by reference, need to make deep copy to preserve original dictionary
+    supcrt_speciation_ratio_per_kg = copy.deepcopy(speciation_ratio_per_kg)
+    if supcrtAqueousLookupFormula is None or supcrtAqueousLookupName is None:
+        supcrtAqueousLookupFormula, supcrtAqueousLookupName = supcrt_aqueous_species_generator(supcrt_db)
+
+    for phreeqcName in speciation_ratio_per_kg:
+        supcrtName = None
+        if phreeqcName in supcrtAqueousLookupFormula:
+            supcrtName = supcrtAqueousLookupFormula[phreeqcName]
+        elif phreeqcName in Phreeqc_to_Supcrt_names:
+            supcrt_speciation_ratio_per_kg[Phreeqc_to_Supcrt_names[phreeqcName]] = supcrt_speciation_ratio_per_kg.pop(
+                phreeqcName
+            )
+            continue
+        elif phreeqcName in supcrtAqueousLookupName:
+            supcrtName = supcrtAqueousLookupName[phreeqcName]
+
+        if supcrtName is not None:
+            supcrt_speciation_ratio_per_kg[supcrtName] = supcrt_speciation_ratio_per_kg.pop(phreeqcName)
+        else:
+            raise ValueError(f"Species {phreeqcName} in Custom Solution is not found in Supcrt database. Please check that you are using the correct supcrt database in configPPCustomSolution.py.")
+
+    # Return the string and adapted dictionary
+    return " ".join(supcrt_speciation_ratio_per_kg.keys()), supcrt_speciation_ratio_per_kg
+
+def interpolation_2d(P_MPa, arrays):
+    """Utilized as a helper function for thermodynamic properties calculation.
+    Performs column-wise interpolation on any values that are NaN or inf in the
+    provided 2D arrays by calling interpolation_1d on each affected column.
+    """
+    interpolated_arrays = []
+    P_MPa = np.asarray(P_MPa)
+
+    for array in arrays:
+        interpolated_array = np.copy(array)
+
+        for col in range(array.shape[1]):
+            column_data = np.asarray(interpolated_array[:, col]).copy()
+
+            # Treat both NaN and inf as invalid
+            invalid_mask = np.isnan(column_data) | np.isinf(column_data)
+
+            if np.isinf(column_data).any():
+                log.warning(
+                    "Inf values detected in column " + str(col) + " of array " + str(array)
+                )
+
+            if np.any(invalid_mask):
+                # Convert inf to NaN so interpolation_1d can handle them
+                column_data[invalid_mask] = np.nan
+
+                # Use interpolation_1d on this single column
+                repaired_column = interpolation_1d(P_MPa, (column_data,))[0]
+
+                # Write repaired column back
+                interpolated_array[:, col] = repaired_column
+            else:
+                # No invalid values in this column - use original data as-is
+                interpolated_array[:, col] = column_data
+
+        interpolated_arrays.append(interpolated_array)
+
+    return tuple(interpolated_arrays)
+
+
+def interpolation_1d(P_MPa, arrays):
+    interpolated_arrays = []
+    P_MPa = np.asarray(P_MPa)
+
+    for array in arrays:
+        # Create a copy to avoid modifying the original array
+        array_copy = np.asarray(array).copy()
+
+        # Create mask for known values (not NaN)
+        nan_mask = np.isnan(array_copy)
+
+        # Step 1: Handle edge case filling - extend valid edge values to cover all invalid edge regions
+        # This prevents extrapolation at the ends and avoids numerical instability
+        valid_indices = np.where(~nan_mask)[0]
+        if len(valid_indices) > 0:
+            # Fill ALL invalid values at the beginning with the first valid value
+            first_valid_idx = valid_indices[0]
+            if first_valid_idx > 0:
+                array_copy[:first_valid_idx] = array_copy[first_valid_idx]
+
+            # Fill ALL invalid values at the end with the last valid value
+            last_valid_idx = valid_indices[-1]
+            if last_valid_idx < len(array_copy) - 1:
+                array_copy[last_valid_idx + 1:] = array_copy[last_valid_idx]
+
+            # Step 2: Update nan_mask after edge filling to identify remaining interior gaps
+            nan_mask = np.isnan(array_copy)
+
+            # Step 3: Handle any remaining interior invalid values
+            if np.any(nan_mask):
+                # Extract known points and values for interpolation
+                x_known = np.asarray(P_MPa[~nan_mask])
+                y_known = np.asarray(array_copy[~nan_mask])
+
+                # Remove duplicate x values caused by clipping to Pmin/Pmax
+                x_known, unique_idx = np.unique(x_known, return_index=True)
+                y_known = y_known[unique_idx]
+
+                # Only interpolate for the remaining invalid interior points
+                invalid_indices = np.where(nan_mask)[0]
+
+                # Check if we have sufficient points for interpolation
+                if len(x_known) >= 2:
+                    array_copy[invalid_indices] = np.interp(
+                        P_MPa[invalid_indices], x_known, y_known
+                    )
+                else:
+                    # Fallback to nearest neighbor if insufficient points for interpolation
+                    # Recompute valid indices from the current array_copy
+                    valid_indices = np.where(~np.isnan(array_copy))[0]
+
+                    for i in invalid_indices:
+                        # Find distances to all valid points in index space
+                        distances = np.abs(valid_indices - i)
+
+                        # Find the index of the nearest valid point
+                        nearest_valid_idx = valid_indices[np.argmin(distances)]
+
+                        # Fill with nearest neighbor value
+                        array_copy[i] = array_copy[nearest_valid_idx]
+
+            interpolated_arrays.append(array_copy)
+        else:
+            # Fallback: If no valid data exists in this array, fill with zeros
+            interpolated_arrays.append(np.zeros_like(array_copy))
+
+    return tuple(interpolated_arrays)
+
+def extract_species_from_reaction(species_dict, reaction_dict):
+    """
+    Extract species from a dictionary that are mentioned in a parsed reaction dictionary.
+
+    Parameters:
+    species_dict (dict): Dictionary of species names and their concentrations.
+    reaction_dict (dict): Parsed reaction dictionary with "reactants" and "products".
+
+    Returns:
+    dict: A dictionary containing only the species mentioned in the reaction dictionary.
+    """
+    # Combine species from reactants and products into a single set
+    reaction_species = set(reaction_dict["reactants"].keys()) | set(reaction_dict["products"].keys())
+
+    # Filter the original dictionary to include only keys found in the reaction
+    filtered_species_dict = {
+        key: value for key, value in species_dict.items() if key in reaction_species
+    }
+
+    return filtered_species_dict
+
+
+def freezing_temperature_correction_calculator():
+    eos_P_MPa = np.linspace(0.1, 100, 150)
+    eos_T_K = np.linspace(260, 280, 500)
+    eos_PT = np.array([eos_P_MPa, eos_T_K], dtype=object)
+    sfz_phases = sfz.whichphase(eos_PT)
+    diff = np.diff(sfz_phases)
+    sfz_T_freezing = []
+    for row in diff:
+        i = np.where(row == -1.0)[0]
+        sfz_T_freezing.append(((eos_T_K[i] + eos_T_K[i+1])/2)[0])
+    sfz_T_freezing = np.array(sfz_T_freezing)
+
+    # Obtain frezchem freezing temperatures
+    rkt_T_freezing = []
+    aqueous_species_list = 'H+ OH- H2O'
+    speciation_ratio_mol_kg = {'H2O': float(1/rkt.waterMolarMass)}
+    frezchem_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Databases', 'frezchem.dat')
+    frezchem = PhreeqcGeneratorForChemicalConstraint(aqueous_species_list, speciation_ratio_mol_kg, "mol", frezchem_file_path)
+    db, system, initial_state, conditions, solver, props = frezchem
+    # Create an iterator to go through P_MPa
+    it = np.nditer([eos_P_MPa])
+    conditions.set("IP", 0.1)
+    conditions.setLowerBoundTemperature(240, "K")
+    conditions.setUpperBoundTemperature(280, "K")
+    for P in it:
+        # Reset the state
+        state = initial_state.clone()
+        P = float(P)
+        conditions.pressure(P, "MPa")
+        # Solve the equilibrium problem
+        result = solver.solve(state, conditions)
+        # Update the properties
+        props.update(state)
+        # Obtain the equilibrium temperature
+        rkt_T_freezing.append(float(props.temperature()))
+    rkt_T_freezing = np.array(rkt_T_freezing)
+
+    # Find difference in freezing temperatures
+    difference_in_T_freezings = sfz_T_freezing-rkt_T_freezing
+    return eos_P_MPa, difference_in_T_freezings
+
+"""
+NOT USED FUNCTIONS
+
+
+def pressure_constraint(P_MPa, aqueous_species_list, speciation_ratio_per_kg, database, dP = -1):
+    Find the pressure constraint at which Reaktoro can find equilibrium for the given speciation and database. Starts at P_MPa and checks if rkt can find equilibrium
+        with a temperature of 273K. If it cannot, then adjusts P_MPa by dP and tries again, continuing this process until a compatible P_MPa is found.
+        If we are looking for upper pressure cosntraint (dP is negative), then we stop also if it reaches <= 1.1 MPa, which Rkt should be compatible with.
+    Args:
+        P_MPa: Initial pressure constraint in MPa
+        aqueous_species_list: String that has all species names that should be considered in aqueous phase
+        speciation_ratio_per_kg: Dictionary of active species and the values of their molar ratio (mol/kg of water)
+        database: Database to find pressure constraint for
+        dP: The amount to change P_MPa by if equilibrium is not achieved. Defaults to -1 (for upper constraint)
+
+    Returns:
+        P_MPa: New pressure constraint in MPa for given database.
+
+    # Disable chemical convergence warnings that Reaktoro raises. We handle these internally instead and throw more specific warnings when they appear.
+    rkt.Warnings.disable(906)
+    # Initilialize the database, either being supcrt of phreeqc
+    if "supcrt" in database:
+        # Since supcrt labels "H2O(aq)", we need to adjust our species list and dictionary accordingly
+        aqueous_species_list, speciation_ratio_per_kg = species_convertor_compatible_with_supcrt(
+            aqueous_species_list, speciation_ratio_per_kg)
+        db, system, state, conditions, solver, props = SupcrtGenerator(aqueous_species_list, speciation_ratio_per_kg, database)
+    else:
+        db, system, state, conditions, solver, props, ice_name, database_name = PhreeqcGenerator(aqueous_species_list, speciation_ratio_per_kg, database)
+    # Establish pressure constraint of 273 K
+    conditions.temperature(273, "K")
+    # Tracker variable for equilibrium being found
+    success = False
+    # While we have not found chemical equilibrium, keep iterating through
+    while not success:
+        # Establish pressure constraint at P_MPa
+        conditions.pressure(P_MPa, "MPa")
+        # Solve the equilibrium problem
+        result = solver.solve(state, conditions)
+        # Check if the equilibrium problem succeeded
+        if result.succeeded():
+            # If so, change success to true
+            success = True
+        # To prevent an infinite loop, added this statement which will stop when P_MPa is <= 1.1 and dP < 0, meanign we are looking for upper pressure constraint
+        elif P_MPa <= 1.1 and dP < 0:
+            log.debug("Infinite loop prevention stopped for pressure_constraint. Should likely not be occurring")
+            success = True
+        # Otherwise, equilibrium is not achieved so we should reset the state and adjust P_MPa by dP, and reattempt the equilibrium problem
+        else:
+            state = reset_state(system, speciation_ratio_per_kg)
+            P_MPa += dP
+    # Return the adjusted P_MPa
+    return P_MPa
+    
+def SupcrtH2OChemicalPotentialCorrectionSplineGenerator():
+    Obtain the Supcrt16 aqueous H2O chemical potential differnce of pure water for Supcrt and Seafreeze across a 2-D grid of pressure and temperatures.
+    eos_P_MPa = np.linspace(0.1, 500, 500)
+    eos_T_K = np.linspace(240, 400, 500)
+    PT = np.array([eos_P_MPa, eos_T_K])
+    out = sfz.getProp(PT, 'water1')
+    sfz_chem_potential = out.G * rkt.waterMolarMass # Multiply Gibbs free energy by molar mass of H2O to get chemical potential of pure water
+
+    rkt_chemical_potential = []
+    aqueous_species_list = 'H+ OH- H2O(aq)'
+    speciation_ratio_mol_kg = {'H2O(aq)': float(1/rkt.waterMolarMass)}
+    supcrt = SupcrtGenerator(aqueous_species_list, speciation_ratio_mol_kg, "mol", "supcrt16")
+    db, system, state, conditions, solver, props = supcrt
+    P_MPa, T_K = np.meshgrid(eos_P_MPa, eos_T_K, indexing='ij')
+    # Create a nditer iterator
+    it = np.nditer([P_MPa, T_K], flags=['multi_index'])
+    # Go through each P, T combination
+    for P, T in it:
+        P = float(P)
+        T = float(T)
+        conditions.temperature(T, "K")
+        # Establish equilibrium pressure constraint value
+        conditions.pressure(P, "MPa")
+        # Solve the equilibrium problem
+        result = solver.solve(state, conditions)
+        # Update the properties
+        props.update(state)
+        # Check if the equilibrium problem succeeded
+        if result.succeeded():
+            rkt_chemical_potential.append(float(props.speciesChemicalPotential('H2O(aq)')))
+        else:
+            print("HELLO")
+    rkt_chemical_potential = np.array(rkt_chemical_potential).reshape(P_MPa.shape)
+
+    # Find difference in chemical potentials
+    difference_in_chemical_potential = rkt_chemical_potential-sfz_chem_potential
+
+    return eos_P_MPa, eos_T_K, difference_in_chemical_potential
+
+"""

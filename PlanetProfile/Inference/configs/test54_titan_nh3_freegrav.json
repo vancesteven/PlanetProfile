@@ -1,0 +1,90 @@
+{
+  "mode": "mcmc",
+  "bodyname": "Titan",
+  "gravity_forward_model": "clairaut_hydrostatic",
+  "param_space": {
+    "alpha":            {"prior_type": "uniform", "bounds": [0.15, 0.45]},
+    "log10_zeta":       {"prior_type": "uniform", "bounds": [-3.0, 2.0]},
+    "log10_eta_Ih":     {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_III":    {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_V":      {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_VI":     {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_sil":    {"prior_type": "uniform", "bounds": [18.0, 22.0]},
+    "Tb_K":             {"prior_type": "uniform", "bounds": [249.0, 263.0]},
+    "log10_wOcean_ppt": {"prior_type": "uniform", "bounds": [0.0, 1.845098]},
+    "R_core_km":        {"prior_type": "uniform", "bounds": [0.0, 2000.0]},
+    "rho_core_kgm3":    {"prior_type": "uniform", "bounds": [2591.0, 3600.0]},
+    "dC20_nh":          {"prior_type": "uniform", "bounds": [-2.0e-5, 2.0e-5]},
+    "dC22_nh":          {"prior_type": "uniform", "bounds": [-5.0e-6, 5.0e-6]}
+  },
+  "derived_params": {
+    "rho_sil_kgm3": {
+      "derivation": "mass_conservation",
+      "bounds": [1800.0, 3500.0],
+      "reject_if_outside_bounds": true,
+      "density_inversion_guard": true
+    }
+  },
+  "observables": {
+    "C20":   [-3.3511e-5, 4.71e-7],
+    "C22":   [1.0107e-5, 6.2e-8],
+    "Re_k2": [0.608, 0.048],
+    "Im_k2": [0.135, 0.035]
+  },
+  "sampler_settings": {
+    "n_effective": 500,
+    "n_reeval": 500,
+    "rheology": "andrade",
+    "arrhenius_params": {
+      "activation_energy_kJ_mol": {"Ih": 60.0},
+      "R_J_mol_K": 8.314462
+    },
+    "apply_support_guard": true,
+    "k2_support_bounds": {
+      "Re_k2": [-0.1, 1.5],
+      "Im_k2": [0.0, 1.0],
+      "_rationale": "Physical-k2 support guard, IDENTICAL box to titan_freegrav_noocean.json (scientific-reviewer a2d7f121). Fluid-limit secular Love ceiling k2<=3/2 => Re_k2 in [-0.1,1.5]; dissipation cannot exceed elastic response => |Im_k2| in [0,1.0]. Applied to the NOISELESS forward output before obs noise (imag_convention='abs' globally: guard sees |Im_k2|), counted as a support rejection so SBI training support == reference-MCMC effective support. Physics-anchored, NOT tuned to pass. In the JOINT posterior this box ADMITS the frozen no-ocean nodes (verified: frozen (249,1) gives Re_k2=0.113, |Im_k2|=0.069, both inside the box) so they enter the posterior in the likelihood-disfavored low-k2 tail rather than being support-rejected."
+    }
+  },
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Titan/Test54_nh3_ocean/titan_nh3_joint_structure_grid_2d.pkl",
+  "random_state": 72,
+  "planet_template_module": "PlanetProfile.Default.Titan.PPTitan",
+  "metadata": {
+    "schema_version": "titan_freegrav_v1 ocean (NH3) JOINT no-ocean+ocean posterior — test54_titan_nh3_freegrav",
+    "gravity_ref_radius_m": 2575000.0,
+    "gravity_j2_over_c22": 3.3333333333,
+    "description": "Titan free-gravity SBI campaign, NH3-ocean interior model, Phase B of the Titan free-gravity plan (plans/fluffy-snacking-fountain.md). This is a JOINT no-ocean + ocean posterior (Task #68, user decision 2026-07-30 re-affirmed 2026-08-02): the (Tb, w) plane is a tilted band whose cold/fresh corner is genuinely frozen (no ice-Ih->liquid transition anywhere in the Pfreeze window). Rather than rejecting those frozen nodes (which would implicitly condition the posterior on 'an ocean exists'), the 2D structure cache is built with build_tbw_grid_cache(..., retry_frozen_as_no_ocean=True): a node raising NoIceLiquidTransitionError is retried once as a REAL no-ocean interior (do_overrides NO_OCEAN_EXCEPT_INNER_ICES=True, comp='NH3' kept so the NH3-depressed liquidus still sets the HP-ice temperature profile) and stored tagged has_ocean=False. Both regimes therefore appear in the amortized posterior. Interior priors, derived rho_sil (mass conservation), rheology/thermal parameter space, gravity channel, and observable vector are IDENTICAL to titan_freegrav_noocean.json (reviewer action item 3: consistent dissipation across no-ocean and all ocean configs); the differences are (1) Tb_K widened to the full joint range [249,263] K, (2) log10_wOcean_ppt salinity axis added, (3) a 2D (Tb x w) NH3 structure cache replaces the 1D no-ocean cache, (4) phase_stability.enforce is DROPPED (see phase_stability_dropped_reason).",
+    "reference": "Petricca et al. (2025), Nature 648:558 (gravity C20/C22, k2, MoI); interior parameterization from test52 (Yao 2014 spherical Ih convection, Kalousova HP convection, Arrhenius viscosity, Andrade rheology). NH3 ocean EOS via the Melinder-anchored Redlich-Kister activity model (commit 6c5ee2af, 2026-07-28).",
+    "salinity_axis_2026_08_02": {
+      "param": "log10_wOcean_ppt",
+      "bounds_log10": [0.0, 1.845098],
+      "range_ppt": [1.0, 70.0],
+      "ceiling_rationale": "NH3 physical ceiling is 7 wt% = 70 ppt (mass fraction of solution; NOT per-kg-solvent molality). log10(70)=1.845098. This is the per-composition salinity range set for NH3 in the campaign spec (plans/fluffy-snacking-fountain.md 'Decisions locked with the user'). Prior is uniform in log10 w (Jeffreys)."
+    },
+    "phase_stability_dropped_reason": "phase_stability.enforce is NOT set (contrast titan_freegrav_noocean.json which sets 'no_ocean_Ih'). The no_ocean_Ih guard REJECTS any sample where an ocean WOULD form; it is precisely what makes the no-ocean artifact no-ocean-only. There is no 'must-have-ocean' guard by default, so OMITTING enforce is exactly what admits BOTH the frozen no-ocean regime and the ocean regime into the joint posterior. density_inversion_guard (on rho_sil) and k2_support_bounds still apply uniformly to both regimes (physical training-set hygiene, reviewer MODERATE: do not drop the k2 guard wholesale or the extreme-k2 tail returns).",
+    "gravity_provenance_2026_07_23": {
+      "source": "Petricca et al. (2025), Nature 648:558, degree-2 gravity",
+      "convention": "UNNORMALIZED Stokes coefficients (Anderson/GC21 convention), quoted at R_ref = 2575 km. Same as titan_freegrav_noocean.json.",
+      "C20": {"value": -3.3511e-5, "sigma": 4.71e-7, "note": "= -J2, J2 = 33.511 +/- 0.471 x1e-6"},
+      "C22": {"value": 1.0107e-5, "sigma": 6.2e-8, "note": "10.107 +/- 0.062 x1e-6"},
+      "j2_over_c22_used": 3.3333333333,
+      "cmr2_removed_reason": "double-count: Petricca MoI 0.343 is derived from C22 via the hydrostatic Radau-Darwin relation; imposing both CMR2 and C22 uses the same relation twice. See titan_freegrav_noocean.json for the full free-gravity rationale (drop CMR2, agnostic non-hydrostatic offsets, induction+h2 dropped).",
+      "offset_boxes": {"dC20_nh": [-2.0e-5, 2.0e-5], "dC22_nh": [-5.0e-6, 5.0e-6],
+        "note": "Identical to titan_freegrav_noocean.json (reviewer-ratified interior-agnostic widths, agent a0f6f04a5 2026-07-23). Sized so interior C/MR2 spans ~[0.30,0.40] freely; both far exceed the measurement sigma."}
+    },
+    "joint_build_2026_08_02": {
+      "task": "#68",
+      "user_decision": "JOINT no-ocean + ocean posterior; frozen (Tb,w) nodes build as real no-ocean interiors and appear in the posterior (not rejected). Full Tb in [249,263] K x w in [1,70] NH3 ppt. Re-affirmed 2026-08-02; governs over MACHINE-B-HANDOFF.md section 1 rectangle.",
+      "mechanism": "cache_builder.build_tbw_grid_cache(retry_frozen_as_no_ocean=True) + NoIceLiquidTransitionError (defineStructs.py) raised at LayerPropagators.py:124 no-liquid branch + do_overrides channel. retry_frozen_as_no_ocean defaults False so all Europa v3/v5/v6/v7 caches are byte-identical.",
+      "grid_validation_3x4": "PASS (scientific-reviewer PASS-WITH-CONCERNS 2026-08-01, /tmp/nh3_joint_3x4_validate.json). 3x4 Tb{249,251,253}xw{1,10,30,60}: has_ocean map [F F O O / O O O O / O O O O], 2 frozen no-ocean nodes at Tb=249 w={1,10}. V1 frozen-band confinement PASS; V2 w-invariance PASS (spreads <=0.038 sigma, but only 1 row testable at 3x4); V5 region_phases disjointness PASS (no ocean/no-ocean pair _regions_match -> no cross-regime interpolation blend). Reachability item 4 VERIFIED (/tmp/nh3_frozen_reachability.json).",
+      "production_cache_reviewer_conditions": "Before the 1M SBI build, the PRODUCTION-resolution cache (this config's structure_cache_path) must pass, and a reviewer must sign off on: (V2 breadth) w-invariance of {C20,C22,Re_k2,Im_k2} across EVERY frozen Tb row, esp. the highest-Tb frozen nodes near the tilt, threshold <<0.5 sigma; (V3 quantitative) perturb the freeze line by +/-1/2 Tb cell, report Delta(posterior ocean fraction), gate numerically -- requires dTb<=~0.5 K near the boundary (build uses a NON-UNIFORM Tb grid: fine <=0.5 K across the freeze line, coarse in the pure-ocean bulk); (high-Tb/high-w degenerate corner) confirm zero spurious has_ocean=False tags there (the discriminator must reject retry on PHydroMax/thin-shell); (has_ocean) wire the posterior ocean-fraction diagnostic through has_ocean / D_ocean~0 or drop the tag (currently dead metadata)."
+    },
+    "cache_build_2026_08_02": {
+      "template": "PlanetProfile.Default.Titan.PPTitan (ocean-bearing: core + porous rock). Cuncertainty=0.06 via bulk_overrides. comp='NH3' via ocean_overrides. Confirmed working in the 3x4 build and Task #65 GATE 6.",
+      "note": "NOT PPTest50 (that no-ocean template lacks a core -> MoI failure for the ocean path). The 2D cache stores the hydrosphere structure per (Tb,w); R_core_km/rho_core_kgm3 are sampled at inference and the core+silicate reassembled per-sample via mass conservation (side-channel _last_composite_layers), so C20/C22 cannot diverge from the sampled interior."
+    },
+    "sbi_seeds_2026_08_02": {"data": 72, "noise": 7272, "train": 72},
+    "seeds_note": "Mirror the titanG driver pattern (NH3 seeds 72/7272/72 per plans/fluffy-snacking-fountain.md Phase B). random_state:72 is a hashed field for config-hash stability, not the pipeline seed.",
+    "plan_reference": "plans/fluffy-snacking-fountain.md (Titan free-gravity campaign v1, ACTIVE SUB-PLAN Task #68). Phase A no-ocean = titan_freegrav_noocean.json (verified). This = Phase B NH3 JOINT. Scientific-reviewer sign-off on the production cache (V2 breadth + V3 quantitative) REQUIRED before the 1M build; USER GO-AHEAD already given for the fine-Tb production cache build (2026-08-02)."
+  }
+}

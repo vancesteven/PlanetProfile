@@ -1,0 +1,92 @@
+{
+  "mode": "mcmc",
+  "bodyname": "Titan",
+  "gravity_forward_model": "clairaut_hydrostatic",
+  "param_space": {
+    "alpha":            {"prior_type": "uniform", "bounds": [0.15, 0.45]},
+    "log10_zeta":       {"prior_type": "uniform", "bounds": [-3.0, 2.0]},
+    "log10_eta_Ih":     {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_III":    {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_V":      {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_VI":     {"prior_type": "uniform", "bounds": [10.0, 16.0]},
+    "log10_eta_sil":    {"prior_type": "uniform", "bounds": [18.0, 22.0]},
+    "Tb_K":             {"prior_type": "uniform", "bounds": [233.0, 272.0]},
+    "log10_wOcean_ppt": {"prior_type": "uniform", "bounds": [0.0, 2.4624]},
+    "R_core_km":        {"prior_type": "uniform", "bounds": [0.0, 2000.0]},
+    "rho_core_kgm3":    {"prior_type": "uniform", "bounds": [2591.0, 3600.0]},
+    "dC20_nh":          {"prior_type": "uniform", "bounds": [-2.0e-5, 2.0e-5]},
+    "dC22_nh":          {"prior_type": "uniform", "bounds": [-5.0e-6, 5.0e-6]}
+  },
+  "derived_params": {
+    "rho_sil_kgm3": {
+      "derivation": "mass_conservation",
+      "bounds": [1800.0, 3500.0],
+      "reject_if_outside_bounds": true,
+      "density_inversion_guard": true
+    }
+  },
+  "observables": {
+    "C20":   [-3.3511e-5, 4.71e-7],
+    "C22":   [1.0107e-5, 6.2e-8],
+    "Re_k2": [0.608, 0.048],
+    "Im_k2": [0.135, 0.035]
+  },
+  "sampler_settings": {
+    "n_effective": 500,
+    "n_reeval": 500,
+    "rheology": "andrade",
+    "arrhenius_params": {
+      "activation_energy_kJ_mol": {"Ih": 60.0},
+      "R_J_mol_K": 8.314462
+    },
+    "apply_support_guard": true,
+    "k2_support_bounds": {
+      "Re_k2": [-0.1, 1.5],
+      "Im_k2": [0.0, 1.0],
+      "_rationale": "Physical-k2 support guard, IDENTICAL box to titan_freegrav_noocean.json and test54_titan_nh3_freegrav.json (scientific-reviewer a2d7f121). Fluid-limit secular Love ceiling k2<=3/2 => Re_k2 in [-0.1,1.5]; dissipation cannot exceed elastic response => |Im_k2| in [0,1.0]. Applied to the NOISELESS forward output before obs noise (imag_convention='abs' globally), counted as a support rejection so SBI training support == reference-MCMC effective support. Physics-anchored, NOT tuned to pass. In the JOINT posterior this box ADMITS frozen no-ocean nodes into the likelihood-disfavored low-k2 tail rather than support-rejecting them."
+    }
+  },
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Titan/Test54_nacl_ocean/titan_nacl_joint_structure_grid_2d.pkl",
+  "random_state": 74,
+  "planet_template_module": "PlanetProfile.Default.Titan.PPTitan",
+  "metadata": {
+    "schema_version": "titan_freegrav_v1 ocean (NaCl) JOINT no-ocean+ocean posterior — test54_titan_nacl_freegrav",
+    "gravity_ref_radius_m": 2575000.0,
+    "gravity_j2_over_c22": 3.3333333333,
+    "description": "Titan free-gravity SBI campaign, NaCl-ocean interior model, Phase B of the Titan free-gravity plan (plans/fluffy-snacking-fountain.md). JOINT no-ocean + ocean posterior (same mechanism as the ratified NH3 artifact test54_titan_nh3_freegrav.json, Task #68): the (Tb, w) plane is a steeply TILTED band whose ocean stripe slides ~40 K down as salinity rises. Frozen (cold/dilute) nodes build as REAL no-ocean interiors (retry_frozen_as_no_ocean=True; do_overrides NO_OCEAN_EXCEPT_INNER_ICES=True, comp='NaCl' kept so the salted liquidus still sets the HP-ice temperature profile) and appear in the posterior; the warm/high-w no-ice-lid corner is stored None (correctly excluded). Interior priors, derived rho_sil (mass conservation), rheology/thermal parameter space, gravity channel, and observable vector are IDENTICAL to titan_freegrav_noocean.json and the NH3 joint config (reviewer action item 3: consistent dissipation across no-ocean and all ocean configs). Differences vs NH3: (1) comp='NaCl', (2) Tb_K widened to the NaCl union-sweep [233,272] K (the achievable diagonal across the full salinity axis), (3) log10_wOcean_ppt upper bound capped at log10(290)=2.4624 (NaCl SeaFreeze wMax=290.3 ppt, acc725ea R3), (4) a NaCl 2D (Tb x w) structure cache replaces the NH3 one, (5) phase_stability.enforce DROPPED (admits both regimes).",
+    "reference": "Petricca et al. (2025), Nature 648:558 (gravity C20/C22, k2, MoI); interior parameterization from test52 (Yao 2014 spherical Ih convection, Kalousova HP convection, Arrhenius viscosity, Andrade rheology). NaCl ocean EOS via SeaFreeze NaClaq; conductivity via Pan et al. (2021) NaClConductPan2021.",
+    "salinity_axis_2026_08_06": {
+      "param": "log10_wOcean_ppt",
+      "bounds_log10": [0.0, 2.4624],
+      "range_ppt": [1.0, 290.0],
+      "ceiling_rationale": "NaCl SeaFreeze EOS wMax=290.3 ppt (7 mol/kg H2O). acc725ea R3 (reviewer, 2026-07-27): cap log10_wOcean_ppt upper at log10(290)=2.4624, NOT the naive 300 ppt (2.477) which exceeds the EOS domain. Campaign spec lower limit 1 ppt. Prior uniform in log10 w (Jeffreys)."
+    },
+    "phase_stability_dropped_reason": "phase_stability.enforce is NOT set (contrast titan_freegrav_noocean.json 'no_ocean_Ih'). Omitting it admits BOTH the frozen no-ocean regime and the ocean regime into the joint posterior (there is no default 'must-have-ocean' guard). density_inversion_guard (on rho_sil) and k2_support_bounds still apply uniformly (physical training-set hygiene).",
+    "gravity_provenance_2026_07_23": {
+      "source": "Petricca et al. (2025), Nature 648:558, degree-2 gravity",
+      "convention": "UNNORMALIZED Stokes coefficients (Anderson/GC21), R_ref = 2575 km. Same as titan_freegrav_noocean.json / NH3 joint config.",
+      "C20": {"value": -3.3511e-5, "sigma": 4.71e-7, "note": "= -J2, J2 = 33.511 +/- 0.471 x1e-6"},
+      "C22": {"value": 1.0107e-5, "sigma": 6.2e-8, "note": "10.107 +/- 0.062 x1e-6"},
+      "j2_over_c22_used": 3.3333333333,
+      "cmr2_removed_reason": "double-count: Petricca MoI 0.343 is derived from C22 via the hydrostatic Radau-Darwin relation; imposing both CMR2 and C22 uses the same relation twice. See titan_freegrav_noocean.json for the full free-gravity rationale.",
+      "offset_boxes": {"dC20_nh": [-2.0e-5, 2.0e-5], "dC22_nh": [-5.0e-6, 5.0e-6],
+        "note": "Identical to titan_freegrav_noocean.json (reviewer-ratified interior-agnostic widths, agent a0f6f04a5 2026-07-23)."}
+    },
+    "joint_build_2026_08_06": {
+      "task": "#89 (§0.10 priority-b, MgSO4/NaCl production; user 'build caches + datasets now')",
+      "onset_diagonal": "NaCl ocean bands are nearly DISJOINT across salinity (onset probe /tmp/titan_tb_probe_results.json, scan-res 2 MPa): w=1 -> ocean Tb in [252,272]; w=100 -> [244,265]; w=290 -> [233,241]. Union sweep [233,272] K. Requires a fine (~1 K) Tb grid across the WHOLE diagonal (reviewer SIGN OFF WITH CONDITIONS 2026-08-06: a single NH3-style fine band is inadequate for a tilted boundary).",
+      "monotonicity_check": "NaCl w=290 melting-monotonicity sanity invariant PASSED at all fixed P (40/60/85/120/180/250 MPa): no isolated liquid cell (contrast MgSO4 w=194 pathological island). /tmp/nacl_monotonicity_check.json.",
+      "retry_corner_discriminator": "retry_frozen_as_no_ocean verified safe both diagonal corners (/tmp/nacl_corner_discriminator.json): cold corner (Tb233-235,w1-10) retries to a PHYSICAL frozen no-ocean interior (D_Ih~157km, full Ih/II/III/V/VI stack, D_ocean=0); warm/high-w corner (Tb247-250,w250-290) either builds a real ocean or the NO_OCEAN retry raises a distinct water1->water1 no-ice-lid ValueError -> stored None (correct exclusion), never a phantom no-ocean tag.",
+      "extrap_ocean": "True — effective NO-OP for NaCl (reviewer Item-1, 2026-08-06): HydroEOS truncates NaCl Pmax at 1000.1 MPa UNCONDITIONALLY and the ocean-property interpolants are RectBivariateSpline (flat-extrapolation), so extrap_ocean True==False to machine precision above 1000.1 MPa. NOT a genuine EOS extrapolation (unlike MgSO4 whose density table Pmax=800 MPa < basal P). Frozen no-ocean columns fill depth with SeaFreeze ice VI (Pmax ~2300 MPa), in-domain.",
+      "build_driver": "plans/scripts/titanG_build_ocean_cache.py --comp NaCl (clones cache_builder.build_tbw_grid_cache directly; the NH3 orchestrator was in /tmp and deleted).",
+      "production_cache_reviewer_conditions": "Before the 1M SBI build, the reviewer requires (per NH3 precedent + 2026-08-06 sign-off): w-invariance of {C20,C22,Re_k2,Im_k2} across frozen Tb rows; a gate-3 half-cell Tb-shift -> posterior-ocean-fraction test on the chosen grid (the acceptance criterion that catches the tilted-boundary failure); production fine PfreezeRes (NOT the probe 2 MPa)."
+    },
+    "cache_build_2026_08_06": {
+      "template": "PlanetProfile.Default.Titan.PPTitan (ocean-bearing: core + porous rock). Cuncertainty=0.06 via bulk_overrides. comp='NaCl' via ocean_overrides.",
+      "note": "The 2D cache stores the hydrosphere structure per (Tb,w); R_core_km/rho_core_kgm3 are sampled at inference and the core+silicate reassembled per-sample via mass conservation (side-channel _last_composite_layers)."
+    },
+    "sbi_seeds_2026_08_06": {"data": 74, "noise": 7474, "train": 74},
+    "seeds_note": "Mirror the titanG driver pattern (NaCl seeds 74/7474/74 per plans/fluffy-snacking-fountain.md Phase B). random_state:74 is a hashed field for config-hash stability, not the pipeline seed.",
+    "plan_reference": "plans/fluffy-snacking-fountain.md (Titan free-gravity campaign v1, Phase B). NH3 = test54_titan_nh3_freegrav.json (ratified). Scientific-reviewer sign-off on the production cache (w-invariance + gate-3) REQUIRED before the 1M build."
+  }
+}

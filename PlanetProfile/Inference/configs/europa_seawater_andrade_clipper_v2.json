@@ -1,0 +1,181 @@
+{
+  "mode": "mcmc",
+  "bodyname": "Europa",
+  "param_space": {
+    "alpha": {
+      "prior_type": "uniform",
+      "bounds": [
+        0.15,
+        0.45
+      ]
+    },
+    "log10_zeta": {
+      "prior_type": "uniform",
+      "bounds": [
+        -3.0,
+        2.0
+      ]
+    },
+    "log10_eta_Ih": {
+      "prior_type": "uniform",
+      "bounds": [
+        10.0,
+        16.0
+      ]
+    },
+    "log10_eta_sil": {
+      "prior_type": "uniform",
+      "bounds": [
+        18.0,
+        22.0
+      ]
+    },
+    "Tb_K": {
+      "prior_type": "uniform",
+      "bounds": [
+        259.5,
+        271.0
+      ]
+    },
+    "R_core_km": {
+      "prior_type": "uniform",
+      "bounds": [
+        0.0,
+        780.5
+      ]
+    },
+    "rho_core_kgm3": {
+      "prior_type": "uniform",
+      "bounds": [
+        5000.0,
+        8000.0
+      ]
+    }
+  },
+  "derived_params": {
+    "rho_sil_kgm3": {
+      "derivation": "mass_conservation",
+      "bounds": [
+        2200.0,
+        3500.0
+      ],
+      "reject_if_outside_bounds": true
+    }
+  },
+  "observables": {
+    "CMR2": [
+      0.3547,
+      0.0024
+    ],
+    "Re_k2": [
+      0.25,
+      0.06
+    ],
+    "Im_k2": [
+      0.0,
+      0.06
+    ],
+    "Re_h2": [
+      1.2,
+      0.1
+    ],
+    "Im_h2": [
+      0.0,
+      0.1
+    ],
+    "Bind_synodic_x_real": [
+      91.8248,
+      1.5
+    ],
+    "Bind_synodic_x_imag": [
+      -157.7708,
+      1.5
+    ],
+    "Bind_synodic_y_real": [
+      -59.4061,
+      1.5
+    ],
+    "Bind_synodic_y_imag": [
+      -25.8874,
+      1.5
+    ],
+    "Bind_synodic_z_real": [
+      -5.6378,
+      1.5
+    ],
+    "Bind_synodic_z_imag": [
+      -12.4064,
+      1.5
+    ],
+    "Bind_synodic 2nd_x_real": [
+      14.7108,
+      1.5
+    ],
+    "Bind_synodic 2nd_x_imag": [
+      3.1779,
+      1.5
+    ],
+    "Bind_synodic 2nd_y_real": [
+      1.8788,
+      1.5
+    ],
+    "Bind_synodic 2nd_y_imag": [
+      -9.8686,
+      1.5
+    ],
+    "Bind_orbital_x_real": [
+      -0.3812,
+      1.5
+    ],
+    "Bind_orbital_x_imag": [
+      6.454,
+      1.5
+    ],
+    "Bind_orbital_y_real": [
+      -2.2124,
+      1.5
+    ],
+    "Bind_orbital_y_imag": [
+      -0.2825,
+      1.5
+    ]
+  },
+  "sampler_settings": {
+    "n_effective": 500,
+    "n_reeval": 500,
+    "rheology": "andrade",
+    "arrhenius_params": {
+      "activation_energy_kJ_mol": {
+        "Ih": 60.0
+      },
+      "R_J_mol_K": 8.314462
+    }
+  },
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Europa/Test51_seawater/europa_seawater_structure_grid.pkl",
+  "random_state": 42,
+  "planet_template_module": "PlanetProfile.Default.Europa.PPEuropa",
+  "metadata": {
+    "schema_version": "v2 (sampled Tb + sampled core + derived rho_sil) + Bind_ induction channels (clipper_v2)",
+    "description": "Europa Clipper-era v2: Seawater ocean, Andrade rheology, 7D (rheology + Tb_K + sampled core) with mass-conservation rho_sil. Extends europa_seawater_andrade_7D.json (v1) by adding 14 induction observables Bind_<label>_<comp>_<part> conditioned on the per-component complex induced-dipole coefficient expressed as equivalent surface field, Bind_comp(f) = Ae(f) * Be_comp(f) [nT], sigma = 1.5 nT (Kivelson et al. 2023). All v1 channels (CMR2, Re/Im k2, Re/Im h2) and priors are unchanged. Plan: plans/europa-clipper-v2-induction-plan.md.",
+    "ocean_composition": "Seawater (Constants.stdSeawater_ppt)",
+    "primary_constraint": "CMR2 from Gomez Casajus et al. (2021)",
+    "k2_status": "ASSUMPTION values per Mazarico et al. (2023) ocean-case expectations, not measurements (same as v1; see observables_provenance_2026_07_12). Replace with measured values when Europa Clipper data land.",
+    "bind_channels_provenance_2026_07_14": "Induction observables added for the Europa Clipper era. Bind_<label>_<comp>_<part>: label in {synodic, synodic 2nd, orbital}; comp in {x,y,z}; part in {real, imag}. Value = (Ae(label) * Be_comp(label)).real/.imag [nT], a plain (UNCONJUGATED) complex product. Ae is the dimensionless n=1 induction response from the MoonMag Srivastava solver (forward_model_induction, nn=1) evaluated per-Tb from the seawater structure-grid cache; Be_comp is the complex excitation-field component read from PlanetProfile/MagneticInduction/MoonMag/excitation/Be1xyz_Europa.txt, mapped by closest period (Excitations.Texc_hr). Fiducial (central) values computed at the v1 Test51 posterior weighted-median Tb = 264.52 K (nearest grid point Tb = 264.50 K, idx 16) via the production MCMCRunner Ae grid + Be loader. These are placeholder conditioning defaults; the GUI exposes them as free user inputs (real Clipper-inverted coefficients). sigma = 1.5 nT per channel (Kivelson et al. 2023 post-inversion precision floor).",
+    "bind_convention_2026_07_14": "Bind = Ae * Be (UNCONJUGATED Ae), using the COMPLEX per-component Be from Be1xyz_Europa.txt. This matches PP's Fourier-transform surface-field path (MagneticInduction.py line 982, Be1xyzFT * Ae1FT) and is the peak/equatorial induced SURFACE FIELD with n/(n+1)=1 normalization. It is NOT the Gauss/dipole coefficient g1 = (n/(n+1))*Ae*Be = 0.5*Ae*Be for n=1 (PP Binm, line 207). It is also NOT PP's periodic-path display quantity Bi1xyz (line 244), which is |Be|*conj(Ae) (conjugated, discarding the per-component Be phase) - a THIRD, distinct quantity; do not conflate. ASSUMPTION (revisit if Kivelson et al. 2023 defines its 1.5 nT on the dipole coefficient g1 rather than the surface field): if g1, multiply every fiducial value AND the runtime Bind by 0.5 and re-verify; sigma=1.5 nT then applies to g1. Chosen definition = surface field (Ae*Be, FT path), matching the plan objective and the verified Phase 1 code; train/validate are self-consistent under EITHER definition because fiducials and runtime use the same code. SIGN: Bind_*_imag is SIGNED (never abs-folded). CAUTION on external-coefficient ingest: because Be is complex per component, a differently-conventioned external coefficient (e.g. the Zimmer-2000/Kivelson Be*conj(Ae) form) does NOT differ from this one by a bare Im sign flip - with complex Be neither the real nor the imaginary part maps by a simple negation (verified numerically at the fiducial: synodic-x Ae*Be = 91.82-157.77j vs conj(Ae)*Be = 126.64-131.47j; the real parts differ by ~35 nT, the imag parts are not a sign flip). Correctly mapping an externally quoted coefficient into this convention requires that source's full complex definition (amplitude + phase reference), NOT a sign flip. The GUI must label 'Bind = Ae*Be (unconjugated, complex Be, FT surface-field path)' and MUST NOT implement a naive 'negate Im' ingest recipe (Machine A GUI task).",
+    "coordinate_frame": "Be_{x,y,z} components as produced by MoonMag in Be1xyz_Europa.txt (IAU body-centered frame). The GUI must label axes to match this file's frame.",
+    "pruning_rule_2026_07_14": "Pre-registered SNR cut (scientific review 2026-07-13): a component is KEPT only if max over the induction-supported Tb range (Tb >= 261.5 K, |Ae_synodic|>0.7 support) of |Ae(f)|*|Be_comp| >= 3 nT (SNR >= 2 at 1.5 nT). Computed 2026-07-14: KEPT 7 components / 14 channels = synodic {x:200.2, y:71.1, z:14.9 nT}, synodic-2nd {x:16.7, y:11.1 nT}, orbital {x:9.3, y:3.2 nT}. PRUNED 2 = synodic-2nd z (1.65 nT) and orbital z (0.37 nT), both below 3 nT. 'true anomaly' (84.63 hr, |Bez|~11.8 nT) is a real Clipper-era signal but is OUT OF SCOPE for v2 (user scoped synodic + synodic 2nd + orbital); flag for a possible v3.",
+    "bind_caveats_2026_07_14": "(1) Spherically symmetric ocean: a scalar complex Ae per frequency is exact only for a radially layered conductor; lateral ocean/ionosphere structure would need a tensor/multipole response. (2) 1.5 nT is an instrument+inversion floor; plume, ionospheric, and plasma-current contamination are NOT in the forward model. The observable is the CLEANED induced-dipole coefficient; sub-nT differences must not be over-interpreted. (3) Errors across components/Re-Im are treated as INDEPENDENT diagonal Gaussians; the flyby inversion actually correlates them. Carrying a covariance is a documented future upgrade, not v2.",
+    "galileo_cut_vs_clipper_likelihood_2026_07_14": "The hard |Ae_synodic| > 0.7 support cut (induction_bounds) is the Galileo PRIOR SUPPORT; the Bind_synodic Gaussians are the Clipper LIKELIHOOD. This is valid Bayesian updating when the conditioned Bind values are fresh Clipper data (not double-counting the same measurement). Conflict regime: conditioning Bind_synodic on values that imply |Ae_synodic| < 0.7 makes the support cut hard-reject exactly what the likelihood pulls toward (posterior collapses / degenerate). The GUI must warn when the user's synodic Bind inputs imply |Ae_synodic| < 0.7 (consistency check via the excitation constants |Be_synodic|).",
+    "Tb_bounds_rationale": "Tb_K=[259.5, 271.0] K targets the geological-likely range D_iceIh=[~3, ~100] km. Lower bound: 259.5 K is the coldest Tb at which PP's MoI iteration converges with the default Europa template's R_core/rho_sil bounds (gives D_iceIh=98.3 km, D_ocean=0 km - the no-ocean limit). Upper bound: 271.0 K gives D_iceIh=2.65 km; above ~271.25 K PP raises 'No valid phase transition' (ice shell extinct). Probed via PlanetProfile.Inference.find_tb_bounds, 2026-05-23.",
+    "core_bounds_rationale": "R_core in [0, 0.5 R_body] permits the no-core limit; rho_core in [5000, 8000] kg/m^3 brackets metallic Fe / Fe-S compositions. rho_sil is derived from M_total mass conservation given the cached ice+ocean profile and sampled core; samples with rho_sil outside [2200, 3500] kg/m^3 are rejected by the likelihood.",
+    "observables_provenance_2026_07_12": "CMR2: Gomez Casajus et al. (2021), unchanged. k2/h2: Mazarico et al. (2023, SSRv 219:30) ASSUMPTION values, not measurements (user directive 2026-07-12): Re_k2 = 0.25 (midpoint of the ocean-case expectation range 0.18-0.32) with sigma = 0.06 (GSWG requirement); Im_k2 = 0 +/- 0.06; Re_h2 = 1.20 (ocean-case nominal, range 0.8-1.3) with sigma = 0.10 (REASON accuracy); Im_h2 = 0 +/- 0.10. Diagonal Gaussians: cross-instrument measurement errors approximately independent; the physical k2-h2 correlation is enforced by the forward model.",
+    "induction_bounds_rationale": "Galileo synodic induction treated as one-sided support cuts, NOT Gaussian observables (user directive 2026-07-12): normalized amplitude |Ae_synodic| > 0.7 (literature point values 0.92/0.97 are over-interpretations) and |Im(Ae_synodic)| < 0.4 (modeling, Mahboub et al. 2026). Because Ae depends only on Tb via the cached conductivity profile, each bound is exactly a Tb-support cut; enforced as hard rejection in the MCMC likelihood and as training-time support rejection in SBI dataset generation.",
+    "plan_reference": "plans/europa-clipper-v2-induction-plan.md (Machine A 2026-07-13; scientific review RATIFY-WITH-EDITS). Phase 0 Ae reconciliation VERIFIED (commit in plans/scripts/phase0_ae_reconciliation*); Phase 1 Bind_ channel code VERIFIED (commit 92eb61c3)."
+  },
+  "induction_bounds": {
+    "synodic": {
+      "amp_min": 0.7,
+      "im_abs_max": 0.4
+    }
+  }
+}

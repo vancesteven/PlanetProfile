@@ -1,0 +1,93 @@
+{
+ "mode": "mcmc",
+ "bodyname": "Titan",
+ "param_space": {
+  "alpha": {
+   "prior_type": "uniform",
+   "bounds": [
+    0.15,
+    0.45
+   ]
+  },
+  "log10_zeta": {
+   "prior_type": "uniform",
+   "bounds": [
+    -3.0,
+    2.0
+   ]
+  },
+  "log10_eta_Ih": {
+   "prior_type": "uniform",
+   "bounds": [
+    10.0,
+    16.0
+   ]
+  },
+  "log10_eta_III": {
+   "prior_type": "uniform",
+   "bounds": [
+    10.0,
+    16.0
+   ]
+  },
+  "log10_eta_V": {
+   "prior_type": "uniform",
+   "bounds": [
+    10.0,
+    16.0
+   ]
+  },
+  "log10_eta_VI": {
+   "prior_type": "uniform",
+   "bounds": [
+    10.0,
+    16.0
+   ]
+  },
+  "log10_eta_sil": {
+   "prior_type": "uniform",
+   "bounds": [
+    18.0,
+    22.0
+   ]
+  },
+  "Tb_K": {
+   "prior_type": "uniform",
+   "bounds": [
+    249.0,
+    250.965
+   ]
+  }
+ },
+ "observables": {
+  "Re_k2": [
+   0.608,
+   0.048
+  ],
+  "Im_k2": [
+   0.25,
+   0.035
+  ]
+ },
+ "sampler_settings": {
+  "n_effective": 300,
+  "n_reeval": 500,
+  "rheology": "andrade",
+  "arrhenius_params": {
+   "activation_energy_kJ_mol": {
+    "Ih": 60.0
+   },
+   "R_J_mol_K": 8.314462
+  },
+  "phase_stability": {
+   "enforce": "no_ocean_Ih",
+   "margin_K": 0.1
+  }
+ },
+ "structure_cache_path": "PlanetProfile/Test/mcmc_results/Titan/Test50_andrade_noocean_yao2014/titan_allice_yao2014_structure_grid.pkl",
+ "random_state": 42,
+ "metadata": {
+  "description": "limits-sweep ground truth: Im_k2=0.25",
+  "reference": "Petricca et al. (2025)"
+ }
+}

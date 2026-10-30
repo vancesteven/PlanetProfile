@@ -1,0 +1,126 @@
+{
+  "mode": "mcmc",
+  "bodyname": "Ganymede",
+  "param_space": {
+    "alpha": {
+      "prior_type": "uniform",
+      "bounds": [
+        0.15,
+        0.45
+      ]
+    },
+    "log10_zeta": {
+      "prior_type": "uniform",
+      "bounds": [
+        -3.0,
+        2.0
+      ]
+    },
+    "log10_eta_Ih": {
+      "prior_type": "uniform",
+      "bounds": [
+        10.0,
+        16.0
+      ]
+    },
+    "log10_eta_HP": {
+      "prior_type": "uniform",
+      "bounds": [
+        10.0,
+        16.0
+      ]
+    },
+    "log10_eta_sil": {
+      "prior_type": "uniform",
+      "bounds": [
+        18.0,
+        22.0
+      ]
+    },
+    "Tb_K": {
+      "prior_type": "uniform",
+      "bounds": [
+        251.5,
+        267.5
+      ]
+    },
+    "R_core_km": {
+      "prior_type": "uniform",
+      "bounds": [
+        0.0,
+        1315.6
+      ]
+    },
+    "rho_core_kgm3": {
+      "prior_type": "uniform",
+      "bounds": [
+        5000.0,
+        8000.0
+      ]
+    }
+  },
+  "param_groups": {
+    "log10_eta_HP": [
+      "log10_eta_III",
+      "log10_eta_V",
+      "log10_eta_VI"
+    ]
+  },
+  "derived_params": {
+    "rho_sil_kgm3": {
+      "derivation": "mass_conservation",
+      "bounds": [
+        2200.0,
+        3500.0
+      ],
+      "reject_if_outside_bounds": true
+    }
+  },
+  "observables": {
+    "CMR2": [
+      0.3115,
+      0.0028
+    ],
+    "Re_k2": [
+      0.2,
+      0.05
+    ],
+    "Im_k2": [
+      0.0,
+      0.05
+    ],
+    "Re_h2": [
+      1.12,
+      0.1
+    ],
+    "Im_h2": [
+      0.0,
+      0.1
+    ]
+  },
+  "sampler_settings": {
+    "n_effective": 500,
+    "n_reeval": 500,
+    "rheology": "andrade",
+    "arrhenius_params": {
+      "activation_energy_kJ_mol": {
+        "Ih": 60.0
+      },
+      "R_J_mol_K": 8.314462
+    }
+  },
+  "structure_cache_path": "PlanetProfile/Test/mcmc_results/Ganymede/C2_andrade/ganymede_pureh2o_structure_grid.pkl",
+  "random_state": 42,
+  "metadata": {
+    "schema_version": "v2 (sampled Tb + sampled core + derived rho_sil)",
+    "description": "Phase C1 BodyConfig: Ganymede with pure H2O ocean and Andrade rheology. HP ice shell present (Ice III/V/VI locked together via param_groups). 8D problem. Observable expansion (C2-A): added Re_k2/Im_k2 (Mazarico 2023, k2\u22480.2\u00b10.05; Im_k2 default 0\u00b10.05), Re_h2/Im_h2 (Mazarico 2023, h2\u2248+1.12\u00b10.10; Im_h2 default 0\u00b10.10). Same values for all three bodies as placeholders pending body-specific updates. J2/C22 were specified earlier but DROPPED from this config: PP currently has no forward model for the static gravity coefficients \u2014 Planet.J2/C22 are observation inputs, not predictions. Future work: build a generalized gravity-coefficient forward model that produces J_n and C_nm/S_nm to arbitrary degree/order for bodies with high-resolution gravity (Mars, Moon, Enceladus). Magnetic induction wired (C2-B) but observable values not yet specified; add Ae_<label>_real / Ae_<label>_imag (or BiAmp_<label> / BiPhase_<label>_deg) keys to enable induction in the likelihood.",
+    "ocean_composition": "PureH2O",
+    "primary_constraint": "CMR2 from Schubert et al. (2004), Jupiter system chapter",
+    "k2_status": "NOT INCLUDED - no published k2 measurement for Ganymede. JUICE will provide constraints (~2034). Add to observables once available.",
+    "Tb_bounds_rationale": "Tb_K=[251.5, 267.5] K targets the geological-likely range D_iceIh=[~50, ~149] km with D_ocean spanning [12.3, ~412] km. Lower bound: 251.5 K is just above TtripleIh_III_L_K=251.165 K and gives D_ocean=12.3 km — within the user's 'within 10 km of frozen' spec for Ganymede. Upper bound: 267.5 K gives D_iceIh~50 km (probed: Tb=267 → D_iceIh=53 km, Tb=268 → 46 km). Probed via PlanetProfile.Inference.find_tb_bounds, 2026-05-23.",
+    "core_bounds_rationale": "R_core in [0, 0.5 R_body] permits the no-core limit; rho_core in [5000, 8000] kg/m^3 brackets metallic Fe / Fe-S compositions. rho_sil is derived from M_total mass conservation given the cached ice+ocean profile and sampled core; samples with rho_sil outside [2200, 3500] kg/m^3 are rejected by the likelihood.",
+    "next_step_after_C1": "Per-composition runs by adding 0.1 molal increments of NaCl to the ocean using the SeaFreeze NaCl representation (deferred - not part of Phase C1).",
+    "stage2_dependencies": "Toolkit must (a) parse the derived_params block, (b) implement the rho_sil mass-conservation solver and rejection, (c) extend the structure cache to include M_ice_kg / M_ocean_kg / R_oceanbot_m / M_total_kg per Tb point, (d) recompute CMR2 from the sampled core + derived rho_sil + cached ice/ocean profile.",
+    "stage3_dependencies": "Build Tb-grid structure cache for Ganymede with pure H2O ocean across the sampled Tb range."
+  }
+}
