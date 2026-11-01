@@ -3725,202 +3725,214 @@ def render_results():
         except Exception as e:
             st.warning(f"Layer-thickness panel unavailable: {e}")
 
+    # Models with no tidal channel (e.g. Enceladus: k2 omitted by design,
+    # config freeze ruling 2026-08-12) never run the tidal solve; their k2
+    # and heating arrays are NaN placeholders, not outputs. Say so instead
+    # of drawing a k2 comparison or a "set n_reeval" hint.
+    _no_tidal = bool((result.metadata or {}).get('tidal_solve_skipped'))
+    _NO_TIDAL_MSG = ("This model has no tidal channel: k₂ is not an "
+                     "observable and the tidal solve is not run, so there "
+                     "are no k₂, dissipation, or heating outputs to show.")
+
     # k2 scatter with error ellipse
-    with st.expander("📡 k₂ Posterior Scatter", expanded=True):
-        try:
-            import matplotlib.pyplot as plt
-            from matplotlib.patches import Ellipse
+    with st.expander("📡 k₂ Posterior Scatter", expanded=not _no_tidal):
+        if _no_tidal:
+            st.info(_NO_TIDAL_MSG)
+        else:
+            try:
+                import matplotlib.pyplot as plt
+                from matplotlib.patches import Ellipse
 
-            # Observed-ellipse values come ONLY from this run's config —
-            # never hardcoded fallbacks (the old defaults were Titan's k2
-            # and drew a Titan ellipse on every non-Titan run whose config
-            # keyed the imaginary channel 'Im_k2' instead of 'abs_Im_k2').
-            def _obs_channel(*aliases):
-                for a in aliases:
-                    if a in result.config.observables:
-                        v = result.config.observables[a]
-                        return float(v[0]), float(v[1])
-                return None, None
-            Re_obs, Re_err = _obs_channel('Re_k2')
-            Im_obs, Im_err = _obs_channel('Im_k2', 'abs_Im_k2')
+                # Observed-ellipse values come ONLY from this run's config —
+                # never hardcoded fallbacks (the old defaults were Titan's k2
+                # and drew a Titan ellipse on every non-Titan run whose config
+                # keyed the imaginary channel 'Im_k2' instead of 'abs_Im_k2').
+                def _obs_channel(*aliases):
+                    for a in aliases:
+                        if a in result.config.observables:
+                            v = result.config.observables[a]
+                            return float(v[0]), float(v[1])
+                    return None, None
+                Re_obs, Re_err = _obs_channel('Re_k2')
+                Im_obs, Im_err = _obs_channel('Im_k2', 'abs_Im_k2')
 
-            heating_results = result.heating_results or []
-            eval_idx = result.metadata.get('heating_indices')
+                heating_results = result.heating_results or []
+                eval_idx = result.metadata.get('heating_indices')
 
-            # Slice k2_results to the heating-evaluated subset so lengths match
-            if heating_results and eval_idx is not None and len(heating_results) == len(eval_idx):
-                Re_arr = result.k2_results[eval_idx, 0]
-                Im_arr = np.abs(result.k2_results[eval_idx, 1])
-                eval_samples = result.samples[eval_idx]
-            else:
-                Re_arr = result.k2_results[:, 0]
-                Im_arr = np.abs(result.k2_results[:, 1])
-                eval_samples = result.samples
-
-            f_sil = []
-            for h in heating_results:
-                total = _phase_heating_total(h) if h else 0.0
-                sil = h.get('Sil', 0.0) + h.get('Fe', 0.0)
-                f_sil.append(sil / total if total > 0 else 0.0)
-            f_sil = np.array(f_sil) if f_sil else None
-
-            # Scale point size by ocean thickness (Tb_K proxy) when available
-            pt_size = 8
-            if 'Tb_K' in result.param_names:
-                tb_idx = result.param_names.index('Tb_K')
-                tb_vals = eval_samples[:, tb_idx]
-                tb_norm = (tb_vals - tb_vals.min()) / (np.ptp(tb_vals) + 1e-10)
-                pt_size = 4 + 20 * tb_norm  # 4–24 px, larger = warmer = more ocean
-
-            # Keep the scatter VECTOR (crisp markers at any zoom). Rasterizing
-            # it (as heavy figures do) then upscaling the baked-in raster to
-            # container width blurred the individual model points (user
-            # 2026-07-23). This cloud is at most n_derived points; cap the
-            # DISPLAY subset so the vector SVG stays small while staying sharp.
-            _K2_DISPLAY_CAP = 4000
-            if len(Re_arr) > _K2_DISPLAY_CAP:
-                _rng = np.random.default_rng(0)
-                _sub = _rng.choice(len(Re_arr), _K2_DISPLAY_CAP, replace=False)
-            else:
-                _sub = np.arange(len(Re_arr))
-            _pt_size = (pt_size[_sub] if np.ndim(pt_size) else pt_size)
-
-            st.toggle("Zoom to measurement ellipse (±4σ)", value=True,
-                      key='k2_zoom',
-                      help="On: axes frame the observed k₂ and its 1σ/2σ "
-                           "ellipses; posterior samples outside the window "
-                           "are cropped (fraction noted below). Off: "
-                           "autoscale to the full model cloud.")
-            plt.rcParams['text.usetex'] = False
-            fig, ax = plt.subplots(figsize=(8, 6))
-            if f_sil is not None and len(f_sil) == len(Re_arr):
-                sc = ax.scatter(Re_arr[_sub], Im_arr[_sub], c=f_sil[_sub],
-                                cmap='viridis', s=_pt_size, alpha=0.6,
-                                vmin=0, vmax=1)
-                plt.colorbar(sc, ax=ax, label='Silicate heating fraction')
-            else:
-                ax.scatter(Re_arr[_sub], Im_arr[_sub], s=_pt_size, alpha=0.6,
-                           color='steelblue')
-
-            have_ellipse = Re_obs is not None and Im_obs is not None
-            if have_ellipse:
-                ax.add_patch(Ellipse((Re_obs, abs(Im_obs)), 2*Re_err, 2*Im_err,
-                                     fill=False, color='red', linewidth=2,
-                                     linestyle='--', label=r'1$\sigma$'))
-                ax.add_patch(Ellipse((Re_obs, abs(Im_obs)), 4*Re_err, 4*Im_err,
-                                     fill=False, color='red', linewidth=1,
-                                     linestyle=':', label=r'2$\sigma$'))
-            ax.set_xlabel(r'Re$(k_2)$')
-            ax.set_ylabel(r'$|$Im$(k_2)|$')
-            ax.set_title(r'$k_2$ Posterior')
-            if have_ellipse:
-                ax.legend()
-            # Default view zooms to the MEASUREMENT ellipse (user
-            # 2026-08-10): the model cloud can scatter far wider than the
-            # measurement, and the autoscaled view shrank the ellipse to a
-            # dot. ±4σ window shows both ellipses with context; samples
-            # outside are cropped, with the cropped fraction captioned.
-            _k2_frac_out = None
-            if have_ellipse and st.session_state.get('k2_zoom', True):
-                _xlo, _xhi = Re_obs - 4 * Re_err, Re_obs + 4 * Re_err
-                _ylo = max(0.0, abs(Im_obs) - 4 * Im_err)
-                _yhi = abs(Im_obs) + 4 * Im_err
-                ax.set_xlim(_xlo, _xhi)
-                ax.set_ylim(_ylo, _yhi)
-                _out = ((Re_arr < _xlo) | (Re_arr > _xhi)
-                        | (Im_arr < _ylo) | (Im_arr > _yhi))
-                _k2_frac_out = float(np.mean(_out))
-            # No rasterization: keep the ≤4000-point cloud as vector markers
-            # (sharp at any display width; SVG stays small at this count).
-            _display_vector_fig(fig, key='k2_scatter',
-                                download_label='k₂ posterior')
-            plt.close(fig)
-            caption_bits = []
-            if have_ellipse:
-                caption_bits.append(
-                    "Red ellipses: 1σ / 2σ observational constraint "
-                    "(this run's k₂ conditioning values).")
-            else:
-                caption_bits.append(
-                    "No k₂ observational constraint in this run's config — "
-                    "ellipse omitted.")
-            if isinstance(pt_size, np.ndarray):
-                caption_bits.append(
-                    "**Point size** scales with the sampled basal temperature "
-                    "T_b (larger = warmer ice shell base; the structural "
-                    "dimension of the model).")
-            if f_sil is not None and len(f_sil) == len(Re_arr):
-                caption_bits.append(
-                    "**Color** is the fraction of tidal heating dissipated "
-                    "in the silicate interior (viridis: dark = ice-dominated, "
-                    "yellow = rock-dominated dissipation).")
-            if _k2_frac_out is not None and _k2_frac_out > 0:
-                caption_bits.append(
-                    f"**Zoomed view**: {100 * _k2_frac_out:.0f}% of "
-                    "posterior samples lie outside the ±4σ measurement "
-                    "window (toggle off to see the full cloud).")
-            if is_corrected:
-                caption_bits.append(
-                    "**IS-weighted**: the cloud is a seeded weighted "
-                    "resample of the corrected posterior (marker density "
-                    "reflects weight; information content = ESS).")
-            st.caption(" ".join(caption_bits))
-
-            # Component panes: marginal posteriors of both k₂ components,
-            # as (Re, Im) or equivalently (amplitude, phase lag).
-            pane_mode = st.radio(
-                'k₂ component view', ['Re / Im', 'Amplitude / Phase'],
-                horizontal=True, key='k2_pane_mode')
-
-            def _build_k2_panes():
-                figp, (axl, axr) = plt.subplots(1, 2, figsize=(10, 3.8))
-                if pane_mode == 'Re / Im':
-                    panes = [
-                        (axl, Re_arr, r'Re$(k_2)$', Re_obs, Re_err),
-                        (axr, Im_arr, r'$|$Im$(k_2)|$',
-                         abs(Im_obs) if Im_obs is not None else None, Im_err),
-                    ]
+                # Slice k2_results to the heating-evaluated subset so lengths match
+                if heating_results and eval_idx is not None and len(heating_results) == len(eval_idx):
+                    Re_arr = result.k2_results[eval_idx, 0]
+                    Im_arr = np.abs(result.k2_results[eval_idx, 1])
+                    eval_samples = result.samples[eval_idx]
                 else:
-                    amp = np.hypot(Re_arr, Im_arr)
-                    phase = np.degrees(np.arctan2(Im_arr, Re_arr))
-                    if Re_obs is not None and Im_obs is not None:
-                        amp_obs = float(np.hypot(Re_obs, Im_obs))
-                        ph_obs = float(np.degrees(
-                            np.arctan2(abs(Im_obs), Re_obs)))
-                        # first-order error propagation from (σ_Re, σ_Im)
-                        amp_err = float(np.hypot(Re_obs * Re_err,
-                                                 Im_obs * Im_err) / amp_obs
-                                        ) if amp_obs > 0 else None
-                        ph_err = float(np.degrees(np.hypot(
-                            Im_obs * Re_err, Re_obs * Im_err)
-                            / amp_obs ** 2)) if amp_obs > 0 else None
-                    else:
-                        amp_obs = ph_obs = amp_err = ph_err = None
-                    panes = [
-                        (axl, amp, r'$|k_2|$', amp_obs, amp_err),
-                        (axr, phase, r'phase lag $\arg(k_2)$ (deg)',
-                         ph_obs, ph_err),
-                    ]
-                for axi, arr, lab, obs, err in panes:
-                    axi.hist(arr, bins=40, color='steelblue', alpha=0.8)
-                    if obs is not None:
-                        axi.axvline(obs, color='red', linestyle='--',
-                                    linewidth=1.5, label='observed')
-                        if err:
-                            axi.axvspan(obs - err, obs + err, color='red',
-                                        alpha=0.12, label=r'1$\sigma$')
-                        axi.legend(fontsize=8)
-                    axi.set_xlabel(lab)
-                axl.set_ylabel('posterior samples')
-                figp.suptitle(r'$k_2$ component posteriors', y=1.02)
-                figp.tight_layout()
-                return figp
+                    Re_arr = result.k2_results[:, 0]
+                    Im_arr = np.abs(result.k2_results[:, 1])
+                    eval_samples = result.samples
 
-            _crisp_display(builder=_build_k2_panes, key='k2_panes',
-                           download_label='k₂ components',
-                           token=(_result_token(), pane_mode))
-        except Exception as e:
-            st.warning(f"k₂ scatter unavailable: {e}")
+                f_sil = []
+                for h in heating_results:
+                    total = _phase_heating_total(h) if h else 0.0
+                    sil = h.get('Sil', 0.0) + h.get('Fe', 0.0)
+                    f_sil.append(sil / total if total > 0 else 0.0)
+                f_sil = np.array(f_sil) if f_sil else None
+
+                # Scale point size by ocean thickness (Tb_K proxy) when available
+                pt_size = 8
+                if 'Tb_K' in result.param_names:
+                    tb_idx = result.param_names.index('Tb_K')
+                    tb_vals = eval_samples[:, tb_idx]
+                    tb_norm = (tb_vals - tb_vals.min()) / (np.ptp(tb_vals) + 1e-10)
+                    pt_size = 4 + 20 * tb_norm  # 4–24 px, larger = warmer = more ocean
+
+                # Keep the scatter VECTOR (crisp markers at any zoom). Rasterizing
+                # it (as heavy figures do) then upscaling the baked-in raster to
+                # container width blurred the individual model points (user
+                # 2026-07-23). This cloud is at most n_derived points; cap the
+                # DISPLAY subset so the vector SVG stays small while staying sharp.
+                _K2_DISPLAY_CAP = 4000
+                if len(Re_arr) > _K2_DISPLAY_CAP:
+                    _rng = np.random.default_rng(0)
+                    _sub = _rng.choice(len(Re_arr), _K2_DISPLAY_CAP, replace=False)
+                else:
+                    _sub = np.arange(len(Re_arr))
+                _pt_size = (pt_size[_sub] if np.ndim(pt_size) else pt_size)
+
+                st.toggle("Zoom to measurement ellipse (±4σ)", value=True,
+                          key='k2_zoom',
+                          help="On: axes frame the observed k₂ and its 1σ/2σ "
+                               "ellipses; posterior samples outside the window "
+                               "are cropped (fraction noted below). Off: "
+                               "autoscale to the full model cloud.")
+                plt.rcParams['text.usetex'] = False
+                fig, ax = plt.subplots(figsize=(8, 6))
+                if f_sil is not None and len(f_sil) == len(Re_arr):
+                    sc = ax.scatter(Re_arr[_sub], Im_arr[_sub], c=f_sil[_sub],
+                                    cmap='viridis', s=_pt_size, alpha=0.6,
+                                    vmin=0, vmax=1)
+                    plt.colorbar(sc, ax=ax, label='Silicate heating fraction')
+                else:
+                    ax.scatter(Re_arr[_sub], Im_arr[_sub], s=_pt_size, alpha=0.6,
+                               color='steelblue')
+
+                have_ellipse = Re_obs is not None and Im_obs is not None
+                if have_ellipse:
+                    ax.add_patch(Ellipse((Re_obs, abs(Im_obs)), 2*Re_err, 2*Im_err,
+                                         fill=False, color='red', linewidth=2,
+                                         linestyle='--', label=r'1$\sigma$'))
+                    ax.add_patch(Ellipse((Re_obs, abs(Im_obs)), 4*Re_err, 4*Im_err,
+                                         fill=False, color='red', linewidth=1,
+                                         linestyle=':', label=r'2$\sigma$'))
+                ax.set_xlabel(r'Re$(k_2)$')
+                ax.set_ylabel(r'$|$Im$(k_2)|$')
+                ax.set_title(r'$k_2$ Posterior')
+                if have_ellipse:
+                    ax.legend()
+                # Default view zooms to the MEASUREMENT ellipse (user
+                # 2026-08-10): the model cloud can scatter far wider than the
+                # measurement, and the autoscaled view shrank the ellipse to a
+                # dot. ±4σ window shows both ellipses with context; samples
+                # outside are cropped, with the cropped fraction captioned.
+                _k2_frac_out = None
+                if have_ellipse and st.session_state.get('k2_zoom', True):
+                    _xlo, _xhi = Re_obs - 4 * Re_err, Re_obs + 4 * Re_err
+                    _ylo = max(0.0, abs(Im_obs) - 4 * Im_err)
+                    _yhi = abs(Im_obs) + 4 * Im_err
+                    ax.set_xlim(_xlo, _xhi)
+                    ax.set_ylim(_ylo, _yhi)
+                    _out = ((Re_arr < _xlo) | (Re_arr > _xhi)
+                            | (Im_arr < _ylo) | (Im_arr > _yhi))
+                    _k2_frac_out = float(np.mean(_out))
+                # No rasterization: keep the ≤4000-point cloud as vector markers
+                # (sharp at any display width; SVG stays small at this count).
+                _display_vector_fig(fig, key='k2_scatter',
+                                    download_label='k₂ posterior')
+                plt.close(fig)
+                caption_bits = []
+                if have_ellipse:
+                    caption_bits.append(
+                        "Red ellipses: 1σ / 2σ observational constraint "
+                        "(this run's k₂ conditioning values).")
+                else:
+                    caption_bits.append(
+                        "No k₂ observational constraint in this run's config — "
+                        "ellipse omitted.")
+                if isinstance(pt_size, np.ndarray):
+                    caption_bits.append(
+                        "**Point size** scales with the sampled basal temperature "
+                        "T_b (larger = warmer ice shell base; the structural "
+                        "dimension of the model).")
+                if f_sil is not None and len(f_sil) == len(Re_arr):
+                    caption_bits.append(
+                        "**Color** is the fraction of tidal heating dissipated "
+                        "in the silicate interior (viridis: dark = ice-dominated, "
+                        "yellow = rock-dominated dissipation).")
+                if _k2_frac_out is not None and _k2_frac_out > 0:
+                    caption_bits.append(
+                        f"**Zoomed view**: {100 * _k2_frac_out:.0f}% of "
+                        "posterior samples lie outside the ±4σ measurement "
+                        "window (toggle off to see the full cloud).")
+                if is_corrected:
+                    caption_bits.append(
+                        "**IS-weighted**: the cloud is a seeded weighted "
+                        "resample of the corrected posterior (marker density "
+                        "reflects weight; information content = ESS).")
+                st.caption(" ".join(caption_bits))
+
+                # Component panes: marginal posteriors of both k₂ components,
+                # as (Re, Im) or equivalently (amplitude, phase lag).
+                pane_mode = st.radio(
+                    'k₂ component view', ['Re / Im', 'Amplitude / Phase'],
+                    horizontal=True, key='k2_pane_mode')
+
+                def _build_k2_panes():
+                    figp, (axl, axr) = plt.subplots(1, 2, figsize=(10, 3.8))
+                    if pane_mode == 'Re / Im':
+                        panes = [
+                            (axl, Re_arr, r'Re$(k_2)$', Re_obs, Re_err),
+                            (axr, Im_arr, r'$|$Im$(k_2)|$',
+                             abs(Im_obs) if Im_obs is not None else None, Im_err),
+                        ]
+                    else:
+                        amp = np.hypot(Re_arr, Im_arr)
+                        phase = np.degrees(np.arctan2(Im_arr, Re_arr))
+                        if Re_obs is not None and Im_obs is not None:
+                            amp_obs = float(np.hypot(Re_obs, Im_obs))
+                            ph_obs = float(np.degrees(
+                                np.arctan2(abs(Im_obs), Re_obs)))
+                            # first-order error propagation from (σ_Re, σ_Im)
+                            amp_err = float(np.hypot(Re_obs * Re_err,
+                                                     Im_obs * Im_err) / amp_obs
+                                            ) if amp_obs > 0 else None
+                            ph_err = float(np.degrees(np.hypot(
+                                Im_obs * Re_err, Re_obs * Im_err)
+                                / amp_obs ** 2)) if amp_obs > 0 else None
+                        else:
+                            amp_obs = ph_obs = amp_err = ph_err = None
+                        panes = [
+                            (axl, amp, r'$|k_2|$', amp_obs, amp_err),
+                            (axr, phase, r'phase lag $\arg(k_2)$ (deg)',
+                             ph_obs, ph_err),
+                        ]
+                    for axi, arr, lab, obs, err in panes:
+                        axi.hist(arr, bins=40, color='steelblue', alpha=0.8)
+                        if obs is not None:
+                            axi.axvline(obs, color='red', linestyle='--',
+                                        linewidth=1.5, label='observed')
+                            if err:
+                                axi.axvspan(obs - err, obs + err, color='red',
+                                            alpha=0.12, label=r'1$\sigma$')
+                            axi.legend(fontsize=8)
+                        axi.set_xlabel(lab)
+                    axl.set_ylabel('posterior samples')
+                    figp.suptitle(r'$k_2$ component posteriors', y=1.02)
+                    figp.tight_layout()
+                    return figp
+
+                _crisp_display(builder=_build_k2_panes, key='k2_panes',
+                               download_label='k₂ components',
+                               token=(_result_token(), pane_mode))
+            except Exception as e:
+                st.warning(f"k₂ scatter unavailable: {e}")
 
     # Posterior induction response (complex plane) — only when the run
     # carried induction (metadata packaged by both runners since 2026-07).
@@ -5545,218 +5557,221 @@ def render_results():
 
     # Heating distribution
     with st.expander("🔥 Heating Distribution", expanded=False):
-        heating_results = list(result.heating_results) if result.heating_results is not None else []
-        n_nonempty = sum(1 for h in heating_results if h)
-        if is_corrected:
-            st.info("Heating unavailable on the importance-sampling "
-                    "corrected path: per-phase heating was computed on a "
-                    "small subset of UNCORRECTED flow draws and is not part "
-                    "of the validated bundle, so it is deliberately not "
-                    "shown (it would be unweighted).")
-        elif not heating_results or n_nonempty == 0:
-            st.info("Heating data unavailable. Set **n_reeval > 0** in sampler "
-                    "settings (or the heating re-evaluation subset in amortized "
-                    "mode) to compute per-phase heating.")
-            st.caption(
-                f"Diagnostic: result carries {len(heating_results)} heating "
-                f"entries ({n_nonempty} non-empty); sampler = "
-                f"{(result.metadata or {}).get('sampler')}, generated "
-                f"{(result.metadata or {}).get('elapsed_time_s', 0):.0f}s run. "
-                f"If this run was made with a re-evaluation subset > 0, the "
-                f"app server is likely running stale code — restart it."
-            )
+        if _no_tidal:
+            st.info(_NO_TIDAL_MSG)
         else:
-            st.caption(f"{n_nonempty} forward-model heating evaluations "
-                       f"(seeded subset of the posterior).")
-            try:
-                import matplotlib.pyplot as plt
+            heating_results = list(result.heating_results) if result.heating_results is not None else []
+            n_nonempty = sum(1 for h in heating_results if h)
+            if is_corrected:
+                st.info("Heating unavailable on the importance-sampling "
+                        "corrected path: per-phase heating was computed on a "
+                        "small subset of UNCORRECTED flow draws and is not part "
+                        "of the validated bundle, so it is deliberately not "
+                        "shown (it would be unweighted).")
+            elif not heating_results or n_nonempty == 0:
+                st.info("Heating data unavailable. Set **n_reeval > 0** in sampler "
+                        "settings (or the heating re-evaluation subset in amortized "
+                        "mode) to compute per-phase heating.")
+                st.caption(
+                    f"Diagnostic: result carries {len(heating_results)} heating "
+                    f"entries ({n_nonempty} non-empty); sampler = "
+                    f"{(result.metadata or {}).get('sampler')}, generated "
+                    f"{(result.metadata or {}).get('elapsed_time_s', 0):.0f}s run. "
+                    f"If this run was made with a re-evaluation subset > 0, the "
+                    f"app server is likely running stale code — restart it."
+                )
+            else:
+                st.caption(f"{n_nonempty} forward-model heating evaluations "
+                           f"(seeded subset of the posterior).")
+                try:
+                    import matplotlib.pyplot as plt
 
-                eval_idx = result.metadata.get('heating_indices',
-                                               list(range(len(heating_results))))
-                eval_samples = result.samples[eval_idx]
-                n_params = eval_samples.shape[1]
+                    eval_idx = result.metadata.get('heating_indices',
+                                                   list(range(len(heating_results))))
+                    eval_samples = result.samples[eval_idx]
+                    n_params = eval_samples.shape[1]
 
-                # Get heating for each reservoir/phase
-                silicate_vals = []
-                ice_ih_vals = []
-                ice_iii_vals = []
-                ice_v_vals = []
-                ice_vi_vals = []
+                    # Get heating for each reservoir/phase
+                    silicate_vals = []
+                    ice_ih_vals = []
+                    ice_iii_vals = []
+                    ice_v_vals = []
+                    ice_vi_vals = []
 
-                for h in heating_results:
-                    silicate_vals.append(h.get('Silicate_W', h.get('Sil', 0.0) + h.get('Fe', 0.0)))
-                    ice_ih_vals.append(h.get('Ice_Ih_W', h.get('Ih', 0.0) + h.get('Clath', 0.0)))
-                    ice_iii_vals.append(h.get('III', 0.0))
-                    ice_v_vals.append(h.get('V', 0.0))
-                    ice_vi_vals.append(h.get('VI', 0.0))
-
-                # Per-model reservoir/phase fractions (Stacked Bar)
-                st.markdown("#### 📉 Per-Model Partitioning")
-
-                n_models = len(heating_results)
-                sil_arr = np.array(silicate_vals)
-                ih_arr = np.array(ice_ih_vals)
-                iii_arr = np.array(ice_iii_vals)
-                v_arr = np.array(ice_v_vals)
-                vi_arr = np.array(ice_vi_vals)
-                
-                tot_arr = sil_arr + ih_arr + iii_arr + v_arr + vi_arr + 1e-30
-
-                # Sort models by silicate fraction
-                f_sil_arr = sil_arr / tot_arr
-                sort_order = np.argsort(f_sil_arr)
-
-                fig_stack, ax_stack = plt.subplots(figsize=(10, 4))
-                x = np.arange(n_models)
-                bottom = np.zeros(n_models)
-
-                # Colors matching PlanetProfile conventions
-                plot_colors = {
-                    'Silicate': '#9c755f', 
-                    'Ice VI': '#d62728', # Red
-                    'Ice V': '#2ca02c',  # Green
-                    'Ice III': '#ff7f0e', # Orange
-                    'Ice Ih': '#4e79a7'   # Blue
-                }
-
-                # Silicate
-                ax_stack.bar(x, sil_arr[sort_order]/tot_arr[sort_order], bottom=bottom, color=plot_colors['Silicate'], label='Silicate', width=1.0)
-                bottom += sil_arr[sort_order]/tot_arr[sort_order]
-                
-                # HP Ices (Individual)
-                ax_stack.bar(x, vi_arr[sort_order]/tot_arr[sort_order], bottom=bottom, color=plot_colors['Ice VI'], label='Ice VI', width=1.0)
-                bottom += vi_arr[sort_order]/tot_arr[sort_order]
-                
-                ax_stack.bar(x, v_arr[sort_order]/tot_arr[sort_order], bottom=bottom, color=plot_colors['Ice V'], label='Ice V', width=1.0)
-                bottom += v_arr[sort_order]/tot_arr[sort_order]
-                
-                ax_stack.bar(x, iii_arr[sort_order]/tot_arr[sort_order], bottom=bottom, color=plot_colors['Ice III'], label='Ice III', width=1.0)
-                bottom += iii_arr[sort_order]/tot_arr[sort_order]
-                
-                # Ice Ih
-                ax_stack.bar(x, ih_arr[sort_order]/tot_arr[sort_order], bottom=bottom, color=plot_colors['Ice Ih'], label='Ice Ih', width=1.0)
-
-                ax_stack.set_xlim(0, n_models-1)
-                ax_stack.set_ylim(0, 1)
-                ax_stack.set_ylabel("Fraction")
-                ax_stack.set_xlabel("Samples (sorted by silicate fraction)")
-                ax_stack.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=8)
-
-                _display_vector_fig(fig_stack, key='reservoir_stack',
-                                    download_label='reservoir fractions')
-                plt.close(fig_stack)
-
-                # Aggregate Reservoir Visualization
-                st.markdown("#### 🧊 Reservoir Partitioning (Median)")
-                col_pie, col_stats = st.columns([1, 1])
-
-                sil_med = np.median(silicate_vals)
-                ih_med = np.median(ice_ih_vals)
-                hp_med = np.median(iii_arr + v_arr + vi_arr)
-                tot_med = sil_med + ih_med + hp_med
-
-                with col_pie:
-                    if tot_med > 0:
-                        fig_pie, ax_pie = plt.subplots(figsize=(5, 5))
-                        ax_pie.pie([sil_med, hp_med, ih_med],
-                                   labels=['Silicate', 'HP Ice', 'Ice Ih'],
-                                   autopct='%1.1f%%',
-                                   colors=['#C8A96E', '#9B59B6', '#AEE1F8'],
-                                   startangle=90)
-                        ax_pie.axis('equal')
-                        _display_vector_fig(fig_pie, key='heating_pie',
-                                            download_label='heating pie')
-                        plt.close(fig_pie)
-
-                with col_stats:
-                    st.metric("Total Power (Median)", f"{tot_med/1e9:.2f} GW")
-                    st.write(f"- **Silicate:** {sil_med/1e9:.2f} GW")
-                    st.write(f"- **HP Ices:** {hp_med/1e9:.2f} GW")
-                    st.write(f"- **Ice Ih Shell:** {ih_med/1e9:.2f} GW")
-
-                    if tot_med > 0:
-                        st.info(f"Titan's heat budget is dominated by the **{['Silicate', 'HP Ice', 'Ice Ih'][np.argmax([sil_med, hp_med, ih_med])]}** reservoir.")
-
-                st.markdown("---")
-
-                # Consistent phase color scheme used across all plots
-                phase_colors = {
-                    'Clath': '#D4F1F9',
-                    'Ih':    '#AEE1F8',
-                    '0':     '#1E90FF',
-                    'III':   '#C97BAE',
-                    'II':    '#B0E0E6',
-                    'V':     '#9B59B6',
-                    'VI':    '#6C3483',
-                    'Sil':   '#C8A96E',
-                    'Rock':  '#C8A96E',
-                    'Core':  '#8B5A2B',
-                }
-
-                # Use only phases actually present in the data.
-                # (actual_keys was previously undefined here — a NameError
-                # silently disabled this whole sub-panel via the outer except.)
-                actual_keys = (set().union(*(h.keys() for h in heating_results if h))
-                               if any(heating_results) else set())
-                phases_to_show = [p for p in ['Ih', 'III', 'II', 'V', 'VI', 'Sil', 'Core', 'Clath']
-                                  if p in actual_keys]
-
-                heating_fracs = {}
-                for phase in phases_to_show:
-                    fracs = []
                     for h in heating_results:
-                        total = _phase_heating_total(h) if h else 0.0
-                        fracs.append(h.get(phase, 0) / total if total > 0 else 0)
-                    heating_fracs[phase] = np.array(fracs)
+                        silicate_vals.append(h.get('Silicate_W', h.get('Sil', 0.0) + h.get('Fe', 0.0)))
+                        ice_ih_vals.append(h.get('Ice_Ih_W', h.get('Ih', 0.0) + h.get('Clath', 0.0)))
+                        ice_iii_vals.append(h.get('III', 0.0))
+                        ice_v_vals.append(h.get('V', 0.0))
+                        ice_vi_vals.append(h.get('VI', 0.0))
 
-                n_panels = n_params + 1
-                n_cols = 3
-                n_rows = (n_panels + n_cols - 1) // n_cols
-                fig, axes = plt.subplots(n_rows, n_cols,
-                                         figsize=(6 * n_cols, 5 * n_rows))
-                axes = axes.flatten()
-                for ax in axes[n_panels:]:
-                    ax.set_visible(False)
+                    # Per-model reservoir/phase fractions (Stacked Bar)
+                    st.markdown("#### 📉 Per-Model Partitioning")
 
-                for ip, plabel in enumerate(result.param_labels):
-                    ax = axes[ip]
-                    x = eval_samples[:, ip]
+                    n_models = len(heating_results)
+                    sil_arr = np.array(silicate_vals)
+                    ih_arr = np.array(ice_ih_vals)
+                    iii_arr = np.array(ice_iii_vals)
+                    v_arr = np.array(ice_v_vals)
+                    vi_arr = np.array(ice_vi_vals)
+                
+                    tot_arr = sil_arr + ih_arr + iii_arr + v_arr + vi_arr + 1e-30
+
+                    # Sort models by silicate fraction
+                    f_sil_arr = sil_arr / tot_arr
+                    sort_order = np.argsort(f_sil_arr)
+
+                    fig_stack, ax_stack = plt.subplots(figsize=(10, 4))
+                    x = np.arange(n_models)
+                    bottom = np.zeros(n_models)
+
+                    # Colors matching PlanetProfile conventions
+                    plot_colors = {
+                        'Silicate': '#9c755f', 
+                        'Ice VI': '#d62728', # Red
+                        'Ice V': '#2ca02c',  # Green
+                        'Ice III': '#ff7f0e', # Orange
+                        'Ice Ih': '#4e79a7'   # Blue
+                    }
+
+                    # Silicate
+                    ax_stack.bar(x, sil_arr[sort_order]/tot_arr[sort_order], bottom=bottom, color=plot_colors['Silicate'], label='Silicate', width=1.0)
+                    bottom += sil_arr[sort_order]/tot_arr[sort_order]
+                
+                    # HP Ices (Individual)
+                    ax_stack.bar(x, vi_arr[sort_order]/tot_arr[sort_order], bottom=bottom, color=plot_colors['Ice VI'], label='Ice VI', width=1.0)
+                    bottom += vi_arr[sort_order]/tot_arr[sort_order]
+                
+                    ax_stack.bar(x, v_arr[sort_order]/tot_arr[sort_order], bottom=bottom, color=plot_colors['Ice V'], label='Ice V', width=1.0)
+                    bottom += v_arr[sort_order]/tot_arr[sort_order]
+                
+                    ax_stack.bar(x, iii_arr[sort_order]/tot_arr[sort_order], bottom=bottom, color=plot_colors['Ice III'], label='Ice III', width=1.0)
+                    bottom += iii_arr[sort_order]/tot_arr[sort_order]
+                
+                    # Ice Ih
+                    ax_stack.bar(x, ih_arr[sort_order]/tot_arr[sort_order], bottom=bottom, color=plot_colors['Ice Ih'], label='Ice Ih', width=1.0)
+
+                    ax_stack.set_xlim(0, n_models-1)
+                    ax_stack.set_ylim(0, 1)
+                    ax_stack.set_ylabel("Fraction")
+                    ax_stack.set_xlabel("Samples (sorted by silicate fraction)")
+                    ax_stack.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=8)
+
+                    _display_vector_fig(fig_stack, key='reservoir_stack',
+                                        download_label='reservoir fractions')
+                    plt.close(fig_stack)
+
+                    # Aggregate Reservoir Visualization
+                    st.markdown("#### 🧊 Reservoir Partitioning (Median)")
+                    col_pie, col_stats = st.columns([1, 1])
+
+                    sil_med = np.median(silicate_vals)
+                    ih_med = np.median(ice_ih_vals)
+                    hp_med = np.median(iii_arr + v_arr + vi_arr)
+                    tot_med = sil_med + ih_med + hp_med
+
+                    with col_pie:
+                        if tot_med > 0:
+                            fig_pie, ax_pie = plt.subplots(figsize=(5, 5))
+                            ax_pie.pie([sil_med, hp_med, ih_med],
+                                       labels=['Silicate', 'HP Ice', 'Ice Ih'],
+                                       autopct='%1.1f%%',
+                                       colors=['#C8A96E', '#9B59B6', '#AEE1F8'],
+                                       startangle=90)
+                            ax_pie.axis('equal')
+                            _display_vector_fig(fig_pie, key='heating_pie',
+                                                download_label='heating pie')
+                            plt.close(fig_pie)
+
+                    with col_stats:
+                        st.metric("Total Power (Median)", f"{tot_med/1e9:.2f} GW")
+                        st.write(f"- **Silicate:** {sil_med/1e9:.2f} GW")
+                        st.write(f"- **HP Ices:** {hp_med/1e9:.2f} GW")
+                        st.write(f"- **Ice Ih Shell:** {ih_med/1e9:.2f} GW")
+
+                        if tot_med > 0:
+                            st.info(f"Titan's heat budget is dominated by the **{['Silicate', 'HP Ice', 'Ice Ih'][np.argmax([sil_med, hp_med, ih_med])]}** reservoir.")
+
+                    st.markdown("---")
+
+                    # Consistent phase color scheme used across all plots
+                    phase_colors = {
+                        'Clath': '#D4F1F9',
+                        'Ih':    '#AEE1F8',
+                        '0':     '#1E90FF',
+                        'III':   '#C97BAE',
+                        'II':    '#B0E0E6',
+                        'V':     '#9B59B6',
+                        'VI':    '#6C3483',
+                        'Sil':   '#C8A96E',
+                        'Rock':  '#C8A96E',
+                        'Core':  '#8B5A2B',
+                    }
+
+                    # Use only phases actually present in the data.
+                    # (actual_keys was previously undefined here — a NameError
+                    # silently disabled this whole sub-panel via the outer except.)
+                    actual_keys = (set().union(*(h.keys() for h in heating_results if h))
+                                   if any(heating_results) else set())
+                    phases_to_show = [p for p in ['Ih', 'III', 'II', 'V', 'VI', 'Sil', 'Core', 'Clath']
+                                      if p in actual_keys]
+
+                    heating_fracs = {}
                     for phase in phases_to_show:
-                        ax.scatter(x, heating_fracs[phase], s=4, alpha=0.3,
+                        fracs = []
+                        for h in heating_results:
+                            total = _phase_heating_total(h) if h else 0.0
+                            fracs.append(h.get(phase, 0) / total if total > 0 else 0)
+                        heating_fracs[phase] = np.array(fracs)
+
+                    n_panels = n_params + 1
+                    n_cols = 3
+                    n_rows = (n_panels + n_cols - 1) // n_cols
+                    fig, axes = plt.subplots(n_rows, n_cols,
+                                             figsize=(6 * n_cols, 5 * n_rows))
+                    axes = axes.flatten()
+                    for ax in axes[n_panels:]:
+                        ax.set_visible(False)
+
+                    for ip, plabel in enumerate(result.param_labels):
+                        ax = axes[ip]
+                        x = eval_samples[:, ip]
+                        for phase in phases_to_show:
+                            ax.scatter(x, heating_fracs[phase], s=4, alpha=0.3,
+                                       color=phase_colors.get(phase, 'gray'),
+                                       label=phase)
+                        ax.set_xlabel(plabel)
+                        ax.set_ylabel('Heating fraction')
+                        ax.set_ylim(-0.05, 1.05)
+                        if ip == 0:
+                            ax.legend(fontsize=8, loc='best')
+
+                    # Stacked bar sorted by silicate fraction
+                    ax = axes[n_params]
+                    f_sil_heat = heating_fracs.get('Sil', np.zeros(len(heating_results)))
+                    sort_order = np.argsort(f_sil_heat)
+                    bottom = np.zeros(len(heating_results))
+                    for phase in ['Core', 'Sil', 'VI', 'V', 'III', 'II', 'Ih', 'Clath']:
+                        if phase in heating_fracs:
+                            ax.bar(range(len(heating_results)),
+                                   heating_fracs[phase][sort_order],
+                                   bottom=bottom,
                                    color=phase_colors.get(phase, 'gray'),
-                                   label=phase)
-                    ax.set_xlabel(plabel)
+                                   label=phase, width=1.0)
+                            bottom += heating_fracs[phase][sort_order]
+                    ax.set_xlabel('Samples sorted by silicate fraction')
                     ax.set_ylabel('Heating fraction')
-                    ax.set_ylim(-0.05, 1.05)
-                    if ip == 0:
-                        ax.legend(fontsize=8, loc='best')
+                    ax.legend(fontsize=8)
+                    ax.set_title('Per-phase heating across posterior')
 
-                # Stacked bar sorted by silicate fraction
-                ax = axes[n_params]
-                f_sil_heat = heating_fracs.get('Sil', np.zeros(len(heating_results)))
-                sort_order = np.argsort(f_sil_heat)
-                bottom = np.zeros(len(heating_results))
-                for phase in ['Core', 'Sil', 'VI', 'V', 'III', 'II', 'Ih', 'Clath']:
-                    if phase in heating_fracs:
-                        ax.bar(range(len(heating_results)),
-                               heating_fracs[phase][sort_order],
-                               bottom=bottom,
-                               color=phase_colors.get(phase, 'gray'),
-                               label=phase, width=1.0)
-                        bottom += heating_fracs[phase][sort_order]
-                ax.set_xlabel('Samples sorted by silicate fraction')
-                ax.set_ylabel('Heating fraction')
-                ax.legend(fontsize=8)
-                ax.set_title('Per-phase heating across posterior')
-
-                fig.suptitle('Heating Distribution', fontsize=14)
-                fig.tight_layout()
-                _rasterize_heavy_artists(fig)
-                _display_vector_fig(fig, key='heating_distribution',
-                                    download_label='heating distribution')
-                plt.close(fig)
-            except Exception as e:
-                st.warning(f"Heating distribution unavailable: {e}")
+                    fig.suptitle('Heating Distribution', fontsize=14)
+                    fig.tight_layout()
+                    _rasterize_heavy_artists(fig)
+                    _display_vector_fig(fig, key='heating_distribution',
+                                        download_label='heating distribution')
+                    plt.close(fig)
+                except Exception as e:
+                    st.warning(f"Heating distribution unavailable: {e}")
 
     # Export button
     st.markdown("---")

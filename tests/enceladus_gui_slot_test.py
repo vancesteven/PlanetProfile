@@ -92,6 +92,11 @@ def test_cassini_datum_accepted_validated_with_scope_text():
     assert sg["scope_text"] == SCOPE_TEXT
     assert len(res.samples) == 1000
     assert "validated against pocoMC at this datum" in _text(app)
+    # No tidal channel: the k2 and heating panels explain the absence
+    # instead of comparing NaN placeholders (user report 2026-10-30).
+    assert res.metadata["tidal_solve_skipped"] is True
+    assert _text(app).count("This model has no tidal channel") >= 2
+    assert "k₂ scatter unavailable" not in _text(app)
     # Induction display reference (display only): both core curves present
     # when the Ae sidecar ships next to the cache.
     from PlanetProfile.Inference.enceladus_induction_display import (
