@@ -898,8 +898,9 @@ def ComputeGravityObservations(Planet, Params):
     eccentricity = float(Planet.Bulk.eccentricity)
     r, phase, rho, mu, vis = GravityModelArrays(Planet)
 
-    model_params = pyALMA3Updated.build_model(r, rho, mu, vis, Planet.Gravity.rheology,
-                                       Planet.Gravity.pyAlmaParams, norm=False)
+    model_params = pyALMA3Updated.build_model(
+        r, rho, mu, AlmaViscosity(vis, Planet.Gravity.rheology, phase),
+        Planet.Gravity.rheology, Planet.Gravity.pyAlmaParams, norm=False)
 
     Planet.Gravity.harmonic_degrees = [2]
     Planet.Gravity.time_log_kyrs = [Torb_kyr]
@@ -934,6 +935,50 @@ def ComputeGravityObservations(Planet, Params):
     Planet = SetGravityDerivedQuantities(Planet)
 
     return Planet, Params
+
+
+# Solid ALMA rheologies whose complex rigidity combines mu with eta*s
+# (pyALMA3Updated.complex_rigidity: Maxwell, Kelvin, Burgers, Andrade and its
+# variants). Newtonian layers are converted only when solid (see AlmaViscosity).
+_ALMA_VISCOELASTIC = frozenset({'maxwell', 'kelvin', 'burgers', 'andrade',
+                                'andrade_ext', 'sundcoop'})
+
+
+def AlmaViscosity(vis_Pas, rheology, phase):
+    """Viscosity array in the units pyALMA3 expects for norm=False.
+
+    With norm=False and the forcing period passed in kyr (ALMA_TIME_UNIT_S),
+    the Laplace variable s is in kyr^-1, so every solid layer's eta*s and
+    mu/eta must be too: eta in Pa*kyr = eta[Pa*s] / ALMA_TIME_UNIT_S (pyALMA3's
+    own norm=True branch uses the same 1 kyr time scale). Passing Pa*s made
+    every Maxwell or Andrade layer ~3e10x too viscous, i.e. elastic
+    (scientific-reviewer 2026-10-31/11-01,
+    validation_reports/enceladus_isostasy/libration_rheology_bound).
+
+    Converted: viscoelastic codes (Maxwell, Kelvin, Burgers, Andrade and
+    variants) and Newtonian SOLID layers (phase != 0, e.g. the default
+    'Clath': 'newton' creeping clathrate). NOT converted: the liquid ocean
+    (phase 0). Its eta*s acts as the small regularizing rigidity the ALMA
+    propagator needs, and converting it collapses k2 (k2 -> -0.85). That
+    regularization is a numerical artefact: it adds spurious dissipation to
+    ALMA's Im k2 (Europa: -0.0029 of -0.0039) and does not converge as the
+    ocean eta is lowered, so quote Im k2 / heating from the TidalPy backend.
+    Elastic layers ignore eta. Integer rheology codes are rejected (the
+    conversion rule is keyed on the names).
+    """
+    vis = np.array(vis_Pas, dtype=float, copy=True)
+    phase = np.asarray(phase)
+    if len(rheology) != vis.size or phase.size != vis.size:
+        raise ValueError(f'rheology ({len(rheology)}), phase ({phase.size}) '
+                         f'and viscosity ({vis.size}) lengths differ')
+    if any(not isinstance(c, str) for c in rheology):
+        raise TypeError('AlmaViscosity needs rheology names, not integer '
+                        'codes, to decide which layers to convert')
+    codes = np.array([c.lower() for c in rheology])
+    solid = phase != 0
+    mask = np.isin(codes, list(_ALMA_VISCOELASTIC)) | ((codes == 'newton') & solid)
+    vis[mask] = vis[mask] / ALMA_TIME_UNIT_S
+    return vis
 
 
 def ValidateGravityOrbit(Planet):
