@@ -5,7 +5,7 @@ the k2 direction: future missions will measure Enceladus k2
 (papers/bagheri2025exploring.pdf: k2 to < 0.002 with X-band DSN, < 0.0002
 with Ka-band).
 
-Status: `verified` computation (script + JSON below), NOT reviewer-reviewed.
+Status: computation `verified` (script + JSON below; reproduced by the reviewer). The BOUND is NOT accepted: Opus scientific-reviewer 2026-10-31 — claim 1 (ALMA units) CONFIRMED, claim 2 (bound) PARTLY: the Maxwell-only bound is not conservative (see Review).
 
 ## Method
 
@@ -16,9 +16,15 @@ cache nodes at w = 3.46 ppt (posterior median salinity) and zb = 20, 26.7,
 solve at the 1.37 d forcing, the recipe of
 `tests/librations_test.py::_cache_node_diagnostics`. The ice shell's shear
 modulus mu and Maxwell viscosity eta are scanned; results are RELATIVE to the
-as-built elastic node (as-built ice mu 3.5–4.7 GPa), so the open rigid-branch
-K_int defect cancels. zb shift = f · L / (dL/dzb), slope from a 7-node
-least-squares fit of the rigid libration.
+as-built elastic node (as-built ice mu 3.5–4.7 GPa). The ratio never uses the
+rigid branch, so it is independent of the open K_int defect — but it ASSUMES
+the deformable branch's mu/eta dependence is right, which the wrong-sign
+deformable/rigid ratio does not establish. Only Re(y1) enters the libration,
+so for eta ≲ 1e13 (large Im k2) the response phase is ignored. zb shift =
+f · L / (dL/dzb), slope from a 7-node least-squares fit of the rigid
+libration (dlnL/dzb −5.9, −3.3, −2.5 %/km); the rigid branch enters only
+here. Sign: a positive dzb means a softer shell than modelled makes the
+rigid-model zb too THICK by that amount.
 
 ## Result
 
@@ -38,15 +44,21 @@ Fractional libration change vs the as-built elastic shell (zb shift, km):
 - Viscosity matters only when the WHOLE shell is near or below the Maxwell
   time (eta ≲ 3e13 Pa s at mu 3.3 GPa; tau_M = P at 3.9e14). For realistic
   shells (cold, elastic lid; at most a warm base) the effect is set by mu.
-- Within the shell-rigidity range Bagheri et al. use (2–4 GPa) and their
-  posterior shell viscosity (2.5e13–1.3e14 Pa s), the libration moves by
-  ≤ ~3 % and zb by ≤ ~0.7 km — below the posterior 1σ (~1 km) but larger
-  than the frozen ±0.4 % libration_sys_frac residual at the soft end.
+- MAXWELL ONLY: for mu 2–4 GPa and eta ≥ 3e13 Pa s the libration moves by
+  ≤ ~3 % and zb by ≤ ~0.7 km. This is NOT a conservative bound (reviewer):
+  at node 1220, Andrade alpha 0.3 gives −2.3 % (1.25e14) and −3.4 % (3e13);
+  Andrade alpha 0.2, mu 2 GPa, 2.5e13 gives −6.4 % (~1.3–2 km in zb); an
+  elastic lid over a 1e12 Pa s base gives −3.3 % (50 % lid) and −1.8 %
+  (70 % lid). Realistic bound: up to ~6 % / ~2 km — comparable to the
+  posterior 1σ (~1 km) and well above the frozen ±0.4 % libration_sys_frac
+  residual.
 - The eta = 1e12 whole-shell rows are not a physical shell (a 27 km shell
   that soft would not sustain the observed figure); listed as the limit.
-- Agrees with Bagheri et al. 2025 (p. 6, App. C): libration has low
-  sensitivity to shell viscosity (~10 % at eta ~1.25e14 in their Andrade
-  setup) and is far more sensitive to thickness than rigidity.
+- Qualitatively consistent with Bagheri et al. 2025 (p. 6, App. C: low
+  sensitivity to shell viscosity; far more sensitive to thickness than
+  rigidity). Quantitatively their ~10 % at eta ~1.25e14 is an ANDRADE
+  number; Maxwell gives ~0 % beyond elastic there, Andrade here gives
+  2–6 %. Bagheri also calls a uniform 1e14 shell unrealistic.
 - k2 IS rheology-sensitive where libration is not: |k2| 0.012 (elastic
   3.3 GPa) → 0.039 (1 GPa) → 0.075 (Maxwell 1e13) at zb 26.7 km, with Im k2
   up to −0.07. Bagheri et al. predict |k2| 0.024–0.032, between these.
@@ -65,8 +77,27 @@ Fractional libration change vs the as-built elastic shell (zb shift, km):
    0.01344 for eta from 1e10 to 1e22 Pa·s as-is; converting eta to Pa·kyr
    gives the expected Maxwell curve (|k2| 0.0134 → 0.082 at 1e13). This
    affects any PP run that relies on ALMA k2 with a viscous ice layer.
-   The inference k2 path (TidalPy, `forward_models.forward_model_k2_flexible`)
-   is a separate solver and is not covered by this finding.
+   Reviewer CONFIRMED (norm=False with eta in Pa·kyr equals norm=True with
+   eta in Pa·s to 1e-7; upstream alma uses the same t0 = 1 kyr). Andrade
+   layers are affected too (anelastic term ∝ (s·eta/mu)^-α, suppressed
+   ~7e-4 at α 0.3); defaults make Ih_conv/III_conv/V_conv/Clath_conv
+   Andrade and II–VI Maxwell, all effectively elastic in this path.
+   BLAST RADIUS (default backend, Params.Gravity.backend != 'tidalpy',
+   Gravity.py:106-111): Planet.Gravity.h/l/k/delta/y/y1, libration_m (the
+   deformable branch, via ALMA y1 and Re k2), kAmp/hAmp and phases, saved
+   gravity files, Exploreogram/Monte Carlo kLoveAmp/hLoveAmp, Inversion
+   kLoveAmp gridding (Inversion.py:309), and any heating from ALMA Im k2 —
+   Im k2 is underestimated by orders of magnitude. NOT affected: the TidalPy
+   backend and forward_models.forward_model_k2_flexible (eta in Pa·s, SI
+   frequency).
+   **Fix hazard:** do NOT divide every layer's eta. The Newtonian ocean
+   (eta 0.0019 Pa·s) works only by accident as a small regularizing
+   rigidity; converting it too gives k2 ≈ −0.85, and norm=True fails the
+   same way (that was the "nonsense k2"). Convert only viscoelastic layers,
+   or give fluid layers a reviewed floor, and show k2 converges in ocean eta.
+   Before acceptance: k2 vs an independent analytic or TidalPy Maxwell
+   result, an ocean-eta convergence scan, and a regression test that k2 is
+   NOT invariant in eta.
 2. **Rigid-branch K_int normalization** (known, pinned by
    `tests/librations_test.py`): deformable/rigid = 1.008–1.010 here, the
    wrong sign. Relative results above cancel it.
