@@ -121,3 +121,44 @@ def test_titan_tidalpy_backend_end_to_end():
     assert tp.Gravity.tidalpy_Htidal_perPhase_W
     assert tp.Gravity.k.real == pytest.approx(alma.Gravity.k.real, rel=0.07)
     assert np.isfinite(tp.Gravity.kAmp) and np.isfinite(tp.Gravity.deltaAmp)
+
+
+def test_one_point_layer_is_padded_not_dropped():
+    """Callisto's default model has a 1-point layer (~1.6 km sliver between
+    ocean and outer ice) that TidalPy rejected; it must now solve."""
+    pl = _run('Callisto', 'tidalpy')
+    assert pl.Gravity.backend_used == 'tidalpy'
+    assert np.isfinite(pl.Gravity.k.real)
+
+
+def test_fallback_to_alma_on_tidalpy_failure(monkeypatch):
+    import PlanetProfile.Gravity.Gravity as G
+    def boom(*a, **k):
+        raise RuntimeError('forced failure')
+    monkeypatch.setattr(G, '_run_tidalpy_backend', boom)
+    pl = _run('Titan', 'tidalpy')
+    assert pl.Gravity.backend_used == 'pyalma'
+    assert np.isfinite(pl.Gravity.k.real)
+
+
+def test_oceanless_libration_finite_and_matches_alma():
+    """Reviewer D3: no-ocean bodies keep a libration (whole-body deformable
+    branch, ocean=False with Re k2) under TidalPy, as under ALMA. Uses the
+    default Io (NO_H2O); agreement to the backends' Re k2 offset."""
+    for body in ('Io',):            # Luna's defaults carry no orbit (no gravity run)
+        a, t = _run(body, 'pyalma'), _run(body, 'tidalpy')
+        assert not np.any(np.asarray(t.Reduced.phase) == 0)
+        assert t.Gravity.backend_used == 'tidalpy'
+        assert np.isfinite(t.Gravity.libration_m) and t.Gravity.libration_m > 0
+        assert t.Gravity.libration_m == pytest.approx(a.Gravity.libration_m, rel=0.05)
+
+
+def test_gravity_file_records_backend(tmp_path):
+    from types import SimpleNamespace as NS
+    import PlanetProfile.Gravity.Gravity as G
+    pl = NS(Gravity=NS(Torb_s=1.0, eccentricity=0.01, harmonic_degrees=[2],
+                       h=1+0j, l=0.1+0j, k=0.2+0j, delta=1+0j, libration_m=5.0,
+                       backend_used='tidalpy'))
+    f = tmp_path / 'g.txt'
+    G.WriteGravityParameters(pl, NS(DataFiles=NS(gravityParametersFile=str(f))))
+    assert 'gravity backend = tidalpy' in f.read_text()

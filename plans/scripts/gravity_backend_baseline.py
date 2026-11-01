@@ -20,7 +20,7 @@ for body in sys.argv[1:]:
             Planet, Params = PlanetProfile(Planet, Params)
             G = Planet.Gravity
             heat = getattr(G, 'tidalpy_Htidal_perPhase_W', None)
-            row[backend] = {'k2': [G.k.real, G.k.imag], 'h2': [G.h.real, G.h.imag],
+            row[backend] = {'backend_used': getattr(G, 'backend_used', None), 'k2': [G.k.real, G.k.imag], 'h2': [G.h.real, G.h.imag],
                             'l2': [G.l.real, G.l.imag], 'libration_m': float(G.libration_m),
                             'heat_W': ({k: float(v) for k, v in heat.items()} if heat else None)}
         except Exception as e:
@@ -31,5 +31,5 @@ for body in sys.argv[1:]:
     if 'error' in a or 'error' in t:
         print(body, 'ERROR', a.get('error'), t.get('error'), flush=True); continue
     print(f"{body:9s} k2 {a['k2'][0]:.4f}{a['k2'][1]:+.5f}i | {t['k2'][0]:.4f}{t['k2'][1]:+.5f}i   "
-          f"h2 {a['h2'][0]:.4f} | {t['h2'][0]:.4f}   lib {a['libration_m']:.1f} | {t['libration_m']:.1f} m", flush=True)
+          f"h2 {a['h2'][0]:.4f} | {t['h2'][0]:.4f}   lib {a['libration_m']:.1f} | {t['libration_m']:.1f} m  used {t['backend_used']}", flush=True)
 json.dump(rows, open(sys.argv[0].replace('.py', '.json') if False else 'validation_reports/gravity_backend_baseline/baseline.json', 'w'), indent=1)

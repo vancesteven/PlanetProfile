@@ -103,12 +103,7 @@ def GravityParameters(Planet, Params):
             # Test4x/Test50 MCMC scripts set Params.Gravity.backend =
             # 'tidalpy'; the default PP pipeline uses DP ALMA (with the
             # new libration calculation).
-            if getattr(Params.Gravity, 'backend', 'pyalma') == 'tidalpy':
-                if not _TIDALPY_AVAILABLE:
-                    raise ImportError('TidalPy backend selected but not installed. Install: pip install TidalPy')
-                Planet = _run_tidalpy_backend(Planet, Params)
-            else:
-                Planet, Params = ComputeGravityObservations(Planet, Params)
+            Planet, Params = RunGravityBackend(Planet, Params)
             if (not Params.NO_SAVEFILE) and (not Params.INVERSION_IN_PROGRESS) and (not Params.DO_EXPLOREOGRAM):
                 Planet, Params = WriteGravityParameters(Planet, Params)
     elif Planet.Do.VALID:
@@ -434,6 +429,32 @@ def _map_rheology_to_tidalpy(rheology_structure, region_phases, alpha, zeta_spec
 _ANDRADE_DEFAULT_ALPHA = 0.2   # defineStructs default for both attributes
 
 
+def RunGravityBackend(Planet, Params):
+    """Dispatch the gravity/libration solve to Params.Gravity.backend.
+
+    'tidalpy' falls back to the DP ALMA backend (with a warning) when TidalPy
+    is not installed or its build/solve fails, so a default run never aborts
+    on the gravity step (reviewer 2026-11-01). The backend actually used is
+    recorded in Planet.Gravity.backend_used and written to the gravity file.
+    """
+    want = getattr(Params.Gravity, 'backend', 'pyalma')
+    if want == 'tidalpy':
+        if not _TIDALPY_AVAILABLE:
+            log.warning('TidalPy backend selected but not installed; using the '
+                        'DP ALMA backend instead (pip install TidalPy).')
+        else:
+            try:
+                Planet = _run_tidalpy_backend(Planet, Params)
+                Planet.Gravity.backend_used = 'tidalpy'
+                return Planet, Params
+            except Exception as exc:
+                log.warning(f'TidalPy gravity solve failed ({exc}); falling back '
+                            'to the DP ALMA backend for this model.')
+    Planet, Params = ComputeGravityObservations(Planet, Params)
+    Planet.Gravity.backend_used = 'pyalma'
+    return Planet, Params
+
+
 def AndradeExponent(Planet):
     """Single Andrade exponent for both gravity backends.
 
@@ -464,7 +485,7 @@ def _tidalpy_libration_m(Planet, result, r_m, rho, phases, changeIndices, omega)
     """Van Hoolst (2013) deformable libration from a TidalPy solve; NaN if the
     body has no ocean, the orbit is incomplete, or the reduction fails."""
     ecc = getattr(Planet.Bulk, 'eccentricity', None)
-    if ecc is None or not np.any(np.asarray(phases) == 0):
+    if ecc is None:
         return np.nan
     try:
         rt = np.asarray(result.radius_array, dtype=float)
@@ -535,6 +556,11 @@ def _run_tidalpy_backend(Planet, Params):
     # Bulk viscosity: set to 0 (elastic bulk response)
     bulk_visc = np.zeros_like(eta_Pas)
 
+    # Orbit metadata written to the gravity file (and used on reload), the
+    # same fields ComputeGravityObservations sets for the ALMA path.
+    Planet.Gravity.harmonic_degrees = [2]
+    Planet.Gravity.eccentricity = getattr(Planet.Bulk, 'eccentricity', None)
+
     # Forcing frequency. The default body files store the orbital period
     # (Bulk.Torb_s), which the ALMA path uses; derive the mean motion from it
     # when meanMotion_radps is not set, so both backends force identically.
@@ -545,6 +571,13 @@ def _run_tidalpy_backend(Planet, Params):
             raise ValueError('TidalPy backend requires Planet.Bulk.meanMotion_radps '
                              'or Planet.Bulk.Torb_s to be set')
         omega = 2.0 * np.pi / float(Torb_s)
+    else:
+        Torb_s = getattr(Planet.Bulk, 'Torb_s', None)
+        if Torb_s is not None and not np.isclose(omega, 2.0 * np.pi / float(Torb_s), rtol=1e-3):
+            log.warning(f'Planet.Bulk.meanMotion_radps ({omega:.6e}) differs from '
+                        f'2*pi/Torb_s ({2.0 * np.pi / float(Torb_s):.6e}); the ALMA '
+                        'backend uses Torb_s, so the two backends force differently.')
+    Planet.Gravity.Torb_s = 2.0 * np.pi / omega
 
     # Layer boundaries from changeIndices (flipped to match ascending-r model)
     changeIndices = np.max(Planet.Reduced.changeIndices) - np.flipud(Planet.Reduced.changeIndices)
@@ -623,6 +656,25 @@ def _run_tidalpy_backend(Planet, Params):
                 new_changeIndices.append(new_changeIndices[-1] + MIN_POINTS)
                 log.info(f'TidalPy: interpolated layer {i_layer} from {n_pts} to {MIN_POINTS} points '
                          f'(r = {r_layer[0]/1e3:.0f}-{r_layer[-1]/1e3:.0f} km)')
+            elif n_pts == 1:
+                # A one-point layer (e.g. a ~1.6 km sliver between Callisto's
+                # ocean and outer ice) carries only its top radius. Spread
+                # MIN_POINTS points from the previous layer's top to this top
+                # with the layer's own constant properties (no merging, which
+                # would change the rheology; reviewer 2026-11-01).
+                r_top = r_m[s]
+                r_bot = r_m[s - 1] if s > 0 else 0.0
+                r_interp = np.linspace(r_bot + (r_top - r_bot) / MIN_POINTS, r_top, MIN_POINTS)
+                new_r.append(r_interp)
+                new_rho.append(np.full(MIN_POINTS, rho[s]))
+                new_K.append(np.full(MIN_POINTS, K_Pa[s]))
+                new_mu.append(np.full(MIN_POINTS, mu_Pa[s]))
+                new_eta.append(np.full(MIN_POINTS, eta_Pas[s]))
+                new_phases.append(np.full(MIN_POINTS, phases[s]))
+                new_bulk_visc.append(np.zeros(MIN_POINTS))
+                new_changeIndices.append(new_changeIndices[-1] + MIN_POINTS)
+                log.info(f'TidalPy: padded 1-point layer {i_layer} to {MIN_POINTS} points '
+                         f'(r = {r_bot/1e3:.1f}-{r_top/1e3:.1f} km, constant properties)')
             else:
                 new_r.append(r_m[s:e])
                 new_rho.append(rho[s:e])
@@ -715,8 +767,8 @@ def _run_tidalpy_backend(Planet, Params):
     )
 
     if not result.success:
-        log.error(f'TidalPy radial solver failed: {result.message} (error code {result.error_code})')
-        return Planet
+        raise RuntimeError(f'TidalPy radial solver failed: {result.message} '
+                           f'(error code {result.error_code})')
 
     # Extract Love numbers
     Planet.Gravity.k = complex(result.k)
@@ -1183,7 +1235,8 @@ def WriteGravityParameters(Planet, Params):
         f'l love number = {Planet.Gravity.l}',
         f'k love number = {Planet.Gravity.k}',
         f'delta love number = {Planet.Gravity.delta}',
-        f'libration amplitude (m) = {Planet.Gravity.libration_m}'
+        f'libration amplitude (m) = {Planet.Gravity.libration_m}',
+        f'gravity backend = {getattr(Planet.Gravity, "backend_used", "pyalma")}'
         ]
     # Write out data from core/mantle trade
     ensure_parent_dir(Params.DataFiles.gravityParametersFile)
@@ -1218,6 +1271,8 @@ def ReloadGravityParameters(Planet, Params):
         else:
             Planet.Gravity.delta = 1 + Planet.Gravity.k - Planet.Gravity.h
         Planet.Gravity.libration_m = ParseOptionalFloat(reload.get('libration amplitude (m)'), default=np.nan)
+        # Files written before the backend tag existed are DP ALMA results.
+        Planet.Gravity.backend_used = reload.get('gravity backend', 'pyalma')
         Planet = SetGravityDerivedQuantities(Planet)
     return Planet, Params
 

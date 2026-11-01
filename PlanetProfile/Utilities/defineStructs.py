@@ -600,6 +600,7 @@ class GravitySubstruct:
         self.andradExponent = 0.2 # Andrade exponent for andrade layers
         self.andrade_zeta = 1.0 # Andrade zeta: float for all layers, or dict {'Ih':z1, 'III':z2, ...} for per-phase. <1 amplifies creep (Petricca 2025: 0.01-100)
         self.andrade_zeta_per_layer = None # Per-layer zeta array computed in SetupGravity (internal)
+        self.backend_used = None # Gravity backend that produced these results ('tidalpy' or 'pyalma'; set by RunGravityBackend)
         self.BurgerFirstParameter = 0 # First parameter for Burgers layers
         self.BurgerSecondParameter = 0 # Second parameter for Burgers layers
         
