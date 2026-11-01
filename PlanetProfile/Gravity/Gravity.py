@@ -431,6 +431,55 @@ def _map_rheology_to_tidalpy(rheology_structure, region_phases, alpha, zeta_spec
     return tuple(shear_models), tuple(bulk_models)
 
 
+def AndradeExponent(Planet):
+    """Single Andrade exponent for both gravity backends.
+
+    ``andradAlpha`` (ALMA) and ``andradExponent`` (TidalPy) used to be read
+    independently, so the backends could silently run different alpha.
+    ``andradAlpha`` is canonical (Main.py sets it); a differing
+    ``andradExponent`` is an error, not a silent override.
+    """
+    alpha = getattr(Planet.Gravity, 'andradAlpha', None)
+    expo = getattr(Planet.Gravity, 'andradExponent', None)
+    if alpha is None and expo is None:
+        raise ValueError('Andrade rheology requires Planet.Gravity.andradAlpha.')
+    if alpha is None:
+        return float(expo)
+    if expo is not None and not np.isclose(float(expo), float(alpha)):
+        raise ValueError(
+            f'Planet.Gravity.andradAlpha ({alpha}) and andradExponent ({expo}) '
+            'differ; set andradAlpha only (it is used by both backends).')
+    return float(alpha)
+
+
+def _tidalpy_libration_m(Planet, result, r_m, rho, phases, changeIndices, omega):
+    """Van Hoolst (2013) deformable libration from a TidalPy solve; NaN if the
+    body has no ocean, the orbit is incomplete, or the reduction fails."""
+    ecc = getattr(Planet.Bulk, 'eccentricity', None)
+    if ecc is None or not np.any(np.asarray(phases) == 0):
+        return np.nan
+    try:
+        rt = np.asarray(result.radius_array, dtype=float)
+        yt = np.real(np.asarray(result.result)[0])
+        y1 = np.empty_like(np.asarray(r_m, dtype=float))
+        tops = set(int(c) - 1 for c in changeIndices[1:])
+        for j, rj in enumerate(r_m):
+            hit = np.where(np.isclose(rt, rj, rtol=0.0, atol=1e-6 * max(rj, 1.0)))[0]
+            if hit.size == 0:
+                y1[j] = np.interp(rj, rt, yt)
+            else:
+                y1[j] = yt[hit[0] if j in tops else hit[-1]]
+        lib_r, lib_rho, ocean_idx, lib_y1 = LibrationModelInputs(
+            np.asarray(r_m, float), np.asarray(phases), np.asarray(rho, float), y1)
+        return float(librations(lib_r, lib_rho, omega, float(ecc), rigid=False,
+                                ocean=(ocean_idx is not None),
+                                ocean_idx=ocean_idx if ocean_idx is not None else 1,
+                                y1=lib_y1, rek2=np.real(Planet.Gravity.k)))
+    except Exception as exc:   # libration is a derived extra; keep Love numbers
+        log.warning(f'TidalPy libration not computed: {exc}')
+        return np.nan
+
+
 def _run_tidalpy_backend(Planet, Params):
     """ Run TidalPy radial solver as alternative to PyALMA3.
 
@@ -478,10 +527,16 @@ def _run_tidalpy_backend(Planet, Params):
     # Bulk viscosity: set to 0 (elastic bulk response)
     bulk_visc = np.zeros_like(eta_Pas)
 
-    # Forcing frequency
-    omega = Planet.Bulk.meanMotion_radps
+    # Forcing frequency. The default body files store the orbital period
+    # (Bulk.Torb_s), which the ALMA path uses; derive the mean motion from it
+    # when meanMotion_radps is not set, so both backends force identically.
+    omega = getattr(Planet.Bulk, 'meanMotion_radps', None)
     if omega is None:
-        raise ValueError('TidalPy backend requires Planet.Bulk.meanMotion_radps to be set')
+        Torb_s = getattr(Planet.Bulk, 'Torb_s', None)
+        if Torb_s is None:
+            raise ValueError('TidalPy backend requires Planet.Bulk.meanMotion_radps '
+                             'or Planet.Bulk.Torb_s to be set')
+        omega = 2.0 * np.pi / float(Torb_s)
 
     # Layer boundaries from changeIndices (flipped to match ascending-r model)
     changeIndices = np.max(Planet.Reduced.changeIndices) - np.flipud(Planet.Reduced.changeIndices)
@@ -605,7 +660,7 @@ def _run_tidalpy_backend(Planet, Params):
 
     shear_rheology, bulk_rheology = _map_rheology_to_tidalpy(
         rheology_structure, region_phases,
-        Planet.Gravity.andradExponent,
+        AndradeExponent(Planet),
         Planet.Gravity.andrade_zeta
     )
 
@@ -662,6 +717,17 @@ def _run_tidalpy_backend(Planet, Params):
 
     log.info(f'TidalPy Love numbers: k2 = {Planet.Gravity.k:.4f}, '
              f'h2 = {Planet.Gravity.h:.4f}, l2 = {Planet.Gravity.l:.4f}')
+
+    # Deformable-body libration (Van Hoolst et al. 2013) from TidalPy's own
+    # radial function, the same formulation the ALMA path uses. TidalPy's
+    # y1 is already dimensional (y1 * g_surf = h2) and duplicates radii at
+    # layer interfaces; sample it on the PP grid, taking the value from the
+    # layer each PP point belongs to (the last sample at that radius is the
+    # upper layer's, so take the first match for points at a layer top).
+    Planet.Gravity.delta = 1 + Planet.Gravity.k - Planet.Gravity.h
+    Planet.Gravity.libration_m = _tidalpy_libration_m(
+        Planet, result, r_m, rho, phases, changeIndices, omega)
+    Planet = SetGravityDerivedQuantities(Planet)
 
     # Per-layer tidal heating
     if Planet.Bulk.eccentricity is not None and Planet.Bulk.eccentricity > 0:
@@ -863,17 +929,27 @@ def SetupGravity(Planet, Params):
     
     # Create parameters array (can be customized for Andrade/Burgers layers)
     params = np.zeros((len(rheo), 2))
+
+    # ALMA's Andrade (code 6) uses gamma = Gamma(alpha + 1) only; it has no
+    # zeta. Only the TidalPy backend honours Planet.Gravity.andrade_zeta, so
+    # warn rather than let the two backends silently disagree.
+    _zeta = getattr(Planet.Gravity, 'andrade_zeta', 1.0)
+    _zetas = list(_zeta.values()) if isinstance(_zeta, dict) else [_zeta]
+    if (getattr(Params.Gravity, 'backend', 'pyalma') != 'tidalpy'
+            and any(r == 'andrade' for r in rheo)
+            and any(not np.isclose(float(z), 1.0) for z in _zetas)):
+        log.warning('Planet.Gravity.andrade_zeta != 1 is ignored by the ALMA '
+                    'backend (Andrade gamma = Gamma(alpha + 1)); use '
+                    "Params.Gravity.backend = 'tidalpy' to apply zeta.")
     
     # Finally, create our own ALMA parameters structure for Andrade and Burgers layers
     # We do this because the infer_rheology_pp function doesn't let us customize
     # Andrade alpha/gamma or Burgers parameters directly.
     for i, rheol in enumerate(rheo):
         if rheol == 'andrade' or rheol == 6:
-            if Planet.Gravity.andradAlpha is None:
-                raise ValueError("Andrade rheology requires Planet.Gravity.andradAlpha.")
             if Planet.Gravity.andradGamma is None:
-                Planet.Gravity.andradGamma = np.float64(mp.gamma(Planet.Gravity.andradAlpha + 1))
-            params[i, 0] = Planet.Gravity.andradAlpha
+                Planet.Gravity.andradGamma = np.float64(mp.gamma(AndradeExponent(Planet) + 1))
+            params[i, 0] = AndradeExponent(Planet)
             params[i, 1] = Planet.Gravity.andradGamma
         elif rheol == 'burgers' or rheol == 5:
             # Set Burgers parameters - can be customized
