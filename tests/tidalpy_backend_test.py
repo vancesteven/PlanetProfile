@@ -19,15 +19,24 @@ CACHE = REPO / ('PlanetProfile/Test/mcmc_results/Enceladus/Cassini_isostasy/'
 
 
 def test_andrade_exponent_single_source():
+    """Reviewer 2026-11-01: both attributes default to 0.2, so an override
+    of EITHER must win (PPTest47/50 set andradExponent = 0.3; the exploreogram
+    AndradeAlpha sweep sets andradAlpha); only two conflicting explicit
+    overrides raise."""
     from PlanetProfile.Gravity.Gravity import AndradeExponent
-    g = lambda **kw: SimpleNamespace(Gravity=SimpleNamespace(**kw))
-    assert AndradeExponent(g(andradAlpha=0.3, andradExponent=None)) == 0.3
-    assert AndradeExponent(g(andradAlpha=None, andradExponent=0.25)) == 0.25
-    assert AndradeExponent(g(andradAlpha=0.2, andradExponent=0.2)) == 0.2
+    from PlanetProfile.Utilities.defineStructs import GravitySubstruct
+    def g(**kw):
+        G = GravitySubstruct()
+        for k, v in kw.items():
+            setattr(G, k, v)
+        return SimpleNamespace(Gravity=G)
+    assert AndradeExponent(g()) == 0.2                         # struct defaults
+    assert AndradeExponent(g(andradExponent=0.3)) == 0.3       # PPTest47/50 path
+    assert AndradeExponent(g(andradAlpha=0.35)) == 0.35        # exploreogram sweep
+    assert AndradeExponent(g(andradAlpha=0.3, andradExponent=0.3)) == 0.3
+    assert AndradeExponent(g(andradAlpha=None, andradExponent=None)) == 0.2
     with pytest.raises(ValueError):
-        AndradeExponent(g(andradAlpha=0.2, andradExponent=0.3))
-    with pytest.raises(ValueError):
-        AndradeExponent(g(andradAlpha=None, andradExponent=None))
+        AndradeExponent(g(andradAlpha=0.25, andradExponent=0.3))
 
 
 @pytest.mark.skipif(not CACHE.exists(), reason='cache absent')

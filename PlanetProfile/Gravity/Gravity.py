@@ -431,25 +431,33 @@ def _map_rheology_to_tidalpy(rheology_structure, region_phases, alpha, zeta_spec
     return tuple(shear_models), tuple(bulk_models)
 
 
+_ANDRADE_DEFAULT_ALPHA = 0.2   # defineStructs default for both attributes
+
+
 def AndradeExponent(Planet):
     """Single Andrade exponent for both gravity backends.
 
-    ``andradAlpha`` (ALMA) and ``andradExponent`` (TidalPy) used to be read
-    independently, so the backends could silently run different alpha.
-    ``andradAlpha`` is canonical (Main.py sets it); a differing
-    ``andradExponent`` is an error, not a silent override.
+    ``andradAlpha`` (ALMA; set by the exploreogram 'AndradeAlpha' sweep) and
+    ``andradExponent`` (TidalPy; set by the PPTest4x/50 configs, also read by
+    Lateral/TidalHeating3D) used to be read independently, so the backends
+    could silently run different alpha. Both default to 0.2 in defineStructs.
+    Rule: a value that differs from the 0.2 default is an explicit setting
+    and wins; if BOTH are explicitly set to different non-default values,
+    raise (genuinely ambiguous). Defaults are kept non-None on purpose:
+    TidalHeating3D treats a non-None andradExponent as "use Andrade".
+    Limitation: an explicit setting of exactly 0.2 is indistinguishable from
+    the default, which is harmless (it equals the default).
     """
-    alpha = getattr(Planet.Gravity, 'andradAlpha', None)
-    expo = getattr(Planet.Gravity, 'andradExponent', None)
-    if alpha is None and expo is None:
-        raise ValueError('Andrade rheology requires Planet.Gravity.andradAlpha.')
-    if alpha is None:
-        return float(expo)
-    if expo is not None and not np.isclose(float(expo), float(alpha)):
+    vals = [getattr(Planet.Gravity, k, None) for k in ('andradAlpha', 'andradExponent')]
+    vals = [float(v) for v in vals if v is not None]
+    if not vals:
+        return _ANDRADE_DEFAULT_ALPHA
+    explicit = sorted({v for v in vals if not np.isclose(v, _ANDRADE_DEFAULT_ALPHA)})
+    if len(explicit) > 1:
         raise ValueError(
-            f'Planet.Gravity.andradAlpha ({alpha}) and andradExponent ({expo}) '
-            'differ; set andradAlpha only (it is used by both backends).')
-    return float(alpha)
+            f'Planet.Gravity.andradAlpha and andradExponent are both set and '
+            f'differ ({explicit}); set one (both backends use the same alpha).')
+    return explicit[0] if explicit else _ANDRADE_DEFAULT_ALPHA
 
 
 def _tidalpy_libration_m(Planet, result, r_m, rho, phases, changeIndices, omega):
