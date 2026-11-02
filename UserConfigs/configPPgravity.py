@@ -1,10 +1,15 @@
 """ Configuration settings specific to gravity response calculations and plots """
 from PlanetProfile.Utilities.defineStructs import GravityParamsStruct
 
-configGravityVersion = 4 # Integer number for config file version. Increment when new settings are added to the default config file.
+configGravityVersion = 5 # Integer number for config file version. Increment when new settings are added to the default config file.
 
 def gravityAssign():
     GravityParams = GravityParamsStruct()
+    # Backend: 'tidalpy' (default since config v5, 2026-11-01: compressible,
+    # per-layer dissipation, no ALMA ocean regularization) or 'pyalma'
+    # (DP ALMA, incompressible; reproduces pre-v5 results). TidalPy falls back
+    # to ALMA with a warning if it is not installed or its solve fails.
+    GravityParams.backend = 'tidalpy'
     # Verbose settings of PyALMA - #TODO: Need to update PYALMA to use logger
     GravityParams.verbose = True
 

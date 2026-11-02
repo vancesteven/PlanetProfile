@@ -1294,9 +1294,9 @@ class ExcitationSpectrumParamsStruct:
 """ Gravity response settings """
 class GravityParamsStruct:
     def __init__(self):
-        # Backend selection: 'pyalma' (default) or 'tidalpy'
+        # Backend selection: 'tidalpy' (default) or 'pyalma'
         # TidalPy provides per-layer tidal dissipation in addition to Love numbers
-        self.backend = 'pyalma'
+        self.backend = 'tidalpy'  # see defaultConfigGravity.py (config v5)
 
         # Verbose settings of PyALMA - #TODO: Need to update PYALMA to use logger
         self.verbose = True

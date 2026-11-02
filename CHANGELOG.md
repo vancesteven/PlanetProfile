@@ -2,6 +2,19 @@
 
 ## [Unreleased] – genai branch
 
+### Gravity: ALMA viscosity-unit fix and TidalPy as the default backend (2026-11-01) — RESULTS CHANGE
+
+**Default PlanetProfile gravity outputs change on regeneration.** Gravity files saved before this change are DP ALMA results computed with the unit defect below; they reload unchanged (and are tagged `pyalma`). New files carry a `gravity backend = …` line.
+
+- **ALMA viscosity units fixed** (`Gravity.AlmaViscosity`). `pyALMA3Updated.build_model(norm=False)` with the period in kyr needs viscosity in Pa·kyr; PlanetProfile passed Pa·s, so every Maxwell/Andrade/Kelvin/Burgers layer and the solid Newtonian clathrate was ~3×10¹⁰ times too viscous (effectively elastic). Viscoelastic and solid Newtonian layers are now converted; the liquid ocean is not (its η·s is ALMA's numerical regularization). Effect on default ALMA runs: Enceladus k₂ 0.0127 → 0.0211−0.0067i; Europa and Titan Im k₂ larger, libration 168 → 153 m and 51 → 44 m.
+- **TidalPy is the default gravity backend** (`configGravityVersion` 5). Compressible, uses PlanetProfile's VP, gives per-layer tidal heating (`Planet.Gravity.tidalpy_Htidal_perPhase_W`), and has no ALMA ocean regularization. It now also computes the Van Hoolst (2013) deformable libration from its own y₁ and Re k₂ (ocean and oceanless bodies), derives the mean motion from `Bulk.Torb_s` when `meanMotion_radps` is unset, pads one-point layers, and falls back to ALMA with a warning if TidalPy is missing or its solve fails.
+- **Expected differences, TidalPy vs the fixed ALMA**, across the default bodies (`validation_reports/gravity_backend_baseline/baseline_all_2026-11-01.json`): Re k₂ +2–8 %, h₂ +1–10 % (Callisto and Oberon differ more); Im k₂ up to ~5× smaller where ALMA's ocean regularization was adding non-physical dissipation (Europa −0.0039 → −0.0008); libration −13 % Europa, −16 % Titan, −26 % Ganymede, +70 % Callisto, within 1 % for most small icy moons.
+- **Guidance.** Quote Im k₂ and tidal heating from TidalPy. Libration for thin-shell, large-ocean bodies (Europa, Titan, Ganymede, Callisto) is a small difference of large terms and carries ~±20 % model-form uncertainty from compressibility; neither backend is a reference truth there. Set `Params.Gravity.backend = 'pyalma'` to reproduce pre-change results (now with the unit fix).
+- **User config files.** An existing `configPPgravity.py` keeps its own `backend` setting (older copies say `'pyalma'`); PlanetProfile warns that the file is an older version. Delete it or run `python -m PlanetProfile.reset` to adopt the new default.
+- **Andrade exponent.** `andradAlpha` and `andradExponent` are one setting for both backends (`Gravity.AndradeExponent`): an override of either wins; conflicting overrides raise. ALMA ignores `andrade_zeta` and now warns when it is ≠ 1.
+- **Not affected:** inference forward models, structure caches and every deployed SBI artifact already use TidalPy.
+- Reviews: Opus scientific-reviewer 2026-10-31/11-01 (ALMA defect CONFIRMED; fix GO; TidalPy default conditions B, D1–D6).
+
 ### Exploreogram GUI — secondary axis fixes + per-axis log-scale toggles (2026-06-24)
 
 #### Plotly interactive mode
