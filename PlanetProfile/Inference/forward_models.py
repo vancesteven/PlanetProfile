@@ -235,15 +235,18 @@ def apply_viscosity_params(theta_dict: Dict[str, float], structure_data: Dict[st
 @parameter_hook('log10_mu_Ih')
 def apply_shear_modulus(theta_dict: Dict[str, float], structure_data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Apply shear modulus override for Maxwell rheology.
+    Override the ice Ih shear modulus.
 
-    Typically used for Ice Ih layers in Maxwell viscoelastic model.
+    Sets the modulus ONLY. It does not choose the rheology: the rheology is
+    Andrade when an Andrade hook runs (alpha / log10_zeta*) and Maxwell
+    otherwise (the solver's default). This hook used to set
+    rheology_type = 'maxwell' unconditionally, so with Andrade parameters
+    present the result depended on hook order (dict insertion order of
+    theta): {'alpha', 'log10_mu_Ih'} ran Maxwell, {'log10_mu_Ih', 'alpha'}
+    ran Andrade (scientific-reviewer 2026-11-02, k2 campaign correction C1).
     """
     if 'log10_mu_Ih' in theta_dict:
         mu_Ih = 10 ** theta_dict['log10_mu_Ih']
-
-        # Store for Maxwell rheology setup
-        structure_data['rheology_type'] = 'maxwell'
         structure_data['mu_Ih_override'] = mu_Ih
 
         # Apply to Ice Ih layers

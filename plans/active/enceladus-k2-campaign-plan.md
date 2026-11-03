@@ -1,7 +1,9 @@
 # Enceladus k₂ campaign — plan (DRAFT, not approved)
 
-Status: `not implemented`. Drafted 2026-11-01 for user approval and
-scientific-reviewer pre-registration review. No compute has been run.
+Status: `not implemented`. Drafted 2026-11-01; **decisions D1–D6 and plan
+corrections C1–C8 APPROVED by the user 2026-11-02** (expert input: Opus
+scientific-reviewer 2026-11-02, see "Approved decisions" below). The
+pre-registration review is still required before any compute.
 
 ## Why
 
@@ -142,20 +144,67 @@ Notes:
      0.05 of pocoMC.
 6. **Scope guard** on the same pattern as the current artifact, if needed.
 
-## Open decisions for the user
+## Approved decisions (user, 2026-11-02)
 
-- **D1.** Confirm the deliverable is a forecasting model (hypothetical k₂)
-  alongside the Cassini-only slot. Alternatively, should it replace that slot?
-- **D2.** Add core shear modulus as a sampled parameter (Bagheri samples it),
-  or fix it?
-- **D3.** σ(k₂): two artifacts (X-band, Ka-band), or one artifact trained over
-  a σ range?
-- **D4.** Heating: display check only, or a conditioned observable
-  (15–40 GW)?
-- **D5.** Add h₂/l₂ as optional future observables now? Bagheri: they are the
-  discriminating channels.
-- **D6.** Andrade (Bagheri) or Maxwell? Proposed: Andrade α = 0.2, with a
-  Maxwell ablation.
+- **D1. Alongside, not replacing.** The k2 forecast model sits next to the
+  Cassini-only slot, with a "k2 not measured" (very large σ) mode. That mode
+  gives the rheology-marginalized Cassini posterior; record its difference
+  from pocoMC run (a) as the size of the frozen-rheology understatement of
+  the published zb. A material difference sends the Cassini slot back for
+  re-adjudication.
+- **D2. Sample core rigidity:** log10_mu_sil U[log10 1, log10 50] GPa
+  (Bagheri Table 2), as a nuisance. Reviewer toy model: ΔRe k2 is
+  0.0009–0.0021 over that range, ~1σ at X-band and 5–10σ at Ka-band. It is
+  expected to be prior-dominated (Bagheri p. 13), so exclude it from
+  per-parameter SBC pass/fail verdicts.
+- **D3. One artifact, σ(k2) as a conditioning input,** sampled
+  log-uniformly over a range that spans Ka-band to "not measured". Gated
+  separately at the two presets, with SBC stratified by σ. If the Ka-band
+  stratum fails, scope-bound the artifact to X-band and use pocoMC for Ka.
+- **D4. Heating is display plus a pocoMC ablation only;** never conditioned
+  together with Im k2. E = (21/2)(−Im k2)(nR)⁵e²/G ≈ 1.49e12 W × (−Im k2)
+  (checked 2026-11-02), so 15–40 GW ≡ −Im k2 0.010–0.027. A pocoMC
+  "steady-state" ablation imposes that band, because without it the shell-η
+  prior favours the elastic plateau (Im k2 ≈ 0).
+- **D5. Compute and store Re/Im h2 and l2 in every simulation row;** use
+  them in pocoMC injections. Conditioning the SBI on them is a follow-on
+  artifact (lateral heterogeneity, Bagheri §5.4, is out of scope). Needs
+  wiring: forward_model_k2_flexible returns no l2 today.
+- **D6. Andrade, alpha sampled U[0.15, 0.35],** log10_zeta = 0 (Bagheri's
+  β = μ^(α−1)/η^α; the reviewer showed TidalPy Andrade(α, 1) matches it to
+  machine precision). Maxwell is a pocoMC ablation only.
+
+## Approved plan corrections (user, 2026-11-02)
+
+- **C1. Rheology-selection bug (CRITICAL, verified).** The log10_mu_Ih hook
+  (`forward_models.py:246`) unconditionally sets rheology_type = 'maxwell',
+  so with Andrade the result depends on hook order. Fix it with a test
+  before any cache or training work.
+- **C2. 1σ, not 2σ.** Bagheri's expected uncertainties are 2σ (Table 3 note,
+  p. 13, verified). Use 1σ(k2) = 0.001 (X-band) and 0.0001 (Ka-band); lag
+  2° (0.2°).
+- **C3. Shell-η prior U[12, 20].** Bagheri's discriminating analysis uses
+  η_shell > 1e12 (p. 10); k2 is flat above ~1e17. Core η stays U[9, 22]
+  (Bagheri uses > 1e11 for discrimination; record why if widened).
+- **C4. Default hypothetical x_obs:** Bagheri Table 3 favoured values as
+  two labelled presets: core-dissipative |k2| 0.024 at 39°, and
+  shell-dissipative 0.032 at 29°. Not a prior-dependent predictive median.
+- **C5. Observable −Im k2 (signed), not |Im k2|.** A sign-violating
+  simulation is flagged, not folded. Document the (|k2|, lag) ↔
+  (Re, −Im) mapping.
+- **C6. Deformable libration uses only Re(y1).** Validate it, or restrict
+  it, where the lag is large (Andrade η ≲ 1e14, lag 23–47°).
+- **C7. Gate P1b:** after the K_int repair, the deformable branch in the
+  elastic limit (η → ∞) reproduces the frozen Cassini libration. Gate P3 is
+  already met (TidalPy Andrade at ζ = 1). P4 uses Bagheri's Fig. 2
+  fixed-parameter case rather than the broad Table 3 ranges.
+- **C8. Assumption change, recorded:** sampling μ_Ih U[2, 4] GPa overrides
+  PP's EOS ice rigidity (3.5–4.7 GPa at the as-built nodes). That also
+  affects the Cassini channels via the deformable libration.
+
+The parameter table above is superseded where it conflicts: shell η
+U[12, 20] (C3), alpha sampled (D6), core rigidity sampled (D2), σ(k2) as a
+conditioning input (D3).
 
 ## Order of work
 
@@ -163,6 +212,7 @@ Notes:
 2. K_int repair, as its own reviewed change (it moves the Cassini-only
    libration channel too; that has to be re-evaluated and recorded).
 3. Gates P1–P4.
-4. User decisions D1–D6, then the reviewer pre-registers.
+4. ~~User decisions D1–D6~~ (approved 2026-11-02); C1 fix first, then
+   the reviewer pre-registers.
 5. pocoMC references, pushforward and injections.
 6. SBI training, gates, GUI slot and deploy.
