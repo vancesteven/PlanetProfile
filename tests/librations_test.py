@@ -210,7 +210,12 @@ def test_adjudicated_rigid_elastic_discrepancy_is_pinned():
 
 @pytest.mark.xfail(
     strict=True,
-    reason="rigid K_int normalization bug; update the discrepancy pin with its fix",
+    reason=("rigid K_int normalization bug. The repair exists opt-in as "
+            "librations(formulation='vh2008_repaired') "
+            "(tests/librations_repair_test.py); this tripwire flips only at "
+            "the switch-over commit, which must also replace the 1.008196 "
+            "pin (-> 0.973798), void the +0.8 % multiplicative_factor and "
+            "re-derive libration_sys_frac and the C2 bracket"),
 )
 def test_elasticity_has_the_vh16_physical_direction():
     """Elasticity should reduce libration once the rigid branch is repaired."""

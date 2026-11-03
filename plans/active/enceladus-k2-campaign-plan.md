@@ -194,8 +194,16 @@ Notes:
   (Re, −Im) mapping.
 - **C6. Deformable libration uses only Re(y1).** Validate it, or restrict
   it, where the lag is large (Andrade η ≲ 1e14, lag 23–47°).
-- **C7. Gate P1b:** after the K_int repair, the deformable branch in the
-  elastic limit (η → ∞) reproduces the frozen Cassini libration. Gate P3 is
+- **C7. Gate P1b (reworded 2026-11-03 per the binding K_int review):**
+  the deformable branch in the stiff-elastic limit reproduces the
+  *repaired rigid* libration (`formulation='vh2008_repaired'`; measured
+  3e-6 at μ × 1e4, `tests/librations_repair_test.py`). It does NOT
+  reproduce the frozen Cassini libration, which is shipped rigid × 1.008.
+  Before the deformable branch can carry the Cassini channel, either port
+  the Δρ-consistent H22/C2 figure treatment into it (it raises
+  NotImplementedError today) or rule that repaired rigid (H22/C2) × the
+  per-node hydrostatic elastic factor is acceptable, with its
+  separability error budgeted. Gate P3 is
   already met (TidalPy Andrade at ζ = 1). P4 uses Bagheri's Fig. 2
   fixed-parameter case rather than the broad Table 3 ranges.
 - **C8. Assumption change, recorded:** sampling μ_Ih U[2, 4] GPa overrides

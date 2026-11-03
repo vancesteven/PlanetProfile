@@ -109,8 +109,50 @@ def moi_ellps(a, b, c, rho):
 
 def librations(radial, rho, omega, ecc, rigid=True, ocean=True,
                        ocean_idx=1, y1=None, rek2=None, H22_obs_m=None,
-                       compensation_C2=None):
+                       compensation_C2=None, formulation='vh2008_shipped'):
     """Compute the forced libration amplitude (metres, at the surface).
+
+    Rigid-ocean coefficient formulation (``formulation``)
+    ------------------------------------------------------
+    Applies ONLY to the ``ocean=True, rigid=True`` (Van Hoolst et al. 2008)
+    branch; every other branch ignores it.
+
+    ``'vh2008_shipped'`` (default) is the historical coefficient set, kept
+    byte-identical so that the frozen Cassini campaign (which carries a
+    deterministic +0.8 % correction for exactly this defect) and every
+    deployed artifact are unchanged:
+
+    * K_int = (4 pi G / 5) [rho_s beta_s + (rho_o - rho_s) beta_o]
+      (rho_c - rho_o) beta_c r_c^5 -- VH08 Eq. (16) WITHOUT its 8 pi / 15
+      factor (the region-1 moment difference, VH08 Eqs. 13-15, is
+      (8 pi / 15)(rho_c - rho_o) beta_c r_c^5, not (rho_c - rho_o) beta_c
+      r_c^5);
+    * ocean-pressure figure moments linearized, VH08 Eq. (14)/(54):
+      (B - A)_p = (8 pi / 15) rho_o beta r^5, while the solid moments come
+      from the exact Tricarico ellipsoids in ``moi_ellps``. The linear form
+      is correct only to leading order in the flattening; its relative
+      error is itself O(flattening) (a^2/r^2 and beta vs e_q^2/2 terms,
+      with r the volume-equivalent radius), which at Enceladus's ~2 %
+      flattening makes it 1.8-1.9 % low. Mixing it with the exact solid
+      moments means the -rho_ice f_base (inside Bs - As) and
+      +rho_ocean f_base (pressure) halves of the base interface no longer
+      combine to the Delta_rho weight of H&M Eq. 19.
+
+    ``'vh2008_repaired'`` uses the same equations of motion (VH08 Eqs.
+    23-24) with consistent coefficients:
+
+    * (B - A)_p = rho_o f(r), f = (4 pi / 15) a b c (a^2 - b^2), the exact
+      moment of the ocean-density ellipsoid bounded by that interface, i.e.
+      the same expression ``moi_ellps`` uses for the solid layers;
+    * K_int = (4 pi G / 5) [rho_o beta_o + sum_shell rho_j (beta_top -
+      beta_bot)] [(Bc - Ac) - (Bi - Ai)_p], VH08 Eq. (9)/(16) and
+      VH13 Eq. (37) with the exact region-1 moment difference.
+
+    With these coefficients the rigid branch is the y1 -> 0 (rigid) limit
+    of the Van Hoolst et al. (2013) deformable branch (``rigid=False``)
+    to machine precision, which is the consistency the shipped coefficients
+    lacked. The H22_obs_m / compensation_C2 figure treatment composes with
+    either formulation; in both, K_int keeps the HYDROSTATIC figure.
 
     Figure convention (ocean=True, rigid=True branch only)
     -------------------------------------------------------
@@ -157,10 +199,14 @@ def librations(radial, rho, omega, ecc, rigid=True, ocean=True,
     Scope, stated precisely: the surface and the shell base are the two
     interfaces the treatment touches. Deep-interior interfaces (below the
     ocean) stay hydrostatic, as do any interior interfaces WITHIN a
-    multi-layer shell. K_int is deliberately untouched: it carries the
-    separately-adjudicated 8*pi/15 normalization defect whose repair is a
-    post-campaign task that must not land piecemeal (see the strict-xfail
-    tripwire in tests/librations_test.py).
+    multi-layer shell. K_int is deliberately untouched by the figure
+    treatment (it stays hydrostatic). Under the default
+    ``formulation='vh2008_shipped'`` it also carries the adjudicated
+    8*pi/15 normalization defect; the repair is available only as the
+    opt-in ``formulation='vh2008_repaired'``, which repairs K_int AND the
+    linearized pressure figure moments together (they must not land
+    piecemeal; see tests/librations_test.py and
+    tests/librations_repair_test.py).
 
     At the Enceladus fiducial (zb = 25 km, D_ocean = 36 km,
     rho_ocean = 1005, H22_obs = 857 m) the treatment spans +3.25 sigma_obs
@@ -184,6 +230,10 @@ def librations(radial, rho, omega, ecc, rigid=True, ocean=True,
         its hydrostatic figure, which is the surface-only treatment and is
         the exact C2 -> 0 limit of the Eq.-12 treatment.
     """
+    if formulation not in ('vh2008_shipped', 'vh2008_repaired'):
+        raise ValueError(
+            "formulation must be 'vh2008_shipped' or 'vh2008_repaired'; got %r"
+            % (formulation,))
     figure_option_used = H22_obs_m is not None or compensation_C2 is not None
     if figure_option_used and not (ocean and rigid):
         raise NotImplementedError(
@@ -278,8 +328,19 @@ def librations(radial, rho, omega, ecc, rigid=True, ocean=True,
             beta = (a - b) / a
 
             # Effects of ocean pressure
-            Bip_Aip = 8/15*np.pi * rho[ocean_idx] * beta[0] * radial[0]**5
-            Bsp_Asp = 8/15*np.pi * rho[ocean_idx] * beta[ocean_idx] * radial[ocean_idx]**5
+            if formulation == 'vh2008_shipped':
+                # Linearized VH08 Eq. (14)/(54) figure moments (historical).
+                Bip_Aip = 8/15*np.pi * rho[ocean_idx] * beta[0] * radial[0]**5
+                Bsp_Asp = 8/15*np.pi * rho[ocean_idx] * beta[ocean_idx] * radial[ocean_idx]**5
+            else:
+                # Repaired: the ocean-density "pressure" ellipsoids use the
+                # SAME exact Tricarico-ellipsoid moment as moi_ellps, so that
+                # they cancel the -rho_ice*f_base (shell) and +rho_core*f_core
+                # (interior) halves of (Bs - As) and (Bc - Ac) exactly and the
+                # net interface weight is the density contrast (H&M Eq. 19).
+                f_fig_exact = 4/15*np.pi * a * b * c * (a**2 - b**2)
+                Bip_Aip = rho[ocean_idx] * f_fig_exact[ocean_idx-1]
+                Bsp_Asp = rho[ocean_idx] * f_fig_exact[ocean_idx]
 
             # Compute torques separately acting on outer shell and interior
             if H22_obs_m is None:
@@ -341,8 +402,23 @@ def librations(radial, rho, omega, ecc, rigid=True, ocean=True,
             Kc = 3 * omega**2 * ((Bc - Ac) - Bip_Aip)
 
             # Gravitational coupling torque
-            K_int = 4*np.pi*G/5 * (rho[-1] * beta[-1] + (rho[1] - rho[-1]) * beta[1]) \
-                    *((rho[0] - rho[1]) * beta[0] * radial[0] ** 5)
+            if formulation == 'vh2008_shipped':
+                # Historical: VH08 Eq. (16) WITHOUT its 8*pi/15 factor.
+                K_int = 4*np.pi*G/5 * (rho[-1] * beta[-1] + (rho[1] - rho[-1]) * beta[1]) \
+                        *((rho[0] - rho[1]) * beta[0] * radial[0] ** 5)
+            else:
+                # Repaired: VH08 Eq. (9)/(16) == VH13 Eq. (37),
+                #   K = (4 pi G / 5) * [int_region2 rho dbeta/dr dr]
+                #                    * [(Bi - Ai) + (B1 - A1)],
+                # with the region-1 moment difference written with the same
+                # exact moments as Kc (VH08 Eqs. 13-15 give 8pi/15 * ... in
+                # the linearized form; the shipped code dropped that factor).
+                # The outer integral (VH08 Eq. 12) is summed over the ocean
+                # top and every shell interface: rho_o*beta_o +
+                # sum_j rho_j*(beta_top_j - beta_bot_j).
+                outer = rho[ocean_idx] * beta[ocean_idx] + np.sum(
+                    rho[ocean_idx+1:] * (beta[ocean_idx+1:] - beta[ocean_idx:-1]))
+                K_int = 4*np.pi*G/5 * outer * ((Bc - Ac) - Bip_Aip)
 
             # Frequencies of shell and core
             sigma_s = np.sqrt(Ks / Cs)
