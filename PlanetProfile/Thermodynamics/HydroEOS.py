@@ -1183,18 +1183,25 @@ class SFphase:
             return sfPTmGrid(Pin, Tin, self.m_molal)
 
     def __call__(self, P_MPa, T_K, grid=False):
+        # Scalar in -> scalar out, matching the lookup-table phase finder
+        # (Nearest2DInterpolator). Root finders (GetPfreeze -> brentq) call
+        # this with scalar P and multiply two results; a 1-element array
+        # there raised "only 0-dimensional arrays can be converted to Python
+        # scalars" in phaseType='calc' runs (e.g. default Ganymede).
+        SCALAR = (not grid) and np.ndim(P_MPa) == 0 and np.ndim(T_K) == 0
         if self.comp == 'water1':
             if grid:
                 PT = sfPTgrid(P_MPa, T_K)
             else:
                 PT = self.PTpairs(P_MPa, T_K)
-            return WhichPhase(PT).astype(np.int8)
+            out = WhichPhase(PT).astype(np.int8)
         else:
             if grid:
                 PTm = sfPTmGrid(P_MPa, T_K, self.m_molal)
             else:
                 PTm = self.PTmTrips(P_MPa, T_K)
-            return WhichPhase(PTm, solute=self.comp).astype(np.int8)
+            out = WhichPhase(PTm, solute=self.comp).astype(np.int8)
+        return out.reshape(()) if SCALAR else out
         
 
 class SFSeismic:
