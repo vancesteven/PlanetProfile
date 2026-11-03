@@ -52,11 +52,20 @@ found by ad-hoc investigation or by a reviewer agent:
     `BuildTest.py` is outside `Test/`; fixing it is the user's call.
 - ✔ **Testing tools absent from PPcl:** hypothesis, pytest-xdist,
   pytest-cov, mutmut, pint. Playwright lives in a separate venv.
-- ✔ **Full-suite baseline (PPcl, this Mac).** The first run stopped at its
-  first failure after 360 tests in 14.7 min. The slowest tests are two
-  Enceladus cache-build smokes (216 s and 152 s) and the CoolProp NH3 tests
-  (114 s and 52 s). A complete run without `-x` is in progress; its result
-  will be appended here.
+- ✔ **Full-suite baseline (PPcl, this Mac, 2026-11-02).**
+  - `pytest tests` gives **488 passed, 2 failed, 2 xfailed** in 9.3 min,
+    excluding the two Enceladus cache-build smokes (216 s and 152 s), which
+    passed in the earlier run.
+  - The two failures are both in `mccleskey_speciation_test.py`
+    (`KeyError 'ReaktoroDatabases'`) and are pre-existing: they also fail at
+    5853ef25.
+  - No skips on this Mac, because all the data is local. That is exactly
+    the case that hides the silent-skip risk.
+  - Slowest tests besides the cache smokes: CoolProp NH3 (114 s, 52 s) and
+    the GUI AppTests (15–36 s each).
+  - A PR tier under 10 min therefore needs the cache smokes, the NH3
+    end-to-end tests and the AppTests moved to nightly, or run in
+    parallel.
 
 ## Test taxonomy
 
