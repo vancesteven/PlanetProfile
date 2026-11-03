@@ -51,6 +51,15 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-timeout
           pip install -e . --no-deps
+      # Perple_X rock/core EOS tables (~164 MB) are downloaded into the user
+      # cache by PlanetProfile.install; cache them across runs.
+      - name: Cache Perple_X tables
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/PlanetProfile/Perple_X
+          key: perplex-v1-${{ hashFiles('PlanetProfile/install.py') }}
+      - name: Fetch Perple_X tables
+        run: python -c "from PlanetProfile.install import DownloadPerplexFiles; DownloadPerplexFiles()"
       - name: Compile check
         run: python -m compileall -q PlanetProfile PlanetProfileApp
       - name: Fast tests

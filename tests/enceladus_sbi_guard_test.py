@@ -15,19 +15,14 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
-# The production cache and the artifact are committed (repo paths). Only the
-# held-out thin shard lives outside the repo: set PP_SCRATCH (or
-# PP_DATA_ROOT) to the directory holding enc_sbi/. The fallback uses the
-# account's real home, not $HOME, because local runs override HOME
-# (HOME=~/scratch/pphome) to isolate TidalPy's config.
-import pwd  # noqa: E402
-SCR = Path(os.environ.get('PP_SCRATCH') or os.environ.get('PP_DATA_ROOT')
-           or (Path(pwd.getpwuid(os.getuid()).pw_dir) / 'scratch'))
+# All three inputs are committed. The thin shard is the held-out
+# thin-shell set the guard must refuse (81 kB, copied from the SBI build's
+# enc_sbi/thin_shard_00.npz, sha256 recorded in tests/data/enceladus_sbi/).
 CACHE = REPO / ('PlanetProfile/Test/mcmc_results/Enceladus/Cassini_isostasy/'
                 'enceladus_seawater_zbw_grid_2d.pkl')
 ART = (REPO / 'PlanetProfile/Inference/sbi_artifacts/'
        'enceladus_ocean6D_rhorock_posterior_1m.pt')
-THIN = SCR / 'enc_sbi' / 'thin_shard_00.npz'
+THIN = REPO / 'tests/data/enceladus_sbi/thin_shard_00.npz'
 CFG = REPO / 'PlanetProfile/Inference/configs/enceladus_cassini_isostasy_ocean6D_rhorock.json'
 
 pytestmark = pytest.mark.skipif(

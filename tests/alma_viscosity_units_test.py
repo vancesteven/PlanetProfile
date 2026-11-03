@@ -87,7 +87,13 @@ def test_unconverted_path_reproduces_the_defect(node):
     """Guards the diagnosis: without conversion k2 is eta-invariant."""
     a = _alma_k2(node, 1e13, convert=False)
     b = _alma_k2(node, 1e20, convert=False)
-    assert a == pytest.approx(b, rel=1e-6)
+    # Re k2 is eta-invariant to <1e-9 on any platform. Im k2 is ~3e-5 here
+    # and dominated by ALMA's ocean regularization, which differs by ~6e-4
+    # relative between macOS and Linux (CI 2026-11-03), so compare it
+    # absolutely: the converted path moves Im k2 by ~8e-2 at 1e13 Pa s, four
+    # orders of magnitude above this tolerance.
+    assert a.real == pytest.approx(b.real, rel=1e-6)
+    assert a.imag == pytest.approx(b.imag, abs=1e-7)
 
 
 def test_stiff_maxwell_equals_elastic(node):
