@@ -386,6 +386,14 @@ tests/
     deferred NH3, and 2 Reaktoro (conda-only, so absent from
     requirements.txt). The Reaktoro tests are covered by the nightly
     `pp-mac` tier.
+- **Self-hosted full tier: `verified` (2026-11-03).** Runner `pp-mac`
+  registered on the reference Mac (launchd service, `PP_CONDA_PYTHON` set);
+  fork-PR workflow approval set to all external contributors. Dispatch run
+  41715713814: full 585 passed, 8 skipped, 2 xfailed in 17 min; fast tier
+  also green. Skips: 1 deferred NH3, 7 in `test_grid_interp_2d.py` that
+  hard-code `/tmp/v3_test_3x4.pkl`, a scratch fixture whose builder no
+  longer exists, so they never run anywhere. Phase 1: commit a small
+  fixture (or a builder) and route it through `data_asset`.
 - **Previously noted as not yet verified on GitHub** (resolved by the run
   above): The fast tier has not run on a hosted
   runner. Expect missing-dependency fixes on first run (requirements.txt
