@@ -3464,7 +3464,7 @@ class EOSlistStruct:
         pass
     loaded = {}  # Dict listing the loaded EOSs. Since we define this attribute outside of __init__, it will be common to all EOSlist structs when set.
     loaded['CustomSolutionEOS'] = {} # Dict listing the loaded EOSs for CustomSolution. We separate these EOS to save them all to disk at end
-    loaded['ReaktoroDatabases'] = {'Supcrt': None, 'Phreeqc': None, 'SupcrtAqueousLookupFormula': None, 'SupcrtAqueousLookupName': None, 'PhreeqcSpeciesNames': None} # Dict listing the loaded Reaktoro databases (speeds up SetupInit since loading Reaktoro databases is slow)
+    loaded['ReaktoroDatabases'] = {'Supcrt': None, 'Phreeqc': None, 'SupcrtAqueousLookupByFormula': None, 'SupcrtAqueousLookupByName': None, 'PhreeqcSpeciesNames': None} # Dict listing the loaded Reaktoro databases (speeds up SetupInit since loading Reaktoro databases is slow)
     ranges = {}  # Dict listing the P, T ranges of the loaded EOSs.
 
 """ Global timing object"""

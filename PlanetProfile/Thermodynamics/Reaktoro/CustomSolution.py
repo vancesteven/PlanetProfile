@@ -1,7 +1,7 @@
 """ File for functions relevant to Custom Solution implementation into PlanetProfile"""
 from PlanetProfile.GetConfig import Color, Style, FigMisc
 from PlanetProfile.Utilities.defineStructs import EOSlist
-from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import MolalConverter, wpptCalculator, SpeciesParser, EOSLookupTableLoader, SetupReaktoroDatabases
+from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import MolalConverter, wpptCalculator, SpeciesParser, EOSLookupTableLoader, ReaktoroDatabases
 import numpy as np
 import logging
 import re
@@ -24,8 +24,7 @@ def SetupCustomSolution(Planet, Params):
             Planet.Do.USE_WOCEAN_PPT = False
             Planet.Ocean.wOcean_ppt = wpptCalculator(Planet.Ocean.comp.split('=')[1].strip())
         # Setup reaktoro databases
-        if not EOSlist.loaded['ReaktoroDatabases'] or EOSlist.loaded['ReaktoroDatabases']['Supcrt'] is None or EOSlist.loaded['ReaktoroDatabases']['Phreeqc'] is None:
-            EOSlist.loaded['ReaktoroDatabases'] = SetupReaktoroDatabases()
+        ReaktoroDatabases()
         if not Params.PRELOAD_EOS_IN_PROGRESS:
             if not Params.SKIP_PLOTS:
                 Params = SetupCustomSolutionPlotSettings(np.array(Planet.Ocean.comp), Params)
