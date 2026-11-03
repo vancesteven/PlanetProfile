@@ -375,7 +375,19 @@ tests/
 - **Local results.**
   - Full suite from root: 560 passed, 8 skipped, 0 failed (9.4 min).
   - Fast tier with the CI flags: **525 passed, 0 failed, 2.8 min**.
-- **Not yet verified on GitHub.** The fast tier has not run on a hosted
+- **GitHub-hosted fast tier: `verified` 2026-11-03.**
+  - Run 41689437340: **523 passed, 0 failed, 4.7 min**.
+  - The first run (41687173631) failed only on CI-environment gaps, all now
+    fixed: Perple_X tables not downloaded; the SBI guard's thin shard
+    scratch-only (now committed under `tests/data/enceladus_sbi/`); and an
+    ALMA Im k2 check too strict across platforms. `--require-data` caught
+    the shard, as designed.
+  - The 10 hosted skips are all non-data reasons: 7 grid fixtures, 1
+    deferred NH3, and 2 Reaktoro (conda-only, so absent from
+    requirements.txt). The Reaktoro tests are covered by the nightly
+    `pp-mac` tier.
+- **Previously noted as not yet verified on GitHub** (resolved by the run
+  above): The fast tier has not run on a hosted
   runner. Expect missing-dependency fixes on first run (requirements.txt
   omits reaktoro, which is conda-only; those tests use `importorskip`). The
   `pp-mac` runner needs registering by the user. The 8 Inference skips have
