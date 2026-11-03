@@ -84,8 +84,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Full suite (PPcl env)
         run: |
+          # Fresh HOME so user configs cannot leak into tests, but keep the
+          # machine's PlanetProfile cache (Perple_X, RefProfiles), which
+          # platformdirs resolves under HOME.
+          REAL_CACHE="$HOME/Library/Caches/PlanetProfile"
           export HOME="$RUNNER_TEMP/pphome"
-          mkdir -p "$HOME"
+          mkdir -p "$HOME/Library/Caches"
+          ln -sfn "$REAL_CACHE" "$HOME/Library/Caches/PlanetProfile"
           "$PP_CONDA_PYTHON" -m pytest --require-data --timeout=3600 \
             --junitxml=pytest-full.xml
       - name: Upload test report
