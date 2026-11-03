@@ -1,0 +1,87 @@
+name: Tests
+
+# Testing-architecture plan (plans/active/testing-architecture-plan.md).
+#
+# Tier "fast" runs on every push and pull request on GitHub-hosted Linux,
+# from requirements.txt (the only cross-platform dependency spec; the conda
+# environment.yml is a macOS export). It runs the suite minus slow, GUI and
+# statistical tests, with --require-data so that a missing data asset FAILS
+# instead of skipping.
+#
+# Tier "full" runs nightly and on demand on the self-hosted Mac runner
+# (label pp-mac), which has the PPcl conda env, the Perple_X tables and the
+# large caches. The repo is PUBLIC: self-hosted jobs must never run code from
+# a fork, so the full tier is limited to `schedule` and `workflow_dispatch`
+# events, which only run on this repository's own branches. Do not add
+# `pull_request` to that job.
+
+on:
+  push:
+    branches: [main, genai]
+  pull_request:
+    branches: [main, genai]
+  schedule:
+    - cron: '17 7 * * *'   # nightly full tier, 07:17 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MPLBACKEND: Agg
+      OMP_NUM_THREADS: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-timeout
+          pip install -e . --no-deps
+      - name: Compile check
+        run: python -m compileall -q PlanetProfile PlanetProfileApp
+      - name: Fast tests
+        run: >
+          pytest -m "not slow and not gui and not statistical"
+          --require-data --timeout=900
+          --junitxml=pytest-fast.xml
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-fast
+          path: pytest-fast.xml
+
+  full:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, macOS, pp-mac]
+    timeout-minutes: 240
+    env:
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+      - name: Full suite (PPcl env)
+        run: |
+          export HOME="$RUNNER_TEMP/pphome"
+          mkdir -p "$HOME"
+          "$PP_CONDA_PYTHON" -m pytest --require-data --timeout=3600 \
+            --junitxml=pytest-full.xml
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-full
+          path: pytest-full.xml

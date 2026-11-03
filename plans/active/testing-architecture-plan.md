@@ -1,6 +1,6 @@
 # PlanetProfile testing architecture — plan (DRAFT for user approval)
 
-Status: `not implemented`. Drafted 2026-11-02 from a repo survey plus an
+Status: **Phase 0 `verified` 2026-11-03** (approved T1–T5 by the user); Phases 1–3 `not implemented`. Drafted 2026-11-02 from a repo survey plus an
 independent design by an Opus architect agent; every factual claim below
 was re-checked against the repo by the manager (marked ✔).
 
@@ -336,3 +336,48 @@ tests/
   lives (Zenodo, an HF dataset repo, S3) as caches leave git.
 - **T5.** Ratify the starting tolerance table above, or ask the scientific
   reviewer to propose per-quantity values.
+
+## Phase 0 — done (2026-11-03)
+
+- **Collection.** `pytest` from the repo root collects 578 tests: `testpaths`
+  covers `tests` and `PlanetProfile/Inference/tests`. Added `-ra` and
+  `--strict-markers`, and registered the markers `slow`, `gui`, `data` and
+  `statistical`.
+- **`tests/conftest.py`.**
+  - Pins BLAS/OpenMP threads.
+  - Adds `--require-data`. A skip whose reason says "absent"/"not
+    present"/"not found" becomes a failure, and a terminal summary table
+    lists data skips. Probed in both modes.
+  - Adds the `data_asset` fixture, with an optional sha256 check.
+  - Auto-marks `gui` (AppTest modules) and `slow` (the measured slow tests).
+    Tiers: 535 fast, 36 gui, 7 slow.
+- **Found and fixed.** A bare `test_*.py` in `.gitignore` had kept 5
+  Inference test files out of git; `pytest tests` never collected the
+  directory at all. 16 of its tests were failing silently because their
+  hand-written runner stubs had fallen behind `MCMCRunner`.
+  `PlanetProfile/Inference/tests/runner_stub.py` now binds every private
+  method reachable from the likelihood (discovered from the source) plus
+  `__init__`'s literal state defaults, so the stubs cannot go stale. Result:
+  73 passed, 8 skipped. The ignore rule is now scoped to `/test_*.py`
+  (root-level ad-hoc scripts only).
+- **Hard-coded path.** `enceladus_sbi_guard_test.py` no longer defaults to
+  `/Users/svance/scratch`: it uses the committed cache and artifact, and the
+  real home for scratch.
+- **`BuildTest.full()`** runs bodies by name (`ListTestBodies`), including the
+  four suffixed variants, and no longer imports the nonexistent
+  PPTest51–54. Covered by `tests/buildtest_discovery_test.py` (3 tests).
+- **CI.** `.github/workflows/tests.yml`:
+  - The fast tier runs on push/PR on ubuntu from `requirements.txt` with
+    `--require-data`.
+  - The full tier runs nightly or on demand on a self-hosted `pp-mac` runner,
+    restricted to `schedule` and `workflow_dispatch` because the repo is
+    public.
+- **Local results.**
+  - Full suite from root: 560 passed, 8 skipped, 0 failed (9.4 min).
+  - Fast tier with the CI flags: **525 passed, 0 failed, 2.8 min**.
+- **Not yet verified on GitHub.** The fast tier has not run on a hosted
+  runner. Expect missing-dependency fixes on first run (requirements.txt
+  omits reaktoro, which is conda-only; those tests use `importorskip`). The
+  `pp-mac` runner needs registering by the user. The 8 Inference skips have
+  non-data reasons (fixture-specific), so `--require-data` does not fail
+  them; give them `data_asset` in Phase 1.

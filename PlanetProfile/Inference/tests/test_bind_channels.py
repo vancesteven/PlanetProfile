@@ -23,6 +23,7 @@ import numpy as np
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # runner_stub
 
 from PlanetProfile.Inference.mcmc_runner import (
     MCMCRunner,
@@ -75,28 +76,11 @@ def _make_bind_ll(observables, ae_grid_cache, be_excitation, structure_data,
     self._ae_grid_cache (Tb-index -> {label: complex Ae}), self._be_excitation
     ({label: {'x'/'y'/'z': complex Be}}), and a grid structure_data.
     """
-    class _Stub:
-        pass
-
-    stub = _Stub()
-    stub.param_names = list(param_names)
-    stub.param_groups = {}
-    stub.fixed_params = {}
-    stub.config = _StubConfig()
-    # v5 reparam: the theta-expansion calls _inject_derived_Tb; these stubs
-    # sample Tb_K directly, so bind the real method with the D_iceIh flag off
-    # (it early-returns, a no-op for Tb-sampled configs).
-    stub._samples_D_iceIh = False
-    stub._inject_derived_Tb = MCMCRunner._inject_derived_Tb.__get__(stub, MCMCRunner)
-    stub._gravity_clairaut_active = MCMCRunner._gravity_clairaut_active.__get__(stub, MCMCRunner)
-    stub._ae_grid_cache = ae_grid_cache
-    stub._be_excitation = be_excitation
-    # The induction Ae lookup lives in MCMCRunner._blended_ae_dict (shared by
-    # the likelihood and the SBI support guard; nearest-Tb for 1D caches,
-    # bilinear (Tb, log w) for 2D v3.0 caches). Bind the real method + the
-    # structure_data it reads so the stub exercises the production lookup.
-    stub.structure_data = structure_data
-    stub._blended_ae_dict = MCMCRunner._blended_ae_dict.__get__(stub, MCMCRunner)
+    from runner_stub import runner_stub
+    stub = runner_stub(_StubConfig(), param_names=list(param_names),
+                       _ae_grid_cache=ae_grid_cache,
+                       _be_excitation=be_excitation,
+                       structure_data=structure_data)
     return MCMCRunner._make_flexible_log_likelihood(stub, observables, structure_data)
 
 
@@ -351,25 +335,12 @@ def _make_bound_ll(induction_bounds, ae_by_label, tb_grid=(266.0,),
     draw yields ll == 0 and a bound-violating draw yields -1e30. This isolates
     the support cut from any residual term.
     """
-    class _Stub:
-        pass
-    stub = _Stub()
-    stub.param_names = ['Tb_K']
-    stub.param_groups = {}
-    stub.fixed_params = {}
-    stub.config = _StubConfig(induction_bounds=induction_bounds)
-    stub._samples_D_iceIh = False
-    stub._inject_derived_Tb = MCMCRunner._inject_derived_Tb.__get__(stub, MCMCRunner)
-    # Clairaut gravity is inactive for this stub config -> real predicate
-    # returns False, so the k2/gravity block is skipped and the closure reaches
-    # the induction support cut we are exercising.
-    stub._gravity_clairaut_active = MCMCRunner._gravity_clairaut_active.__get__(stub, MCMCRunner)
+    from runner_stub import runner_stub
     # One Ae dict, reused at every (single) grid node.
     ae_grid = {i: dict(ae_by_label) for i in range(len(tb_grid))}
-    stub._ae_grid_cache = ae_grid
-    stub._be_excitation = {}
-    stub.structure_data = _grid_sd(tb_grid)
-    stub._blended_ae_dict = MCMCRunner._blended_ae_dict.__get__(stub, MCMCRunner)
+    stub = runner_stub(_StubConfig(induction_bounds=induction_bounds),
+                       param_names=['Tb_K'], _ae_grid_cache=ae_grid,
+                       _be_excitation={}, structure_data=_grid_sd(tb_grid))
     ll = MCMCRunner._make_flexible_log_likelihood(
         stub, observables or {}, stub.structure_data)
     return ll

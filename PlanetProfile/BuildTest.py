@@ -40,10 +40,13 @@ def full(iTestStart=2, skipType=None):
     Params = setFullSettings(Params)
     
 
-    # Get total number of test files to run
-    fList = fnmatch.filter(os.listdir(_Test), 'PPTest*')
-    fList = [fName for fName in fList if 'Induct' not in fName and 'Bayes' not in fName and 'Explore' not in fName]
-    nTests = np.size(fList)
+    # Test bodies to run, by NAME. The old code counted every PPTest* file
+    # (54, including suffixed variants such as PPTest3NoClath) and then
+    # imported PPTest2..PPTest{count}, so it requested PPTest51-54, which do
+    # not exist, and never ran the suffixed variants. Run every body module
+    # that exists instead: numbered bodies in numeric order, then suffixed
+    # variants. PPTest1 is run first separately because it is reused below.
+    testNames = ListTestBodies()
     # Create list for tracking outputs
     TestPlanets = np.empty(0, dtype=object)
     # Record start time and create t record array
@@ -59,15 +62,18 @@ def full(iTestStart=2, skipType=None):
         iTestStart = 2
 
     if skipType is None:
-        for i in range(iTestStart, nTests+1):
-            testPlanetN = importlib.import_module(f'{testBase}{i}').Planet
-            log.info(f'Test case body: {testBase}{i}')
+        for name in testNames:
+            num = _TestNumber(name)
+            if name == 'PPTest1' or (num is not None and num < iTestStart):
+                continue
+            testPlanetN = importlib.import_module(f'{_TestImport}.{name}').Planet
+            log.info(f'Test case body: {_TestImport}.{name}')
             try:
                 TestPlanets = np.append(TestPlanets, PlanetProfile(testPlanetN, Params)[0])
                 tMarks = np.append(tMarks, time.time())
             except Exception as e:
-                log.error(f"Error running PlanetProfile for test {i}: {e}")
-                print(f"Error in test {i}: {e}")
+                log.error(f"Error running PlanetProfile for test {name}: {e}")
+                print(f"Error in test {name}: {e}")
                 raise  # Stop execution on error
 
             # Verify that we can reload things as needed in each case
@@ -338,6 +344,32 @@ def TestExploreOgram(testNum, Params, CALC_NEW=True):
     Exploration.saveLabel = f'{Params.Explore.xName} x {Params.Explore.yName} explore-o-gram{end}'
 
     return Exploration
+
+
+_TEST_EXCLUDE = ('Induct', 'Bayes', 'Explore')
+
+
+def _TestNumber(name):
+    """Leading test number of a body module name ('PPTest41NoClath' -> 41)."""
+    digits = ''
+    for ch in name[len('PPTest'):]:
+        if not ch.isdigit():
+            break
+        digits += ch
+    return int(digits) if digits else None
+
+
+def ListTestBodies():
+    """Names of the PPTest body modules full() runs: every PPTest*.py in the
+    Test directory except inductogram/exploreogram/Bayes drivers. Numbered
+    bodies come first in numeric order, then suffixed variants
+    (e.g. PPTest3NoClath) in name order."""
+    names = sorted(f[:-3] for f in fnmatch.filter(os.listdir(_Test), 'PPTest*.py')
+                   if not any(x in f for x in _TEST_EXCLUDE))
+    plain = [n for n in names if n[len('PPTest'):].isdigit()]
+    plain.sort(key=_TestNumber)
+    suffixed = [n for n in names if n not in plain]
+    return plain + suffixed
 
 
 def simple(iTests=None):

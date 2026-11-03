@@ -66,7 +66,10 @@ TASKS.md
 nohup.out
 PPenv
 output/
-test_*.py
+# Ad-hoc scratch scripts at the repo root only. A bare `test_*.py` here also
+# hid real suites (PlanetProfile/Inference/tests/test_*.py, 35 tests never in
+# git); test files below the root are tracked.
+/test_*.py
 .claude-flow/
 .swarm/
 ruvector.db

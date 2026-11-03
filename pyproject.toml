@@ -66,6 +66,17 @@ exclude = ["tests*", "docs*"]
 "*" = ["*.txt", "*.tab", "*.mat", "*.tf", "*.tls", "*.tpc", "*.md"]
 
 [tool.pytest.ini_options]
+# Testing-architecture plan Phase 0 (plans/active/testing-architecture-plan.md).
+# testpaths: `pytest` from the repo root collects the real suites only (the
+# ad-hoc root-level test_*.py scripts raised at import and aborted collection).
+testpaths = ["tests", "PlanetProfile/Inference/tests"]
+python_files = ["*_test.py", "test_*.py"]
+# -ra: always print skip/xfail reasons; --strict-markers: a typo'd marker is an
+# error, not a silent no-op.
+addopts = "-ra --strict-markers"
 markers = [
-    "slow: long-running validation gates (isostasy B13 scan etc.)",
+    "slow: long-running validation gates (isostasy B13 scan, cache-build smokes); nightly tier",
+    "gui: Streamlit AppTest (page logic, not rendering)",
+    "data: needs a local data asset (see tests/conftest.py --require-data)",
+    "statistical: SBC / crosscheck / reproduction gates on trained artifacts",
 ]
