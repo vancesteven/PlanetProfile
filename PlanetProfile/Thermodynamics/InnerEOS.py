@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from PlanetProfile.Thermodynamics.AngularMeanDensity import WrapSilicateDensityCorrection
 import logging
 from scipy.io import loadmat
 from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator, interp1d as Interp1D, griddata as GridData
@@ -197,6 +198,9 @@ def GetPlanetInnerEOS(Planet, Params, Fe_EOS = False):
                         etaCoreFixed_Pas=[Planet.Core.etaFeSolid_Pas, Planet.Core.etaFeLiquid_Pas],
                         TviscTrans_K=Planet.Sil.TviscTrans_K,
                         EOSdomainPolicy=ResolveEOSdomainPolicy(Planet, Params))
+        # Optional angular-mean density correction (off unless Sil.densityCorrection is set)
+        innerEOSWrapper = WrapSilicateDensityCorrection(innerEOSWrapper,
+                                                        getattr(Planet.Sil, 'densityCorrection', None))
     return innerEOSWrapper
 
 

@@ -352,6 +352,10 @@ class SilSubstruct:
         self.TprescribedSource = None
         # Diagnostics from the physical-node EOS-domain validation.
         self.EOSdomainReport = None
+        # Optional degree-0 density correction of the silicate EOS, for a structure built on the
+        # angular-mean density of a 3-D mantle (Thermodynamics/AngularMeanDensity.py). None, or a
+        # dict with P_MPa, drho_kgm3 (1-D, P increasing), P_moho_MPa, fill_low, fill_high.
+        self.densityCorrection = None
         self.etaRock_Pas = None # Assumed viscosities of rock - Overrides Constants.etaRock_Pas if specified
         self.TviscTrans_K = None # Transition temperatures for rock to go from one viscosity value to another - Overrides Constants.TviscRock_K if specified
         self.kThermCMB_WmK = None  # Constant thermal conductivity to use for determining core-mantle boundary thermal boundary layer thickness when convection is happening
