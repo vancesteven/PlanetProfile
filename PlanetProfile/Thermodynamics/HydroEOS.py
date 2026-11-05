@@ -6,6 +6,7 @@ from scipy.interpolate import RegularGridInterpolator, RectBivariateSpline
 from scipy.optimize import root_scalar as GetZero
 from seafreeze.seafreeze import seafreeze as SeaFreeze
 from seafreeze.seafreeze import whichphase as WhichPhase
+from seafreeze.seafreeze import defpath as SFdefpath
 from PlanetProfile.Thermodynamics.Clathrates.ClathrateProps import ClathProps, ClathStableSloan1998, \
     ClathStableNagashima2017, ClathSeismic
 from PlanetProfile.Utilities.DataManip import ResetNearestExtrap, ReturnZeros, EOSwrapper, ReturnConstantSpecies, ReAssignPT, Nearest2DInterpolator as PhaseInterpolator
@@ -19,6 +20,9 @@ from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv, MixedPhaseSepa
 from PlanetProfile.Thermodynamics.Reaktoro.reaktoroProps import RktPhaseLookup, RktPhaseOnDemand,  \
     SpeciesParser, RktProps, RktSeismic, RktConduct, RktHydroSpecies, EOSLookupTableLoader
 from PlanetProfile.Thermodynamics.Seafreeze.SeafreezeProps import IceSeaFreezeProps
+
+# SeaFreeze properties the ocean EOS tables use (OceanEOSStruct, SFSeismic).
+SF_OCEAN_PROPS = ('rho', 'Cp', 'alpha', 'vel', 'Ks')
 from PlanetProfile.Thermodynamics.EOS import OceanEOSBase
 # Assign logger 
 log = logging.getLogger('PlanetProfile')    
@@ -223,7 +227,10 @@ class OceanEOSStruct:
                         self.w_ppt = wMax[self.comp]
                     PTmGridProps = sfPTmGrid(PropsP_MPa, PropsT_K, Ppt2molal(self.w_ppt, self.m_gmol))
                     PTmGridPhase = sfPTmGrid(Pphase_MPa, Tphase_K, Ppt2molal(self.w_ppt, self.m_gmol))
-                seaOut = SeaFreeze(deepcopy(PTmGridProps), SFcomp)
+                # Request only the properties used below (rho, Cp, alpha here;
+                # vel, Ks in SFSeismic). Values are identical to the
+                # all-property call, which also evaluates G, S, U, H, mu, ...
+                seaOut = SeaFreeze(deepcopy(PTmGridProps), SFcomp, SFdefpath, *SF_OCEAN_PROPS)
                 rho_kgm3 = seaOut.rho
                 Cp_JkgK = seaOut.Cp
                 alpha_pK = seaOut.alpha
@@ -1075,18 +1082,27 @@ class SFphase:
             return sfPTmGrid(Pin, Tin, self.m_molal)
 
     def __call__(self, P_MPa, T_K, grid=False):
+        # Scalar in -> scalar out, matching the lookup-table phase finder
+        # (Nearest2DInterpolator). Root finders (GetPfreeze -> brentq) call
+        # this with scalar P and multiply two results; a 1-element array
+        # there raised "only 0-dimensional arrays can be converted to Python
+        # scalars" in phaseType='calc' runs (e.g. default Ganymede).
+        # Only the PureH2O path is reachable today: __init__ for other
+        # compositions references an undefined SFmatPath.
+        SCALAR = (not grid) and np.ndim(P_MPa) == 0 and np.ndim(T_K) == 0
         if self.comp == 'water1':
             if grid:
                 PT = sfPTgrid(P_MPa, T_K)
             else:
                 PT = self.PTpairs(P_MPa, T_K)
-            return WhichPhase(PT).astype(np.int8)
+            out = WhichPhase(PT).astype(np.int8)
         else:
             if grid:
                 PTm = sfPTmGrid(P_MPa, T_K, self.m_molal)
             else:
                 PTm = self.PTmTrips(P_MPa, T_K)
-            return WhichPhase(PTm, solute=self.comp).astype(np.int8)
+            out = WhichPhase(PTm, solute=self.comp).astype(np.int8)
+        return out.reshape(()) if SCALAR else out
         
 
 class SFSeismic:

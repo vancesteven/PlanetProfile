@@ -4,6 +4,9 @@ import seafreeze.seafreeze as sfz
 from seafreeze.seafreeze import defpath, _get_tdvs, _is_scatter, phases as seafreeze_phases
 from mlbspline import load
 from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
+
+# SeaFreeze properties the ice EOS tables use (HydroEOS.IceEOSStruct).
+SF_ICE_PROPS = ('rho', 'Cp', 'alpha', 'Vp', 'Vs', 'Ks', 'shear')
 def IceSeaFreezeProps(PTgrid, phaseName):
     # Get boundarys of P_MPa and T_K grid to generate a unique tag
     sfz_Pmin = np.min(PTgrid[0])
@@ -40,11 +43,13 @@ def IceSeaFreezeProps(PTgrid, phaseName):
             if not noP and not noT and not noDeltaP and not noDeltaT:
                 alreadyLoaded = True
                 sfzOut = EOSlist.loaded[phaseName]
-                PTgrid[0] = np.linspace(alreadyLoadedPmin, alreadyLoadedPmax, sfzOut.G.shape[0])
-                PTgrid[1] = np.linspace(alreadyLoadedTmin, alreadyLoadedTmax, sfzOut.G.shape[1])
+                PTgrid[0] = np.linspace(alreadyLoadedPmin, alreadyLoadedPmax, sfzOut.rho.shape[0])
+                PTgrid[1] = np.linspace(alreadyLoadedTmin, alreadyLoadedTmax, sfzOut.rho.shape[1])
     
     if not alreadyLoaded:
-        sfzOut = sfz.seafreeze(PTgrid, phaseName)
+        # Request only the properties IceEOSStruct uses; values are
+        # identical to the all-property call.
+        sfzOut = sfz.getProp(PTgrid, phaseName, defpath, *SF_ICE_PROPS)
         EOSlist.loaded[phaseName] = sfzOut
         EOSlist.ranges[phaseName] = seafreezeRange
     return sfzOut, PTgrid[0], PTgrid[1]
