@@ -110,6 +110,7 @@ class BulkSubstruct():
         self.Cuncertainty = None  # Uncertainty (std dev) of C/MR^2 (used to constrain models via consistency within the uncertainty), dimensionless
         self.CuncertaintyLower = None  # Lower bound used for Cuncertainty, which may differ from the upper bound if we allow adjustment for non-hydrostaticity, dimensionless
         self.CuncertaintyUpper = None  # Upper bound as above, typically just equal to Cuncertainty, dimensionless
+        self.CMR2comparison = None  # Optional (low, high) range the predicted C/MR^2 is compared with when Do.PREDICT_MOI is True; defaults to Cmeasured -CuncertaintyLower/+CuncertaintyUpper
         self.phiSurface_frac = None  # Scaling value for the ice porosity at the surface (void fraction): falls within a range of 0 and 1. 0 is completely non-porous and larger than 0.2 is rare. From Han et al. (2014)
         self.qSurf_Wm2 = None  # Heat flux leaving the planetary surface. Currently required only for clathType = 'bottom'.
         self.clathMaxThick_m = None  # (Approximate) fixed limit for thickness of clathrate layer in m. Treated as an assumed layer thickness when clathType = 'bottom' or Do.NO_ICE_CONVECTION is True, and as a maximum for 'top', where clathrates are only modeled for the conductive lid.
@@ -148,6 +149,11 @@ class DoSubstruct:
         # Requires Sil.T_of_z_K to be set. Generic: not specific to any body
         # or any thermal dataset.
         self.PRESCRIBED_SILICATE_T = False
+        # Predict C/MR^2 instead of selecting the structure with it. For a waterless body with an
+        # iron core there is a single mass-closed candidate; with this flag its C/MR^2 is reported
+        # as a prediction (Planet.CMR2predicted) and compared with Bulk.CMR2comparison, and a value
+        # outside that range does not invalidate the model. Off by default.
+        self.PREDICT_MOI = False
         self.Fe_CORE = False  # Whether to model an iron core for this body
         self.ConstantProps = {'Ocean': False, 'Ice': False, 'Inner': False}  # Whether to use constant thermodynamic properties for each layer type instead of geochemical EOS
         self.CustomEOS = {'Ocean': False, 'OceanMelt': False, 'Pore': False}  # Whether to use a user-supplied OceanEOSBase instance for each EOS context. Set the corresponding slot (Ocean.EOS, Ocean.EOSmelt, Sil.poreEOS) before setting flag to True.
@@ -812,6 +818,8 @@ class PlanetStruct:
         self.PbClathMax_MPa = None  # Max pressure at the bottom of a clathrate lid. Actual PbClath may be reduced in convection calculations
         self.TclathTrans_K = None  # Temperature at the transition from clathrates to ice I
         self.CMR2mean = None  # Mean value of axial moment of inertia that is consistent with profile core/mantle trades
+        self.CMR2predicted = None  # C/MR^2 predicted by the structure when Do.PREDICT_MOI is True
+        self.CMR2withinComparison = None  # Whether CMR2predicted lies inside Bulk.CMR2comparison (or the Cmeasured band)
         self.CMR2less = None  # Neighboring value to CMR2mean in MoI matching, just below it
         self.CMR2more = None  # Neighboring value above CMR2mean
         self.Tconv_K = None  # Temperature of "well-mixed" convecting region in ice I layer in K

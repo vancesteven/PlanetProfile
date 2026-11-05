@@ -1793,6 +1793,31 @@ def FindInnerWithMoIAndConstantRho(Planet, Params):
     return Planet, mantleProps, coreProps
 
 
+def PredictMoI(Planet, CMR2, iValid):
+    """ Do.PREDICT_MOI: keep the single mass-closed candidate of a waterless body with an iron
+        core, record its C/MR^2 as a prediction and compare it with Bulk.CMR2comparison (default:
+        the Cmeasured band). Returns the candidate index list used by FindInnerWithMoIAndEOS.
+    """
+    if not (Planet.Do.NO_H2O and Planet.Do.Fe_CORE):
+        raise ValueError('Do.PREDICT_MOI requires Do.NO_H2O and Do.Fe_CORE: only then is there a single '
+                         'mass-closed candidate whose C/MR^2 can be reported without selecting among candidates.')
+    inds = [int(i) for i in np.atleast_1d(iValid) if CMR2[i] > 0]
+    if len(inds) == 0:
+        Planet.CMR2predicted = np.nan
+        Planet.CMR2withinComparison = False
+        return []
+    iPred = inds[0]
+    if len(inds) > 1:
+        log.warning(f'Do.PREDICT_MOI: {len(inds)} mass-closed candidates; reporting the first one.')
+    lo, hi = Planet.Bulk.CMR2comparison if Planet.Bulk.CMR2comparison is not None else \
+        (Planet.Bulk.Cmeasured - Planet.Bulk.CuncertaintyLower, Planet.Bulk.Cmeasured + Planet.Bulk.CuncertaintyUpper)
+    Planet.CMR2predicted = float(CMR2[iPred])
+    Planet.CMR2withinComparison = bool(lo <= Planet.CMR2predicted <= hi)
+    log.info(f'Predicted C/MR^2 = {Planet.CMR2predicted:.6f}, ' +
+             f'{"inside" if Planet.CMR2withinComparison else "outside"} the comparison range [{lo:.5f}, {hi:.5f}].')
+    return [iPred]
+
+
 def FindInnerWithMoIAndEOS(Planet, Params):
     """ Find the relative sizes of silicate, core, and hydrosphere layers that are
         consistent with the measured moment of inertia, based on calculated hydrosphere
@@ -2004,9 +2029,12 @@ def FindInnerWithMoIAndEOS(Planet, Params):
     C_kgm2[iValid] = Chydro_kgm2 + Csil_kgm2 + Ccore_kgm2
     CMR2 = C_kgm2 / MR2_kgm2
 
-    CMR2inds = [i[0] for i, valCMR2 in np.ndenumerate(CMR2)
-                 if valCMR2 > Planet.Bulk.Cmeasured - Planet.Bulk.CuncertaintyLower
-                and valCMR2 < Planet.Bulk.Cmeasured + Planet.Bulk.CuncertaintyUpper]
+    if getattr(Planet.Do, 'PREDICT_MOI', False):
+        CMR2inds = PredictMoI(Planet, CMR2, iValid)
+    else:
+        CMR2inds = [i[0] for i, valCMR2 in np.ndenumerate(CMR2)
+                     if valCMR2 > Planet.Bulk.Cmeasured - Planet.Bulk.CuncertaintyLower
+                    and valCMR2 < Planet.Bulk.Cmeasured + Planet.Bulk.CuncertaintyUpper]
 
     if len(CMR2inds) == 0:
         if np.size(iValid) == 0 or ((np.min(CMR2[iValid]) < Planet.Bulk.Cmeasured) and (np.max(CMR2[iValid]) > Planet.Bulk.Cmeasured)):
