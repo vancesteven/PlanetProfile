@@ -247,6 +247,14 @@ class PerplexEOSStruct:
                 f'TviscTrans{TviscTrans_K}'
         if self.EOSlabel in EOSlist.loaded.keys():
             self.ALREADY_LOADED = True
+            # A direct constructor call on a cached table used to return an object
+            # with none of the loaded state (no domain limits, no fn_*). Copy the
+            # cached instance's state so the object is usable on its own; the
+            # domain policy of this call is kept, since it is runtime behavior.
+            cached = EOSlist.loaded[self.EOSlabel]
+            if cached is not self:
+                self.__dict__.update({k: v for k, v in vars(cached).items()
+                                      if k not in ('EOSdomainPolicy', 'ALREADY_LOADED')})
         else:
             self.ALREADY_LOADED = False
 
