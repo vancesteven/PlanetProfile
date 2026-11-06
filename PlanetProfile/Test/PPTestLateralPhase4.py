@@ -155,8 +155,8 @@ def test_column_functions_exist():
     from PlanetProfile.Lateral.LateralStructure import (
         RunLateralColumns,
         _ColumnFailed,
-        _RunColumnsSerial,
-        _RunColumnsParallel,
+        _PrepareColumn,
+        _RunSingleColumn,
         _ExtractColumnSummaries,
         UpdateAsymShapeFrom3D,
         RunLateral3D
@@ -164,8 +164,8 @@ def test_column_functions_exist():
 
     assert callable(RunLateralColumns), "RunLateralColumns should be callable"
     assert callable(_ColumnFailed), "_ColumnFailed should be callable"
-    assert callable(_RunColumnsSerial), "_RunColumnsSerial should be callable"
-    assert callable(_RunColumnsParallel), "_RunColumnsParallel should be callable"
+    assert callable(_PrepareColumn), "_PrepareColumn should be callable"
+    assert callable(_RunSingleColumn), "_RunSingleColumn should be callable"
     assert callable(_ExtractColumnSummaries), "_ExtractColumnSummaries should be callable"
     assert callable(UpdateAsymShapeFrom3D), "UpdateAsymShapeFrom3D should be callable"
     assert callable(RunLateral3D), "RunLateral3D should be callable"
@@ -173,8 +173,8 @@ def test_column_functions_exist():
     print("  ✓ All 7 column orchestration functions imported successfully")
     print("  ✓ RunLateralColumns: Main orchestrator")
     print("  ✓ _ColumnFailed: Check column failure status")
-    print("  ✓ _RunColumnsSerial: Serial execution mode")
-    print("  ✓ _RunColumnsParallel: Parallel execution mode")
+    print("  ✓ _PrepareColumn: Build one column's inputs")
+    print("  ✓ _RunSingleColumn: Run one column (serial or in a worker pool)")
     print("  ✓ _ExtractColumnSummaries: Extract results to Lateral arrays")
     print("  ✓ UpdateAsymShapeFrom3D: Feed to MoonMag")
     print("  ✓ RunLateral3D: Full 3D pipeline")

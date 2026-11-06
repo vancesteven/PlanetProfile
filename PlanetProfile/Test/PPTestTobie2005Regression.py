@@ -48,6 +48,10 @@ def test_tobie2005_mean_heating():
 
     # Surface ice layer count (mock for minimal setup)
     Planet.Steps.nSurfIce = 10
+    # Reference ice Ih temperatures for the viscosity of the simplified path (no PlanetProfile run here):
+    # conductive profile T(z) = Tsurf * (Tb/Tsurf)^(z/D) for k ~ 1/T, from Titan's 93.7 K surface to Tb.
+    Tsurf_K = 93.7
+    Planet.T_K = Tsurf_K * (Planet.Bulk.Tb_K / Tsurf_K)**np.linspace(0, 1, Planet.Steps.nSurfIce)
 
     # Compute 3D tidal heating
     Params = ParamsStruct()

@@ -15,6 +15,27 @@ References:
 import numpy as np
 
 
+
+def _RunEuropa():
+    """ Run the default Europa body (PlanetProfile/Default/Europa/PPEuropa.py) with the test's ocean:
+        seawater at 35 g/kg, ice-ocean boundary at 270 K, surface at 110 K.
+    """
+    import importlib
+    from PlanetProfile.GetConfig import Params as configParams
+    from PlanetProfile.Main import PlanetProfile
+    Planet = importlib.import_module('PlanetProfile.Default.Europa.PPEuropa').Planet
+    Planet.Bulk.Tsurf_K = 110.0  # Surface temperature
+    Planet.Ocean.comp = 'Seawater'
+    Planet.Ocean.wOcean_ppt = 35.0  # Standard seawater (Khurana et al. 1998 inferred salinity)
+    Planet.Bulk.Tb_K = 270.0  # Ice-ocean boundary temperature
+    Params = configParams
+    Params.CALC_NEW = True
+    Params.CALC_NEW_REF = True
+    Params.SKIP_PLOTS = True
+    Params.NO_SAVEFILE = True
+    Params.SKIP_INDUCTION = True
+    return PlanetProfile(Planet, Params)
+
 def test_europa_ice_shell_thickness():
     """ Test that Europa ice shell thickness falls within observational constraints.
 
@@ -24,31 +45,7 @@ def test_europa_ice_shell_thickness():
 
         This test validates that PlanetProfile produces physically reasonable values.
     """
-    from PlanetProfile.Utilities.defineStructs import PlanetStruct, ParamsStruct
-    from PlanetProfile.Main import PlanetProfile
-    from PlanetProfile import GetConfig
-
-    # Minimal Europa configuration
-    Planet = PlanetStruct('Europa')
-
-    # Standard Europa parameters (Anderson et al. 1998)
-    Planet.Bulk.R_m = 1560.8e3  # Mean radius
-    Planet.Bulk.M_kg = 4.7998e22  # Mass
-    Planet.Bulk.Tsurf_K = 110.0  # Surface temperature
-    Planet.Bulk.Psurf_MPa = 0.0  # No atmosphere
-
-    # Ocean parameters (Khurana et al. 1998 inferred salinity)
-    Planet.Ocean.comp = 'Seawater'
-    Planet.Ocean.wOcean_ppt = 35.0  # Standard seawater
-    Planet.Bulk.Tb_K = 270.0  # Ice-ocean boundary temperature
-
-    # Get default configuration
-    Params = GetConfig(Planet, '.')
-    Params.CALC_NEW = 1
-    Params.CALC_NEW_REF = 1
-
-    # Run 1D model
-    Planet, Params = PlanetProfile(Planet, Params)
+    Planet, Params = _RunEuropa()
 
     # Extract ice shell thickness
     ice_thickness_km = Planet.zb_km
@@ -79,27 +76,11 @@ def test_europa_ocean_thickness():
         ~80-170 km based on MoI = 0.346. This test validates that the combined
         ice + ocean thickness falls in this range.
     """
-    from PlanetProfile.Utilities.defineStructs import PlanetStruct, ParamsStruct
-    from PlanetProfile.Main import PlanetProfile
-    from PlanetProfile import GetConfig
-
-    Planet = PlanetStruct('Europa')
-    Planet.Bulk.R_m = 1560.8e3
-    Planet.Bulk.M_kg = 4.7998e22
-    Planet.Bulk.Tsurf_K = 110.0
-    Planet.Ocean.comp = 'Seawater'
-    Planet.Ocean.wOcean_ppt = 35.0
-    Planet.Bulk.Tb_K = 270.0
-
-    Params = GetConfig(Planet, '.')
-    Params.CALC_NEW = 1
-    Params.CALC_NEW_REF = 1
-
-    Planet, Params = PlanetProfile(Planet, Params)
+    Planet, Params = _RunEuropa()
 
     # Extract layer thicknesses
     ice_km = Planet.zb_km
-    ocean_km = Planet.Bulk.R_m / 1e3 - Planet.zb_km - Planet.Steps.Rmantle_m / 1e3
+    ocean_km = Planet.D_km  # ocean thickness below the ice shell
     h2o_total_km = ice_km + ocean_km
 
     # Anderson et al. (1998) constraints

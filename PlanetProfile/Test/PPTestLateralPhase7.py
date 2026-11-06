@@ -107,7 +107,7 @@ def test_save_lateral_results():
         SaveLateralResults(Planet, Params)
 
         # Check file was created
-        outPath = os.path.join(tmpdir, 'TestPlanet_lateral3D.pkl')
+        outPath = os.path.join(tmpdir, 'TestPlanet_lateral3D.npz')
         assert os.path.exists(outPath), f"Output file not created: {outPath}"
 
         # Check file size is reasonable
@@ -140,7 +140,7 @@ def test_reload_lateral_results():
 
         # Reload into new Planet
         Planet2 = PlanetStruct('TestPlanet2')
-        outPath = os.path.join(tmpdir, 'TestPlanet_lateral3D.pkl')
+        outPath = os.path.join(tmpdir, 'TestPlanet_lateral3D.npz')
         Planet2 = ReloadLateralResults(Planet2, outPath)
 
         # Verify fields match
@@ -174,7 +174,7 @@ def test_save_reload_roundtrip():
 
         # Save
         SaveLateralResults(Planet, Params)
-        outPath1 = os.path.join(tmpdir, 'TestPlanet_lateral3D.pkl')
+        outPath1 = os.path.join(tmpdir, 'TestPlanet_lateral3D.npz')
         size1 = os.path.getsize(outPath1)
 
         # Reload
@@ -314,7 +314,7 @@ def test_save_no_lateral_data():
         SaveLateralResults(Planet, Params)
 
         # No file should be created
-        outPath = os.path.join(tmpdir, 'TestPlanet_lateral3D.pkl')
+        outPath = os.path.join(tmpdir, 'TestPlanet_lateral3D.npz')
         assert not os.path.exists(outPath), "File should not be created when no lateral data"
 
         print(f"  ✓ Gracefully skipped save with no data")
@@ -334,7 +334,7 @@ def print_scientific_summary():
     - Stores all 3D fields: dIce_m, fClath, Tb_K, qSurf_Wm2, sigma_mean_Sm,
       kThermEff_WmK, HtidalIce_Wm3, and SH coefficients
     - Enables: reloading for plotting, sensitivity studies, comparison
-    - File location: alongside standard PP output, '_lateral3D.pkl' suffix
+    - File location: alongside standard PP output, '_lateral3D.npz' suffix (legacy .pkl files still load)
     - Typical size: ~10-100 KB for 192 pixels, ~1 MB for 3072 pixels
 
   UpdateAsymShapeFrom3D - MoonMag integration:
