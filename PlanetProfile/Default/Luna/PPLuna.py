@@ -224,6 +224,9 @@ Planet.Sil.TprescribedSource = str(_TPROFILE)
 # enabled, P 1000-50000 bar, T 300-2200 K, 300x300, verified
 # resolution-converged (lunar-bsm-interior-models/docs/UNIFIED_STX24_RESOLUTION_CONVERGENCE.md).
 # Change ONLY this line to swap composition to Hauri 2015 or Warren Alt 5.
+# The table is shipped in PlanetProfile/Thermodynamics/EOStables/Perple_X
+# (12,150,425 bytes, sha256 eb254ac5d454cd59f5ca1c29220214eb8d036cc21b44251b6db558c9df2d8348)
+# and copied to the Perple_X cache on first use (InnerEOS.EnsurePerplexTableInCache).
 Planet.Sil.mantleEOS = 'moon_w05_preferred_stx24_unified.tab'
 
 # [PROV] Bulk-silicate radiogenic heating. Placeholder pending the Stage-2
@@ -243,6 +246,9 @@ Planet.Do.POROUS_ROCK = False
 # product. The wider core configuration is NOT frozen: sulfur content beyond
 # wFe, and the core radius, remain open. Core radius must be SOLVED against
 # mass and C/MR^2, never tuned by hand.
+# Built on first use from the werami tables of the repository by
+# Thermodynamics/Perple_X/stackFeSTraceable.py (InnerEOS.EnsurePerplexTableInCache),
+# checked against its semantic SHA-256.
 Planet.Core.coreEOS = 'Fe-S_3D_EOS_5slice_traceable_v1.mat'
 Planet.Core.wFe_ppt = 950  # [PROV] Fe-5 wt% S, the adopted lunar core composition slice.
 Planet.Core.wS_ppt = 50    # [PROV] Complement of wFe_ppt.

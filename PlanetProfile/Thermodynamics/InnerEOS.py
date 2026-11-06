@@ -1,4 +1,6 @@
 import os
+import shutil
+import importlib.util
 import numpy as np
 from PlanetProfile.Thermodynamics.AngularMeanDensity import WrapSilicateDensityCorrection
 import logging
@@ -233,6 +235,46 @@ def GetInnerEOS(EOSfname, EOSinterpMethod='nearest', nHeaders=13, Fe_EOS=False, 
 
     return innerEOSwrapper
 
+TRACEABLE_FES_NAME = 'Fe-S_3D_EOS_5slice_traceable_v1.mat'
+
+
+def EnsurePerplexTableInCache(EOSfname):
+    """ Put the Perple_X table EOSfname in the user cache, where PerplexEOSStruct reads it.
+
+        A table already in the cache is left as it is. Otherwise:
+        - a table shipped in PlanetProfile/Thermodynamics/EOStables/Perple_X is copied there;
+        - the traceable Fe-S core table is built from the werami tables of the repository with
+          Thermodynamics/Perple_X/stackFeSTraceable.py, and checked against its semantic SHA-256.
+        Any other missing table is left to the loader, which reports it.
+    """
+    cache_fpath = os.path.join(_PERPLEXCACHE, EOSfname)
+    if os.path.exists(cache_fpath):
+        return cache_fpath
+    shipped = os.path.join(_ROOT, 'Thermodynamics', 'EOStables', 'Perple_X', EOSfname)
+    tmp_fpath = cache_fpath[:-4] + '.partial' + cache_fpath[-4:]
+    if os.path.isfile(shipped):
+        log.info(f'Copying {EOSfname} from the repository to the Perple_X cache {_PERPLEXCACHE}.')
+        shutil.copyfile(shipped, tmp_fpath)
+        os.replace(tmp_fpath, cache_fpath)
+    elif EOSfname == TRACEABLE_FES_NAME:
+        builder = os.path.join(os.path.dirname(_ROOT), 'Thermodynamics', 'Perple_X', 'stackFeSTraceable.py')
+        if not os.path.isfile(builder):
+            raise FileNotFoundError(f'{EOSfname} is not in the Perple_X cache and its builder {builder} '
+                                    f'is not available.')
+        spec = importlib.util.spec_from_file_location('stackFeSTraceable', builder)
+        stack = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(stack)
+        log.info(f'Building {EOSfname} from the werami tables in the repository.')
+        out = stack.StackTraceableFeS()
+        sha = stack.SemanticSHA256(out)
+        if sha != stack.SEMANTIC_SHA256:
+            raise ValueError(f'{EOSfname}: semantic SHA-256 {sha} differs from the reference '
+                             f'product {stack.SEMANTIC_SHA256}.')
+        stack.WriteTraceableFeS(out, tmp_fpath)
+        os.replace(tmp_fpath, cache_fpath)
+    return cache_fpath
+
+
 class PerplexEOSStruct:
     """ Loads in Perple_X table and creates interpolators that can be called to
         obtain silicate/core properties as functions of P and T.
@@ -270,7 +312,7 @@ class PerplexEOSStruct:
                           f'{porosType}, phiTop_frac = {phiTop_frac}, Pclosure_MPa = {Pclosure_MPa}, ' + \
                           f'and EXTRAP = {EXTRAP}.'
             log.debug(f'Loading Perplex EOS for {self.comp}{descrip}')
-            cache_fpath = os.path.join(_PERPLEXCACHE, EOSfname)
+            cache_fpath = EnsurePerplexTableInCache(EOSfname)
             self.dir = _PERPLEXCACHE
             self.fpath = cache_fpath
             self.Fe_EOS = Fe_EOS
