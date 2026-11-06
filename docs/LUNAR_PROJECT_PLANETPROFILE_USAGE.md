@@ -58,7 +58,7 @@ The project uses PlanetProfile for three things:
 ### 2.2 Mantle equation of state
 
 - **Loader:** `InnerEOS.PerplexEOSStruct` reads each Perple_X table, which supplies density, K_S, G_S, V_P and V_S.
-- **Tables:** built in the project (planetary-eos-lab, Stixrude and Lithgow-Bertelloni 2024 database, "stx24") and copied into PlanetProfile's cache `~/Library/Caches/PlanetProfile/Perple_X/`. The N2 installer `lunar:scripts/dps_2026_followup/fu_n2_a_install_tables.py` handles the FeO-rich tables and assembles the layered tables; it assumes the earlier M0/M1 tables are already available (Section 6). There are three families:
+- **Tables:** built in the project (planetary-eos-lab, Stixrude and Lithgow-Bertelloni 2024 database, "stx24") and copied into PlanetProfile's cache `~/Library/Caches/PlanetProfile/Perple_X/`. Since `c505de49`, the Warren Preferred table used by `PPLuna.py` (`moon_w05_preferred_stx24_unified.tab`) is shipped in the repository and copied to the cache on first use; the other tables are not. The N2 installer `lunar:scripts/dps_2026_followup/fu_n2_a_install_tables.py` handles the FeO-rich tables and assembles the layered tables; it assumes the earlier M0/M1 tables are already available (Section 6). There are three families:
 	  - homogeneous residual mantles: `moon_{hau05_lowFe, w05_preferred, war05_alt5}_M1<crust>_stx24_unified.tab`;
 	  - layered mantles (`..._L500<crust>_...`): stitched in the project from an upper-mantle residual table above a fixed pressure and the bulk-composition table below it;
 	  - FeO-rich mantles: `moon_{Khan06S, ONeill91S}_M1<crust>_stx24_unified.tab`.
@@ -204,11 +204,11 @@ The lunar production checks do not validate the unused components in Section 2.8
 
 ## 6. Reproducing
 
-1. **Version and environment.** Use an isolated checkout at `e495e3cb` for the production code, retaining the recorded comment-only diff as provenance. Use `8e3efe07` or later (branch head `d6a34a24` on 5 November) for the November additions and the checks below. Record the SHA and working-tree diff, rather than only the moving branch name. The checked environment is `planetprofile`; the lunar study's scripts contain absolute paths to its own checkout that must be adapted on another machine; `PPLuna.py` no longer does since `d6a34a24`, which ships the temperature profile in `PlanetProfile/Default/Luna/`. The Warren reference reproduces its recorded production result on the November revision; this is not an all-body regression guarantee.
+1. **Version and environment.** Use an isolated checkout at `e495e3cb` for the production code, retaining the recorded comment-only diff as provenance. Use `8e3efe07` or later (branch head `5d4b052c` on 5 November) for the November additions and the checks below. Record the SHA and working-tree diff, rather than only the moving branch name. The checked environment is `planetprofile`; the lunar study's scripts contain absolute paths to its own checkout that must be adapted on another machine; `PPLuna.py` no longer does since `d6a34a24`, which ships the temperature profile in `PlanetProfile/Default/Luna/`. Since `5d4b052c`, `python PlanetProfile/Main.py Luna` runs on a fresh clone with an empty cache and gives the same profile, byte for byte, as with the study's cache (contributions note, Section 2.8). The Warren reference reproduces its recorded production result on the November revision; this is not an all-body regression guarantee.
 
 2. **Mantle tables and thermal inputs.** Provision the M0/M1 tables, the selected Santangelo inputs and their radial temperature reductions before running a closure. For the N2 additions, `lunar:scripts/dps_2026_followup/fu_n2_a_install_tables.py` copies the four Khan06S/ONeill91S M1 tables and assembles six L500 tables from **U500 upper-mantle residual tables plus M0 lower-mantle tables**. It assumes the earlier tables and thermal inputs are already present. It is not a general installer: its `tmp/n2_perplex/outputs` source directory was absent during the audit. Those source builds must be recovered or regenerated before that route is reproducible. The layered-table unit test reuses the final L500 table as its upper input; an independent rebuild from U500 + M0 remains **implemented, unverified** in this audit.
 
-3. **Core table, separately.** The N2 installer does **not** install the core MAT. On the November PlanetProfile revision, run from the PlanetProfile repository root:
+3. **Core table, separately.** The N2 installer does **not** install the core MAT. Since `c505de49`, PlanetProfile builds it in the cache on first use when it is missing. To build it by hand on the November PlanetProfile revision, run from the PlanetProfile repository root:
 
    ```bash
    python Thermodynamics/Perple_X/stackFeSTraceable.py
@@ -218,11 +218,11 @@ The lunar production checks do not validate the unused components in Section 2.8
 
 4. **Closure and numerical reference.** `close_corrected()` imported by `lunar:scripts/stage_e9a6/e9a6_lib.py` performs a closure given the case's EOS, radial temperature, crust and supplied density correction. The correction must be derived by the corresponding angular-mean workflow; omitting it runs the uncorrected closure. The simple Warren BU16/M3 reference from `d_lib.close('Warren', 16)` gives R_core = 357.563375 km and I/MR² = 0.39316529266712535, with mass residual −0.006742574 %.
 
-5. **Targeted tests.** From the PlanetProfile root, on the November revision, the following command gave **122 passed** on 5 November 2026:
+5. **Targeted tests.** From the PlanetProfile root, on the November revision, the following command gave **127 passed** on 5 November 2026 (122 before `perplex_table_provisioning` and the grid test of `eos_domain_guard` were added):
 
    ```bash
    python -m pytest -q \
-     tests/{lunar_crust_boundary,eos_domain_guard,eos_physical_node_guard,luna_config,prescribed_silicate_t,perplex_eos_cache,fe_s_traceable_core,layered_mantle_table,angular_mean_density,predict_moi,silicate_3d,crust_seismic}_test.py
+     tests/{lunar_crust_boundary,eos_domain_guard,eos_physical_node_guard,luna_config,prescribed_silicate_t,perplex_eos_cache,perplex_table_provisioning,fe_s_traceable_core,layered_mantle_table,angular_mean_density,predict_moi,silicate_3d,crust_seismic}_test.py
    ```
 
    The brace expansion requires a shell such as bash or zsh. Some tests require local EOS tables and skip if they are absent; a checkout without those inputs must not report a skipped check as a reproduced result.

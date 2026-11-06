@@ -12,7 +12,7 @@ it says which parts of PlanetProfile the lunar results rest on and how each was 
 
 ### Decisions requested from Steve
 
-1. ~~Push `lunar-structure-development`~~ **Done on 5 November 2026** (`origin/lunar-structure-development`, head `d6a34a24`). The lunar profile now ships with `PPLuna.py` instead of a path on my machine.
+1. ~~Push `lunar-structure-development`~~ **Done on 5 November 2026** (`origin/lunar-structure-development`, head `5d4b052c`). The lunar profile now ships with `PPLuna.py` instead of a path on my machine, and `PPLuna` runs on a fresh clone with an empty cache (Section 2.8).
 2. **Review the bar-conversion fix in its own pull request.** It changes the conversion applied to raw Perple_X tables and can affect predictions for every body using them. For the lunar reference, it moves the predicted moment of inertia from outside to inside the adopted Williams model envelope (Section 2.1), which is not an independent observational confidence interval. Across the PlanetProfile test bodies, it changes I/MR² for 31 of the 35 that run, by up to 7.0e-4, without changing any validity (Section 2.6).
 3. **Replace the shipped core table `Fe-S_3D_EOS.mat`.** Its Fe95S5 slice is broken and its pressure axis is biased. The lunar branch now has a builder for a traceable table (Section 2.7).
 4. Decide the fate of **`integrate-genai-to-main` and `genai-clean-port`** (Section 6.1).
@@ -42,7 +42,7 @@ Three points need a decision from the team (Section 6):
 
 ## 2. Lunar structure (`lunar-structure-development`, pushed 5 November 2026)
 
-These fifteen commits sit on top of `genai` at `493205ac`: eight from August (Sections 2.1–2.5) and seven added on 5 November from what the lunar study had built outside PlanetProfile (Section 2.7). The framework defaults for explicit crust, prescribed temperature, predictive MoI and density correction preserve the legacy path unless selected; the Luna configuration explicitly enables its lunar options. The table builders and 3-D evaluator are called explicitly. The bar conversion and cached-EOS fixes are automatic corrections, without feature flags.
+These fifteen commits sit on top of `genai` at `493205ac`: eight from August (Sections 2.1–2.5) and seven added on 5 November from what the lunar study had built outside PlanetProfile (Section 2.7). Two later commits make `PPLuna` run on a fresh clone (Section 2.8). The framework defaults for explicit crust, prescribed temperature, predictive MoI and density correction preserve the legacy path unless selected; the Luna configuration explicitly enables its lunar options. The table builders and 3-D evaluator are called explicitly. The bar conversion and cached-EOS fixes are automatic corrections, without feature flags.
 
 ### 2.1 Exact bar-to-MPa/GPa conversion (`c70c1bf7`): cross-body scope
 
@@ -163,6 +163,20 @@ The new modelling options are opt-in; the builders and 3-D evaluator are invoked
 Not added: the study's hybrid interpolation (bilinear within one mineral assemblage, nearest across a phase
 boundary), left for later. The export of a PlanetProfile structure to LOV3D already exists on the LOV3D side
 (`planetstruct_to_interior_model` in `LOV3D_multi/pylov3d/compat.py`, branch `python-conversion`).
+
+### 2.8 Running `PPLuna` on a fresh clone (5 November 2026)
+
+Before these commits, `PPLuna` ran only on my machine: `PerplexEOSStruct` reads tables only from the user
+Perple_X cache, and neither lunar table was in the repository or downloaded by the installer.
+
+| Commit | Change | Verification |
+| --- | --- | --- |
+| `c505de49` | Ships `moon_w05_preferred_stx24_unified.tab` (12,150,425 bytes, sha256 `eb254ac5d454cd59f5ca1c29220214eb8d036cc21b44251b6db558c9df2d8348`) in `PlanetProfile/Thermodynamics/EOStables/Perple_X/`. `InnerEOS.EnsurePerplexTableInCache` copies a shipped table to the cache on first use, and builds `Fe-S_3D_EOS_5slice_traceable_v1.mat` with `stackFeSTraceable.py`, checked against its semantic SHA-256. A table already in the cache is never replaced | **verified:** `python PlanetProfile/Main.py Luna` on a clean checkout with an empty cache (temporary `HOME`) copies the mantle table, builds the core table, and gives a profile identical byte for byte to the run with my existing cache (C/MR² = 0.3931, R_core = 0.21 R). `tests/perplex_table_provisioning_test.py`: 4 tests pass |
+| `5d4b052c` | `EOSDomainExceedance` now counts the P × T grid when a P axis and a T axis of different lengths are passed (`grid=True`), instead of raising a broadcast error. `PlotPvTPerpleX` leaves blank the plot nodes outside a table under the `'warn'` and `'error'` policies; `'legacy_clamp'` is unchanged | **verified:** the run used to stop after saving the profile, because the core plot grid reaches 475 K, below the 500 K edge of the core table; it now completes, and the `InnerPTprops` figure was inspected. A grid test was added to `tests/eos_domain_guard_test.py` |
+
+Full `tests/` folder, before and after these two commits: the same 23 failures and 13 errors, which already exist at
+`7d569fc2`; 5 more tests pass (161 → 166). Only the Warren Preferred mantle table is shipped: the other lunar
+tables (Section 2.2 of the usage note) are still provisioned by the lunar study.
 
 ---
 
@@ -293,7 +307,7 @@ These flags and records are absent from `genai`:
 
 The decisions themselves are listed at the top of this note. Once they are taken, the practical steps are:
 
-1. ~~Commit the comment-only `PPLuna.py` change, then push `lunar-structure-development`~~ Done on 5 November (`9ccaac07`, then `d6a34a24` for the shipped profile).
+1. ~~Commit the comment-only `PPLuna.py` change, then push `lunar-structure-development`~~ Done on 5 November (`9ccaac07`, then `d6a34a24` for the shipped profile, and `c505de49`, `5d4b052c` so that `PPLuna` runs on a fresh clone).
 2. **Recover the 14 targeted bar-unit tests of August** (`pp_bar_unit_test.py`, not in the current tree). The
    before/after comparison on the test bodies is done (Section 2.6).
 3. **Rebase the lunar commits on current `genai`**: one conflict, in `defineStructs.py`.
