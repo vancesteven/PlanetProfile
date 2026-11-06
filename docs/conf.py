@@ -27,6 +27,8 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.mathjax',
               'myst_parser']
 source_suffix = ['.rst', '.md']
+# Reaktoro is conda-forge only, so it cannot be pip-installed for the docs build.
+autodoc_mock_imports = ['reaktoro']
 mathjaxVer = 2
 
 _HERE = os.path.dirname(__file__)
