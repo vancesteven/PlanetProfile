@@ -8,7 +8,7 @@ Status vocabulary follows the repository rule: **verified** (observed under docu
 Repository state inspected on 4 November and rechecked on 5 November 2026: `origin/main` at `2ae66345` (2 July 2026), `origin/genai` at `60d348a5` (27 October 2026), local lunar branch at `8e3efe07` after the seven November additions. This note incorporates the factual and targeted numerical checks of 5 November; it does not certify every historical campaign or all-body regression.
 
 **How to read the two notes.** Start with [`LUNAR_PROJECT_PLANETPROFILE_USAGE.md`](LUNAR_PROJECT_PLANETPROFILE_USAGE.md):
-it says which parts of PlanetProfile the lunar results rest on and how each was checked. This note is the reference for merging the branches and includes work the lunar production study did not use. The cited local November verification scripts and JSON results are not committed in the lunar repository; these two notes are also untracked in PlanetProfile at the time of this check. They need to accompany an upstream review (usage note, access paragraph and Section 6).
+it says which parts of PlanetProfile the lunar results rest on and how each was checked. This note is the reference for merging the branches and includes work the lunar production study did not use. The cited local November verification scripts and JSON results are not committed in the lunar repository; they need to accompany an upstream review (usage note, access paragraph and Section 6). These two notes are committed on `lunar-structure-development` since `cf95b309` (5 November 2026).
 
 ### Decisions requested from Steve
 
