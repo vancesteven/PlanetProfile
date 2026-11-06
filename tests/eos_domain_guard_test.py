@@ -147,3 +147,18 @@ def test_strict_mode_raises_even_when_extrapolation_allowed():
 def test_unknown_policy_rejected():
     with pytest.raises(ValueError, match='Unrecognized EOS domain policy'):
         _enforce(np.array([500.0]), np.array([800.0]), 'clamp_quietly_please')
+
+
+# --- Grid queries ------------------------------------------------------
+
+def test_grid_query_with_axes_of_different_lengths_counts_grid_nodes(caplog):
+    # grid=True lookups (e.g. the P-T plots) pass a P axis and a T axis of different lengths
+    P = np.linspace(50.0, 4000.0, 6)          # first node below PMIN
+    T = np.array([800.0, 1500.0, 2300.0, 1000.0])  # one node above TMAX
+    r = EOSDomainExceedance(P, T, PMIN, PMAX, TMIN, TMAX)
+    assert r['nTotal'] == 24
+    assert r['nOutside'] == 4 + 6 - 1
+    with caplog.at_level(logging.WARNING, logger='PlanetProfile'):
+        Pout, Tout = _enforce(P, T, 'warn')
+    assert Pout.shape == (6,) and Tout.shape == (4,)
+    assert np.array_equal(Pout, ResetNearestExtrap(P, T, PMIN, PMAX, TMIN, TMAX)[0])

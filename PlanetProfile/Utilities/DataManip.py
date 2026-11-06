@@ -54,10 +54,12 @@ def EOSDomainExceedance(var1, var2, min1, max1, min2, max2):
     v1 = np.atleast_1d(np.asarray(var1, dtype=float))
     v2 = np.atleast_1d(np.asarray(var2, dtype=float))
     # Broadcast so paired (P, T) queries are counted per node, not per axis.
+    # Axes that cannot be paired are grid queries (grid=True: a P axis and a T axis of
+    # different lengths), so every node of their P x T grid is counted.
     try:
         b1, b2 = np.broadcast_arrays(v1, v2)
     except ValueError:
-        b1, b2 = v1, v2
+        b1, b2 = np.meshgrid(v1.ravel(), v2.ravel(), indexing='ij')
 
     low1, high1 = b1 < min1, b1 > max1
     low2, high2 = b2 < min2, b2 > max2

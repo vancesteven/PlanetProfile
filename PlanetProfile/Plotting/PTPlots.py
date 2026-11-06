@@ -10,7 +10,7 @@ from PlanetProfile.GetConfig import Color, Style, FigLbl, FigSize, FigMisc
 from PlanetProfile.Thermodynamics.HydroEOS import GetPlanetIceEOS, GetPlanetOceanEOS
 from PlanetProfile.Utilities.Indexing import PhaseConv, PhaseInv, GetPhaseIndices
 from PlanetProfile.Thermodynamics.InnerEOS import GetPlanetInnerEOS
-from PlanetProfile.Utilities.defineStructs import Constants
+from PlanetProfile.Utilities.defineStructs import Constants, EOSlist
 from typing import Optional, List
 import itertools
 import copy
@@ -933,6 +933,31 @@ def PlotCustomSolutionProperties(PlanetList, Params):
         allspeciesax.set_ylabel("Depth z (km)")
         aqueouspseciesax.set_xlabel("Aqueous species (moles per kg fluid)")
 
+def InnerEOSOnPlotGrid(EOS, P_MPa, T_K):
+    """ Evaluate an inner EOS on a P x T plot grid: rho, Cp, alpha, VP, VS, KS, GS, each (nP, nT).
+
+        Under the 'warn' or 'error' EOS-domain policy, nodes outside the tabulated domain are
+        left blank (NaN) instead of raising or being clamped to the table edge: a plot grid spans
+        the temperatures of the whole interior (e.g. mantle temperatures for the core table),
+        which is a display choice, not a state of the model. Under 'legacy_clamp' the historical
+        evaluation is unchanged.
+    """
+    base = EOSlist.loaded.get(getattr(EOS, 'key', None), EOS)
+    policy = getattr(base, 'EOSdomainPolicy', 'legacy_clamp')
+
+    def Evaluate(P, T):
+        return (EOS.fn_rho_kgm3(P, T, grid=True), EOS.fn_Cp_JkgK(P, T, grid=True),
+                EOS.fn_alpha_pK(P, T, grid=True), *EOS.fn_Seismic(P, T, grid=True))
+
+    if policy == 'legacy_clamp' or not all(hasattr(base, k) for k in ('Pmin', 'Pmax', 'Tmin', 'Tmax')):
+        return Evaluate(P_MPa, T_K)
+    P_MPa, T_K = np.asarray(P_MPa, dtype=float), np.asarray(T_K, dtype=float)
+    outside = ((P_MPa < base.Pmin) | (P_MPa > base.Pmax))[:, None] \
+              | ((T_K < base.Tmin) | (T_K > base.Tmax))[None, :]
+    props = Evaluate(np.clip(P_MPa, base.Pmin, base.Pmax), np.clip(T_K, base.Tmin, base.Tmax))
+    return tuple(np.where(outside, np.nan, np.asarray(a, dtype=float)) for a in props)
+
+
 def PlotPvTPerpleX(PlanetList, Params):
 
     if os.path.dirname(Params.FigureFiles.vpvtPerpleX) != 'Comparison':
@@ -1004,10 +1029,7 @@ def PlotPvTPerpleX(PlanetList, Params):
         Tinner = np.linspace(Tmin, Tmax, FigMisc.nTgeo)
 
         # Get data to plot
-        rhoSil = Planet.Sil.EOS.fn_rho_kgm3(Psil, Tinner, grid=True)
-        CpSil = Planet.Sil.EOS.fn_Cp_JkgK(Psil, Tinner, grid=True)
-        alphaSil = Planet.Sil.EOS.fn_alpha_pK(Psil, Tinner, grid=True)
-        VPsil, VSsil, KSsil, GSsil = Planet.Sil.EOS.fn_Seismic(Psil, Tinner, grid=True)
+        rhoSil, CpSil, alphaSil, VPsil, VSsil, KSsil, GSsil = InnerEOSOnPlotGrid(Planet.Sil.EOS, Psil, Tinner)
 
         # Plot colormaps of Perple_X data
         PsilScaled = Psil * FigLbl.PmultFull
@@ -1020,10 +1042,7 @@ def PlotPvTPerpleX(PlanetList, Params):
         GSplotSil =    axes[1,3].pcolormesh(Tinner, PsilScaled, GSsil, cmap=Color.PvTsilCmap, rasterized=FigMisc.PT_RASTER)
 
         if INCLUDING_CORE:
-            rhoCore = Planet.Core.EOS.fn_rho_kgm3(Pcore, Tinner, grid=True)
-            CpCore = Planet.Core.EOS.fn_Cp_JkgK(Pcore, Tinner, grid=True)
-            alphaCore = Planet.Core.EOS.fn_alpha_pK(Pcore, Tinner, grid=True)
-            VPcore, VScore, KScore, GScore = Planet.Core.EOS.fn_Seismic(Pcore, Tinner, grid=True)
+            rhoCore, CpCore, alphaCore, VPcore, VScore, KScore, GScore = InnerEOSOnPlotGrid(Planet.Core.EOS, Pcore, Tinner)
 
             # Plot colormaps of core data
             PcoreScaled = Pcore * FigLbl.PmultFull
