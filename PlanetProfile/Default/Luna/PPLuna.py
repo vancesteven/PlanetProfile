@@ -81,14 +81,35 @@ Planet.Bulk.R_m = 1737.15e3
 # the precision the division supports given G's uncertainty, not GM's.
 Planet.Bulk.M_kg = 7.3458e22
 
-# [OBS] Whole-Moon mean moment-of-inertia factor I/MR^2 = 0.3931 +/- 0.0002.
+# [OBS] Whole-Moon MEAN moment-of-inertia factor I/MR^2 = 0.3931 +/- 0.0002.
 # Konopliv, A. S., Binder, A. B., Hood, L. L., et al. (1998), Science 281,
 # 1476-1480 ("the average moment I/MR^2 = 0.3931 +/- 0.0002").
+#
+# NAMING WARNING (Stage E2a/E2a.1, 2026-09-01). The attribute is called
+# `Cmeasured` for historical/API reasons, but the value stored here is the
+# MEAN moment I = (A+B+C)/3, NOT the polar moment C. Konopliv et al. give both
+# in the same sentence: polar C/MR^2 = 0.3932 and mean I/MR^2 = 0.3931. The mean
+# moment is the physically correct comparator, because a spherically symmetric
+# model has A = B = C and cannot predict C separately from I; using the polar
+# value would introduce a (2/3)J2 ~ 1.35e-4 bias. The value is right; only the
+# attribute name is misleading.
+# TODO(deprecation): rename to something like Bulk.meanMomentMeasured. NOT done
+# here -- `Cmeasured` appears ~135 times across PlanetProfile, including the app,
+# the test suite and many body configurations, so the rename is a separate
+# authorized refactor, not a cosmetic edit.
+#
+# UNCERTAINTY WARNING. The quoted +/-0.0002 is, verbatim in the same sentence,
+# "an uncertainty of five times the formal error". It is NOT a Gaussian 1-sigma.
+# Downstream code that forms (predicted - Cmeasured)/Cuncertainty is computing a
+# LEGACY-BAND UNIT, not a number of standard deviations.
+#
 # This is the whole-body value, which is the physically correct target for
-# PlanetProfile's C/MR^2 -- computed as a plain shell sum over every layer,
-# fluid core included. Do NOT substitute Williams et al. (2014)'s
-# solid-Moon mean moment (0.392728), which excludes the fluid core's own
-# contribution and is not comparable to a whole-body shell sum.
+# PlanetProfile's shell sum over every layer, fluid core included. Do NOT
+# substitute Williams et al. (2014)'s solid-Moon mean moment (0.392728 at
+# R = 1738.0 km, or 0.393112 at R = 1737.151 km), which excludes the fluid
+# core's own contribution and is not comparable to a whole-body shell sum. The
+# modern whole-Moon comparator is a MODEL-DEPENDENT RANGE, I_m/MR^2 in
+# [0.39311, 0.39338] at R = 1737.151 km (Williams et al. 2014, Table 8).
 Planet.Bulk.Cmeasured = 0.3931
 Planet.Bulk.Cuncertainty = 0.0002
 
