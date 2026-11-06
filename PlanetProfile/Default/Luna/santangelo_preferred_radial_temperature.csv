@@ -1,0 +1,135 @@
+# Santangelo et al. (2025) preferred lunar thermal model -- radial (1-D) extraction
+#
+# PROVENANCE
+#   model_id            : BU16_C_th04_K_027_r15_th6  (the study's preferred model)
+#   source_archive_member: Santangelo_et_al_2025_Data/BU16_C_th04_K_027_r15_th6/
+#                          BU16_C_th04_K_027_r15_th6_T_Field.txt
+#   source_uncompressed_sha256: 8831ca5cf24e1b0831dd64e928e5551617d4be550a2965f79dc877b6164d9fef
+#   extracted_by        : scripts/3d_thermomineralogy/santangelo_loader.py
+#                         (load_native_temperature + area_weights + weighted_stats)
+#   extraction          : AREA-WEIGHTED GLOBAL MEAN over the native 180x360
+#                         lateral grid at each native depth level. This is the
+#                         same reduction used for every radial validation in
+#                         this study (unified mantle validation, resolution
+#                         convergence, mid-mantle P-T decomposition).
+#                         It is NOT a near-side or far-side extraction.
+#   extracted_on        : 2026-08-24
+#
+# COORDINATE
+#   depth_km is depth BELOW THE LUNAR SURFACE, the native coordinate of the
+#   source field. Radius is deliberately NOT tabulated here: the Santangelo
+#   model uses a 1740 km outer radius while this project's PlanetProfile body
+#   uses R = 1737.15 km (Neumann 2013). Prescribing against depth anchors the
+#   profile to the surface thermal boundary condition, avoiding a spurious
+#   ~2.85 km offset that a radius-based mapping would introduce.
+#
+# COVERAGE AND LIMITS
+#   levels              : 91
+#   depth range         : 0.0 to 1350.0 km
+#   T range             : 250.00 to 1713.85 K
+#   surface value       : 250.00 K -- consistent with the 250 K surface
+#                         boundary condition adopted independently in PPLuna
+#                         (Laneuville et al. 2013).
+#   CRUST               : COVERED. The field spans 0-40 km, so the crust does
+#                         not require a separate thermal bridge.
+#   DEEP LIMIT          : the field STOPS at 1350 km depth, i.e.
+#                         r = 1737.15 - 1350 = 387.15 km.
+#                         It does NOT reach a plausible lunar CMB (Weber et al.
+#                         2011: 330 km; Garcia et al. 2011: 380 +/- 40 km).
+#                         Any mantle node deeper than this has NO prescribed
+#                         temperature and must not be silently extrapolated.
+#
+# This file is a derived extraction. The original source data is unmodified.
+#
+depth_km,T_K
+0.000000,250.000000
+4.000000,277.663661
+12.000000,330.615330
+20.000000,380.896471
+28.000000,427.619176
+36.000000,462.202499
+44.000000,487.893892
+52.000000,508.771325
+60.000000,527.325555
+68.000000,544.850869
+76.000000,562.100435
+92.025157,596.568751
+108.050314,630.958193
+124.075472,665.238390
+140.100629,699.378990
+156.125786,733.349854
+172.150943,767.121210
+188.176101,800.663687
+204.201258,833.948367
+220.226415,866.946859
+236.251572,899.631317
+252.276730,931.974489
+268.301887,963.949765
+284.327044,995.531244
+300.352201,1026.693746
+316.377358,1057.412788
+332.402516,1087.664699
+348.427673,1117.426595
+364.452830,1146.676367
+380.477987,1175.392616
+396.503145,1203.554640
+412.528302,1231.142314
+428.553459,1258.135937
+444.578616,1284.516011
+460.603774,1310.262881
+476.628931,1335.356348
+492.654088,1359.775223
+508.679245,1383.496819
+524.704403,1406.496443
+540.729560,1428.746952
+556.754717,1450.218455
+572.779874,1470.878183
+588.805031,1490.690569
+604.830189,1509.617550
+620.855346,1527.619085
+636.880503,1544.654112
+652.905660,1560.681729
+668.930818,1575.662942
+684.955975,1589.562793
+700.981132,1602.353056
+717.006289,1614.015035
+733.031447,1624.542489
+749.056604,1633.944222
+765.081761,1642.245679
+781.106918,1649.489420
+797.132075,1655.734469
+813.157233,1661.053997
+829.182390,1665.532391
+845.207547,1669.260966
+861.232704,1672.333929
+877.257862,1674.844433
+893.283019,1676.881495
+909.308176,1678.527365
+925.333333,1679.855819
+941.358491,1680.931566
+957.383648,1681.810394
+973.408805,1682.539989
+989.433962,1683.160793
+1005.459119,1683.707017
+1021.484277,1684.207634
+1037.509434,1684.687401
+1053.534591,1685.167762
+1069.559748,1685.667554
+1085.584906,1686.203759
+1101.610063,1686.792020
+1117.635220,1687.447206
+1133.660377,1688.183952
+1149.685535,1689.017159
+1165.710692,1689.962561
+1181.735849,1691.037380
+1197.761006,1692.260647
+1213.786164,1693.653667
+1229.811321,1695.239491
+1245.836478,1697.041831
+1261.861635,1699.082029
+1277.886792,1701.373914
+1293.911950,1703.915541
+1309.937107,1706.677109
+1325.962264,1709.586077
+1341.987421,1712.511144
+1350.000000,1713.851090

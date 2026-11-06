@@ -187,9 +187,10 @@ Planet.Crust.thermal_conductivity_WmK = 1.5
 #
 # Source: Santangelo et al. (2025) preferred model BU16_C_th04_K_027_r15_th6,
 # area-weighted global mean over the native 180x360 lateral grid -- the same
-# reduction used for every radial validation in this study. Extraction and
-# provenance: lunar-bsm-interior-models/inputs/thermal/
-# santangelo_preferred_radial_temperature.csv
+# reduction used for every radial validation in this study. The profile ships
+# next to this file (PlanetProfile/Default/Luna/), a byte-identical copy of
+# lunar-bsm-interior-models/inputs/thermal/santangelo_preferred_radial_temperature.csv,
+# whose header records the extraction and the source checksum.
 #
 # Coverage: 0-1350 km depth. It spans the crust (surface value 250.00 K,
 # independently consistent with Bulk.Tsurf_K above), so no separate crustal
@@ -199,9 +200,9 @@ Planet.Crust.thermal_conductivity_WmK = 1.5
 Planet.Do.PRESCRIBED_SILICATE_T = True
 
 from pathlib import Path as _Path
+from PlanetProfile import _ROOT as _PPROOT
 from PlanetProfile.Thermodynamics.PrescribedT import LoadPrescribedTProfileCSV as _LoadT
-_TPROFILE = _Path('/Users/emma/Documents/Code/lunar-bsm-interior-models/inputs/thermal/'
-                  'santangelo_preferred_radial_temperature.csv')
+_TPROFILE = _Path(_PPROOT) / 'Default' / 'Luna' / 'santangelo_preferred_radial_temperature.csv'
 # deepContinuation='isothermal' is REQUIRED here, and is not a scientific
 # choice about the deep Moon. PlanetProfile propagates every candidate
 # silicate profile from its start radius down to r = 0 as scratch space for

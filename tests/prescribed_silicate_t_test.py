@@ -4,8 +4,12 @@ The mode must replace ONLY the silicate temperature assignment: the
 structural recursion and the core thermodynamics stay untouched, and no
 query may silently extrapolate beyond the supplied thermal data.
 """
+import os
+
 import numpy as np
 import pytest
+
+from PlanetProfile import _ROOT
 
 from PlanetProfile.Thermodynamics.PrescribedT import (
     LoadPrescribedTProfileCSV,
@@ -13,8 +17,7 @@ from PlanetProfile.Thermodynamics.PrescribedT import (
     PrescribedTemperatureRangeError,
 )
 
-CSV = ('/Users/emma/Documents/Code/lunar-bsm-interior-models/inputs/thermal/'
-       'santangelo_preferred_radial_temperature.csv')
+CSV = os.path.join(_ROOT, 'Default', 'Luna', 'santangelo_preferred_radial_temperature.csv')
 
 
 @pytest.fixture(scope='module')
