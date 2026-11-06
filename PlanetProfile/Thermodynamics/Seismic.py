@@ -12,6 +12,37 @@ import time
 # Assign logger
 log = logging.getLogger('PlanetProfile')
 
+def AssignCrustSeismic(Planet):
+    """ Seismic properties of an explicit structural crust.
+
+        By default the crust is structure-only: VP, VS, QS, KS, GS (and Cp, alpha) are NaN. If
+        Crust.VP_kms and Crust.VS_kms are both set, the crust takes these velocities and
+        GS = rho VS^2, KS = rho (VP^2 - 4/3 VS^2) at the crust density of each node; QS takes
+        Crust.QS if set, NaN otherwise. Cp and alpha stay NaN.
+    """
+    indsCrust = np.where(Planet.material == Constants.materialCrust)[0]
+    Planet.Cp_JkgK[indsCrust] = np.nan
+    Planet.alpha_pK[indsCrust] = np.nan
+    VP, VS = getattr(Planet.Crust, 'VP_kms', None), getattr(Planet.Crust, 'VS_kms', None)
+    if VP is None or VS is None:
+        if (VP is None) != (VS is None):
+            log.warning('Only one of Crust.VP_kms and Crust.VS_kms is set; crust seismic properties are left NaN.')
+        for arr in (Planet.Seismic.VP_kms, Planet.Seismic.VS_kms, Planet.Seismic.QS,
+                    Planet.Seismic.KS_GPa, Planet.Seismic.GS_GPa):
+            arr[indsCrust] = np.nan
+        return
+    if not (VP > 0 and VS > 0 and VP**2 > 4/3 * VS**2):
+        raise ValueError(f'Crust velocities VP = {VP} km/s, VS = {VS} km/s do not give a positive bulk modulus.')
+    rho = Planet.rho_kgm3[indsCrust]
+    Planet.Seismic.VP_kms[indsCrust] = VP
+    Planet.Seismic.VS_kms[indsCrust] = VS
+    Planet.Seismic.GS_GPa[indsCrust] = rho * (VS * 1e3)**2 * 1e-9
+    Planet.Seismic.KS_GPa[indsCrust] = rho * ((VP * 1e3)**2 - 4/3 * (VS * 1e3)**2) * 1e-9
+    QS = getattr(Planet.Crust, 'QS', None)
+    Planet.Seismic.QS[indsCrust] = np.nan if QS is None else QS
+    Planet.Crust.seismic_status = 'CRUST_SEISMIC_PROPERTIES_PRESCRIBED'
+
+
 def SeismicCalcs(Planet, Params):
     """ Calculation of seismic properties, including wave speeds
 
@@ -24,14 +55,7 @@ def SeismicCalcs(Planet, Params):
         Planet.Seismic.GS_GPa = (np.zeros(Planet.Steps.nTotal) for _ in range(5))
 
     if Planet.Crust.enabled:
-        indsCrust = np.where(Planet.material == Constants.materialCrust)[0]
-        Planet.Cp_JkgK[indsCrust] = np.nan
-        Planet.alpha_pK[indsCrust] = np.nan
-        Planet.Seismic.VP_kms[indsCrust] = np.nan
-        Planet.Seismic.VS_kms[indsCrust] = np.nan
-        Planet.Seismic.QS[indsCrust] = np.nan
-        Planet.Seismic.KS_GPa[indsCrust] = np.nan
-        Planet.Seismic.GS_GPa[indsCrust] = np.nan
+        AssignCrustSeismic(Planet)
 
     if Params.CALC_SEISMIC and (Planet.Do.VALID or (Params.ALLOW_BROKEN_MODELS and Planet.Do.STILL_CALCULATE_BROKEN_PROPERTIES)):
         # Make sure the necessary EOSs have been loaded (mainly only important in parallel ExploreOgram runs)

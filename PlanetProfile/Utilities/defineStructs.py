@@ -722,6 +722,12 @@ class CrustSubstruct:
         self.radiogenic_mode = 'fixed_specific_rate'
         self.mode_status = 'STRUCTURE_ONLY_CRUST_MODE'
         self.seismic_status = 'CRUST_SEISMIC_PROPERTIES_UNAVAILABLE'
+        # Optional prescribed crust velocities (km/s) and shear quality factor. With VP_kms and VS_kms
+        # set, Seismic.AssignCrustSeismic derives GS and KS from them at the crust density; with
+        # None (default) the crust seismic properties stay NaN.
+        self.VP_kms = None
+        self.VS_kms = None
+        self.QS = None
         self.implementation_status = 'R2_EXPLICIT_CRUST_PATCH_IMPLEMENTED_NOT_EXECUTED'
         # Material IDs occupy a separate namespace from phase IDs.
         self.material_id = 2
