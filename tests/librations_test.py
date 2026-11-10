@@ -145,7 +145,11 @@ def _cache_node_diagnostics():
         ocean=True,
         ocean_idx=ocean_idx,
     )
-    rigid_m = librations(reduced_r, reduced_rho, rigid=True, **kwargs)
+    # Switch-over commit 2026-11-10: the campaign's rigid convention is
+    # the REPAIRED formulation (K_int 8*pi/15 + exact ellipsoid pressure
+    # moments; binding reviews 2026-11-03 and 2026-11-10).
+    rigid_m = librations(reduced_r, reduced_rho, rigid=True,
+                         formulation='vh2008_repaired', **kwargs)
     elastic_m = librations(
         reduced_r, reduced_rho, rigid=False, y1=reduced_y1, **kwargs
     )
@@ -195,30 +199,28 @@ def test_libration_decreases_with_shell_thickness():
 
 
 def test_adjudicated_rigid_elastic_discrepancy_is_pinned():
-    """Pin the known defect until the reviewed K_int repair lands.
+    """Pin the repaired rigid/elastic pair (switch-over commit 2026-11-10).
 
-    The 2026-08-12 adjudication found the rigid branch's K_int is missing
-    8*pi/15. This pin must be updated in the same commit as any K_int fix.
+    Historical shipped-formulation pins: rigid 0.110905164 deg, ratio
+    1.008196 (elastic ABOVE rigid -- the K_int normalization defect the
+    2026-08-12 adjudication found). The repaired formulation restores the
+    physical direction; the elastic factor 0.973798 is what the F sidecar
+    carries per node (plans/scripts/enceladus_libration_factor_sidecar.py).
     """
     values = _cache_node_diagnostics()
-    assert values["rigid_deg"] == pytest.approx(0.110905164, rel=1e-6)
+    assert values["rigid_deg"] == pytest.approx(0.114822793, rel=1e-6)
     assert values["elastic_deg"] == pytest.approx(0.111814157, rel=1e-6)
     assert values["elastic_deg"] / values["rigid_deg"] == pytest.approx(
-        1.008196, rel=1e-4
+        0.973798, rel=1e-4
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=("rigid K_int normalization bug. The repair exists opt-in as "
-            "librations(formulation='vh2008_repaired') "
-            "(tests/librations_repair_test.py); this tripwire flips only at "
-            "the switch-over commit, which must also replace the 1.008196 "
-            "pin (-> 0.973798), void the +0.8 % multiplicative_factor and "
-            "re-derive libration_sys_frac and the C2 bracket"),
-)
 def test_elasticity_has_the_vh16_physical_direction():
-    """Elasticity should reduce libration once the rigid branch is repaired."""
+    """Elasticity reduces libration under the repaired rigid branch.
+
+    This was a strict-xfail tripwire against the shipped formulation from
+    2026-08-12 until the 2026-11-10 switch-over commit.
+    """
     values = _cache_node_diagnostics()
     assert values["elastic_deg"] < values["rigid_deg"]
 

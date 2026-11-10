@@ -1,0 +1,44 @@
+{
+ "cache": "/Users/svance/src/planetprofile-genai/PlanetProfile/Test/mcmc_results/Enceladus/Cassini_isostasy/enceladus_seawater_zbw_grid_2d.pkl",
+ "sidecar": "/Users/svance/src/planetprofile-genai/PlanetProfile/Test/mcmc_results/Enceladus/Cassini_isostasy/enceladus_seawater_zbw_grid_2d.pkl.lib_factor_sidecar.pkl",
+ "sidecar_md5_of_cache": "e1d0de1a4b0d756c693f3413bcb3ad01",
+ "loo": {
+  "max": 0.00016862876454004638,
+  "mean": 4.598333045608988e-05,
+  "n": 133,
+  "pass": true
+ },
+ "nodes": {
+  "1220": {
+   "F_sidecar": 0.9793609391865316,
+   "c_sidecar": 1.2134856792969142e-06,
+   "rho_ref": 2325.5129698476735,
+   "rho_ice_pm10_absdF": 0.00013363019125867126,
+   "rho_ice_pass": true,
+   "c_alma_recomputed": 1.2011550375070831e-06,
+   "c_ratio": 0.9898386589968039,
+   "c_pass": true,
+   "rho_probe": 2411.0,
+   "F_linearized": 0.979462535433215,
+   "F_exact": 0.9794553974738619,
+   "linearity_absdiff": 7.137959353142875e-06,
+   "linearity_pass": true
+  },
+  "1540": {
+   "F_sidecar": 0.9813473259576568,
+   "c_sidecar": 1.040996697568835e-06,
+   "rho_ref": 2325.5886107125752,
+   "rho_ice_pm10_absdF": 0.00012424738447947004,
+   "rho_ice_pass": true,
+   "c_alma_recomputed": 1.028961704995137e-06,
+   "c_ratio": 0.9884389714186369,
+   "c_pass": true,
+   "rho_probe": 2411.0,
+   "F_linearized": 0.9814345804671143,
+   "F_exact": 0.9814285451586673,
+   "linearity_absdiff": 6.035308447005505e-06,
+   "linearity_pass": true
+  }
+ },
+ "pass": true
+}

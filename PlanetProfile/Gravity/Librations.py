@@ -107,9 +107,55 @@ def moi_ellps(a, b, c, rho):
 
     return Ai, Bi, Ci
 
+def _figure_scales(a, b, radial, rho, ocean_idx, m_body, H22_obs_m,
+                   compensation_C2):
+    """Surface and shell-base figure scales of the H&M Delta_rho treatment.
+
+    ``a``, ``b`` are the semi-axes of the ORIGINAL (pre-sphere-insertion)
+    stack; ``ocean_idx`` indexes the ocean in that stack. Shared by the rigid
+    and deformable branches so both see numerically identical scales.
+    Returns (surface_figure_scale, base_figure_scale, H22_hyd_surface_m,
+    H22_root_m).
+    """
+    fpi = 4/3 * np.pi
+    H22_hyd_surface_m = (a[-1] - b[-1]) / 6
+    surface_figure_scale = H22_obs_m / H22_hyd_surface_m
+
+    if compensation_C2 is None:
+        # Surface-only treatment == the C2 -> 0 Eq.-12 limit.
+        base_figure_scale = 1.0
+        H22_root_m = 0.0
+    else:
+        shell_mass = (fpi * rho[ocean_idx+1:]
+                      * (radial[ocean_idx+1:]**3
+                         - radial[ocean_idx:-1]**3)).sum()
+        g_t = gravity_g(m_body, radial[-1])
+        g_b = gravity_g(m_body - shell_mass, radial[ocean_idx])
+        H22_hyd_base_m = (a[ocean_idx] - b[ocean_idx]) / 6
+        H22_root_m = airy_root(
+            {(2, 2): H22_obs_m - H22_hyd_surface_m},
+            rho[ocean_idx+1], rho[ocean_idx], g_t, g_b,
+            compensation_C2,
+        )[(2, 2)]
+        base_figure_scale = ((H22_hyd_base_m + H22_root_m)
+                             / H22_hyd_base_m)
+
+    log.debug(
+        "librations(): H&M Delta_rho-consistent figure "
+        "treatment active -- H22_hyd_surface=%.6g m, "
+        "H22_observed=%.6g m, surface_figure_scale=%.6g, "
+        "C2=%r, H22_airy_root=%.6g m, base_figure_scale=%.6g",
+        H22_hyd_surface_m, H22_obs_m, surface_figure_scale,
+        compensation_C2, H22_root_m, base_figure_scale,
+    )
+    return (surface_figure_scale, base_figure_scale,
+            H22_hyd_surface_m, H22_root_m)
+
+
 def librations(radial, rho, omega, ecc, rigid=True, ocean=True,
                        ocean_idx=1, y1=None, rek2=None, H22_obs_m=None,
-                       compensation_C2=None, formulation='vh2008_shipped'):
+                       compensation_C2=None, formulation='vh2008_shipped',
+                       diagnostics=None):
     """Compute the forced libration amplitude (metres, at the surface).
 
     Rigid-ocean coefficient formulation (``formulation``)
@@ -154,8 +200,20 @@ def librations(radial, rho, omega, ecc, rigid=True, ocean=True,
     lacked. The H22_obs_m / compensation_C2 figure treatment composes with
     either formulation; in both, K_int keeps the HYDROSTATIC figure.
 
-    Figure convention (ocean=True, rigid=True branch only)
+    Figure convention (ocean=True; rigid VH08, or deformable VH13 with a
+    single shell layer above the ocean)
     -------------------------------------------------------
+    The treatment below also composes with the deformable (rigid=False)
+    branch under the reduced stack (one shell layer). There the surface
+    scale multiplies the shell's surface piece rho_s f_top, and the base
+    scale multiplies the shell-base piece -rho_s f_base together with the
+    ocean-top pressure piece rho_o f_base, in Ks (VH13 Eq. 47-52) and in the
+    zonal term Ksz, exactly as in the rigid branch. The fluid Love numbers
+    kf and tidal k2 are response properties and stay hydrostatic. K_int
+    keeps the HYDROSTATIC figure in both branches (a known ~+0.3 %
+    convention choice). With y1 = 0 the deformable branch equals the rigid
+    repaired branch with the same figure kwargs.
+
     PlanetProfile's historical (default) behaviour drives every layer's
     (B - A) contribution to the libration torques -- including the outer
     shell's -- from the HYDROSTATIC Tricarico figure computed internally
@@ -221,9 +279,9 @@ def librations(radial, rho, omega, ecc, rigid=True, ocean=True,
         ``PlanetProfile.Gravity.isostasy.triaxial_to_H2m``, i.e.
         H22 = (a - b) / 6. When ``None`` (default), the hydrostatic figure
         is used everywhere and behaviour is identical to leaving this
-        parameter unset entirely. Only supported for the
-        ``ocean=True, rigid=True`` branch; passing a non-default value for
-        any other branch raises ``NotImplementedError``.
+        parameter unset entirely. Supported for ``ocean=True`` with
+        ``rigid=True``, or ``rigid=False`` with a single shell layer above
+        the ocean; any other branch raises ``NotImplementedError``.
     compensation_C2 : float, optional
         Airy compensation fraction (H&M Eq. 12; C2 = 1 is pure Airy).
         Requires ``H22_obs_m``. When ``None`` (or 0) the shell base keeps
@@ -235,12 +293,19 @@ def librations(radial, rho, omega, ecc, rigid=True, ocean=True,
             "formulation must be 'vh2008_shipped' or 'vh2008_repaired'; got %r"
             % (formulation,))
     figure_option_used = H22_obs_m is not None or compensation_C2 is not None
-    if figure_option_used and not (ocean and rigid):
+    if figure_option_used and not ocean:
         raise NotImplementedError(
             "The observed-figure libration convention (H22_obs_m / "
-            "compensation_C2) is only implemented for the ocean=True, "
-            "rigid=True (Van Hoolst et al. 2008 rigid) branch. Got "
+            "compensation_C2) is only implemented for ocean=True (rigid "
+            "VH08, or deformable VH13 with a single shell layer). Got "
             "ocean=%r, rigid=%r." % (ocean, rigid)
+        )
+    if figure_option_used and not rigid and len(rho) - ocean_idx - 1 != 1:
+        raise NotImplementedError(
+            "The observed-figure convention in the deformable (rigid=False) "
+            "branch is defined against a single shell layer; got %d layers "
+            "above the ocean. Reduce the stack first (see "
+            "Gravity.LibrationModelInputs)." % (len(rho) - ocean_idx - 1)
         )
     if compensation_C2 is not None and H22_obs_m is None:
         raise ValueError(
@@ -360,36 +425,9 @@ def librations(radial, rho, omega, ecc, rigid=True, ocean=True,
                 # this residual is identically zero for a reduced stack.
                 BmA_shell_interior = (Bs - As) - BmA_surface - BmA_base
 
-                H22_hyd_surface_m = (a[-1] - b[-1]) / 6
-                surface_figure_scale = H22_obs_m / H22_hyd_surface_m
-
-                if compensation_C2 is None:
-                    # Surface-only treatment == the C2 -> 0 Eq.-12 limit.
-                    base_figure_scale = 1.0
-                    H22_root_m = 0.0
-                else:
-                    shell_mass = (fpi * rho[ocean_idx+1:]
-                                  * (radial[ocean_idx+1:]**3
-                                     - radial[ocean_idx:-1]**3)).sum()
-                    g_t = gravity_g(m_body, radial[-1])
-                    g_b = gravity_g(m_body - shell_mass, radial[ocean_idx])
-                    H22_hyd_base_m = (a[ocean_idx] - b[ocean_idx]) / 6
-                    H22_root_m = airy_root(
-                        {(2, 2): H22_obs_m - H22_hyd_surface_m},
-                        rho[ocean_idx+1], rho[ocean_idx], g_t, g_b,
-                        compensation_C2,
-                    )[(2, 2)]
-                    base_figure_scale = ((H22_hyd_base_m + H22_root_m)
-                                         / H22_hyd_base_m)
-
-                log.debug(
-                    "librations(): H&M Delta_rho-consistent figure "
-                    "treatment active -- H22_hyd_surface=%.6g m, "
-                    "H22_observed=%.6g m, surface_figure_scale=%.6g, "
-                    "C2=%r, H22_airy_root=%.6g m, base_figure_scale=%.6g",
-                    H22_hyd_surface_m, H22_obs_m, surface_figure_scale,
-                    compensation_C2, H22_root_m, base_figure_scale,
-                )
+                surface_figure_scale, base_figure_scale, _, _ = \
+                    _figure_scales(a, b, radial, rho, ocean_idx, m_body,
+                                   H22_obs_m, compensation_C2)
 
                 # The base scale multiplies BOTH halves of the base
                 # interface term, so the net perturbation enters at the
@@ -480,6 +518,13 @@ def librations(radial, rho, omega, ecc, rigid=True, ocean=True,
             # the flattenings of each layer
             r_sphere = (r_ot + r_ob) / 2
 
+            if H22_obs_m is not None:
+                # Figure scales from the ORIGINAL stack (a, b still hold its
+                # Tricarico axes here), shared with the rigid branch.
+                surface_figure_scale, base_figure_scale, _, _ = \
+                    _figure_scales(a, b, radial, rho, ocean_idx, m_body,
+                                   H22_obs_m, compensation_C2)
+
             r_upd = np.insert(radial, ocean_idx, r_sphere)
             rho_upd     = np.insert(rho, ocean_idx, rho[ocean_idx])
 
@@ -518,6 +563,26 @@ def librations(radial, rho, omega, ecc, rigid=True, ocean=True,
             BmA_ot = (Bi - Ai)[ocean_idx]
             BmA_s = (Bi - Ai)[ocean_idx+1:].sum()
 
+            # Delta_rho-consistent figure treatment (same split as the rigid
+            # branch). Only the static (frozen-figure) moments that enter as
+            # figure sources are rescaled; the fluid Love numbers kf and the
+            # tidal k2 stay hydrostatic. The shell-base piece
+            # (-rho_shell f_ot) and the ocean-top pressure piece (BmA_ot,
+            # rho_ocean f_ot) share base_figure_scale so the base interface
+            # enters at Delta_rho weight.
+            if H22_obs_m is None:
+                BmA_s_fig = BmA_s
+                BmA_ot_fig = BmA_ot
+            else:
+                f_fig = 4/15*np.pi * a * b * c * (a**2 - b**2)
+                BmA_s_surface = rho_shell * f_fig[-1]
+                BmA_s_base = -rho_shell * f_fig[ocean_idx]
+                BmA_s_interior = BmA_s - BmA_s_surface - BmA_s_base
+                BmA_s_fig = (BmA_s_interior
+                             + surface_figure_scale * BmA_s_surface
+                             + base_figure_scale * BmA_s_base)
+                BmA_ot_fig = base_figure_scale * BmA_ot
+
             # Polar MoIs
             C_s = Ci[ocean_idx+1:].sum()
             C_i = Ci[:ocean_idx-1].sum()
@@ -533,11 +598,22 @@ def librations(radial, rho, omega, ecc, rigid=True, ocean=True,
             # BmA_s2 = 8/15 * np.pi * rho_shell * (beta[-1] * radial[-1]**5 - beta[2] * radial[2]**5)
             # BmA_i2 = 8/15 * np.pi * rho_core * beta[0] * radial[0]**5
 
-            # Compute torques separately acting on outer shell and interior
-            Ks    = 1.5 * omega ** 2 * (BmA_s * f2s + BmA_ot * f2ot)
+            # Compute torques separately acting on outer shell and interior.
+            # The figure scaling applies ONLY to the static (frozen-figure)
+            # moments. The elastic reduction BmA*(1 - f2) = BmA*k2/kf =
+            # k2*q*M*R^2 (hydrostatic identity kf = BmA/(q M R^2)) is the
+            # torque on the tidal bulge, which is set by the forcing
+            # potential and the rheology and does NOT depend on the static
+            # figure; scaling it would double-count the elastic reduction
+            # on the non-hydrostatic part (binding review 2026-11-10). At
+            # y1 = 0 (f2 = 1) this reduces to the rigid-branch grouping.
+            Ks    = 1.5 * omega ** 2 * ((BmA_s_fig + BmA_ot_fig)
+                                        - (BmA_s * (1 - f2s)
+                                           + BmA_ot * (1 - f2ot)))
             Ki    = 1.5 * omega ** 2 * (BmA_i * f2i + BmA_ob * f2ob)
 
-            # Gravitational coupling torque
+            # Gravitational coupling torque (hydrostatic figure, as in the
+            # rigid branch; the H22 treatment does not enter K_int)
             K_int = 4/5 * np.pi * G * (BmA_i + BmA_ob) * \
                 (rho_ocean*beta_ot + rho_shell*(beta_s-beta_ot))
 
@@ -553,8 +629,22 @@ def librations(radial, rho, omega, ecc, rigid=True, ocean=True,
             Kii   = 0.8 * np.pi * G * Ki1
             Kis   = 0.8 * np.pi * G * Ki2
 
+            # Zonal-tide change in C: (k2/kf)*BmA/4 = k2*q*M*R^2/4 is a
+            # tidal-response term, independent of the static figure, so it
+            # keeps the HYDROSTATIC BmA_s (binding review 2026-11-10).
             Ksz   = k2s/kf_s / 4 * BmA_s * omega**2
             Kiz   = k2i/kf_i / 4 * BmA_i * omega**2
+
+            if diagnostics is not None:
+                # Test/validation hook only (no effect on the result): the
+                # torques, so a test can assert which terms carry the
+                # figure treatment (discriminates the corrected Ks/Ksz
+                # assignment from a figure-scaled-f2 misassignment, which
+                # the y1 = 0 anchors cannot).
+                diagnostics.update(Ks=Ks, Ki=Ki, K_int=K_int, Ksz=Ksz,
+                                   Kiz=Kiz, BmA_s_fig=BmA_s_fig,
+                                   BmA_ot_fig=BmA_ot_fig, BmA_s=BmA_s,
+                                   BmA_ot=BmA_ot)
 
             # Assemble all the torques from Equations 47 - 52
             K1    = 2 * (Ks + K_int - Kis)

@@ -157,7 +157,8 @@ def test_repaired_libration_decreases_with_shell_thickness():
 
 # --- elastic branch vs repaired rigid on cache nodes ----------------------
 
-def _alma_node(structure, mu_scale=1.0):
+def _alma_inputs(structure, mu_scale=1.0):
+    """Reduced libration stack + ALMA elastic y1 for one cache node."""
     r = np.asarray(structure["r_m"], float)
     rho = np.asarray(structure["rho"], float)
     mu = np.asarray(structure["mu_Pa"], float) * mu_scale
@@ -175,6 +176,11 @@ def _alma_node(structure, mu_scale=1.0):
     rr, rrho, oi, ry = LibrationModelInputs(r, ph, rho, y1)
     kw = dict(omega=om, ecc=float(structure["eccentricity"]), ocean=True,
               ocean_idx=oi)
+    return rr, rrho, ry, kw
+
+
+def _alma_node(structure, mu_scale=1.0):
+    rr, rrho, ry, kw = _alma_inputs(structure, mu_scale)
     return {
         "shipped": librations(rr, rrho, **kw),
         "repaired": librations(rr, rrho, **REPAIRED, **kw),
@@ -370,3 +376,124 @@ def test_repaired_shell_bracket_is_exactly_the_drho_sum():
     expected = abs(np.linalg.solve(A, [2 * e * Ks, 2 * e * Kc])[0] * r[-1])
     got = librations(r, rho, om, e, H22_obs_m=857.0, **REPAIRED)
     assert got == pytest.approx(expected, rel=1e-11)
+
+
+# --- H&M figure treatment in the deformable branch (gate C7) --------------
+
+# elastic value on the smoke node recorded on the pre-edit code (no figure).
+SMOKE_ELASTIC_NOFIG_PIN_M = 491.9794954534861
+
+FIG_C2_GRID = (None, 0.25, 0.5, 0.81, 1.0)
+
+
+def _fig_kwargs(c2):
+    kw = dict(H22_obs_m=857.0)
+    if c2 is not None:
+        kw["compensation_C2"] = c2
+    return kw
+
+
+def test_deformable_no_figure_path_is_unchanged():
+    v = _smoke_node()
+    assert v["elastic"] == pytest.approx(SMOKE_ELASTIC_NOFIG_PIN_M, rel=1e-12)
+
+
+@pytest.mark.parametrize("c2", FIG_C2_GRID)
+def test_deformable_figure_y1_zero_equals_repaired_rigid(c2):
+    """y1 -> 0 anchor with the H22 / C2 figure treatment on both sides."""
+    for name, r, rho, om, e in _cases():
+        if name.startswith("vh16_zb"):
+            continue
+        kw = _fig_kwargs(c2)
+        rigid = librations(r, rho, om, e, **REPAIRED, **kw)
+        deform = librations(r, rho, om, e, rigid=False, y1=np.zeros(3), **kw)
+        assert deform == pytest.approx(rigid, rel=1e-10), (name, c2)
+        # the figure treatment really changes the answer
+        assert abs(rigid / librations(r, rho, om, e, **REPAIRED) - 1) > 1e-3
+
+
+def test_deformable_figure_C2_zero_limit_is_surface_only():
+    r, rho, om, e = _enceladus_b2prime_structure()
+    kw = dict(rigid=False, y1=np.full(3, 1e-3))
+    surf = librations(r, rho, om, e, H22_obs_m=857.0, **kw)
+    tiny = librations(r, rho, om, e, H22_obs_m=857.0,
+                      compensation_C2=1e-9, **kw)
+    assert tiny == pytest.approx(surf, rel=1e-6)
+
+
+def test_figure_scales_are_shared_between_branches():
+    """Rigid and deformable branches use one scale helper: identical
+    surface-only and C2 > 0 inputs give the same y1 = 0 answer (above), and
+    the rigid shipped path is unchanged (pins in the shipped tests)."""
+    r, rho, om, e = _enceladus_b2prime_structure()
+    a = librations(r, rho, om, e, H22_obs_m=857.0, compensation_C2=0.5,
+                   **REPAIRED)
+    b = librations(r, rho, om, e, H22_obs_m=857.0, compensation_C2=0.5,
+                   rigid=False, y1=np.zeros(3))
+    assert b == pytest.approx(a, rel=1e-10)
+
+
+def test_deformable_figure_guards():
+    r, rho, oi = _two_layer_shell_stack()
+    kw = dict(omega=OMEGA_VH16_RADPS, ecc=ECCENTRICITY, ocean_idx=oi,
+              rigid=False, y1=np.zeros(r.size))
+    with pytest.raises(NotImplementedError):
+        librations(r, rho, H22_obs_m=857.0, **kw)
+    with pytest.raises(NotImplementedError):
+        librations(r, rho, H22_obs_m=857.0, compensation_C2=0.5, **kw)
+    r3, rho3, om, e = _enceladus_b2prime_structure()
+    for rigid_kw in (dict(rigid=True), dict(rigid=False, y1=np.zeros(3))):
+        with pytest.raises(NotImplementedError):
+            librations(r3, rho3, om, e, ocean=False, H22_obs_m=857.0,
+                       **rigid_kw)
+
+
+# --- corrected Ks/Ksz figure assignment (binding review 2026-11-10) -------
+
+def test_figure_treatment_only_scales_static_moments():
+    """Discriminates the corrected Ks/Ksz assignment from a
+    figure-scaled-f2 misassignment, which the y1 = 0 anchors CANNOT (both
+    forms coincide at f2 = 1): the tidal-response terms carry no figure
+    dependence, so (i) Ksz must not change with H22_obs_m, and (ii) the
+    figure increment of Ks must be the same at any y1."""
+    if not SMOKE_CACHE.exists():
+        pytest.skip("smoke cache absent")
+    with SMOKE_CACHE.open("rb") as stream:
+        cache = pickle.load(stream)
+    i = int(np.argmin(np.abs(np.asarray(cache["Tb_K_grid"]) - 272.46)))
+    rr, rrho, ry, kw = _alma_inputs(cache["structures"][i])
+    fig = dict(H22_obs_m=857.0, compensation_C2=0.81)
+    diags = []
+    for y, f in ((ry, fig), (ry, {}), (0.5 * ry, fig), (0.5 * ry, {})):
+        d = {}
+        librations(rr, rrho, rigid=False, y1=y, **f, **kw, diagnostics=d)
+        diags.append(d)
+    d_fig, d_nofig, d_fig_half, d_nofig_half = diags
+    # (i) Ksz is a tidal-response term: figure-independent.
+    assert d_fig["Ksz"] == pytest.approx(d_nofig["Ksz"], rel=1e-14)
+    assert d_fig_half["Ksz"] == pytest.approx(d_nofig_half["Ksz"], rel=1e-14)
+    # (ii) the figure increment of Ks is static: identical at y1 and y1/2.
+    inc = d_fig["Ks"] - d_nofig["Ks"]
+    inc_half = d_fig_half["Ks"] - d_nofig_half["Ks"]
+    assert inc != 0.0
+    assert inc == pytest.approx(inc_half, rel=1e-12)
+    # and equals the static-moment increment directly.
+    static_inc = 1.5 * kw["omega"] ** 2 * (
+        (d_fig["BmA_s_fig"] + d_fig["BmA_ot_fig"])
+        - (d_fig["BmA_s"] + d_fig["BmA_ot"]))
+    assert inc == pytest.approx(static_inc, rel=1e-12)
+
+
+@pytest.mark.skipif(not PROD_CACHE.exists(), reason="production cache absent")
+@pytest.mark.parametrize("index, pin_m", [(1220, 432.6357784877),
+                                          (1540, 401.7141908788)])
+def test_corrected_deformable_figure_pins_on_production_nodes(index, pin_m):
+    """Corrected deformable+figure amplitudes at the review nodes,
+    C2 = 0.81, H22 = 857 m -- independently reproduced by the 2026-11-10
+    binding review (432.64 / 401.71 m) before being pinned here."""
+    with PROD_CACHE.open("rb") as stream:
+        cache = pickle.load(stream)
+    rr, rrho, ry, kw = _alma_inputs(cache["structures"][index])
+    out = librations(rr, rrho, rigid=False, y1=ry, H22_obs_m=857.0,
+                     compensation_C2=0.81, **kw)
+    assert out == pytest.approx(pin_m, rel=1e-9)

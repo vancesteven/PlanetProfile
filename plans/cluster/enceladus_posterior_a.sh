@@ -54,6 +54,15 @@ cd "$REPO"
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MPLBACKEND=Agg
 [[ -f "$CACHE" ]] || { echo "ERROR: no cache at $CACHE" >&2; exit 1; }
 echo "repo @ $(git rev-parse --short HEAD); cache $CACHE; seed $SEED; $NAME; $(date)"
+# K_int switch-over (2026-11-10): the config declares an elastic-factor
+# sidecar next to the structure cache; build it if absent (~1 min, ALMA per
+# node). The runner hard-fails on a missing or cache-mismatched sidecar.
+SIDECAR="$CACHE.lib_factor_sidecar.pkl"
+if [[ ! -f "$SIDECAR" ]]; then
+  echo "=== building elastic-factor sidecar $(date)"
+  HOME="$PPHOME" python plans/scripts/enceladus_libration_factor_sidecar.py \
+    --cache "$CACHE" || { echo "SIDECAR BUILD FAILED" >&2; exit 1; }
+fi
 if [[ -n "${THIN_CHECK:-}" ]]; then
   # Prior draws restricted to zb 13-15 km (just above the None-corner hole at
   # zb <= 13): the best loglike found there should be far below the posterior's.
