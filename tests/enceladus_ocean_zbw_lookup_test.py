@@ -95,6 +95,13 @@ def _zbw_cache(zb_grid, w_grid, holes=()):
 def _config_libration_block(**overrides):
     with open(CANDIDATE_CONFIG) as fh:
         blk = dict(json.load(fh)['metadata']['libration_model_correction'])
+    # These tests pin the SHIPPED-formulation adjudicated brackets; revert
+    # the 2026-11-10 switch-over declaration (repaired formulation + F
+    # sidecar) to the legacy block. The switch-over wiring is pinned in
+    # tests/enceladus_libration_wiring_test.py.
+    blk.pop('elastic_factor_sidecar', None)
+    blk.pop('formulation', None)
+    blk['multiplicative_factor'] = 1.008
     blk.update(overrides)
     return blk
 

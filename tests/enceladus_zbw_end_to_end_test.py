@@ -78,6 +78,10 @@ def _write_cache(path):
 def _make_cfg_dict(cache_path, **sampler):
     d = json.load(open(CFG))
     d['structure_cache_path'] = str(cache_path)
+    # The synthetic cache has no lib-factor sidecar (it is built per
+    # production cache); drop the declaration so the legacy-budget path runs.
+    d['metadata']['libration_model_correction'].pop(
+        'elastic_factor_sidecar', None)
     d['sampler_settings'] = dict(d['sampler_settings'])
     d['sampler_settings'].update(sampler)
     return d
@@ -264,3 +268,60 @@ def test_c_end_to_end_run_inference_cli(cache_path, tmp_path, monkeypatch):
         chi2 = float(resid @ np.linalg.solve(cov, resid))
         assert -0.5 * chi2 == pytest.approx(res.log_likelihoods[j], rel=1e-9)
     print(f'e2e wall time {dt:.1f}s for {n} draws')
+
+
+def _write_sidecar(cache_path, F0=0.96, c=2e-6, rho_ref=2300.0):
+    """Synthetic lib-factor sidecar matching the synthetic cache's grids,
+    with a zb/w-dependent F so the bilinear interpolation is exercised."""
+    import hashlib
+    md5 = hashlib.md5(Path(cache_path).read_bytes()).hexdigest()
+    nz, nw = ZB_GRID.size, W_GRID.size
+    F = (F0 + 5e-4 * np.arange(nz)[:, None]
+         + 2e-4 * np.arange(nw)[None, :])
+    side = {
+        'schema': 'lib-factor-sidecar-v1',
+        'zb_km_grid': ZB_GRID, 'wOcean_ppt_grid': W_GRID,
+        'F': F, 'dlnF_drho_rock': np.full((nz, nw), c),
+        'rho_rock_node_kgm3': np.full((nz, nw), rho_ref),
+        'provenance': {'cache_md5': md5},
+    }
+    out = Path(str(cache_path) + '.lib_factor_sidecar.pkl')
+    with out.open('wb') as f:
+        pickle.dump(side, f)
+    return side
+
+
+def test_e_sidecar_budget_through_the_production_path(cache_path):
+    """Switch-over commit 2026-11-10: with the config's own
+    ``elastic_factor_sidecar`` declaration KEPT and a sidecar present, the
+    derived libration carries F_bilinear x (1 + c*(rho_s - rho_ref))
+    relative to the identical config without the sidecar -- through the
+    real cache lookup and closure, not a stubbed structure."""
+    from PlanetProfile.Inference import grid_interp_2d
+    side = _write_sidecar(cache_path)
+
+    # Build the sidecar-declaring config directly (NOT via _make_cfg_dict,
+    # which strips the declaration for the older tests).
+    d_with = json.load(open(CFG))
+    d_with['structure_cache_path'] = str(cache_path)
+    assert d_with['metadata']['libration_model_correction'][
+        'elastic_factor_sidecar']['schema'] == 'lib-factor-sidecar-v1'
+
+    r_with = _runner(cache_path, cfg_dict=d_with,
+                     tmp_path=cache_path.parent)
+    r_legacy = _runner(cache_path)  # declaration stripped
+
+    theta = {'zb_km': 22.0, 'log10_wOcean_ppt': 0.3, 'rho_ice_kgm3': 925.0,
+             'rho_rock_kgm3': 2400.0, 'compensation_C2': 0.6,
+             'libration_sys_frac': 0.0}
+    lib_w = r_with._derive_libration_deg(theta)
+    rho_s = float(r_with.last_mass_closure['rho_s'])
+    lib_l = r_legacy._derive_libration_deg(theta)
+    assert lib_w is not None and lib_l is not None
+
+    corners, weights = grid_interp_2d.bilinear_weights(
+        ZB_GRID, W_GRID, 22.0, 10.0 ** 0.3)
+    F_interp = sum(wgt * side['F'].ravel()[idx]
+                   for idx, wgt in zip(corners, weights))
+    expected = F_interp * (1.0 + 2e-6 * (rho_s - 2300.0))
+    assert lib_w / lib_l == pytest.approx(expected, rel=1e-12)

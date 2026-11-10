@@ -1925,9 +1925,110 @@ class MCMCRunner:
                 out['compensation_C2'] = C2
         return out
 
+    def _libration_factor_sidecar(self, lib_cfg: Dict[str, Any]) -> Dict[str, Any]:
+        """Lazily load (once) the per-node elastic libration factor sidecar.
+
+        Declared by ``metadata.libration_model_correction.elastic_factor_sidecar``
+        (schema ``lib-factor-sidecar-v1``, built by
+        plans/scripts/enceladus_libration_factor_sidecar.py). The file is
+        ``<resolved structure_cache_path> + suffix``. A missing file, a wrong
+        schema, a grid mismatch against the loaded zbw cache, or an md5 of the
+        cache file that differs from ``provenance.cache_md5`` is a
+        CONFIGURATION error and raises ValueError at first use (never a
+        per-draw reject), when ``cache_md5_must_match`` is true (default).
+        """
+        cached = getattr(self, '_lib_factor_sidecar_cache', None)
+        if cached is not None:
+            return cached
+        import hashlib as _hashlib
+        import pickle as _pickle
+        from pathlib import Path
+        spec = lib_cfg.get('elastic_factor_sidecar') or {}
+        schema = spec.get('schema', 'lib-factor-sidecar-v1')
+        suffix = spec.get('suffix', '.lib_factor_sidecar.pkl')
+        from .structure_cache import resolve_cache_path
+        cache_path = getattr(self, '_resolved_cache_path', None)
+        if cache_path is None:
+            cache_path = resolve_cache_path(self.config.structure_cache_path)
+        cache_path = Path(cache_path)
+        sc_path = Path(str(cache_path) + suffix)
+        if not sc_path.is_file():
+            raise ValueError(
+                "libration_model_correction declares elastic_factor_sidecar "
+                "but the sidecar file is missing: %s" % sc_path)
+        with open(sc_path, 'rb') as fh:
+            sc = _pickle.load(fh)
+        if not isinstance(sc, dict) or sc.get('schema') != schema:
+            raise ValueError("libration factor sidecar %s: expected schema %r, "
+                             "got %r" % (sc_path, schema,
+                                         sc.get('schema') if isinstance(sc, dict)
+                                         else type(sc).__name__))
+        if spec.get('cache_md5_must_match', True):
+            md5 = _hashlib.md5(cache_path.read_bytes()).hexdigest()
+            want = (sc.get('provenance') or {}).get('cache_md5')
+            if md5 != want:
+                raise ValueError(
+                    "libration factor sidecar %s was built from a different "
+                    "structure cache (md5 %s != provenance.cache_md5 %s); "
+                    "rebuild the sidecar." % (sc_path, md5, want))
+        zb_g = np.asarray(sc['zb_km_grid'], dtype=float)
+        w_g = np.asarray(sc['wOcean_ppt_grid'], dtype=float)
+        arrs = {k: np.asarray(sc[k], dtype=float)
+                for k in ('F', 'dlnF_drho_rock', 'rho_rock_node_kgm3')}
+        for k, a in arrs.items():
+            if a.shape != (zb_g.size, w_g.size):
+                raise ValueError("libration factor sidecar %s: %s has shape "
+                                 "%s, expected %s" % (sc_path, k, a.shape,
+                                                      (zb_g.size, w_g.size)))
+        sd = getattr(self, 'structure_data', None)
+        if is_zbw_cache(sd):
+            if (not np.array_equal(zb_g, np.asarray(sd['zb_km_grid'], float))
+                    or not np.array_equal(
+                        w_g, np.asarray(sd['wOcean_ppt_grid'], float))):
+                raise ValueError("libration factor sidecar %s grids differ "
+                                 "from the loaded structure cache" % sc_path)
+        out = {'zb': zb_g, 'w': w_g,
+               'F': arrs['F'].ravel(),
+               'c': arrs['dlnF_drho_rock'].ravel(),
+               'rho_ref': arrs['rho_rock_node_kgm3'].ravel()}
+        self._lib_factor_sidecar_cache = out
+        return out
+
+    def _libration_sidecar_factor(
+        self, theta_dict: Dict[str, float], lib_cfg: Dict[str, Any],
+        rho_s: float
+    ) -> Optional[float]:
+        """F * (1 + c*(rho_s - rho_ref)), bilinear in (zb, log10 w).
+
+        Same corners/weights as :meth:`_ocean_zbw_struct_for_theta`
+        (:func:`grid_interp_2d.bilinear_weights`: linear in zb, log10 on the
+        salinity axis). Any NaN bracketing corner returns None (reject).
+        """
+        sc = self._libration_factor_sidecar(lib_cfg)
+        try:
+            zb_km = float(theta_dict['zb_km'])
+            w_ppt = float(wOcean_ppt_from_theta(theta_dict))
+            rho_s = float(rho_s)
+        except (KeyError, TypeError, ValueError):
+            return None
+        if not (np.isfinite(zb_km) and np.isfinite(w_ppt) and w_ppt > 0
+                and np.isfinite(rho_s)):
+            return None
+        corners, weights = bilinear_weights(sc['zb'], sc['w'], zb_km, w_ppt)
+        idx = np.asarray(corners, dtype=int)
+        wt = np.asarray(weights, dtype=float)
+        vals = {k: sc[k][idx] for k in ('F', 'c', 'rho_ref')}
+        if not all(np.all(np.isfinite(v)) for v in vals.values()):
+            return None
+        F = float(np.dot(wt, vals['F']))
+        c = float(np.dot(wt, vals['c']))
+        rho_ref = float(np.dot(wt, vals['rho_ref']))
+        out = F * (1.0 + c * (rho_s - rho_ref))
+        return out if np.isfinite(out) else None
+
     def _apply_libration_model_budget(
         self, lib_deg: float, theta_dict: Dict[str, float],
-        lib_cfg: Dict[str, Any]
+        lib_cfg: Dict[str, Any], ocean_rho_s: Optional[float] = None
     ) -> Optional[float]:
         """The libration model budget: deterministic correction x nuisance.
 
@@ -1972,6 +2073,20 @@ class MCMCRunner:
         is orders below that) and is flagged for reviewer ratification
         rather than presented as settled.
 
+        SWITCH-OVER (2026-11-10 binding review). When the block declares
+        ``elastic_factor_sidecar`` the OCEAN branch (caller passes
+        ``ocean_rho_s``, the closed reduced stack's interior density) also
+        multiplies by ``F(zb,w) * (1 + c(zb,w) * (rho_s - rho_ref(zb,w)))``
+        from the per-node sidecar, and the config carries
+        ``multiplicative_factor`` = 1.0 with ``formulation`` =
+        'vh2008_repaired'. The frozen/oceanless branch passes no
+        ``ocean_rho_s`` and so gets NO sidecar term (factor from the block,
+        1.0, times (1 + sys_frac)). That asymmetry is DELIBERATE: F is
+        derived from ocean-branch physics (ALMA elastic vs repaired rigid
+        with a decoupled shell over an ocean) and has no oceanless
+        counterpart; flagged in the switch-over report. A config without the
+        sidecar block follows the legacy path byte-identically.
+
         Returns ``None`` (sample rejected) on a non-finite budget, matching
         every other reject path in this method.
         """
@@ -1979,6 +2094,12 @@ class MCMCRunner:
             factor = float(lib_cfg.get('multiplicative_factor', 1.0))
         except (TypeError, ValueError):
             return None
+        if lib_cfg.get('elastic_factor_sidecar') and ocean_rho_s is not None:
+            f_side = self._libration_sidecar_factor(
+                theta_dict, lib_cfg, ocean_rho_s)
+            if f_side is None:
+                return None
+            factor = factor * f_side
         sys_frac = theta_dict.get('libration_sys_frac')
         try:
             s = float(sys_frac) if sys_frac is not None else 0.0
@@ -3258,17 +3379,31 @@ class MCMCRunner:
         # D3: the ruled B2' figure treatment, from the config. Empty kwargs
         # (no block, or a different declared convention) leaves this call
         # byte-identical to the historical hydrostatic path.
+        # The formulation is validated HERE, outside the per-draw
+        # try/except: a junk config value must be a loud configuration
+        # error, not a silent 100%-reject (switch-over commit 2026-11-10).
+        formulation = lib_cfg.get('formulation', 'vh2008_shipped')
+        if formulation not in ('vh2008_shipped', 'vh2008_repaired'):
+            raise ValueError(
+                "metadata.libration_model_correction.formulation must be "
+                "'vh2008_shipped' or 'vh2008_repaired'; got %r"
+                % (formulation,))
         try:
             lib_m = librations(reduced_r, reduced_rho, omega, ecc,
                                rigid=True, ocean=True, ocean_idx=1,
+                               formulation=formulation,
                                **self._libration_figure_kwargs(
                                    theta_dict, lib_cfg))
         except Exception:
             return None
         if lib_m is None or not np.isfinite(lib_m):
             return None
+        # reduced_rho[0] is the interior density of the (closed) stack the
+        # libration was just computed on = rho_s of last_mass_closure under
+        # mass_rho_rock; read from the stack itself, not hidden state.
         return self._apply_libration_model_budget(
-            float(np.degrees(lib_m / r_m[-1])), theta_dict, lib_cfg)
+            float(np.degrees(lib_m / r_m[-1])), theta_dict, lib_cfg,
+            ocean_rho_s=float(reduced_rho[0]))
 
     def run(self, progress_callback: Optional[Callable] = None,
             progress_jsonl_path: Optional[str] = None):

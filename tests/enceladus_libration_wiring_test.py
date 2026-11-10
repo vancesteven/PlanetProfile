@@ -78,11 +78,22 @@ def _b2prime_struct(zb_km, D_ocean_km=D_OCEAN_KM, rho_ocean=RHO_OCEAN):
     }
 
 
-def _config_libration_block(**overrides):
-    """The RULED block, read from the committed config so this test cannot
-    drift from the record, with targeted overrides."""
+def _config_libration_block_raw():
+    """The committed block exactly as shipped (switch-over declaration)."""
     with open(CANDIDATE_CONFIG) as fh:
-        blk = dict(json.load(fh)['metadata']['libration_model_correction'])
+        return dict(json.load(fh)['metadata']['libration_model_correction'])
+
+
+def _config_libration_block(**overrides):
+    """The committed block with the 2026-11-10 switch-over REVERTED to the
+    legacy shipped-formulation treatment (factor 1.008, no formulation key,
+    no sidecar). The D3/D4/D5/D6 tests below pin the adjudicated numbers of
+    the SHIPPED formulation through the production dispatch; the switch-over
+    wiring is pinned separately in the 'switch-over' section at the end."""
+    blk = _config_libration_block_raw()
+    blk.pop('elastic_factor_sidecar', None)
+    blk.pop('formulation', None)
+    blk['multiplicative_factor'] = 1.008
     blk.update(overrides)
     return blk
 
@@ -133,7 +144,15 @@ def test_config_declares_the_ruled_figure_convention():
     blk = _config_libration_block()
     assert blk['figure_convention'] == 'drho_consistent_eq12'
     assert blk['H22_obs_m'] == 857.0
-    assert blk['multiplicative_factor'] == 1.008
+    # switch-over 2026-11-10: the 1.008 correction is retired; the repaired
+    # formulation + per-node F sidecar replace it.
+    raw = _config_libration_block_raw()
+    assert raw['multiplicative_factor'] == 1.0
+    assert raw['formulation'] == 'vh2008_repaired'
+    sc = raw['elastic_factor_sidecar']
+    assert sc['schema'] == 'lib-factor-sidecar-v1'
+    assert sc['suffix'] == '.lib_factor_sidecar.pkl'
+    assert sc['cache_md5_must_match'] is True
 
 
 @pytest.mark.parametrize('C2,target_deg,target_sigma', [
@@ -387,3 +406,113 @@ def test_unknown_figure_convention_does_not_silently_select_a_treatment():
                      _config_libration_block(figure_convention='whole_difference',
                                              multiplicative_factor=1.0))
     assert bogus == hyd
+
+
+# ===========================================================================
+# Switch-over (2026-11-10): repaired rigid x F x (1 + c (rho_s - rho_ref))
+# ===========================================================================
+
+def _make_switchover_runner(tmp_path, *, write_sidecar=True, md5_ok=True):
+    """A tiny synthetic zbw cache + sidecar on disk, md5-consistent."""
+    import hashlib
+    import pickle
+    zb_grid = np.array([20.0, 26.0, 32.0])
+    w_grid = np.array([1.0, 10.0])
+    # identical nodes: the blended structure is exactly the node structure,
+    # so only the sidecar interpolation varies across the grid.
+    structs = [_b2prime_struct(26.0) for zb in zb_grid for _ in w_grid]
+    cache = {'schema_version': 'v3.1-zbw', 'zb_km_grid': zb_grid,
+             'wOcean_ppt_grid': w_grid, 'structures': structs}
+    cpath = tmp_path / 'syn_zbw.pkl'
+    with open(cpath, 'wb') as fh:
+        pickle.dump(cache, fh)
+    md5 = hashlib.md5(cpath.read_bytes()).hexdigest()
+    rng = np.random.default_rng(3)
+    side = {
+        'schema': 'lib-factor-sidecar-v1',
+        'zb_km_grid': zb_grid, 'wOcean_ppt_grid': w_grid,
+        'F': 0.97 + 0.02 * rng.random((3, 2)),
+        'dlnF_drho_rock': 1e-5 * (1 + rng.random((3, 2))),
+        'rho_rock_node_kgm3': 2400.0 + 50.0 * rng.random((3, 2)),
+        'provenance': {'cache_md5': md5 if md5_ok else 'deadbeef'},
+    }
+    if write_sidecar:
+        with open(str(cpath) + '.lib_factor_sidecar.pkl', 'wb') as fh:
+            pickle.dump(side, fh)
+    blk = _config_libration_block_raw()
+    runner = _runner(None, blk)
+    runner.config.structure_cache_path = str(cpath)
+    runner.structure_data = cache
+    # The struct blend is not under test here (the sidecar wiring is): serve
+    # the node structure directly.
+    runner._struct_for_hydrosphere = lambda theta: _b2prime_struct(26.0)
+    return runner, side, blk
+
+
+def _bilinear_ref(side, zb, w):
+    zg, wg = side['zb_km_grid'], side['wOcean_ppt_grid']
+    i = int(np.searchsorted(zg, zb)) - 1
+    j = int(np.searchsorted(wg, w)) - 1
+    tz = (zb - zg[i]) / (zg[i + 1] - zg[i])
+    tw = (np.log10(w) - np.log10(wg[j])) / (np.log10(wg[j + 1])
+                                            - np.log10(wg[j]))
+    def b(a):
+        return ((1 - tz) * (1 - tw) * a[i, j] + (1 - tz) * tw * a[i, j + 1]
+                + tz * (1 - tw) * a[i + 1, j] + tz * tw * a[i + 1, j + 1])
+    return b(side['F']), b(side['dlnF_drho_rock']), b(
+        side['rho_rock_node_kgm3'])
+
+
+def test_switchover_matches_repaired_times_F_times_rho_term_times_sys(tmp_path):
+    from PlanetProfile.Gravity.Librations import librations
+    runner, side, blk = _make_switchover_runner(tmp_path)
+    zb, w, s = 23.0, 3.0, 0.004
+    theta = {'zb_km': zb, 'wOcean_ppt': w, 'compensation_C2': 0.4,
+             'libration_sys_frac': s}
+    got = runner._derive_libration_deg(theta)
+    struct = _b2prime_struct(26.0)
+    kw = runner._libration_figure_kwargs(theta, blk)
+    assert kw  # figure treatment active
+    lib_m = librations(struct['r_m'], struct['rho'], OMEGA, ECC, rigid=True,
+                       ocean=True, ocean_idx=1, formulation='vh2008_repaired',
+                       **kw)
+    F, c, rref = _bilinear_ref(side, zb, w)
+    rho_s = struct['rho'][0]  # no closure/override in this config
+    exp = (float(np.degrees(lib_m / struct['r_m'][-1])) * F
+           * (1.0 + c * (rho_s - rref)) * (1.0 + s))
+    assert got == pytest.approx(exp, rel=1e-12)
+
+
+def test_switchover_missing_sidecar_raises(tmp_path):
+    runner, _, _ = _make_switchover_runner(tmp_path, write_sidecar=False)
+    with pytest.raises(ValueError, match='missing'):
+        runner._derive_libration_deg({'zb_km': 23.0, 'wOcean_ppt': 3.0,
+                                      'compensation_C2': 0.4})
+
+
+def test_switchover_md5_mismatch_raises(tmp_path):
+    runner, _, _ = _make_switchover_runner(tmp_path, md5_ok=False)
+    with pytest.raises(ValueError, match='md5'):
+        runner._derive_libration_deg({'zb_km': 23.0, 'wOcean_ppt': 3.0,
+                                      'compensation_C2': 0.4})
+
+
+def test_switchover_nan_corner_rejects(tmp_path):
+    import pickle
+    runner, side, _ = _make_switchover_runner(tmp_path)
+    runner._libration_factor_sidecar(runner._libration_model_cfg())
+    runner._lib_factor_sidecar_cache['F'][0] = np.nan
+    assert runner._derive_libration_deg(
+        {'zb_km': 21.0, 'wOcean_ppt': 1.5, 'compensation_C2': 0.4}) is None
+
+
+def test_legacy_block_without_sidecar_is_byte_identical():
+    theta = {'compensation_C2': 0.5, 'libration_sys_frac': 0.004}
+    legacy = _lib_deg(26.0, theta, _config_libration_block())
+    base = _lib_deg(26.0, theta, _config_libration_block(
+        multiplicative_factor=1.0))
+    assert legacy == pytest.approx(base * 1.008, rel=1e-14)
+    # and the budget function itself is the literal product, bit for bit
+    runner = _runner(_b2prime_struct(26.0), _config_libration_block())
+    assert runner._apply_libration_model_budget(
+        0.09, theta, _config_libration_block()) == 0.09 * 1.008 * 1.004
