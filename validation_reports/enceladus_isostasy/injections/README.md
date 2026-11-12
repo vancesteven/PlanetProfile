@@ -130,13 +130,14 @@ As a robustness RECORD (not a gate), three real noisy-injection pocoMC runs are 
 6. libration 0.092 ± 0.003, with the σ cited to Park 2024's original uncertainty statement because the erratum text omits it;
 7. the cache hole, negligible for the posterior.
 
-**Adjudicated headline wording** — **SUPERSEDED-PENDING (2026-11-12).** The
-wording below is frozen-convention (shipped VH2008 × 1.008). The K_int
-switch-over re-run (run (a′), repaired formulation + elastic-factor sidecar)
-shifted zb −0.29 km; the replacement headline (zb = 26.5 +1.0/−0.9 km) is
-adjudicated GO-WITH-CONDITIONS in `../posterior_a/README.md` and takes effect
-once its condition C1 (different-seed replicate) passes. Until then this
-October wording stands as the provisional published value, flagged as biased
-+0.3 km thick by the retired libration convention:
+**Adjudicated headline wording** — **SUPERSEDED (2026-11-12).** The wording
+below is frozen-convention (shipped VH2008 × 1.008) and is no longer the
+headline. The K_int switch-over re-run (run (a′), repaired formulation +
+elastic-factor sidecar) shifted zb −0.29 km; the replacement headline
+(**zb = 26.5 +1.0/−0.9 km**) was adjudicated in `../posterior_a/README.md`
+and is IN EFFECT since its condition C1 (seed-2027 replicate, all pre-stated
+criteria) passed on 2026-11-12. The October wording is retained below as the
+historical record of the provisional value, biased +0.3 km thick by the
+retired libration convention:
 
 > Under the ocean-branch model (uniform-density rock interior, ρ_s ~ U[2200, 2600] kg m⁻³; Airy-isostatic Hemingway & Mittal (2019) gravity with Tajeddine et al. (2017) shape; Δρ-consistent Eq.-12 libration), conditioning on Cassini C20, C22 and C30 and the Park et al. (2024, erratum) physical libration of 0.092° ± 0.003° gives an ice-shell thickness zb = 26.8 +1.0/−0.9 km (median, 16–84 %) for a log-uniform ocean salinity prior (log10 w ~ U[−1, 2], w in ppt), and 27.2 ± 1.0 km if salinity is uniform in w over 0.1–100 ppt. zb is constrained jointly with salinity, which the data do not constrain: conditional on w, zb is 26.6 km for w ≲ 3 ppt and 27.3 km for w ≳ 30 ppt. The prior dependence (≤ 0.4 km) is below the 1σ width. Rock density and gravitational compensation are degenerate (corr = −0.88): ρ_s = 2411 +42/−38 kg m⁻³ and C2 = 0.81 ± 0.09 individually, and the ρ_s 95 % interval [2345, 2501] kg m⁻³ lies well above the prior floor. The derived C/MR² is 0.3324 ± 0.0017; under the uniform-rock model this constraint is carried by the rock density (corr −0.98, ~96 % of its variance) and is a model-dependent derived quantity, not an independent moment-of-inertia measurement (see ../prior_h/README.md). Ice density is not constrained: widening its prior from U[915, 935] to U[880, 940] kg m⁻³ moves zb by +0.3 km (0.3σ).

@@ -239,17 +239,37 @@ libration), but its libration pushforward row is frozen-convention — labelled
 in ../prior_h/README.md; Fisher-MAP carries over (widths within 1%); branch
 comparison carries over as the inequality (note added).
 
+## Different-seed replicate (seed 2027, 2026-11-11): C1 PASS
+
+Run on the Mac with `SEED=2027 REPS=1 plans/cluster/enceladus_posterior_a.sh`
+(repo 5806d86b; config confirmed formulation vh2008_repaired,
+multiplicative_factor 1.0, sidecar declared). The frozen-convention baseline
+was preserved beforehand in `../posterior_a_seed2027_frozenconv/`.
+Kish ESS 15,979; log Z −7.1132 ± 0.0068. zb 25.545 / 26.478 / 27.462.
+
+Against (a′) seed 75, per the pre-stated acceptance criteria:
+
+| param | Δmean/SE (≤3) | Δmean/sd (≤0.03) | sd ratio (±2%) | wKS (<0.018) |
+|---|---|---|---|---|
+| zb_km | −0.62 | −0.007 | 1.000 | 0.0089 |
+| log10_wOcean_ppt | +1.80 | +0.020 | 0.986 | 0.0172 |
+| rho_ice_kgm3 | +0.74 | +0.008 | 1.005 | 0.0113 |
+| rho_rock_kgm3 | +0.15 | +0.002 | 0.998 | 0.0095 |
+| compensation_C2 | −0.01 | −0.000 | 0.998 | 0.0098 |
+| libration_sys_frac | +1.68 | +0.019 | 1.008 | 0.0112 |
+
+- |Δ median zb| = 0.011 km (criterion ≤ 0.05).
+- |Δ log Z| = 0.0004 = 0.05 combined σ (criterion ≤ 3).
+- corr(ρ_s, C2): −0.8789 vs −0.8776, diff 0.0013 (criterion ≤ 0.01).
+- The one near-threshold value is wKS(log10_w) = 0.0172 against the ~0.018
+  critical value; log10_w is the prior-dominated parameter, so its KS tests
+  the two runs' prior sampling noise. All criteria pass.
+
+**Every criterion PASSES. C1 is met; the adjudicated headline is in effect.**
+
 ## Status
 - Same-seed reproducibility, closure, support: **`verified`** (artifacts above).
-- Monte-Carlo error under the repaired model: **not yet verified** — blocked
-  on condition C1.
-- **C1 (MANDATORY before 26.5 replaces 26.8 anywhere):** different-seed
-  replicate, `SEED=2027 REPS=1 plans/cluster/enceladus_posterior_a.sh`.
-  The frozen-convention baseline it would overwrite is preserved in
-  `../posterior_a_seed2027_frozenconv/` (copied 2026-11-12 per the review's
-  MAJOR data-preservation finding). Acceptance vs (a′) seed 75:
-  |Δ median zb| ≤ 0.05 km; every |Δmean| ≤ 3 MC-SE and ≤ 0.03 sd; sd ratios
-  within 2%; weighted KS < ~0.018; |Δ log Z| ≤ 3 combined σ; ρ_s–C2 corr
-  within 0.01.
-- Revised headline: **adjudicated (GO-WITH-CONDITIONS), awaiting C1.** Until
-  then the published-provisional 26.8 stands, flagged as superseded-pending.
+- Monte-Carlo error under the repaired model: **`verified`** (seed-2027
+  replicate table above; every pre-stated criterion met).
+- Revised headline: **IN EFFECT (2026-11-12).** zb = 26.5 +1.0/−0.9 km
+  (adjudicated wording above) replaces the provisional 26.8 +1.0/−0.9 km.
