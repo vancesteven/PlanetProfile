@@ -44,13 +44,14 @@ These are the 121 brentq bracket-failure nodes of the r7 rebuild, where the Tb r
 | C20 | −6.18e-3 / −5.73e-3 / −5.17e-3 | −5.477e-3 ± 3.7e-5 | 7.2 |
 | C22 | 1.468e-3 / 1.551e-3 / 1.634e-3 | 1.518e-3 ± 1.5e-5 | 3.2 |
 | C30 | 1.12e-4 / 2.83e-4 / 3.82e-4 | 1.78e-4 ± 3.3e-5 | 2.2 |
-| libration (°) | 0.061 / 0.092 / 0.374 | 0.092 ± 0.003 | 33 |
+| libration (°) | 0.061 / 0.092 / 0.374 | 0.092 ± 0.003 | 33 | **[FROZEN CONVENTION — see note]** |
 
 - All four data are well inside the prior pushforward, so there is no prior–data conflict.
   - The observed values sit at prior-pushforward percentiles of 0.80, 0.27, 0.12 and 0.50 (C20, C22, C30, libration).
   - The posterior's best χ² is 1.0 for 4 data, so there is no joint conflict either.
 - All four are informative. Libration is the most informative, which is consistent with zb narrowing 11× from prior to posterior.
 - The libration pushforward is strongly skewed. Its robust 16–84% half-width is 0.054°, or 18× σ_obs, against 33× from the sd.
+- **[2026-11-12] The libration row and the "narrows 11×" sentence are FROZEN-CONVENTION** (shipped VH2008 × 1.008). Under the repaired formulation + elastic-factor sidecar (K_int switch-over, `../kint_switchover/README.md`) the thin-shell upper tail changes materially (F falls to 0.67 at zb 5–6 km), so these lines should not be quoted for the repaired model without a re-run of the direct prior MC (cheap; does not gate the headline — 2026-11-12 review). The C/MR² pushforward and the "~96% ρ_s-carried" conclusion carry over exactly: mass closure does not involve libration.
 - C30 is the least informative, at 2.2× σ_obs.
 
 ## Derived C/MR²: answering the reviewer's condition

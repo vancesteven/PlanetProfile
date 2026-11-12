@@ -101,3 +101,155 @@ So the Monte-Carlo error is negligible against the posterior widths.
 Status of the run (a) posterior:
 - Sampling, reproducibility and Monte-Carlo error: **`verified`**. The evidence is the table above and `thin_zb13_15.json`.
 - Scientific acceptance: **scientifically ACCEPTED (ocean branch), Opus final-acceptance reviewer 2026-10-27.** The adjudicated headline and caveats are in `../injections/README.md`. The frozen-branch evidence comparison is a separate later step.
+
+---
+
+# Run (a′) re-run under the repaired libration — 2026-11-11 (Mac, repo b736860b)
+
+Same config file, seed (75), sampler settings, cache and launcher as run (a),
+but the libration channel now runs `formulation='vh2008_repaired'` × the
+per-node elastic-factor sidecar F(zb,w)·(1 + c·(ρ_rock − ρ_ref)); the frozen
+×1.008 factor is retired (commit 2a75a910; validation in
+`../kint_switchover/README.md`). The launcher auto-built the production-cache
+sidecar before sampling. THE PKLS IN THIS DIRECTORY ARE NOW THE RE-RUN'S
+(the launcher reuses the directory); run (a)'s numbers survive in the tables
+above and in `../posterior_a_seed2027/`.
+
+## Plumbing and sampling
+- Preflight PASS (same support hole as (a): thin-shell None corners only).
+- rep1 and rep2 (same seed 75): **bit-identical posteriors** (same-seed
+  determinism PASS; distinct pkl md5s are timing metadata only).
+- 21,165 weighted samples, Kish ESS 16,130, log Z = −7.1127 ± 0.0062
+  (run (a): −7.0964 ± 0.0088; Δ = −0.016, negligible against the
+  branch-comparison margin log B ≤ −280).
+- isostatic_derived finite on 100% of draws; max |mass_residual_after| = 1.2e-15.
+- The posterior zb window (25.6–27.5 km, 16–84%) sits inside the F-table's
+  best-validated window (zb 24–30: F 0.978–0.984, separability ≤ 0.11%),
+  far from the thin-shell (zb < 13–14 km) degradation.
+
+## Posterior (rep1; 16/50/84, weighted) vs run (a)
+| quantity | re-run 16 / 50 / 84 | sd | run (a) 50% | shift |
+|---|---|---|---|---|
+| zb_km | 25.57 / 26.47 / 27.47 | 0.95 | 26.76 | **−0.29 km** |
+| log10 w (ppt) | −0.52 / 0.52 / 1.55 (prior-like) | 0.88 | 0.51 | +0.01 |
+| rho_ice | 918.2 / 924.8 / 931.7 | 5.75 | 924.9 | −0.1 |
+| rho_rock | 2373 / 2411 / 2455 | 40.7 | 2411 | 0 |
+| C2 | 0.712 / 0.811 / 0.904 | 0.092 | 0.814 | −0.003 |
+| libration_sys_frac | −0.0040 / −0.0001 / 0.0039 | 0.0039 | 0 | ≈0 (prior-like) |
+| C/MR² (derived) | 0.3306 / 0.3324 / 0.3341 | 0.0017 | 0.3324 | 0 |
+| R_s (km) | 190.3 / 192.4 / 194.3 | 2.0 | 192.4 | 0 |
+| ocean thickness (km) | 31.1 / 33.3 / 35.5 | 2.2 | 32.9 | +0.4 |
+
+Max log-likelihood −0.518 (χ² ≈ 1.04 for 4 data) at zb 26.22, log10 w 0.02,
+rho_ice 915.8, rho_rock 2394, C2 0.818, sys −0.0053.
+Correlations: rho_s–C2 −0.879; zb–log10 w 0.24; zb–C2 0.14; zb–sys 0.12;
+rho_ice–rho_s 0.15 — all within 0.04 of run (a).
+
+zb by log10 w bin (vs run (a) medians 26.61 / 26.74 / 27.26):
+| bin | mass | zb 16/50/84 | shift |
+|---|---|---|---|
+| [−1, 0.5) | 0.492 | 25.44 / 26.31 / 27.25 | −0.30 |
+| [0.5, 1.5) | 0.334 | 25.58 / 26.44 / 27.41 | −0.30 |
+| [1.5, 2] | 0.174 | 26.12 / 27.01 / 28.02 | −0.25 |
+
+The shift is uniform across salinity bins; the joint zb–w structure is
+unchanged.
+
+## Reading (as adjudicated 2026-11-12)
+The −0.29 km zb shift matches the switch-over prediction (−0.2..−0.3 km from
+the +0.8–0.9% frozen-channel bias at C2 ≈ 0.81, 0.28 km per 1%). The clean
+forecast comparison is the reviewer's weighted regression of zb on
+(C2, ρ_s, w, ρ_ice, sys), (a′) against (a): the intercept at C2 = 0.81,
+ρ_s = 2411 shifts **−0.278 km** (forecast −0.2..−0.3) and the C2 slope
+changes by **−0.46 km per unit C2** (forecast −0.34..−0.38), so both the
+magnitude and the C2 structure of the repair are confirmed. (Marginal C2-bin
+shifts look flat because of the ρ_s–C2 confound, corr −0.88; do not quote
+them against the forecast.) The w-bin shifts are −0.30 km for w ≲ 30 ppt and
+−0.25 km above (consistent with F's w-dependence, ~2σ of per-bin MC noise).
+C2, ρ_rock, C/MR², R_s move ≤ 0.05 sd; sd ratios 1.00–1.01; correlations
+within 0.03: the repair moved the thickness scale, not the inference
+geometry. (sys_frac stays prior-like, but that is uninformative here —
+sys_frac and zb are degenerate on the single libration datum, so any
+multiplicative change goes into zb regardless; its ±0.4% widens zb only
+~0.11 km in quadrature.)
+
+## Binding review (2026-11-12): GO-WITH-CONDITIONS
+Every submitted number independently reproduced from the pickles (quantiles,
+sds, ESS 16,130.4, log Z −7.112727 ± 0.006207, max-logL point, correlations,
+salinity bins, C/MR², bit-identity of rep1/rep2, sidecar md5 vs F-table
+provenance, preflight support unchanged at 884/116 None-corner). Run (a′) is
+VALID as the headline posterior under the repaired model. Δ log Z −0.016 is
+seed-level noise; the branch bound log B ≤ −280 survives (the frozen bound,
+computed with 1.008 on the frozen branch, becomes ~1.8 nat tighter under the
+switched config's factor 1.0 — see ../branch_bound/README.md note).
+
+**Adjudicated headline (supersedes ../injections/README.md wording; effective
+once condition C1 below passes):**
+
+> Under the ocean-branch model (uniform-density rock interior,
+> ρ_s ~ U[2200, 2600] kg m⁻³; Airy-isostatic Hemingway & Mittal (2019)
+> gravity with Tajeddine et al. (2017) shape; Δρ-consistent Eq.-12 libration
+> with the repaired Van Hoolst et al. (2008) rigid formulation and a per-node
+> elastic-shell factor), conditioning on Cassini C20, C22 and C30 and the
+> Park et al. (2024, erratum) physical libration of 0.092° ± 0.003° gives an
+> ice-shell thickness zb = 26.5 +1.0/−0.9 km (median, 16–84%) for a
+> log-uniform ocean salinity prior (log10 w ~ U[−1, 2], w in ppt), and
+> 26.9 +1.0/−0.9 km if salinity is uniform in w over 0.1–100 ppt. zb is
+> constrained jointly with salinity, which the data do not constrain:
+> conditional on w, zb is 26.3 km for w ≲ 3 ppt and 27.0 km for w ≳ 30 ppt.
+> The prior dependence (≤ 0.5 km) is below the 1σ width. Rock density and
+> gravitational compensation are degenerate (corr = −0.88):
+> ρ_s = 2411 +44/−38 kg m⁻³ and C2 = 0.81 ± 0.09 individually, and the ρ_s
+> 95% interval [2344, 2502] kg m⁻³ lies well above the prior floor. The
+> derived C/MR² is 0.3324 ± 0.0017; under the uniform-rock model this
+> constraint is carried by the rock density (corr −0.98, ~96% of its
+> variance) and is a model-dependent derived quantity, not an independent
+> moment-of-inertia measurement. Ice density is not constrained: widening its
+> prior from U[915, 935] to U[880, 940] kg m⁻³ moves zb by about +0.3 km
+> (0.3σ).
+
+> **Change note.** This supersedes the provisional zb = 26.8 +1.0/−0.9 km
+> (October 2026). That value used the shipped VH2008 rigid libration with a
+> fixed ×1.008 correction, which over-predicted the libration by ~0.9% at the
+> posterior C2 and biased zb thick by 0.3 km (0.3σ). The posterior widths,
+> the ρ_s–C2 degeneracy, C/MR² and the salinity structure are unchanged.
+
+Supporting numbers (reviewer-computed, exact prior reweighting of (a′),
+method validated on (a): reweighted-(a)-seed2027 27.155 vs direct g1 27.169):
+w-uniform 25.98 / 26.92 / 27.95 (ESS 4,741); g2 (log10 w ≤ 1.3) 26.33;
+ρ_ice half-boxes 26.57 / 26.37 (±0.10); ρ_ice derivative unchanged
+(−0.32 vs −0.31 km per 10 kg/m³). Optional: a direct g1 run (reweighting
+ESS is 4.7k).
+
+All seven caveats of ../injections/README.md carry over, plus a new one:
+
+> 8. The libration elastic factor assumes the cache's elastic shell (F from
+> ALMA elastic y1; void if the shell rheology changes). A softer or
+> viscoelastic shell would make the inferred zb thinner, by up to ~0.7 km for
+> Maxwell and ~2 km for Andrade/soft-base
+> (../libration_rheology_bound/README.md; that bound is not yet
+> reviewer-accepted). This one-sided model-form term is not in
+> libration_sys_frac.
+
+October acceptance artifacts, adjudicated carry-over: injections (noise-free
++ noisy) CARRY OVER (they test sampler fidelity and identifiability geometry,
+unchanged within 1%/0.03); (g) variants REPLACED by the exact reweighting
+above; (h) C/MR² pushforward carries over exactly (mass closure has no
+libration), but its libration pushforward row is frozen-convention — labelled
+in ../prior_h/README.md; Fisher-MAP carries over (widths within 1%); branch
+comparison carries over as the inequality (note added).
+
+## Status
+- Same-seed reproducibility, closure, support: **`verified`** (artifacts above).
+- Monte-Carlo error under the repaired model: **not yet verified** — blocked
+  on condition C1.
+- **C1 (MANDATORY before 26.5 replaces 26.8 anywhere):** different-seed
+  replicate, `SEED=2027 REPS=1 plans/cluster/enceladus_posterior_a.sh`.
+  The frozen-convention baseline it would overwrite is preserved in
+  `../posterior_a_seed2027_frozenconv/` (copied 2026-11-12 per the review's
+  MAJOR data-preservation finding). Acceptance vs (a′) seed 75:
+  |Δ median zb| ≤ 0.05 km; every |Δmean| ≤ 3 MC-SE and ≤ 0.03 sd; sd ratios
+  within 2%; weighted KS < ~0.018; |Δ log Z| ≤ 3 combined σ; ρ_s–C2 corr
+  within 0.01.
+- Revised headline: **adjudicated (GO-WITH-CONDITIONS), awaiting C1.** Until
+  then the published-provisional 26.8 stands, flagged as superseded-pending.

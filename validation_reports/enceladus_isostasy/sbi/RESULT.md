@@ -1,5 +1,19 @@
 # Enceladus ocean-branch SBI artifact: gate results (2026-10-27) — **FAIL (G3, G5)**
 
+> **SUPERSEDED SIMULATOR — FROZEN LIBRATION CONVENTION (2026-11-12).** The
+> deployed Enceladus SBI artifact (enceladus_ocean6D_rhorock_posterior_1m.pt,
+> sha256 43255b3c…; HF Space app-deploy 33c767b1) was trained and gated
+> (G1/G2/G4 against pocoMC run (a)) under the retired shipped-VH2008 × 1.008
+> libration convention. At the Cassini datum it reproduces the superseded
+> zb ≈ 26.75–26.8 km, which is 0.3 km thicker than the repaired-model
+> headline of 26.5 +1.0/−0.9 km (run (a′), ../posterior_a/README.md). Its
+> gate results remain valid statements about the frozen-convention simulator
+> only. Do not quote it against, or as confirmation of, the repaired
+> headline. Retraining on a dataset regenerated with
+> formulation='vh2008_repaired' plus the elastic-factor sidecar, and
+> re-gating against run (a′), is required before redeploy (redeploy HELD by
+> user).
+
 **Artifact**
 - `~/scratch/enc_sbi/enceladus_ocean6D_rhorock_posterior_1m.pt`, sha256 `43255b3c…`.
 - nsf at deployed defaults, train seed 75, 1,000,953 rows, converged at 91 epochs in 93 min.

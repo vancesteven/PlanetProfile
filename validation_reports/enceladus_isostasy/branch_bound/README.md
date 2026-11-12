@@ -46,6 +46,7 @@ Ocean-branch reporting lines, which are separate mechanisms and are not summed:
 - **Caveats:**
   - The bound is conditional on the declared ρ_rock ≤ 2600, since the maximum is pinned at that corner.
   - The 1.008 libration factor is carried onto the frozen branch (immaterial).
+  - **[2026-11-12, K_int switch-over]** This bound was computed with 1.008 on the frozen branch. Under the switched config the factor is 1.0 and `formulation` does not touch the ocean=False path, so the frozen libration drops 0.8% (≈0.08 σ_infl against a −21.1 σ residual), tightening the bound by ≈1.8 nat; log Z_ocean is now −7.113 (run (a′)). **log B ≤ −280 still holds and is slightly conservative.** A cheap re-run of `enceladus_frozen_branch_bound.py` under the new config is recommended before quoting a new number, but is not required for the inequality (2026-11-12 review).
   - Branch-construction asymmetry (3), the salinity dimension, is by design.
   - The two shared assumptions are unchanged: the uniform-rock interior and the borrowed 2200 floor.
 
