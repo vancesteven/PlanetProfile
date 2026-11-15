@@ -25,7 +25,21 @@ otherwise. Instructions: `AGENTS.md` (binding), which itself binds `CLAUDE.md`.
 
 ## Tasks
 
-### C26 — Frozen-branch ruling tests C1-C5 [status: queued — UNBLOCKED 2026-08-15: A2-A7 integrated at 8c49efa1; note some C1/C2/C3/C5 coverage already exists from the implementation pass (grep tests/ first, extend rather than duplicate)]
+### C26 — Frozen-branch ruling tests C1-C5 [status: verified — executed 2026-11-15 by a Machine A Claude (Sonnet) subagent, lane-retired fallback]
+
+**Report (2026-11-15):** `verified` — new `tests/enceladus_frozen_ruling_test.py`
+(52 collected), suite `tests/enceladus_frozen_ruling_test.py` +
+`enceladus_isostasy_code_gaps_test.py` + `enceladus_mass_closure_test.py`
+125 passed / 0 failed, independently re-run by the manager (223 s, conda PP).
+C1 bijection pins (C/MR² 0.3350 at zb 51.78/53.93/58.29 km, ρ_ice 900/925/970,
+exact-inverse + 1e-12 round trip); C2 loop closure at 47/54/65 km with the
+self-invalidating off-by-one-grid-step companion (closure > 3e-3, I-F5 → None
+on both paths) and a sharp-threshold check at 3e-3; C3 I-F6 both directions
+through the real `_build_frozen_axis` (synthetic nodes, window 0.335±0.001);
+C4 None-node −1e30/no-snap on both cache arrays incl. an end-to-end
+`log_likelihood_fn` rejection; C5 3-node real frozen build asserting
+I-F1..I-F4. No invariant fired on a real defect. No PlanetProfile/ or Test/
+changes.
 
 Implement the five test tasks from validation_reports/enceladus_isostasy/
 frozen_branch_DESIGN_RULING.md (copy its formulations; do NOT re-derive):
