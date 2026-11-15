@@ -20,6 +20,13 @@ except ImportError:
     st.warning("⚠️ Plotly not installed. Install with 'pip install plotly' for interactive figures.")
 
 
+@st.cache_data(max_entries=32, show_spinner=False)
+def load_profile_data_cached(file_path, mtime):
+    """Cached wrapper for load_profile_data, keyed on (path, mtime) so a
+    regenerated file invalidates its own cache entry."""
+    return load_profile_data(file_path)
+
+
 def load_profile_data(file_path):
     """
     Load profile data from a PlanetProfile output text file.

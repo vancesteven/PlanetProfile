@@ -1,5 +1,5 @@
 import streamlit as st
-from pdf2image import convert_from_path
+from Utilities.pdf_preview import show_pdf_preview
 import os
 import sys
 import pandas as pd
@@ -197,20 +197,18 @@ if comparison_mode == "📊 Side-by-Side":
                 st.markdown(f"**{run_label.split(':')[0]}**")
                 if run_figures[run_label][fig_type]:
                     filepath = run_figures[run_label][fig_type][0]
-                    try:
-                        with st.spinner("Rendering..."):
-                            images = convert_from_path(filepath)
-                            st.image(images[0], use_container_width=True)
-                    except Exception as e:
-                        st.error(f"Error loading figure: {e}")
+                    with st.spinner("Rendering..."):
+                        show_pdf_preview(filepath, key=f"cmp_sbs_{run_label}_{fig_type}")
 
         st.markdown("---")
 
 elif comparison_mode == "🔄 Sequential":
     # Show figures one after another with tabs
-    fig_tabs = st.tabs(all_fig_types)
+    fig_tabs = st.tabs(all_fig_types, on_change="rerun")
 
     for fig_tab, fig_type in zip(fig_tabs, all_fig_types):
+        if not fig_tab.open:
+            continue
         with fig_tab:
             st.subheader(f"{fig_type}")
 
@@ -218,12 +216,8 @@ elif comparison_mode == "🔄 Sequential":
                 if fig_type in run_figures[run_label] and run_figures[run_label][fig_type]:
                     with st.expander(f"📊 {run_label}", expanded=True):
                         filepath = run_figures[run_label][fig_type][0]
-                        try:
-                            with st.spinner("Rendering..."):
-                                images = convert_from_path(filepath)
-                                st.image(images[0], use_container_width=True)
-                        except Exception as e:
-                            st.error(f"Error loading figure: {e}")
+                        with st.spinner("Rendering..."):
+                            show_pdf_preview(filepath, key=f"cmp_seq_{run_label}_{fig_type}")
 
 elif comparison_mode == "📋 Summary Table":
     # Show availability table
