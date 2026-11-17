@@ -1162,6 +1162,11 @@ def render_run_button(InferenceConfig, MCMCRunner):
 
 # Slot registry: artifact file -> display + the structure cache its
 # recompute needs (same cache the training config used).
+# Optional slot keys: `artifact_status` ('awaiting_artifact' | 'not_ratified')
+# GATES conditioning (the panel renders a notice and returns); `artifact_warning`
+# is a persistent warning string shown on the config panel and on every result
+# while conditioning stays enabled. `config_path` must be the config the flow
+# was TRAINED with (tests/sbi_slot_simulator_consistency_test.py).
 _SBI_ARTIFACT_SLOTS = {
     'titan_andrade_noocean_posterior.pt': {
         'label': '1D · Cassini–Titan (Andrade, no ocean) — Test50 8D',
@@ -1868,10 +1873,19 @@ _SBI_ARTIFACT_SLOTS = {
         'slot_id': 'enceladus_cassini',
         'label': ('1D · Cassini-Enceladus (Seawater, isostasy) — ocean '
                   'branch 6D · C₂₀/C₂₂/C₃₀ + forced libration '
-                  '(scope-bound)'),
+                  '(scope-bound, superseded simulator)'),
         'bodyname': 'Enceladus',
+        # Frozen-convention TRAINING SNAPSHOT (verbatim 1af55a95 config): the
+        # flow was trained with the shipped Van Hoolst 2008 libration formula
+        # x 1.008; the live MCMC config (..._ocean6D_rhorock.json) switched to
+        # vh2008_repaired + elastic-factor sidecar at 2a75a910. Pointing the
+        # slot at the live config would pair this flow with a DIFFERENT
+        # simulator for every forward recomputation (generate_hash() ignores
+        # metadata, so no hash check can see it; see
+        # tests/sbi_slot_simulator_consistency_test.py).
         'config_path': ('PlanetProfile/Inference/configs/'
-                        'enceladus_cassini_isostasy_ocean6D_rhorock.json'),
+                        'enceladus_cassini_isostasy_ocean6D_rhorock_'
+                        'sbi_frozenconv.json'),
         'cache_path': ('PlanetProfile/Test/mcmc_results/Enceladus/'
                        'Cassini_isostasy/'
                        'enceladus_seawater_zbw_grid_2d.pkl'),
@@ -1888,6 +1902,18 @@ _SBI_ARTIFACT_SLOTS = {
         # hole draws are dropped and the fraction shown. Prior truncation is
         # disabled (the guard is defined on the untruncated flow).
         'scope_guard': 'enceladus_ocean_branch',
+        # Persistent artifact-level warning (rendered on the config panel and
+        # on every result; wording per the scientific review record,
+        # validation_reports/enceladus_isostasy/sbi/RESULT.md top block).
+        'artifact_warning': (
+            'This artifact is a SUPERSEDED SIMULATOR \u2014 FROZEN LIBRATION '
+            'CONVENTION. At the Cassini datum it reproduces the superseded '
+            'zb \u2248 26.75\u201326.8 km, 0.3 km thicker than the '
+            'repaired-model headline 26.5 +1.0/\u22120.9 km. Its gate '
+            'results remain valid statements about the frozen-convention '
+            'simulator only. It must not be quoted against, or as '
+            'confirmation of, the repaired headline. Retraining and '
+            're-gating are required before it can be called current.'),
         # "Validated" applies ONLY to these x (exact match): the Cassini datum
         # and the six G4 injection data sets (G4 PASS, gates_report.json).
         'validated_x': [
@@ -2399,6 +2425,11 @@ def render_amortized_config():
         st.caption(f"Gate status: {slot.get('gate_status', 'see STATUS.md')}")
         return None
 
+    # Persistent artifact-level warning (e.g. superseded-simulator status).
+    # Distinct from `artifact_status`, which gates conditioning entirely.
+    if slot.get('artifact_warning'):
+        st.warning(f"\u26a0\ufe0f {slot['artifact_warning']}")
+
     # Slot-specific induction documentation (numbers sourced from each
     # training config; the generic model-assumptions expander stays
     # slot-agnostic because it renders before slot selection).
@@ -2877,6 +2908,7 @@ def render_amortized_config():
         'validated_version_pairs': slot.get('validated_version_pairs', ()),
         'scope_guard': slot.get('scope_guard'),
         'validated_x': slot.get('validated_x', ()),
+        'artifact_warning': slot.get('artifact_warning'),
     }
 
 
@@ -3141,6 +3173,7 @@ def render_amortized_run_button(spec, InferenceConfig):
             'model_slot_label': spec['model_slot_label'],
             'artifact_filename': spec['artifact_filename'],
             'slot_short': spec['slot_short'],
+            'artifact_warning': spec.get('artifact_warning'),
         })
 
         st.session_state.inference_results = result
@@ -3468,6 +3501,9 @@ def render_results():
               .get('sector_warning'))
     if _swarn:
         st.warning(f"🔬 {_swarn}")
+    _awarn = (result.metadata or {}).get('artifact_warning')
+    if _awarn:
+        st.warning(f"\u26a0\ufe0f {_awarn}")
 
     # Scope-guard label (Enceladus ocean branch): validated only at the
     # Cassini datum and the six G4 injection sets; every other accepted x is

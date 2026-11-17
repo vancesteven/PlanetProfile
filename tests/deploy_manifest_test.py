@@ -24,12 +24,28 @@ def manifest():
     return ex.build_manifest(PAGE, REPO)
 
 
-def test_enceladus_libration_sidecar_in_manifest(manifest):
+def test_enceladus_slot_needs_no_libration_sidecar(manifest):
+    # The Enceladus SBI slot points at the frozen-convention training snapshot
+    # (legacy 1.008 libration, no elastic_factor_sidecar), so it must NOT
+    # require the repaired-model F sidecar; the artifact itself is deployed.
     files = {f['path']: f for fs in manifest.values() for f in fs}
-    assert ENCELADUS_LIB in files
-    assert files[ENCELADUS_LIB]['kind'] == 'lib_factor_sidecar'
-    assert files[ENCELADUS_LIB]['required']
+    assert ENCELADUS_LIB not in files
     assert 'enceladus_ocean6D_rhorock_posterior_1m.pt' in manifest
+
+
+def test_declared_libration_sidecar_is_required(tmp_path):
+    # Machinery check: a slot whose config declares elastic_factor_sidecar
+    # must list it as a required lib_factor_sidecar companion.
+    cfg = tmp_path / 'cfg.json'
+    cfg.write_text('{"metadata": {"libration_model_correction": '
+                   '{"elastic_factor_sidecar": {"suffix": ".lib.pkl"}}}}')
+    page = tmp_path / 'Inference.py'
+    page.write_text("_SBI_ARTIFACT_SLOTS = {'a.pt': {'cache_path': "
+                    "'x/c.pkl', 'config_path': 'cfg.json'}}\n")
+    m = ex.build_manifest(page, tmp_path)
+    lib = [f for f in m['a.pt'] if f['kind'] == 'lib_factor_sidecar']
+    assert lib == [{'path': 'x/c.pkl.lib.pkl',
+                    'kind': 'lib_factor_sidecar', 'required': True}]
 
 
 def test_every_registry_cache_is_covered(manifest):

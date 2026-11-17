@@ -131,6 +131,7 @@ def guarded_posterior(sbi_runner, mcmc_runner, x_obs: Dict[str, float], *,
     return Accepted(
         samples=th[~hole], dropped_fraction=f_hole, frac_thin=f_thin,
         frac_hole=f_hole, n_draws=len(th), validated=validated,
-        label=('validated against pocoMC at this datum (scope-bound artifact)'
+        label=('validated against pocoMC at this datum (scope-bound artifact; '
+               'applies to the frozen-libration-convention simulator only)'
                if validated else NOT_VALIDATED_LABEL),
         meta={'threshold': threshold, 'zb_thin_km': zb_thin_km, 'seed': seed})

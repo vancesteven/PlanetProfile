@@ -23,7 +23,9 @@ CACHE = REPO / ('PlanetProfile/Test/mcmc_results/Enceladus/Cassini_isostasy/'
 ART = (REPO / 'PlanetProfile/Inference/sbi_artifacts/'
        'enceladus_ocean6D_rhorock_posterior_1m.pt')
 THIN = REPO / 'tests/data/enceladus_sbi/thin_shard_00.npz'
-CFG = REPO / 'PlanetProfile/Inference/configs/enceladus_cassini_isostasy_ocean6D_rhorock.json'
+# Frozen-convention training snapshot: the simulator the artifact was trained on.
+CFG = REPO / ('PlanetProfile/Inference/configs/'
+              'enceladus_cassini_isostasy_ocean6D_rhorock_sbi_frozenconv.json')
 
 pytestmark = pytest.mark.skipif(
     not (CACHE.exists() and ART.exists() and THIN.exists()),

@@ -11,6 +11,7 @@ import ast
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 
@@ -82,6 +83,9 @@ def test_cassini_datum_accepted_validated_with_scope_text():
     app = AppTest.from_file(str(PAGE), default_timeout=900)
     _open_enceladus(app)
     assert SCOPE_TEXT in _text(app)          # pre-run, on the config panel
+    # Persistent superseded-simulator warning (frozen libration convention).
+    assert SLOT["artifact_warning"] in _text(app)
+    assert "SUPERSEDED SIMULATOR" in _text(app)
     assert "disabled for this model" in _text(app)
     app.select_slider(key="amort_n_post").set_value(1000)
     app.select_slider(key="amort_n_derived").set_value(500)
@@ -92,6 +96,13 @@ def test_cassini_datum_accepted_validated_with_scope_text():
     assert sg["scope_text"] == SCOPE_TEXT
     assert len(res.samples) == 1000
     assert "validated against pocoMC at this datum" in _text(app)
+    assert "frozen-libration-convention simulator only" in _text(app)
+    assert SLOT["artifact_warning"] in _text(app)   # also on the result
+    zb = float(np.median(res.samples[:, list(res.param_names).index("zb_km")]))
+    print("Cassini-datum zb median (km):", zb)
+    # Frozen-convention flow + frozen-convention recompute: ~26.75-26.8 km
+    # (NOT the repaired headline 26.5).
+    assert 26.5 < zb < 27.1
     # No tidal channel: the k2 and heating panels explain the absence
     # instead of comparing NaN placeholders (user report 2026-10-30).
     assert res.metadata["tidal_solve_skipped"] is True
