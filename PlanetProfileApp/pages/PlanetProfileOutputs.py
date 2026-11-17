@@ -1,5 +1,4 @@
 import streamlit as st
-from pdf2image import convert_from_path
 import os
 import sys
 import pandas as pd
@@ -13,7 +12,7 @@ import json
 
 # Import figure generation utilities
 from Utilities.figure_generator import (
-    load_profile_data,
+    load_profile_data_cached,
     load_ocean_data,
     create_hydrosphere_plot,
     create_seismic_plot,
@@ -21,6 +20,7 @@ from Utilities.figure_generator import (
     save_plotly_figure,
     PLOTLY_AVAILABLE
 )
+from Utilities.pdf_preview import show_pdf_preview
 
 # ----- Page setup stuff -----
 st.set_page_config(
@@ -250,10 +250,14 @@ if use_interactive and PLOTLY_AVAILABLE:
                                    for f in profile_files]
         profile_files_with_time.sort(key=lambda x: x[1], reverse=True)
 
-        # Create tabs for different interactive figure types
-        interactive_tabs = st.tabs(["Hydrosphere Properties", "Seismic Properties", "Custom Plot"])
+        # Create tabs for different interactive figure types. Dynamic tabs
+        # (on_change="rerun") so only the visible tab's data load + figure
+        # build runs on a rerun, instead of all three every time.
+        interactive_tabs = st.tabs(["Hydrosphere Properties", "Seismic Properties", "Custom Plot"],
+                                   on_change="rerun")
 
-        with interactive_tabs[0]:
+        if interactive_tabs[0].open:
+          with interactive_tabs[0]:
             st.subheader("Hydrosphere Properties")
 
             # Let user select which run to visualize
@@ -261,11 +265,11 @@ if use_interactive and PLOTLY_AVAILABLE:
                           for f, t in profile_files_with_time[:5]]  # Show 5 most recent
             if run_options:
                 selected_run = st.selectbox("Select run to visualize:", run_options, key="hydro_run")
-                selected_file = profile_files_with_time[run_options.index(selected_run)][0]
+                selected_file, selected_mtime = profile_files_with_time[run_options.index(selected_run)][:2]
 
                 try:
                     with st.spinner("Loading data and generating figure..."):
-                        df = load_profile_data(os.path.join(planet_folder, selected_file))
+                        df = load_profile_data_cached(os.path.join(planet_folder, selected_file), selected_mtime)
                         fig = create_hydrosphere_plot(df, chosen_planet)
 
                         if fig:
@@ -285,18 +289,19 @@ if use_interactive and PLOTLY_AVAILABLE:
                     st.error(f"❌ Error generating figure: {e}")
                     st.info("💡 Falling back to static PDF view below")
 
-        with interactive_tabs[1]:
+        if interactive_tabs[1].open:
+          with interactive_tabs[1]:
             st.subheader("Seismic Properties")
 
             run_options = [f"{f} ({datetime.fromtimestamp(t).strftime('%Y-%m-%d %H:%M:%S')})"
                           for f, t in profile_files_with_time[:5]]
             if run_options:
                 selected_run = st.selectbox("Select run to visualize:", run_options, key="seismic_run")
-                selected_file = profile_files_with_time[run_options.index(selected_run)][0]
+                selected_file, selected_mtime = profile_files_with_time[run_options.index(selected_run)][:2]
 
                 try:
                     with st.spinner("Loading data and generating figure..."):
-                        df = load_profile_data(os.path.join(planet_folder, selected_file))
+                        df = load_profile_data_cached(os.path.join(planet_folder, selected_file), selected_mtime)
                         fig = create_seismic_plot(df, chosen_planet)
 
                         if fig:
@@ -316,17 +321,18 @@ if use_interactive and PLOTLY_AVAILABLE:
                     st.error(f"❌ Error generating figure: {e}")
                     st.info("💡 Falling back to static PDF view below")
 
-        with interactive_tabs[2]:
+        if interactive_tabs[2].open:
+          with interactive_tabs[2]:
             st.subheader("Custom Plot from Data")
 
             run_options = [f"{f} ({datetime.fromtimestamp(t).strftime('%Y-%m-%d %H:%M:%S')})"
                           for f, t in profile_files_with_time[:5]]
             if run_options:
                 selected_run = st.selectbox("Select run to visualize:", run_options, key="custom_run")
-                selected_file = profile_files_with_time[run_options.index(selected_run)][0]
+                selected_file, selected_mtime = profile_files_with_time[run_options.index(selected_run)][:2]
 
                 try:
-                    df = load_profile_data(os.path.join(planet_folder, selected_file))
+                    df = load_profile_data_cached(os.path.join(planet_folder, selected_file), selected_mtime)
 
                     col1, col2 = st.columns(2)
                     with col1:
@@ -375,7 +381,8 @@ if not use_interactive or not PLOTLY_AVAILABLE:
 if view_mode == "📅 Chronological (Batches)":
     # Outer tabs - grouped by time
     st.write(f"## {chosen_planet} Figures by Run")
-    outer_tabs = st.tabs(batch_labels)
+    # Dynamic tabs: only the selected batch renders (and converts PDFs)
+    outer_tabs = st.tabs(batch_labels, on_change="rerun")
 elif view_mode == "📁 By Figure Type":
     # Group by figure type instead
     st.write(f"## {chosen_planet} Figures by Type")
@@ -466,6 +473,8 @@ captions = {
 if view_mode == "📅 Chronological (Batches)" and outer_tabs:
     # Original chronological view
     for tab, batch in zip(outer_tabs, batches):
+        if not tab.open:
+            continue
         with tab:
             # --- Map figure types for this batch ---
             figure_dict = {}
@@ -485,23 +494,16 @@ if view_mode == "📅 Chronological (Batches)" and outer_tabs:
 
             # Sort figure labels alphabetically for consistent order
             figure_labels = sorted(figure_dict.keys())
-            inner_tabs = st.tabs(figure_labels)
+            inner_tabs = st.tabs(figure_labels, on_change="rerun")
 
-            # --- Display each figure in inner tab ---
+            # --- Display each figure in inner tab (only the open one) ---
             for fig_tab, label in zip(inner_tabs, figure_labels):
+                if not fig_tab.open:
+                    continue
                 with fig_tab:
                     pdf_path = figure_dict[label]
                     with st.spinner(f"Rendering: {label}..."):
-                        try:
-                            images = convert_from_path(pdf_path)
-                            st.image(images[0], use_container_width=True)
-                        except Exception as _pdf_exc:
-                            st.warning(f"PDF preview unavailable ({_pdf_exc}); "
-                                       "download instead:")
-                            with open(pdf_path, 'rb') as _fpdf:
-                                st.download_button("⬇️ Download PDF", _fpdf,
-                                                   file_name=os.path.basename(pdf_path),
-                                                   key=f"dl_{pdf_path}")
+                        show_pdf_preview(pdf_path, key=f"dl_{pdf_path}")
                     st.caption(f"**{captions.get(label, label)}**")
 
 elif view_mode == "📁 By Figure Type":
@@ -523,9 +525,11 @@ elif view_mode == "📁 By Figure Type":
 
     # Create tabs for each figure type
     type_labels = sorted(type_groups.keys())
-    type_tabs = st.tabs(type_labels)
+    type_tabs = st.tabs(type_labels, on_change="rerun")
 
     for type_tab, label in zip(type_tabs, type_labels):
+        if not type_tab.open:
+            continue
         with type_tab:
             st.write(f"### {label}")
             st.caption(f"**{captions.get(label, label)}**")
@@ -533,18 +537,13 @@ elif view_mode == "📁 By Figure Type":
             # Show all instances of this figure type
             for i, (filepath, mod_time) in enumerate(type_groups[label]):
                 timestamp = datetime.fromtimestamp(mod_time).strftime('%Y-%m-%d %H:%M:%S')
-                with st.expander(f"Run {i+1}: {timestamp}", expanded=(i==len(type_groups[label])-1)):
-                    with st.spinner(f"Rendering {label}..."):
-                        try:
-                            images = convert_from_path(filepath)
-                            st.image(images[0], use_container_width=True)
-                        except Exception as _pdf_exc:
-                            st.warning(f"PDF preview unavailable ({_pdf_exc}); "
-                                       "download instead:")
-                            with open(filepath, 'rb') as _fpdf:
-                                st.download_button("⬇️ Download PDF", _fpdf,
-                                                   file_name=os.path.basename(filepath),
-                                                   key=f"dl_{filepath}_{mod_time}")
+                exp = st.expander(f"Run {i+1}: {timestamp}",
+                                  expanded=(i==len(type_groups[label])-1),
+                                  on_change="rerun")
+                if exp.open:
+                    with exp:
+                        with st.spinner(f"Rendering {label}..."):
+                            show_pdf_preview(filepath, key=f"dl_{filepath}_{mod_time}")
 
 elif view_mode == "🔍 Search":
     # Search functionality
@@ -575,19 +574,13 @@ elif view_mode == "🔍 Search":
 
             for filepath, mod_time, label in matching_figures:
                 timestamp = datetime.fromtimestamp(mod_time).strftime('%Y-%m-%d %H:%M:%S')
-                with st.expander(f"{label} - {timestamp}", expanded=True):
-                    st.caption(f"**{captions.get(label, label)}**")
-                    with st.spinner(f"Rendering {label}..."):
-                        try:
-                            images = convert_from_path(filepath)
-                            st.image(images[0], use_container_width=True)
-                        except Exception as _pdf_exc:
-                            st.warning(f"PDF preview unavailable ({_pdf_exc}); "
-                                       "download instead:")
-                            with open(filepath, 'rb') as _fpdf:
-                                st.download_button("⬇️ Download PDF", _fpdf,
-                                                   file_name=os.path.basename(filepath),
-                                                   key=f"dl_{filepath}_{mod_time}")
+                exp = st.expander(f"{label} - {timestamp}", expanded=True,
+                                  on_change="rerun")
+                if exp.open:
+                    with exp:
+                        st.caption(f"**{captions.get(label, label)}**")
+                        with st.spinner(f"Rendering {label}..."):
+                            show_pdf_preview(filepath, key=f"dl_{filepath}_{mod_time}")
         else:
             st.warning(f"No figures found matching '{search_term}'")
     else:

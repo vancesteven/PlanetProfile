@@ -1,7 +1,6 @@
 import streamlit as st
 import os
 import sys
-from pdf2image import convert_from_path
 from PIL import Image
 import re
 import subprocess
