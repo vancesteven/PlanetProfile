@@ -162,6 +162,7 @@
   "random_state": 42,
   "planet_template_module": "PlanetProfile.Default.Europa.PPEuropa",
   "metadata": {
+    "gui": {"status": "retired", "note": "Europa Clipper v3: VETOED for wrong k2 bounds; its 2D cache is reused by v4+ (STATUS.md)."},
     "schema_version": "v3 (v2 + sampled log10_wOcean_ppt salinity) + 2D (Tb x w) structure cache (clipper_v3_8D)",
     "description": "Europa Clipper-era v3: Seawater ocean, Andrade rheology, 8D = v2 7D (rheology + Tb_K + sampled core, mass-conservation rho_sil) PLUS sampled ocean salinity log10_wOcean_ppt (uniform [-1,2] => 0.1-100 ppt, log-uniform/Jeffreys prior). Salinity drives ocean conductivity (all 14 Bind channels), density, freezing point, and layer thicknesses; v2 implicitly fixed it at seawater 35.165 ppt. Uses a 2D (Tb x w) structure cache (schema v3.0, cache_builder.build_tbw_grid_cache) with a SHARED bilinear (Tb, log10 w) interpolant (grid_interp_2d) used identically by the MCMC likelihood and the SBI support guard. All v2 observables/priors/bounds unchanged. Plan: plans/europa-clipper-v3-salinity-plan.md.",
     "ocean_composition": "Seawater (Constants.stdSeawater_ppt)",

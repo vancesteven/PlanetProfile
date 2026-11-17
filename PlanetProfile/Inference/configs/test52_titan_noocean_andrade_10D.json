@@ -40,6 +40,7 @@
   "random_state": 42,
   "planet_template_module": "PlanetProfile.Test.PPTest50",
   "metadata": {
+    "gui": {"status": "candidate", "note": "Titan no-ocean 10D + CMR2; its SBI artifact is \"implemented, unverified, NOT deployed\" (INDEX.md) and titan_freegrav_noocean supersedes the CMR2 design; no ratification found."},
     "schema_version": "v2.1 (Test50 8D rheology/thermal + sampled differentiated core + derived rho_sil)",
     "description": "Test52 10D: Test50 8D no-ocean Titan Andrade/Yao2014 parameter space (alpha, log10_zeta, log10_eta_{Ih,III,V,VI,sil}, Tb_K; bounds copied verbatim from test50_titan_noocean_andrade_8D.json) plus a sampled differentiated core (R_core_km, rho_core_kgm3) with rho_sil derived from mass conservation against the cached no-core hydrosphere. Uses the PPTest50 template (Planet.bodyname='Test50', Yao 2014 spherical Ih convection, clathrate cap, Kalousova HP convection, Arrhenius viscosity).",
     "reference": "Petricca et al. (2025), Nature 648:558",

@@ -7,22 +7,99 @@ to sample, the priors, any parameters that are derived (not sampled) from
 mass-balance, the observables and their uncertainties, sampler settings, and where
 to find the precomputed structure cache.
 
-## Available configs
+## Config status (`metadata.gui`)
 
-| File | Body | Dim | `Tb_K` | Status |
+Every config carries `metadata.gui = {"status": ..., "note": "..."}` (plus
+`"runnable": false` where it cannot run). `metadata` is excluded from
+`InferenceConfig.generate_hash`, so the block does not affect artifact hash
+checks. The Streamlit Inference page lists only `production` configs by
+default; a "Show non-production configs" checkbox reveals the rest, and a
+config marked `runnable: false` is listed but its Run button is disabled with
+the note as the reason.
+
+| status | meaning |
+|---|---|
+| `production` | ratified or deployed result exists (STATUS.md / `sbi_artifacts/INDEX.md`) |
+| `sensitivity` | ablation, slice or variant of a production config; delivered, not ratified |
+| `smoke` | reduced-size config for fast sanity runs |
+| `candidate` | not ratified, or the evidence is unclear; do not quote results as production |
+| `retired` | superseded, vetoed or deprecated |
+
+Statuses are judged from each config's own metadata, `plans/STATUS.md` and
+`sbi_artifacts/INDEX.md`; when evidence was unclear the config is `candidate`.
+
+| File | Body | Sampled dim | Tb | Status |
 |---|---|---|---|---|
-| `test50_titan_noocean_andrade_8D.json` | Titan (no-ocean) | 8 | sampled `[249.0, 250.965]` | Runnable (cache exists) |
-| `test50_titan_noocean_andrade_5D.json` | Titan (no-ocean) | 5 | fixed `250.965` | Runnable (cache exists) |
-| `europa_seawater_andrade_7D.json` | Europa (seawater) | 7 | sampled `[260.5, 270.0]` | **Schema v2 — needs Stage 2 toolkit + Stage 3 cache** |
-| `ganymede_pureh2o_andrade_8D.json` | Ganymede (pure H₂O) | 8 | sampled `[252.2, 261.0]` | **Schema v2 — needs Stage 2 toolkit + Stage 3 cache** |
-| `callisto_mgso4_andrade_8D.json` | Callisto (MgSO₄ 100 ppt) | 8 | sampled `[252.2, 263.0]` | **Schema v2 — needs Stage 2 toolkit + Stage 3 cache** |
+| `test50_titan_noocean_andrade_8D` | Titan (no ocean) | 8 | sampled | production |
+| `test50_titan_noocean_andrade_5D` | Titan (no ocean) | 5 | fixed 250.965 K | sensitivity |
+| `test52_titan_noocean_andrade_10D` | Titan (no ocean, core) | 10 | sampled | candidate |
+| `test52_titan_noocean_andrade_10D_smoke` | Titan | 10 | sampled | smoke |
+| `titan_freegrav_noocean` | Titan (no ocean, free gravity) | 12 | sampled | candidate |
+| `test54_titan_nh3_freegrav` | Titan (NH3 joint) | 13 | sampled | production (k2 sector not verified) |
+| `test54_titan_mgso4_freegrav` | Titan (MgSO4 joint) | 13 | sampled | production |
+| `test54_titan_nacl_freegrav` | Titan (NaCl joint) | 13 | sampled | production |
+| `europa_galileo_v1p1_8D` | Europa | 8 | sampled | production |
+| `europa_clipper_v4_geodesy_11D` | Europa | 11 | sampled | production |
+| `europa_clipper_v5_geodesy_11D`, `_v5_noinduction_7obs`, `_v5_nok2_17obs` | Europa | 11 | via `D_iceIh_km` | sensitivity |
+| `europa_clipper_v6_freegrav_11D`, `_noinduction_6obs`, `_nok2_16obs` | Europa | 11 | via `D_iceIh_km` | sensitivity |
+| `europa_clipper_v7_openae_11D` | Europa | 11 | via `D_iceIh_km` | sensitivity |
+| `europa_seawater_andrade_7D`, `_clipper_v2`, `_clipper_v3_8D` | Europa | 7-8 | sampled | retired |
+| `europa_seawater_smoke` | Europa | 7 | sampled | smoke |
+| `ganymede_pureh2o_andrade_8D` | Ganymede | 8 | sampled | candidate |
+| `callisto_nacl_andrade_8D` | Callisto | 8 | sampled | candidate |
+| `callisto_nacl_andrade_8D_cmr2_minus5pct`, `_minus10pct` | Callisto | 8 | sampled | sensitivity |
+| `callisto_mgso4_andrade_8D` | Callisto | 8 | sampled | retired, **cannot run** (defective cache) |
+| `enceladus_cassini_isostasy_ocean6D_rhorock` | Enceladus | 6 | via `zb_km` x salinity | production |
+| `enceladus_cassini_isostasy_7D` | Enceladus | 5 | via `zb_km` | candidate, **cannot run** |
+| `enceladus_cassini_smoke_6D` | Enceladus | 6 | sampled | smoke |
 
-The Titan configs were the Phase B reference and use the v1 schema (rheology +
-optional `Tb_K` only). The three ocean-world configs are Phase C1 v2: they add
-sampled core parameters and a derived (mass-conserving) silicate density.
-They parse cleanly through `InferenceConfig.from_json()` but are unrunnable
-end-to-end until the toolkit's mass-conservation solver lands (Stage 2) and the
-per-body structure caches are built (Stage 3).
+All of the structure caches named by these configs exist in the repository
+under `PlanetProfile/Test/mcmc_results/`. The two non-runnable configs are:
+
+- `callisto_mgso4_andrade_8D`: its cache has malformed nodes (about one third
+  of prior draws raise a `_blend_b_layered ... P_MPa has length ...` error)
+  and the config is deprecated in favour of the NaCl one.
+- `enceladus_cassini_isostasy_7D`: a frozen-config candidate that has never
+  been run and cannot construct a runner from the CLI; the runnable
+  Enceladus config is `enceladus_cassini_isostasy_ocean6D_rhorock`.
+
+### Prior-type semantics (as the runner interprets them)
+
+| `prior_type` | fields | meaning of `bounds` |
+|---|---|---|
+| `uniform` | `bounds` | linear limits in the parameter's units |
+| `log-uniform` | `bounds` | log10 **exponents**: log-uniform on `[10^lo, 10^hi]` |
+| `uniform-in-linear` | `bounds` | log10 exponents of the sampled variable, prior uniform in the linear value on `[10^lo, 10^hi]` |
+| `normal` | `mean`, `std` | none |
+| `truncated_gaussian` | `mean`, `std`, `bounds` | linear limits of the truncation |
+
+Parameters sampled as `log10_*` (e.g. `log10_wOcean_ppt`) are themselves
+exponents, with `uniform` bounds on the exponent.
+
+### How the GUI uses a loaded config
+
+Loading a config keeps the whole file as the base. The form edits only the
+priors, observable values/sigmas, sampler fields and cache path; the Run
+button rebuilds the config with `InferenceConfig.from_dict(<file> + edits)`, so
+`bodyname`, `fixed_params`, `derived_params`, `param_groups`, `metadata`,
+`induction_bounds`, `gravity_forward_model`, `arrhenius_params` and
+`ocean_overrides` pass through unchanged. Untouched, the run config equals
+`InferenceConfig.from_json(file)`. Logic lives in
+`PlanetProfile/Inference/gui_config.py`.
+
+### Structure caches
+
+Build or extend a Tb (or Tb x salinity) cache from a config with
+
+```bash
+python -m PlanetProfile.Inference.build_phase_c1_cache \
+    --config PlanetProfile/Inference/configs/<config>.json --n-grid <N> [--n-wgrid <M>]
+```
+
+(`--n-wgrid` adds the log-spaced salinity axis for `log10_wOcean_ppt`
+configs.) The GUI checks that the selected cache exists and that each sampled
+grid-axis prior (`Tb_K`, `log10_wOcean_ppt`, `zb_km`) and each fixed
+`Tb_K` lies inside the cached range, and warns otherwise.
 
 ## Schema (v2 — adds `derived_params` and core sampling)
 
@@ -135,10 +212,10 @@ this and won't carry these fields; that's fine — those configs don't use
 1. Pick a name: `<body>_<composition>_<rheology>_<dim>D.json`.
 2. Copy a sibling config (Phase C1 v2 if your body has an ocean and a core;
    Test50 if it doesn't). Edit `bodyname`, prior bounds, `observables`,
-   `structure_cache_path`, and `metadata`.
+   `structure_cache_path`, and `metadata` (including `metadata.gui`).
 3. Decide which body radius caps `R_core_km` (use `0.5 × R_body` as a
    conservative upper bound unless you have a tighter physical constraint).
-4. Build the structure cache (Phase C2 / C3 work — not yet automated).
+4. Build the structure cache with `build_phase_c1_cache` (see above).
 5. Smoke-test the parse:
    ```bash
    /Users/svance/mamba/envs/PPcl/bin/python -c "from PlanetProfile.Inference.inference_core import InferenceConfig; \
@@ -153,43 +230,6 @@ this and won't carry these fields; that's fine — those configs don't use
 
 ## Roadmap
 
-### Stage 2 — toolkit support for v2 schema
-
-- Parse `derived_params` block in `InferenceConfig`.
-- Add parameter hooks for `R_core_km`, `rho_core_kgm3` in
-  `apply_*_params` / runner.
-- Implement `mass_conservation` derivation for `rho_sil_kgm3` inside
-  `MCMCRunner._make_flexible_log_likelihood`, with hard-bound rejection.
-- Recompute CMR² at sample time from the layered profile assembled from
-  cached ice/ocean + sampled core + derived silicate.
-- Extend the structure-cache schema to expose `M_ice_kg`, `M_ocean_kg`,
-  `R_oceanbot_m`, `M_total_kg` per Tb point.
-- Test-driven: write unit tests for the mass-conservation solver against
-  hand-computed cases (e.g. Earth-like proportions) before wiring into the
-  runner.
-
-### Stage 3 — per-body cache builds
-
-- Probe Tb range for each body: run PP at the bracket Tb values and confirm
-  the resulting Ih shell thickness matches the design target
-  (Europa 3-100 km; Ganymede/Callisto ~50 km at the thin end, near no-ocean
-  at the thick end).
-- Build Tb-grid caches with the v2 schema additions.
-- Run a small smoke MCMC (~50 effective samples) per config to verify the
-  end-to-end path.
-
-### Beyond Phase C1
-
-- **Per-composition runs** for Ganymede and Callisto: 0.1 molal increments
-  of NaCl in the ocean using the SeaFreeze NaCl representation. Builds a
-  composition axis on top of the Tb axis. Deferred — not part of Phase C1.
-- **Induction observables** (Galileo: Khurana et al. 1997 / Kivelson et al.
-  2002 / Zimmer et al. 2000) — requires extending the runner's observable
-  switch beyond `Re_k2 / Im_k2 / k2 / abs_Im_k2 / CMR2 / Mtot_kg`.
-- **Gravity J₂ / C₂₂ constraints** (Anderson et al. 1996 for Ganymede,
-  Anderson et al. 2001 for Callisto, Schubert et al. for Europa) — same
-  toolkit extension.
-- **No-ocean Callisto variant** as a separate config, analogous to Test 50
-  for Titan.
-- **Posterior viewer** in PlanetProfileApp that loads multiple `.pkl`
-  results and overlays them.
+The v2 toolkit (derived parameters, core sampling, mass conservation, 1D/2D
+caches) is implemented. Open work and campaign status are tracked in
+`plans/STATUS.md`; deployed SBI artifacts in `sbi_artifacts/INDEX.md`.

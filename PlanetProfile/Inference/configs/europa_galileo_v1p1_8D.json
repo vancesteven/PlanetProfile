@@ -106,6 +106,7 @@
   "random_state": 44,
   "planet_template_module": "PlanetProfile.Default.Europa.PPEuropa",
   "metadata": {
+    "gui": {"status": "production", "note": "Europa Galileo v1.1 8D: DEPLOYED 2026-07-20, all gates pass (STATUS.md SBI slot table)."},
     "schema_version": "v1.1 (honest Galileo-era data: CMR2 + synodic support cut; k2/h2 as LABELED hypothetical-conditioning channels)",
     "description": "Europa Galileo v1.1 (honest re-run, user 2026-07-19). Corrects the v1 defect: v1 conditioned on Titan-derived k2 sigmas (0.06 ~ Cassini-Titan scale) as if Europa had a measured k2 \u2014 but Galileo measured NEITHER k2 NOR h2. v1.1 honest data = CMR2 [0.3547, 0.0024] (GC21 MoI, Galileo-derived) + the synodic |Ae|>0.7 induction support cut. k2/h2 RETAINED as HYPOTHETICAL-CONDITIONING channels with theory-motivated WIDE widths (Re_k2 0.23+/-0.05 spanning the 0.2-0.3 ocean-consistent theory range, Im_k2 0.004+/-0.05, Re_h2 1.2+/-0.1, Im_h2 0+/-0.1), defaulted at the ocean-consistent theory point. These express hypothetical tidal data for GUI exploration; NO Galileo-era measurement exists. Everything else as v1 (7 params, Test51 1D cache, synodic-only induction). Plan: plans/europa-clipper-v4-geodesy-plan.md ('Galileo v1.1 re-run' section).",
     "ocean_composition": "Seawater (Constants.stdSeawater_ppt)",

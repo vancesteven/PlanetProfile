@@ -99,6 +99,7 @@
   "random_state": 42,
   "planet_template_module": "PlanetProfile.Default.Europa.PPEuropa",
   "metadata": {
+    "gui": {"status": "retired", "note": "Europa v1 (Galileo-run 7D): RETIRED, replaced by v1.1 (STATUS.md SBI slot table)."},
     "schema_version": "v2 (sampled Tb + sampled core + derived rho_sil)",
     "description": "Phase C1 BodyConfig: Europa with Seawater ocean and Andrade rheology, 7D (rheology + Tb_K + sampled core) with mass-conservation rho_sil. Observables (2026-07-12): CMR2 = 0.3547+/-0.0024 (Gomez Casajus et al. 2021); k2/h2 Mazarico et al. (2023) assumption values Re_k2 = 0.25+/-0.06, Im_k2 = 0+/-0.06, Re_h2 = 1.20+/-0.10, Im_h2 = 0+/-0.10 (see observables_provenance_2026_07_12); Galileo synodic induction as one-sided support bounds (see induction_bounds_rationale).",
     "ocean_composition": "Seawater (Constants.stdSeawater_ppt)",

@@ -40,6 +40,7 @@
   "random_state": 42,
   "planet_template_module": "PlanetProfile.Test.PPTest50",
   "metadata": {
+    "gui": {"status": "smoke", "note": "n_effective/n_reeval reduced to 50 for fast sanity runs of test52 10D (own description)."},
     "schema_version": "v2.1 (Test50 8D rheology/thermal + sampled differentiated core + derived rho_sil)",
     "description": "SMOKE COPY of test52_titan_noocean_andrade_10D.json (Phase 3, plans/test52-differentiated-titan-plan.md) for fast sanity-check MCMC only. Only sampler_settings.n_effective and n_reeval are reduced (500 -> 50, matching the europa_seawater_smoke.json convention: T25_smoke_seawater used n_effective=n_reeval=50). All parameter bounds, derived_params, observables, structure_cache_path, and random_state are byte-identical to the production config. Not for scientific claims -- n_effective=50 is not a converged posterior.",
     "reference": "Petricca et al. (2025), Nature 648:558",

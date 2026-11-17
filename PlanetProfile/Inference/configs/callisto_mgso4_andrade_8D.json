@@ -37,6 +37,7 @@
   "random_state": 42,
   "planet_template_module": "PlanetProfile.Default.Callisto.PPCallisto",
   "metadata": {
+    "gui": {"status": "retired", "note": "DEPRECATED (replaced by callisto_nacl_andrade_8D, 2026-05-18) and its structure cache has malformed nodes (about 1/3 of prior draws raise a _blend_b_layered P_MPa length error); do not run until the cache is rebuilt.", "runnable": false},
     "schema_version": "v2 (sampled Tb + sampled core + derived rho_sil) — DEPRECATED",
     "deprecation_note": "Replaced by callisto_nacl_andrade_8D.json (2026-05-18). The MgSO4 EOS in PP's HydroEOS table only extends to P=800 MPa, which Callisto's ocean exceeds at all sampled Tb values, forcing slow extrapolation regeneration on every PP run. SeaFreeze NaCl extends to 5000 MPa and runs cleanly. A faster MgSO4 EOS in SeaFreeze is still under development; revisit this config when it lands.",
     "description": "Phase C1 BodyConfig: Callisto with MgSO4 100 ppt ocean and Andrade rheology. HP ice shell present (Ice III/V/VI locked together). 8D problem. Less differentiated than Ganymede.",

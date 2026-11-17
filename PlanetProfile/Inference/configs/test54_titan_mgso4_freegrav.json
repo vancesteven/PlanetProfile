@@ -50,6 +50,7 @@
   "random_state": 73,
   "planet_template_module": "PlanetProfile.Default.Titan.PPTitan",
   "metadata": {
+    "gui": {"status": "production", "note": "Titan MgSO4 joint no-ocean+ocean; SBC 13/13, crosscheck 13/13, deployed per INDEX.md (STATUS.md slot table still says awaiting artifact; INDEX is newer)."},
     "schema_version": "titan_freegrav_v1 ocean (MgSO4) JOINT no-ocean+ocean posterior — test54_titan_mgso4_freegrav",
     "gravity_ref_radius_m": 2575000.0,
     "gravity_j2_over_c22": 3.3333333333,

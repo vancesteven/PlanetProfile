@@ -50,6 +50,7 @@
   "random_state": 74,
   "planet_template_module": "PlanetProfile.Default.Titan.PPTitan",
   "metadata": {
+    "gui": {"status": "production", "note": "Titan NaCl joint no-ocean+ocean; SBC 13/13, crosscheck 12/13 with log10_eta_V FAIL-ADJUDICATED-ACCEPTABLE, deployed per INDEX.md."},
     "schema_version": "titan_freegrav_v1 ocean (NaCl) JOINT no-ocean+ocean posterior — test54_titan_nacl_freegrav",
     "gravity_ref_radius_m": 2575000.0,
     "gravity_j2_over_c22": 3.3333333333,

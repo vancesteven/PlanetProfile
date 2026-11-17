@@ -8,19 +8,31 @@
 # origin/app-deploy (force: the branch has no history by design).
 #
 # Usage: plans/scripts/build_deploy_branch.sh [--no-push|--build-only]
+#        plans/scripts/build_deploy_branch.sh --stage-only DIR
+# (--stage-only stages + verifies the snapshot into DIR, performs NO git
+# operations and uploads nothing; DIR is kept for inspection.)
 # Rerun after verifying genai — this is the ONLY redeploy path; the public
 # app never tracks dev pushes.
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 SRC_SHA="$(git -C "$REPO_ROOT" rev-parse --short HEAD)"
-STAGE="$(mktemp -d /tmp/pp-app-deploy.XXXXXX)"
-trap 'rm -rf "$STAGE"' EXIT
-
 MODE="${1:-}"
-if [[ -n "$MODE" && "$MODE" != "--no-push" && "$MODE" != "--build-only" ]]; then
-  echo "Usage: $0 [--no-push|--build-only]" >&2
+if [[ -n "$MODE" && "$MODE" != "--no-push" && "$MODE" != "--build-only" \
+      && "$MODE" != "--stage-only" ]]; then
+  echo "Usage: $0 [--no-push|--build-only|--stage-only DIR]" >&2
   exit 2
+fi
+if [[ "$MODE" == "--stage-only" ]]; then
+  STAGE="${2:?--stage-only requires a target directory}"
+  if [[ -e "$STAGE" && -n "$(ls -A "$STAGE" 2>/dev/null)" ]]; then
+    echo "ERROR: --stage-only directory must be empty or absent: $STAGE" >&2
+    exit 2
+  fi
+  mkdir -p "$STAGE"
+else
+  STAGE="$(mktemp -d /tmp/pp-app-deploy.XXXXXX)"
+  trap 'rm -rf "$STAGE"' EXIT
 fi
 
 echo "Staging deploy snapshot of ${SRC_SHA} in ${STAGE}"
@@ -52,48 +64,67 @@ echo "Staging deploy snapshot of ${SRC_SHA} in ${STAGE}"
   done
 )
 
-# Serve-time data from Test/: every unique structure grid referenced by a
-# non-placeholder _SBI_ARTIFACT_SLOTS cache_path. The literal-safe AST helper
-# avoids importing/executing the Streamlit page while keeping this list tied
-# to the registry that consumes it.
-# For each, ship its Ae precompute sidecar too (*.ae_sidecar.pkl) when
-# present — it turns the first per-run mpmath induction precompute
-# (minutes for the ~1300-node 2D cache) into an instant reload.
-EXPECTED_CACHES="$STAGE/.expected-sbi-caches"
-ACTUAL_CACHES="$STAGE/.actual-sbi-caches"
+# Serve-time data: every file in the registry-derived companion manifest
+# (plans/scripts/extract_sbi_cache_paths.py --manifest). Per slot that is the
+# structure-grid pkl, its Ae induction sidecar (*.ae_sidecar.pkl), the
+# optional CMR2 *_offsets.json, the elastic libration factor sidecar
+# (suffix taken from the slot config's metadata.libration_model_correction.
+# elastic_factor_sidecar — a MISSING one makes the runner raise on every
+# servable draw), and any IS fiducial bundle. Manifest lines are
+# path<TAB>kind<TAB>required(0/1): required files must exist and be staged
+# (build FAILS otherwise); optional ones are copied when present.
+MANIFEST="$STAGE/.sbi-file-manifest"
+STAGED_LIST="$STAGE/.staged-sbi-files"
 "${PP_PYTHON:-/opt/miniconda3/envs/PP/bin/python}" \
   "$REPO_ROOT/plans/scripts/extract_sbi_cache_paths.py" \
-  "$REPO_ROOT/PlanetProfileApp/pages/Inference.py" > "$EXPECTED_CACHES"
+  "$REPO_ROOT/PlanetProfileApp/pages/Inference.py" --manifest > "$MANIFEST"
+if [[ ! -s "$MANIFEST" ]]; then
+  echo "ERROR: empty SBI file manifest" >&2
+  exit 1
+fi
 
-while IFS= read -r f; do
+: > "$STAGED_LIST"
+n_req=0
+while IFS=$'\t' read -r f kind req; do
   [[ -n "$f" ]] || continue
   if [[ ! -f "$REPO_ROOT/$f" ]]; then
-    echo "Registry cache is missing: $f" >&2
-    exit 1
+    if [[ "$req" == "1" ]]; then
+      echo "ERROR: required deploy file missing ($kind): $f" >&2
+      exit 1
+    fi
+    continue
   fi
   mkdir -p "$STAGE/$(dirname "$f")"
   cp "$REPO_ROOT/$f" "$STAGE/$f"
-  # Optional sidecars; the trailing `|| true` keeps set -e from killing
-  # the build when a cache legitimately has none (e.g. the Titan diff
-  # 1D cache carries no Ae sidecar).
-  [ -f "$REPO_ROOT/$f.ae_sidecar.pkl" ] && \
-    cp "$REPO_ROOT/$f.ae_sidecar.pkl" "$STAGE/$f.ae_sidecar.pkl" || true
-  # Offsets sidecar (Titan diff cache): JSON next to the pkl.
-  _off="${f%.pkl}_offsets.json"
-  [ -f "$REPO_ROOT/$_off" ] && cp "$REPO_ROOT/$_off" "$STAGE/$_off" || true
-done < "$EXPECTED_CACHES"
+  echo "$f" >> "$STAGED_LIST"
+  if [[ "$req" == "1" ]]; then n_req=$((n_req + 1)); fi
+done < "$MANIFEST"
 
-# Blocking invariant: the staged primary cache set must exactly match the
-# registry-derived set. Sidecar pkls are excluded from this comparison.
-find "$STAGE/PlanetProfile/Test" -type f -name '*.pkl' \
-  ! -name '*.ae_sidecar.pkl' \
-  | sed "s#^$STAGE/##" | sort -u > "$ACTUAL_CACHES"
-if ! diff -u "$EXPECTED_CACHES" "$ACTUAL_CACHES"; then
-  echo "ERROR: staged SBI cache set differs from the slot registry" >&2
+# Blocking invariants: (1) every required manifest file is in the staged
+# tree; (2) the staged Test/ tree holds EXACTLY the manifest files that
+# exist (no stray cache or sidecar leaks in, none silently dropped).
+while IFS=$'\t' read -r f kind req; do
+  if [[ "$req" == "1" && ! -f "$STAGE/$f" ]]; then
+    echo "ERROR: required deploy file not staged ($kind): $f" >&2
+    exit 1
+  fi
+done < "$MANIFEST"
+grep '^PlanetProfile/Test/' "$STAGED_LIST" | sort -u > "$STAGE/.expected-test-files"
+find "$STAGE/PlanetProfile/Test" -type f \
+  | sed "s#^$STAGE/##" | sort -u > "$STAGE/.actual-test-files"
+if ! diff -u "$STAGE/.expected-test-files" "$STAGE/.actual-test-files"; then
+  echo "ERROR: staged Test/ files differ from the SBI file manifest" >&2
   exit 1
 fi
-echo "Verified staged SBI cache set: $(wc -l < "$ACTUAL_CACHES" | tr -d ' ') registry paths, exact match"
-rm -f "$EXPECTED_CACHES" "$ACTUAL_CACHES"
+echo "Verified staged SBI file set: $(wc -l < "$STAGED_LIST" | tr -d ' ') files" \
+     "($n_req required), exact match for Test/"
+rm -f "$MANIFEST" "$STAGED_LIST" "$STAGE/.expected-test-files" \
+      "$STAGE/.actual-test-files"
+
+if [[ "$MODE" == "--stage-only" ]]; then
+  echo "Stage-only dry run complete in ${STAGE}; no git operations performed"
+  exit 0
+fi
 
 # README with Hugging Face Spaces YAML frontmatter (harmless on GitHub).
 # HF retired the native streamlit SDK; this deploys as a Docker Space.

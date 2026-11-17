@@ -136,6 +136,7 @@
   "random_state": 43,
   "planet_template_module": "PlanetProfile.Default.Europa.PPEuropa",
   "metadata": {
+    "gui": {"status": "sensitivity", "note": "v5 no-induction ablation arm: delivered, NOT ratified (STATUS.md)."},
     "schema_version": "v5 no-induction ablation (drop 14 Bind_* channels) \u2014 clipper_v5_noinduction",
     "description": "Europa Clipper v4 geodesy campaign: v3 8D (rheology + Tb_K + log10_wOcean_ppt salinity + sampled core, mass-conservation rho_sil) PLUS Mazarico-projected degree-2 gravity. Adds two sampled non-hydrostatic offsets dC20_nh, dC22_nh (uniform [-2e-5, 2e-5]) => 10 sampled parameters. k2 conditioning tightened to the Mazarico et al. (2023) projected precision (Re_k2 0.23+/-0.015, Im_k2 0.0040+/-0.015) replacing v1-v3's requirement-level sigma 0.06. CMR2 is RETAINED but RELABELED as a Galileo-derived MoI PRIOR (GC21 Table 3), not a Clipper observable. C20/C22 modeled directly via a hydrostatic Clairaut forward map (gravity_forward_model='clairaut_hydrostatic') + sampled non-hydrostatic offsets; the posterior of (dC20_nh, dC22_nh) IS the inferred degree of non-hydrostaticity. Same 2D (Tb x w) v3.0 structure cache (NO PP runs). Plan: plans/europa-clipper-v4-geodesy-plan.md.",
     "ocean_composition": "Seawater (Constants.stdSeawater_ppt)",

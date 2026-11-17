@@ -28,6 +28,7 @@
   "structure_cache_path": "PlanetProfile/Test/mcmc_results/Titan/Test50_andrade_noocean_yao2014/titan_allice_yao2014_structure_grid.pkl",
   "random_state": 42,
   "metadata": {
+    "gui": {"status": "production", "note": "Titan Test50 8D: the deployed titan_andrade_noocean SBI slot reference and the Cassini-Titan production MCMC (sbi_artifacts/INDEX.md deployed table)."},
     "description": "Test50 8D no-ocean Titan, Andrade rheology, Yao 2014 spherical convection, Tb sampled across triple-pt depression band",
     "reference": "Petricca et al. (2025)"
   }

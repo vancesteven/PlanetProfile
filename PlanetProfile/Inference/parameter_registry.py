@@ -737,11 +737,10 @@ def validate_parameter_combination(param_ids: List[str]) -> Dict[str, Any]:
     for param_id in param_ids:
         param = PARAMETER_REGISTRY.get(param_id)
         if param and param.requires_structure_rebuild:
+            # Flag only. Whether the selected cache already spans the
+            # parameter is checked against the actual cache by the caller
+            # (PlanetProfile.Inference.gui_config.check_structure_cache).
             requires_rebuild = True
-            warnings.append(
-                f"Parameter '{param.label}' requires pre-computed structure grid. "
-                f"Generate grid with prepare_structure_variants.py before inference."
-            )
 
     # Infer rheology constraint
     andrade_only = [p for p in param_ids if PARAMETER_REGISTRY[p].rheology_constraint == 'andrade']

@@ -70,6 +70,7 @@
   "random_state": 42,
   "planet_template_module": "PlanetProfile.Default.Enceladus.PPEnceladus",
   "metadata": {
+    "gui": {"status": "smoke", "note": "Cassini-Enceladus smoke config exercising the libration and Clairaut forward models (test-run scope, own description)."},
     "schema_version": "Cassini-Enceladus smoke (test-run scope, Machine A 2026-07-19)",
     "description": "Cassini-era Enceladus smoke config exercising the merged libration forward model (rigid three-layer Van Hoolst 2008 via Gravity/Librations.py) and the body-parameterized Clairaut gravity pair. Park et al. 2024 (papers/park2024global.pdf) Case 2 field, UNNORMALIZED at reference radius 256.6 km: C20 = -5477.45 +/- 36.99 e-6, C22 = 1517.90 +/- 14.70 e-6; forced libration 0.091 +/- 0.003 deg (1-sigma from their 3-sigma 0.009). NO nuisance offsets in the smoke (the plain hydrostatic pair will sit in TENSION with the measured J2/C22 = 3.61 ratio - expected, documents the non-hydrostaticity; the production 8D config adds dC20_nh/dC22_nh per plans/mission-body-constraints.md and must ALSO use the covariance conditioning). Rigid-shell libration overestimates the shell-elasticity-corrected amplitude; the elastic (y1) correction is a documented production refinement. Composition Seawater 10 ppt (Glein et al. 2018 approx); no iron core (Do.Fe_CORE False) so CMR2/gravity derive from the cached profile directly (no mass-conservation core path in the smoke).",
     "gravity_ref_radius_m": 256600.0,

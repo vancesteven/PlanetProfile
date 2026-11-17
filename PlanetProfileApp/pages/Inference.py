@@ -184,35 +184,26 @@ def initialize_session_state():
 # ============================================================
 
 def _load_available_configs():
-    """Scan PlanetProfile/Inference/configs/*.json and return a dict.
+    """Scan PlanetProfile/Inference/configs/*.json.
 
     Returns
     -------
     dict
-        ``{body_name: [(display_name, filepath), ...]}``
-        sorted alphabetically by body and then by display name.
+        ``{body_name: [entry, ...]}`` with entries from
+        ``gui_config.config_catalogue`` (``stem``, ``path``, ``status``,
+        ``note``, ``runnable``), sorted by body then filename.
     """
-    import json as _json
-    import glob as _glob
-
-    configs_dir = Path(parent_directory) / "PlanetProfile" / "Inference" / "configs"
-    pattern = str(configs_dir / "*.json")
-    files = sorted(_glob.glob(pattern))
+    from PlanetProfile.Inference.gui_config import config_catalogue
 
     result = {}
-    for fp in files:
-        try:
-            with open(fp) as fh:
-                data = _json.load(fh)
-        except Exception:
-            continue
-
-        body = data.get("bodyname") or data.get("body") or data.get("planet_name") or data.get("Body") or "Unknown"
-        display = Path(fp).stem  # filename without .json
-        result.setdefault(body, []).append((display, fp))
-
-    # Sort bodies alphabetically; entries within each body already sorted by filename
+    for entry in config_catalogue():
+        result.setdefault(entry["body"], []).append(entry)
     return dict(sorted(result.items()))
+
+
+def _config_label(entry):
+    flag = '' if entry['runnable'] else ' · cannot run'
+    return f"{entry['stem']}  [{entry['status']}{flag}]"
 
 
 # Mission-appropriate observable defaults per body (fallbacks for the
@@ -289,23 +280,38 @@ def render_config_file_selector():
 
     st.markdown("#### 📂 Load Config File")
 
-    body_names = list(configs_by_body.keys())
+    show_all = st.checkbox(
+        "Show non-production configs (sensitivity, smoke, candidate, retired)",
+        value=False, key="cfg_selector_show_all",
+        help="Production configs are those with a ratified/deployed result "
+             "(metadata.gui.status in each config JSON; see "
+             "PlanetProfile/Inference/configs/README.md).")
+
+    visible = {}
+    for body, entries in configs_by_body.items():
+        keep = [e for e in entries
+                if show_all or e['status'] == 'production']
+        if keep:
+            visible[body] = keep
+    if not visible:
+        st.info("No production configs; tick the box above to list the rest.")
+        return
+
     selected_body = st.selectbox(
         "Body:",
-        options=body_names,
+        options=list(visible.keys()),
         key="cfg_selector_body",
     )
 
-    variants = configs_by_body[selected_body]  # list of (display_name, filepath)
-    variant_labels = [v[0] for v in variants]
+    variants = visible[selected_body]
+    variant_labels = [_config_label(e) for e in variants]
     selected_variant_label = st.selectbox(
         "Config variant:",
         options=variant_labels,
         key="cfg_selector_variant",
     )
-
-    # Resolve filepath
-    selected_filepath = next(fp for (lbl, fp) in variants if lbl == selected_variant_label)
+    entry = variants[variant_labels.index(selected_variant_label)]
+    selected_filepath = entry['path']
 
     # Load JSON for preview and button action
     try:
@@ -315,29 +321,65 @@ def render_config_file_selector():
         st.error(f"Could not read config: {exc}")
         return
 
+    note = f"**{entry['status']}** — {entry['note']}" if entry['note'] \
+        else f"**{entry['status']}**"
+    if not entry['runnable']:
+        st.error(f"Cannot run: {entry['note']}")
+    elif entry['status'] == 'production':
+        st.caption(note)
+    else:
+        st.warning(note)
+
     # Config preview expander
     with st.expander("Config preview"):
         st.code(_json.dumps(cfg_data, indent=2), language="json")
 
     # Apply button
     if st.button("Apply config to form", key="cfg_selector_apply"):
-        _apply_config_to_session_state(cfg_data)
-        st.success(f"Loaded: {selected_variant_label}")
+        _apply_config_to_session_state(cfg_data, path=selected_filepath)
+        st.success(f"Loaded: {entry['stem']}")
         st.rerun()
 
 
-def _apply_config_to_session_state(cfg):
+_PRIOR_WIDGET_PREFIXES = ('prior_type_', 'lower_', 'upper_', 'mean_', 'std_')
+_FORM_WIDGET_KEYS = ('param_multiselect', 'n_eff_slider', 'n_reeval_slider',
+                     'random_seed', 'checkpoint_interval', 'max_iterations',
+                     'clathrate_checkbox')
+
+
+def _apply_config_to_session_state(cfg, path=None):
     """Populate inference session-state keys from a loaded config dict.
+
+    The full dict is kept as ``inference_loaded_config`` (single source of
+    truth): the form edits only a working copy of its prior / observable /
+    sampler / cache-path blocks, and the run config is rebuilt from this
+    dict plus those edits (``gui_config.build_run_config``).
 
     Parameters
     ----------
     cfg : dict
         Parsed JSON config from PlanetProfile/Inference/configs/*.json
+    path : str, optional
+        File the dict came from (used in cache-build hints).
     """
+    import copy as _copy
+    from PlanetProfile.Inference.gui_config import gui_info
+    st.session_state.inference_loaded_config = _copy.deepcopy(cfg)
+    st.session_state.inference_loaded_config_path = path
+    st.session_state.inference_loaded_config_gui = gui_info(cfg)
+    # Widget state wins over value=/default= on rerun; drop it so the
+    # widgets re-seed from the config just loaded.
+    for _k in list(st.session_state.keys()):
+        if isinstance(_k, str) and _k.startswith(_PRIOR_WIDGET_PREFIXES):
+            del st.session_state[_k]
+    for _k in _FORM_WIDGET_KEYS:
+        st.session_state.pop(_k, None)
+
     # --- param_space and selected_params ---
     param_space = cfg.get("param_space", {})
     if param_space:
-        st.session_state.inference_param_space = dict(param_space)
+        import copy as _copy2
+        st.session_state.inference_param_space = _copy2.deepcopy(param_space)
         st.session_state.inference_selected_params = list(param_space.keys())
 
     # --- observables (normalise key names) ---
@@ -372,7 +414,8 @@ def _apply_config_to_session_state(cfg):
     # --- sampler settings (merge with existing defaults) ---
     raw_sampler = cfg.get("sampler_settings", {})
     if raw_sampler:
-        current = dict(st.session_state.inference_sampler_settings)
+        from PlanetProfile.Inference.gui_config import SAMPLER_FORM_DEFAULTS
+        current = dict(SAMPLER_FORM_DEFAULTS)
         for field in ("n_effective", "n_reeval", "random_state",
                       "checkpoint_interval", "max_iterations"):
             if field in raw_sampler:
@@ -389,6 +432,8 @@ def _apply_config_to_session_state(cfg):
     cache_path = cfg.get("structure_cache_path", "")
     if cache_path:
         st.session_state.inference_structure_cache_path = cache_path
+        # Re-derive the clathrate toggle from the loaded path.
+        st.session_state.inference_use_clathrate = '_noclath.pkl' not in cache_path
 
     # --- preset / custom mode ---
     # Try to match config bodyname to a known preset so the run button can
@@ -489,16 +534,6 @@ def render_parameter_config(PARAMETER_REGISTRY, CATEGORY_LABELS, CATEGORY_ORDER,
             for warning in validation['warnings']:
                 st.warning(warning)
 
-        # Show requires_rebuild warning if any param needs structure grid
-        if validation['requires_rebuild']:
-            st.warning("""
-            ⚠️ **Structure Grid Required:** One or more selected parameters require
-            a pre-computed structure grid. Generate grid with:
-            ```bash
-            python scripts/prepare_structure_variants.py
-            ```
-            """)
-
 
 def render_prior_config(PARAMETER_REGISTRY):
     """Render prior configuration for selected parameters."""
@@ -530,9 +565,40 @@ def render_prior_config(PARAMETER_REGISTRY):
     if not st.session_state.inference_param_space:
         st.session_state.inference_param_space = {}
 
-    # Render prior inputs for each parameter
+    from PlanetProfile.Inference.gui_config import (
+        PRIOR_FIELDS, default_prior_entry)
+
+    space = st.session_state.inference_param_space
+
+    # Tiny-magnitude parameters (non-hydrostatic Stokes offsets,
+    # O(1e-5)-O(1e-4)) are unreadable in fixed decimal — the
+    # %.4f display rounds their whole prior range to ±0.0000/1
+    # (user 2026-07-24). Pick the format from the values shown.
+    def _prior_fmt(*vals):
+        mags = [abs(float(v)) for v in vals
+                if v is not None and np.isfinite(float(v))
+                and float(v) != 0.0]
+        if mags and (max(mags) < 1e-2 or max(mags) >= 1e5):
+            return "%.3e"
+        return "%.4f"
+
+    _TYPE_NOTE = {
+        'log-uniform': "Bounds are log10 EXPONENTS: the prior is "
+                       "log-uniform on [10^lower, 10^upper].",
+        'uniform-in-linear': "Bounds are log10 exponents of the sampled "
+                             "variable; the prior is uniform in the "
+                             "linear value on [10^lower, 10^upper].",
+        'truncated_gaussian': "Normal(mean, std) truncated to the bounds "
+                              "(all in the parameter's own units).",
+    }
+
+    # Render prior inputs for each parameter. Widgets are seeded from the
+    # entry already in param_space (a loaded config's prior, extra fields
+    # included); only values the user CHANGES are written back. The
+    # registry default is used solely for a newly added parameter.
     for param_id in st.session_state.inference_selected_params:
         param_def = PARAMETER_REGISTRY[param_id]
+        existing = space.get(param_id)
 
         with st.expander(f"{param_def.label} ({param_def.latex_label})", expanded=False):
             st.markdown(f"*{param_def.description}*")
@@ -541,78 +607,71 @@ def render_prior_config(PARAMETER_REGISTRY):
             if current_body and param_id in BODY_PRIOR_HINTS[current_body]:
                 st.caption(f"💡 **Recommendation:** {BODY_PRIOR_HINTS[current_body][param_id]}")
 
-            # Prior type selector
+            if existing is not None and existing.get('prior_type') not in PRIOR_FIELDS:
+                st.info(f"Prior type `{existing.get('prior_type')}` is not "
+                        f"editable in this form; it is kept as loaded "
+                        f"(read-only).")
+                st.json(existing)
+                continue
+
+            if existing is None:
+                existing = default_prior_entry(param_def, param_def.default_prior)
+                space[param_id] = existing
+
+            type_options = list(PRIOR_FIELDS)
             prior_type = st.selectbox(
                 "Prior type:",
-                options=['uniform', 'normal', 'log-uniform'],
-                index=0 if param_def.default_prior == 'uniform' else
-                      (1 if param_def.default_prior == 'normal' else 2),
+                options=type_options,
+                index=type_options.index(existing['prior_type']),
                 key=f'prior_type_{param_id}'
             )
+            if prior_type != existing['prior_type']:
+                existing = default_prior_entry(param_def, prior_type,
+                                               from_entry=existing)
+                space[param_id] = existing
+            if prior_type in _TYPE_NOTE:
+                st.caption(_TYPE_NOTE[prior_type])
 
-            # Tiny-magnitude parameters (non-hydrostatic Stokes offsets,
-            # O(1e-5)-O(1e-4)) are unreadable in fixed decimal — the
-            # %.4f display rounds their whole prior range to ±0.0000/1
-            # (user 2026-07-24). Pick the format from the default bounds.
-            def _prior_fmt(*vals):
-                mags = [abs(float(v)) for v in vals
-                        if v is not None and np.isfinite(float(v))
-                        and float(v) != 0.0]
-                if mags and (max(mags) < 1e-2 or max(mags) >= 1e5):
-                    return "%.3e"
-                return "%.4f"
-
-            # Bounds or mean/std inputs
-            if prior_type in ['uniform', 'log-uniform']:
-                _fmt = _prior_fmt(*param_def.default_bounds)
+            fields = PRIOR_FIELDS[prior_type]
+            shown = [existing[f] for f in ('mean', 'std') if f in fields] \
+                + (list(existing['bounds']) if 'bounds' in fields else [])
+            _fmt = _prior_fmt(*shown)
+            kt = f'{param_id}_{prior_type}'
+            new = {}
+            if 'mean' in fields:
+                col1, col2 = st.columns(2)
+                with col1:
+                    new['mean'] = st.number_input(
+                        "Mean:", value=float(existing['mean']),
+                        format=_fmt, key=f'mean_{kt}')
+                with col2:
+                    new['std'] = st.number_input(
+                        "Std. deviation:", value=float(existing['std']),
+                        format=_fmt, key=f'std_{kt}')
+            if 'bounds' in fields:
+                exp_note = " (log10 exponent)" if prior_type in (
+                    'log-uniform', 'uniform-in-linear') else ""
                 col1, col2 = st.columns(2)
                 with col1:
                     low = st.number_input(
-                        "Lower bound:",
-                        value=float(param_def.default_bounds[0]),
-                        format=_fmt,
-                        key=f'lower_{param_id}'
-                    )
+                        f"Lower bound{exp_note}:",
+                        value=float(existing['bounds'][0]),
+                        format=_fmt, key=f'lower_{kt}')
                 with col2:
                     high = st.number_input(
-                        "Upper bound:",
-                        value=float(param_def.default_bounds[1]),
-                        format=_fmt,
-                        key=f'upper_{param_id}'
-                    )
+                        f"Upper bound{exp_note}:",
+                        value=float(existing['bounds'][1]),
+                        format=_fmt, key=f'upper_{kt}')
+                new['bounds'] = [low, high]
 
-                # Store in param_space
-                st.session_state.inference_param_space[param_id] = {
-                    'prior_type': prior_type,
-                    'bounds': [low, high]
-                }
-
-            elif prior_type == 'normal':
-                _fmt = _prior_fmt(param_def.default_mean,
-                                  param_def.default_std,
-                                  *param_def.default_bounds)
-                col1, col2 = st.columns(2)
-                with col1:
-                    mean = st.number_input(
-                        "Mean:",
-                        value=float(param_def.default_mean) if param_def.default_mean else 0.0,
-                        format=_fmt,
-                        key=f'mean_{param_id}'
-                    )
-                with col2:
-                    std = st.number_input(
-                        "Std. deviation:",
-                        value=float(param_def.default_std) if param_def.default_std else 1.0,
-                        format=_fmt,
-                        key=f'std_{param_id}'
-                    )
-
-                # Store in param_space
-                st.session_state.inference_param_space[param_id] = {
-                    'prior_type': prior_type,
-                    'mean': mean,
-                    'std': std
-                }
+            changed = {
+                f: v for f, v in new.items()
+                if (any(float(x) != float(y) for x, y in zip(v, existing[f]))
+                    if f == 'bounds' else v != existing[f])}
+            if changed:
+                updated = dict(existing)
+                updated.update(changed)
+                space[param_id] = updated
 
 
 def render_observables_config():
@@ -742,12 +801,14 @@ def render_sampler_settings():
     """Render MCMC sampler settings."""
     st.markdown("#### ⚙️ Sampler Settings")
 
-    # n_effective slider
+    # Slider ranges widen to hold a loaded config's value (smoke configs use
+    # 50; a value outside [min, max] raises StreamlitAPIException).
+    _ss = st.session_state.inference_sampler_settings
     n_eff = st.slider(
         "Target effective sample size (ESS):",
-        min_value=100,
-        max_value=5000,
-        value=st.session_state.inference_sampler_settings['n_effective'],
+        min_value=min(100, int(_ss['n_effective'])),
+        max_value=max(5000, int(_ss['n_effective'])),
+        value=_ss['n_effective'],
         step=100,
         key='n_eff_slider',
         help="Number of independent samples to collect. Higher = better convergence, longer runtime."
@@ -756,9 +817,9 @@ def render_sampler_settings():
     # n_reeval slider
     n_reeval = st.slider(
         "Heating re-evaluations:",
-        min_value=100,
-        max_value=1000,
-        value=st.session_state.inference_sampler_settings['n_reeval'],
+        min_value=min(100, int(_ss['n_reeval'])),
+        max_value=max(1000, int(_ss['n_reeval'])),
+        value=_ss['n_reeval'],
         step=100,
         key='n_reeval_slider',
         help="Number of posterior samples to re-compute full heating for."
@@ -797,6 +858,51 @@ def render_sampler_settings():
         'checkpoint_interval': checkpoint_interval,
         'max_iterations': max_iterations
     }
+
+
+def _render_cache_report():
+    """Cache existence + grid-span check for the current form state."""
+    from PlanetProfile.Inference.gui_config import check_structure_cache
+
+    loaded = st.session_state.get('inference_loaded_config') or {}
+    cfg_path = st.session_state.get('inference_loaded_config_path')
+    if cfg_path:
+        try:
+            cfg_path = str(Path(cfg_path).resolve().relative_to(
+                Path(parent_directory).resolve()))
+        except ValueError:
+            pass
+    selected = st.session_state.inference_selected_params
+    space = {k: v for k, v in st.session_state.inference_param_space.items()
+             if k in selected}
+    rep = check_structure_cache(
+        space, loaded.get('fixed_params'),
+        st.session_state.inference_structure_cache_path, cfg_path)
+    if rep['status'] == 'unset':
+        return
+    if rep['status'] == 'missing':
+        st.error(f"❌ Structure cache not found: `{rep['resolved']}`\n\n"
+                 f"Build it with `{rep['command']}` (grid size/resolution "
+                 f"options: `--help`).")
+        return
+    if rep['status'] == 'unreadable':
+        st.error(f"❌ Structure cache `{rep['resolved']}` could not be read: "
+                 f"{rep.get('error')}")
+        return
+    size_kb = Path(rep['resolved']).stat().st_size / 1024
+    spans = "; ".join(f"{p} {i['range'][0]:.6g} to {i['range'][1]:.6g} "
+                      f"({i['n']} pts)" for p, i in rep['axes'].items())
+    st.success(f"✅ Cache file found ({size_kb:.1f} KB)"
+               + (f" — grid axes: {spans}" if spans else
+                  " — no Tb/salinity/zb grid axes recorded"))
+    for issue in rep['issues']:
+        st.warning(
+            f"⚠️ Prior for `{issue['param']}` extends outside the cached "
+            f"grid: prior {issue['prior_range'][0]:.6g} to "
+            f"{issue['prior_range'][1]:.6g}, cache "
+            f"{issue['cache_range'][0]:.6g} to {issue['cache_range'][1]:.6g}. "
+            f"The cache has no nodes outside that range; narrow the prior or "
+            f"rebuild a wider cache with `{rep['command']}`.")
 
 
 def render_structure_cache_input():
@@ -842,11 +948,11 @@ def render_structure_cache_input():
         # Preset mode: show as info box (read-only)
         st.info(f"**Auto-configured path:** `{st.session_state.inference_structure_cache_path}`")
 
-        # Validation
+        # Validation (only the generate-on-demand presets may build a cache here)
         if st.session_state.inference_structure_cache_path:
             full_path = Path(parent_directory) / st.session_state.inference_structure_cache_path
             if full_path.exists():
-                st.success(f"✅ Cache file found ({full_path.stat().st_size / 1024:.1f} KB)")
+                _render_cache_report()
             else:
                 # NOTE: the andrade_europa entry (PPTest3 -> europa_cache/)
                 # was removed 2026-07-12: it silently built a PureH2O
@@ -883,14 +989,7 @@ def render_structure_cache_input():
                         st.error("❌ Cache generation failed.")
                         st.code(proc.stderr or proc.stdout)
                 else:
-                    st.error(f"❌ Cache file not found: {full_path}")
-                    st.markdown("""
-                    **Generate structure cache manually:**
-                    ```bash
-                    python -m PlanetProfile.Inference.prepare_structure_variants \\
-                        --test-module <module> --output-dir <dir>/
-                    ```
-                    """)
+                    _render_cache_report()
     else:
         # Custom mode: allow manual path input
         cache_path = st.text_input(
@@ -903,19 +1002,8 @@ def render_structure_cache_input():
 
         st.session_state.inference_structure_cache_path = cache_path
 
-        # Validate path exists
         if cache_path:
-            full_path = Path(parent_directory) / cache_path
-            if full_path.exists():
-                st.success(f"✅ Cache file found ({full_path.stat().st_size / 1024:.1f} KB)")
-            else:
-                st.error(f"❌ Cache file not found: {full_path}")
-                st.markdown("""
-                **To generate structure cache:**
-                ```bash
-                python scripts/prepare_structure_cache.py --body <Body> --cache-path <cache_dir>/
-                ```
-                """)
+            _render_cache_report()
 
 
 def validate_inference_config():
@@ -977,6 +1065,13 @@ def render_run_button(InferenceConfig, MCMCRunner):
     for warning in validation['warnings']:
         st.warning(f"⚠️ {warning}")
 
+    _gui = st.session_state.get('inference_loaded_config_gui')
+    if _gui and not _gui['runnable']:
+        st.error(f"❌ **Run disabled for this config:** {_gui['note']}")
+        st.button("🚀 Run MCMC Inference", type="primary",
+                  use_container_width=True, disabled=True)
+        return
+
     # Run button
     if st.button("🚀 Run MCMC Inference", type="primary", use_container_width=True):
         st.session_state.inference_running = True
@@ -995,15 +1090,12 @@ def render_run_button(InferenceConfig, MCMCRunner):
             else:
                 bodyname = 'Custom'
 
-            config = InferenceConfig(
-                mode='mcmc',
-                bodyname=bodyname,
-                param_space=st.session_state.inference_param_space,
-                observables=st.session_state.inference_observables,
-                sampler_settings=st.session_state.inference_sampler_settings,
-                structure_cache_path=st.session_state.inference_structure_cache_path,
-                random_state=st.session_state.inference_sampler_settings['random_state']
-            )
+            # A loaded config file is the base (every block the form does
+            # not edit passes through unchanged, bodyname included); the
+            # bare form-field config is only for the no-file preset path.
+            from PlanetProfile.Inference.gui_config import run_config_from_state
+            config = run_config_from_state(st.session_state,
+                                           fallback_bodyname=bodyname)
 
             # Initialize runner
             runner = MCMCRunner(config)
@@ -6026,7 +6118,8 @@ def main():
                         'inference_custom_mode', 'inference_observables', 'inference_sampler_settings',
                         'inference_structure_cache_path', 'inference_use_clathrate', 'inference_results',
                         'inference_cache_key', 'inference_error', 'inference_error_traceback',
-                        '_default_cfg_applied']:
+                        '_default_cfg_applied', 'inference_loaded_config',
+                        'inference_loaded_config_path', 'inference_loaded_config_gui']:
                 if key in st.session_state:
                     del st.session_state[key]
             st.rerun()
@@ -6049,7 +6142,11 @@ def main():
                     (Path(parent_directory) / 'PlanetProfile' / 'Inference'
                      / 'configs' / 'test50_titan_noocean_andrade_8D.json'
                      ).read_text())
-                _apply_config_to_session_state(_default_cfg)
+                _default_path = (Path(parent_directory) / 'PlanetProfile'
+                                 / 'Inference' / 'configs'
+                                 / 'test50_titan_noocean_andrade_8D.json')
+                _apply_config_to_session_state(_default_cfg,
+                                               path=str(_default_path))
                 st.session_state['_default_cfg_applied'] = True
                 st.rerun()
             except Exception as _e:

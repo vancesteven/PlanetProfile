@@ -155,6 +155,7 @@
   "random_state": 42,
   "planet_template_module": "PlanetProfile.Default.Europa.PPEuropa",
   "metadata": {
+    "gui": {"status": "retired", "note": "Europa Clipper v2: RETIRED, replaced by v4 (STATUS.md SBI slot table)."},
     "schema_version": "v2 (sampled Tb + sampled core + derived rho_sil) + Bind_ induction channels (clipper_v2)",
     "description": "Europa Clipper-era v2: Seawater ocean, Andrade rheology, 7D (rheology + Tb_K + sampled core) with mass-conservation rho_sil. Extends europa_seawater_andrade_7D.json (v1) by adding 14 induction observables Bind_<label>_<comp>_<part> conditioned on the per-component complex induced-dipole coefficient expressed as equivalent surface field, Bind_comp(f) = Ae(f) * Be_comp(f) [nT], sigma = 1.5 nT (Kivelson et al. 2023). All v1 channels (CMR2, Re/Im k2, Re/Im h2) and priors are unchanged. Plan: plans/europa-clipper-v2-induction-plan.md.",
     "ocean_composition": "Seawater (Constants.stdSeawater_ppt)",

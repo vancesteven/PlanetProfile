@@ -102,12 +102,13 @@ deliberate redeploy.
 
 ## What's in / out of the snapshot
 
-In: `PlanetProfileApp/`, `PlanetProfile/` (minus `Test/**` except the eight
+In: `PlanetProfileApp/`, `PlanetProfile/` (minus `Test/**` except the nine
 structure-grid caches derived from non-placeholder `cache_path` entries in
 `_SBI_ARTIFACT_SLOTS`), `SPICE/`, `requirements.txt`, `packages.txt`,
 `.streamlit/`, generated `README.md` + `Dockerfile`. The current registry set
 is:
 
+- `PlanetProfile/Test/mcmc_results/Enceladus/Cassini_isostasy/enceladus_seawater_zbw_grid_2d.pkl`
 - `PlanetProfile/Test/mcmc_results/Europa/Test51_seawater/europa_seawater_structure_grid.pkl`
 - `PlanetProfile/Test/mcmc_results/Europa/Test52_seawater_v3/europa_seawater_structure_grid_v3_2d.pkl`
 - `PlanetProfile/Test/mcmc_results/Europa/Test52_seawater_v5/europa_seawater_structure_grid_v5_2d.pkl`
@@ -117,12 +118,37 @@ is:
 - `PlanetProfile/Test/mcmc_results/Titan/Test54_mgso4_ocean/titan_mgso4_joint_structure_grid_2d.pkl`
 - `PlanetProfile/Test/mcmc_results/Titan/Test54_nacl_ocean/titan_nacl_joint_structure_grid_2d.pkl`
 
-For every derived primary cache, the script also copies any adjacent
-`.ae_sidecar.pkl` and `_offsets.json` sidecars. It then compares the staged
-primary PKLs with the registry-derived list and aborts unless the sets are
-exactly equal (`plans/scripts/build_deploy_branch.sh:55-96`). New artifact
-slots therefore declare `cache_path` in the registry; there is no manual cache
-copy list to maintain.
+Companion files are derived from the registry **and each slot's config**
+by `plans/scripts/extract_sbi_cache_paths.py --manifest` (TSV
+`path<TAB>kind<TAB>required`; `--json` gives the per-slot view). Kinds:
+
+| kind | path | required when |
+|---|---|---|
+| `cache` | slot `cache_path` | always |
+| `ae_sidecar` | `<cache>.ae_sidecar.pkl` | config has an induction observable / `induction_bounds`, or declares `metadata.induction_provenance` (Enceladus display) |
+| `cmr2_offsets` | `<cache stem>_offsets.json` | optional; shipped if present (Titan diff cache) |
+| `lib_factor_sidecar` | `<cache>` + `metadata.libration_model_correction.elastic_factor_sidecar.suffix` | whenever the config declares it (Enceladus; the runner raises on every servable draw without it) |
+| `is_fiducial_manifest` / `is_fiducial_npz` | slot `is_correction.manifest` and its `npz_file` | slot declares `is_correction` (Titan NH3); these live in `sbi_artifacts/` and ship via the `PlanetProfile/` copy |
+
+The script copies every manifest file that exists, **fails the build** if any
+required one is missing or not staged, and aborts unless the staged
+`PlanetProfile/Test/` tree contains exactly the manifest files (no strays).
+New slots only declare `cache_path`/`config_path` in the registry; companions
+follow from the config. `tests/deploy_manifest_test.py` asserts every manifest
+file exists and is git-tracked, so a new sidecar that is not committed (the
+`Test/.gitignore` ignores `*.pkl`; add a `!` exception) is caught before a
+redeploy.
+
+Ae sidecars are keyed on (excitation labels, node count, cache size). A runner
+never overwrites a sidecar whose key differs from its own: it falls back to a
+key-specific sibling `<cache>.ae_sidecar.<hash>.pkl` (gitignored, not
+shipped). As of 2026-11-17 every induction slot's label set matches its
+committed legacy sidecar, so no sibling needs shipping; if a new config adds a
+label set to a shared cache, either commit a matching sidecar or accept a
+one-time compute on first use.
+
+Dry run (no git, no upload; the directory must be empty or absent):
+`PP_PYTHON=$(which python) plans/scripts/build_deploy_branch.sh --stage-only /tmp/pp-stage`.
 
 Out: `Thermodynamics/` legacy tables (2.5 GB), `papers/`, `plans/`, `docs/`,
 and the remainder of `PlanetProfile/Test/`.

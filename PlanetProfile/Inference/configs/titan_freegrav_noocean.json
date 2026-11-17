@@ -49,6 +49,7 @@
   "random_state": 71,
   "planet_template_module": "PlanetProfile.Test.PPTest50",
   "metadata": {
+    "gui": {"status": "candidate", "note": "Titan free-gravity no-ocean 11D; artifact delivered but INDEX.md shows limits/crosscheck FAIL and no ratification evidence located; unclear, so not marked production."},
     "schema_version": "titan_freegrav_v1 (test52 10D no-ocean interior + FREE-GRAVITY geodesy: CMR2 dropped, C20/C22 = Petricca 2025, agnostic non-hydrostatic offsets; induction + h2 dropped) — titan_freegrav_noocean",
     "gravity_ref_radius_m": 2575000.0,
     "gravity_j2_over_c22": 3.3333333333,
