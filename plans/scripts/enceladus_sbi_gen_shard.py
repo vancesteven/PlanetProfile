@@ -12,6 +12,10 @@ G0 and the G2 pushforward; regenerated through theta_override).
 
   python plans/scripts/enceladus_sbi_gen_shard.py --k K --n-request N \
       --out-dir DIR [--held-out]
+
+LIBRATION-CONVENTION NOTE: the deployed artifact/dataset were built under the
+FROZEN libration convention (config enceladus_cassini_isostasy_ocean6D_rhorock_
+sbi_frozenconv.json); the live default config is the REPAIRED convention. This script only GENERATES new shards (never reads or gates the existing artifact), so there is no runtime guard; a retrain under the repaired config needs a new preregistration (validation_reports/enceladus_isostasy/sbi/RESULT.md).
 """
 import argparse
 import hashlib

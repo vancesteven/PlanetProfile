@@ -13,6 +13,10 @@ G0 (preregistered):
 Writes the merged training npz (theta, x, plus provenance) only if G0 passes.
 
   python plans/scripts/enceladus_sbi_g0.py --dir ~/scratch/enc_sbi --cache CACHE
+
+LIBRATION-CONVENTION NOTE: the deployed artifact/dataset were built under the
+FROZEN libration convention (config enceladus_cassini_isostasy_ocean6D_rhorock_
+sbi_frozenconv.json); the live default config is the REPAIRED convention. This script only checks/merges shards generated in --dir and never touches the existing artifact, so there is no runtime guard; a dataset regenerated under the repaired config is a NEW dataset and needs a new preregistration (validation_reports/enceladus_isostasy/sbi/RESULT.md).
 """
 import argparse
 import json

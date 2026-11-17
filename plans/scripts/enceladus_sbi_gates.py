@@ -13,6 +13,10 @@ recorded and escalated.
 libomp: torch (sbi) and the numba forward model share ONE process here (as in
 is_correction_validate.py / nh3_r1r2_gates.py); only KMP_DUPLICATE_LIB_OK=TRUE
 is required. MCMCRunner (numba) is imported/built BEFORE torch is touched.
+
+LIBRATION-CONVENTION NOTE: the deployed artifact/dataset were built under the
+FROZEN libration convention (config enceladus_cassini_isostasy_ocean6D_rhorock_
+sbi_frozenconv.json); the live default config is the REPAIRED convention. Runtime guard: if --artifact is the existing deployed artifact (same file or sha256) and --config is not the frozen convention, the script exits; re-gate the current artifact with --config pointing at the frozen snapshot. A retrain under the repaired config needs a new preregistration (validation_reports/enceladus_isostasy/sbi/RESULT.md).
 """
 import os
 os.environ.setdefault('KMP_DUPLICATE_LIB_OK', 'TRUE')
@@ -206,8 +210,13 @@ def main():
     ap.add_argument('--smoke', action='store_true',
                     help='reduced SIZES only (verdict meaningless); refuses to write into validation_reports/')
     ap.add_argument('--cache', default=CACHE)
+    ap.add_argument('--config', default=str(CFG),
+                    help='simulator config (default: live repaired config)')
     a = ap.parse_args()
     outp = Path(a.out).resolve()
+    from _enceladus_sbi_pairing_guard import is_existing_artifact, refuse_if_mispaired
+    if is_existing_artifact(a.artifact):
+        refuse_if_mispaired(a.config, f'artifact {a.artifact}')
     if a.smoke and str(REPO / 'validation_reports') in str(outp):
         raise SystemExit('--smoke must not write into validation_reports/')
 
@@ -222,7 +231,7 @@ def main():
     E_GATE = calib['energy_gate']
     CORR_REF_JSON = calib['corr_ref_rho_s_C2']
 
-    raw = json.loads(CFG.read_text())
+    raw = json.loads(Path(a.config).read_text())
     raw['structure_cache_path'] = a.cache
     cfg = InferenceConfig(**raw)
     runner = MCMCRunner(cfg)                      # numba side first
@@ -241,7 +250,7 @@ def main():
     assert list(srun.param_names) == names, (srun.param_names, names)
     assert list(srun.obs_names) == obs, (srun.obs_names, obs)
     rep = {'kind': 'enceladus_sbi_gates', 'smoke': bool(a.smoke), 'artifact': str(a.artifact),
-           'config': str(CFG), 'cache': a.cache, 'sizes': S, 'preregistration_commit': '08659c67',
+           'config': str(a.config), 'cache': a.cache, 'sizes': S, 'preregistration_commit': '08659c67',
            'artifact_config_hash': (srun.artifact_meta or {}).get('config_hash'),
            'param_names': names, 'obs_names': obs, 'sigma_infl': dict(zip(obs, sig.tolist())),
            'x_obs': xobs}

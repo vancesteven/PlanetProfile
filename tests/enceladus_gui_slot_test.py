@@ -135,3 +135,75 @@ def test_thin_shell_query_refused_without_posterior():
     assert app.session_state["inference_results"] is None
     txt = _text(app)
     assert "Refused by the scope guard" in txt and "use pocoMC" in txt
+
+
+# ---------------------------------------------------------------------------
+# Pairing-sensitive check (reviewer binding condition): zb comes from the flow
+# alone, so the zb window above cannot detect a flow/simulator mismatch.  The
+# pushforward libration (flow draws -> forward model's libration) can: the
+# frozen-convention flow pushed through the frozen snapshot config lands about
+# -0.05 sigma_infl from the observed 0.092 deg (gate record <= 0.056); through
+# the live repaired config it sits ~ -0.37 sigma.  The median's Monte-Carlo
+# error at 2000 draws is ~0.03 sigma and the draws are not bit-reproducible
+# across torch builds, so the two bounds sit between the cases with margin on
+# both sides instead of at the gate's 0.06.
+# ---------------------------------------------------------------------------
+LIB_TOL_SIGMA = 0.15
+LIB_MISPAIRED_MIN_SIGMA = 0.25
+_LIVE_CFG = ("PlanetProfile/Inference/configs/"
+             "enceladus_cassini_isostasy_ocean6D_rhorock.json")
+
+
+def _libration_pushforward_offset(config_rel, n_draws=2000, seed=75):
+    """(median pushforward libration - observed) / sigma_infl at the Cassini
+    datum.  Same flow draws (guard seed/sampler), same forward-model path the
+    likelihood uses (MCMCRunner._derive_libration_deg), hole draws dropped as
+    the guard drops them; sigma_infl = hypot(sigma_obs, sigma_model_add) read
+    from the config as the runner's _inflate_sigma does."""
+    import json
+    from PlanetProfile.Inference.inference_core import InferenceConfig
+    from PlanetProfile.Inference.sbi_runner import SBIRunner
+    from PlanetProfile.Inference.enceladus_sbi_guard import is_hole
+
+    d = json.loads((REPO / config_rel).read_text(encoding="utf-8"))
+    d["mode"] = "sbi"
+    # Observed values = the slot's Cassini datum; sigmas stay the config's.
+    d["observables"] = {n: [SLOT["default_obs"][n], d["observables"][n][1]]
+                        for n in SLOT["default_obs"]}
+    d["structure_cache_path"] = SLOT["cache_path"]
+    cfg = InferenceConfig.from_dict(d)
+    mcmc = SBIRunner(cfg)._get_mcmc_runner()
+    flow = SBIRunner.load_artifact(REPO / "PlanetProfile/Inference/sbi_artifacts" / ART)
+    x_obs = dict(SLOT["default_obs"])
+    th = np.asarray(flow.sample_posterior(
+        x_obs, n_samples=n_draws, seed=seed, reject_outside_prior=True), float)
+    lib = []
+    for t in th:
+        if is_hole(mcmc, t):
+            continue
+        v = mcmc._derive_libration_deg(mcmc._expand_theta(t))
+        if v is not None and np.isfinite(v):
+            lib.append(v)
+    assert len(lib) > 0.9 * n_draws
+    sig_obs = float(cfg.observables["libration_deg"][1])
+    sig_add = float(((cfg.metadata or {}).get("sigma_model_add") or {})
+                    .get("libration_deg", 0.0))
+    sigma_infl = float(np.hypot(sig_obs, sig_add))
+    return (float(np.median(lib)) - x_obs["libration_deg"]) / sigma_infl
+
+
+@pytest.mark.skipif(not _READY, reason="Enceladus artifact / cache absent")
+def test_pushforward_libration_matches_snapshot_pairing():
+    off = _libration_pushforward_offset(SLOT["config_path"])
+    print("pushforward libration offset, snapshot config (sigma_infl):", off)
+    assert abs(off) <= LIB_TOL_SIGMA
+
+
+@pytest.mark.skipif(not _READY, reason="Enceladus artifact / cache absent")
+def test_pushforward_libration_detects_wrong_pairing():
+    """Negative control: the same flow through the live REPAIRED config must
+    fall outside the tolerance, so the check above can see a mispairing."""
+    assert _LIVE_CFG != SLOT["config_path"]
+    off = _libration_pushforward_offset(_LIVE_CFG)
+    print("pushforward libration offset, live repaired config (sigma_infl):", off)
+    assert abs(off) > LIB_MISPAIRED_MIN_SIGMA

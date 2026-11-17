@@ -1979,7 +1979,7 @@ _SBI_ARTIFACT_SLOTS = {
             'results remain valid statements about the frozen-convention '
             'simulator only. It must not be quoted against, or as '
             'confirmation of, the repaired headline. Retraining and '
-            're-gating are required before it can be called current.'),
+            're-gating against run (a\u2032) are required before it can be called current.'),
         # "Validated" applies ONLY to these x (exact match): the Cassini datum
         # and the six G4 injection data sets (G4 PASS, gates_report.json).
         'validated_x': [
@@ -2006,7 +2006,8 @@ _SBI_ARTIFACT_SLOTS = {
         # Verbatim deploy-scope text (RESULT.md); must equal
         # enceladus_sbi_guard.SCOPE_TEXT (tests/enceladus_gui_slot_test.py).
         'scope_note': ('Enceladus ocean-branch SBI (scope-bound). Validated '
-                       'against pocoMC at the Cassini datum and on six '
+                       'against the frozen-libration-convention pocoMC run '
+                       '(a) at the Cassini datum and on six '
                        'off-nominal injection data sets. It is not globally '
                        'validated: preregistered gates G3 (log10_w rank '
                        'uniformity, diagnosed as held-out sampling '
@@ -2017,8 +2018,9 @@ _SBI_ARTIFACT_SLOTS = {
                        'draws falling in hole cells are dropped and the '
                        'fraction is shown. Results at other x are '
                        '"effective-prior posterior; servable cells only; not '
-                       'individually validated". Cite pocoMC run (a), not '
-                       'this artifact, for published values.'),
+                       'individually validated". For published values '
+                       'cite the repaired-libration pocoMC run (a\u2032) '
+                       '(zb = 26.5 +1.0/\u22120.9 km), not this artifact.'),
     },
 }
 

@@ -9,6 +9,10 @@ preregistration -- do not change them after any gate result.
 
   python plans/scripts/enceladus_sbi_train.py --dir ~/scratch/enc_sbi \
       [--n-sub N --name NAME]   # optional non-gating 300k diagnostic
+
+LIBRATION-CONVENTION NOTE: the deployed artifact/dataset were built under the
+FROZEN libration convention (config enceladus_cassini_isostasy_ocean6D_rhorock_
+sbi_frozenconv.json); the live default config is the REPAIRED convention. Runtime guard: if --dir holds the existing dataset (its G0_report.json is the committed one) and CFG is not the frozen convention, the script exits; a retrain under the repaired config needs a new preregistration (validation_reports/enceladus_isostasy/sbi/RESULT.md).
 """
 import argparse
 import hashlib
@@ -48,6 +52,9 @@ def main():
     if not g0.get('G0_pass'):
         raise SystemExit('G0 did not pass -- refusing to train')
     ds = D / 'enceladus_ocean6D_train_1m.npz'
+    from _enceladus_sbi_pairing_guard import is_existing_dataset_dir, refuse_if_mispaired
+    if is_existing_dataset_dir(D):
+        refuse_if_mispaired(CFG, f'the dataset in {D}')
     d = np.load(ds)
     theta = np.asarray(d['theta'], np.float64)
     x = np.asarray(d['x'], np.float64)

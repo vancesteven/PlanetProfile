@@ -37,16 +37,18 @@ ZB_THIN_KM = 15.0
 N_DRAWS = 10000
 
 SCOPE_TEXT = (
-    'Enceladus ocean-branch SBI (scope-bound). Validated against pocoMC at the '
-    'Cassini datum and on six off-nominal injection data sets. It is not '
+    'Enceladus ocean-branch SBI (scope-bound). Validated against the '
+    'frozen-libration-convention pocoMC run (a) at the Cassini datum and on '
+    'six off-nominal injection data sets. It is not '
     'globally validated: preregistered gates G3 (log10_w rank uniformity, '
     'diagnosed as held-out sampling fluctuation) and G5 (thin-shell cache-hole '
     'leakage) FAILED. Queries whose posterior puts more than 1 % mass at '
     'zb < 15 km or in a cache-hole cell are refused; use pocoMC for those. '
     'Below that threshold, draws falling in hole cells are dropped and the '
     'fraction is shown. Results at other x are "effective-prior posterior; '
-    'servable cells only; not individually validated". Cite pocoMC run (a), '
-    'not this artifact, for published values.')
+    'servable cells only; not individually validated". For published values '
+    'cite the repaired-libration pocoMC run (a\u2032) (zb = 26.5 '
+    '+1.0/\u22120.9 km), not this artifact.')
 NOT_VALIDATED_LABEL = ('effective-prior posterior; servable cells only; '
                        'not individually validated')
 
