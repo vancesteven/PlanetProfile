@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import argparse
 import ast
+import importlib.util
 import json
+import pickle
+import sys
 from pathlib import Path
 
 
@@ -131,6 +134,70 @@ def build_manifest(source: Path, repo_root: Path) -> dict:
     return out
 
 
+def _load_key_module(repo_root: Path):
+    """Load the stdlib-only Ae key definition by file path (no package
+    import, so the deploy host needs neither numpy nor PlanetProfile)."""
+    path = repo_root / 'PlanetProfile/Inference/ae_sidecar_key.py'
+    spec = importlib.util.spec_from_file_location('_pp_ae_sidecar_key', path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def validate_ae_sidecars(source: Path, repo_root: Path) -> list[str]:
+    """For each slot that REQUIRES an Ae sidecar, check the shipped legacy
+    ``<cache>.ae_sidecar.pkl`` key equals the key that slot's runner would
+    compute (labels from the config's observables/induction_bounds, node
+    count and size of the cache file). Returns human-readable errors; empty
+    means all shipped sidecars will be reused (not recomputed) at serve time.
+    """
+    keymod = _load_key_module(repo_root)
+    errors = []
+    seen = set()
+    for slot_id, slot in _load_registry(source).items():
+        cache = slot.get('cache_path')
+        cfg_rel = slot.get('config_path')
+        if cache is None or not cfg_rel:
+            continue
+        cache = _repo_relative(cache, f'slot {slot_id!r} cache_path')
+        raw = json.loads((repo_root / _repo_relative(
+            cfg_rel, f'slot {slot_id!r} config_path')).read_text('utf-8'))
+        if not _config_induction_labels(raw):
+            continue                      # runner would not build a sidecar
+        sidecar = repo_root / (cache + '.ae_sidecar.pkl')
+        cache_file = repo_root / cache
+        if not sidecar.is_file() or not cache_file.is_file():
+            continue                      # presence is the manifest's check
+        labels = keymod.requested_ae_labels(
+            raw.get('observables') or {}, raw.get('induction_bounds') or {})
+        ident = (cache, tuple(sorted(labels)))
+        if ident in seen:
+            continue
+        seen.add(ident)
+        with open(cache_file, 'rb') as fh:
+            data = pickle.load(fh)
+        if not (isinstance(data, dict) and 'Tb_K_grid' in data
+                and 'structures' in data):
+            continue                      # runner skips the Ae precompute
+        ours = keymod.sidecar_key(labels, len(data['structures']),
+                                  cache_file.stat().st_size)
+        try:
+            with open(sidecar, 'rb') as fh:
+                stored = pickle.load(fh).get('key')
+        except Exception as exc:
+            errors.append(f'slot {slot_id!r}: Ae sidecar {sidecar} is '
+                          f'unreadable ({exc})')
+            continue
+        if stored != ours:
+            errors.append(
+                f'slot {slot_id!r}: shipped Ae sidecar {cache}.ae_sidecar.pkl '
+                f'key {stored} != the key the slot runner computes {ours}; '
+                'the public app would recompute the Ae grid on every runner '
+                'build. Rebuild the sidecar (construct an MCMCRunner for the '
+                "slot's config on the current cache) and commit it.")
+    return errors
+
+
 def flatten_manifest(manifest: dict) -> list[dict]:
     """Unique files across slots (required if any slot requires it), sorted."""
     merged = {}
@@ -153,10 +220,19 @@ def main() -> None:
                              'TSV lines: path<TAB>kind<TAB>required(0/1)')
     parser.add_argument('--json', action='store_true',
                         help='emit the per-slot manifest as JSON')
+    parser.add_argument('--validate-ae', action='store_true',
+                        help='check shipped Ae sidecar keys against the keys '
+                             'the slot runners compute; exit 1 on mismatch')
     parser.add_argument('--repo-root', type=Path, default=None,
                         help='repo root for config lookup (default: '
                              'two levels above the source file)')
     args = parser.parse_args()
+    if args.validate_ae:
+        root = args.repo_root or args.source.resolve().parents[2]
+        errs = validate_ae_sidecars(args.source, root)
+        for e in errs:
+            print('ERROR: ' + e, file=sys.stderr)
+        sys.exit(1 if errs else 0)
     if args.manifest or args.json:
         root = args.repo_root or args.source.resolve().parents[2]
         man = build_manifest(args.source, root)

@@ -30,6 +30,9 @@ if [[ "$MODE" == "--stage-only" ]]; then
     exit 2
   fi
   mkdir -p "$STAGE"
+  # Resolve once, now that it exists: the staging subshell cd's to the repo
+  # root, so a relative DIR would otherwise point at two different places.
+  STAGE="$(cd "$STAGE" && pwd -P)"
 else
   STAGE="$(mktemp -d /tmp/pp-app-deploy.XXXXXX)"
   trap 'rm -rf "$STAGE"' EXIT
@@ -82,6 +85,13 @@ if [[ ! -s "$MANIFEST" ]]; then
   echo "ERROR: empty SBI file manifest" >&2
   exit 1
 fi
+# Every shipped Ae sidecar must carry the key its slot's runner computes
+# (labels + cache size); a stale one would be recomputed on every runner
+# build on the public app.
+"${PP_PYTHON:-/opt/miniconda3/envs/PP/bin/python}" \
+  "$REPO_ROOT/plans/scripts/extract_sbi_cache_paths.py" \
+  "$REPO_ROOT/PlanetProfileApp/pages/Inference.py" --validate-ae \
+  || { echo "ERROR: shipped Ae sidecar key validation failed" >&2; exit 1; }
 
 : > "$STAGED_LIST"
 n_req=0
@@ -109,6 +119,12 @@ while IFS=$'\t' read -r f kind req; do
     exit 1
   fi
 done < "$MANIFEST"
+# grep exits 1 on no match, which under `set -euo pipefail` would end the
+# script silently; an empty Test/ set means the manifest staged nothing.
+if ! grep -q '^PlanetProfile/Test/' "$STAGED_LIST"; then
+  echo "ERROR: no PlanetProfile/Test/ files were staged from the SBI manifest" >&2
+  exit 1
+fi
 grep '^PlanetProfile/Test/' "$STAGED_LIST" | sort -u > "$STAGE/.expected-test-files"
 find "$STAGE/PlanetProfile/Test" -type f \
   | sed "s#^$STAGE/##" | sort -u > "$STAGE/.actual-test-files"

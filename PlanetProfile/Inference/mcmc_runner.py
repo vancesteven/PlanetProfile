@@ -82,33 +82,12 @@ _LOGW_SUPPORT_EPS = 1e-9
 _ISOSTATIC_OBS_LM = {'C20': (2, 0), 'C22': (2, 2), 'C30': (3, 0)}
 
 
-def _parse_bind_channel(name: str):
-    """Parse a Bind_ induction channel name into (label, comp, part).
-
-    Channel grammar: ``Bind_<label>_<comp>_<part>`` where comp is one of
-    {x, y, z} and part is one of {real, imag}. The excitation <label> may
-    itself contain underscores or spaces (e.g. 'synodic 2nd',
-    'adjusted orbital'), so the fixed ``_<comp>_<part>`` suffix is stripped
-    from the RIGHT rather than split from the left.
-
-    Returns (label, comp, part) or None when `name` is not a Bind_ channel
-    or its comp/part suffix is not recognized.
-    """
-    if not name.startswith('Bind_'):
-        return None
-    body = name[len('Bind_'):]
-    for part in ('real', 'imag'):
-        suffix = '_' + part
-        if not body.endswith(suffix):
-            continue
-        rest = body[:-len(suffix)]
-        for comp in ('x', 'y', 'z'):
-            comp_suffix = '_' + comp
-            if rest.endswith(comp_suffix):
-                label = rest[:-len(comp_suffix)]
-                if label:
-                    return label, comp, part
-    return None
+from PlanetProfile.Inference.ae_sidecar_key import (  # noqa: E402
+    parse_bind_channel as _parse_bind_channel,
+    requested_ae_labels as _requested_ae_labels,
+    sidecar_key as _ae_sidecar_key,
+    is_stale_same_labels as _ae_sidecar_is_stale,
+)
 
 
 def _structure_R_body_km(structure_data) -> Optional[float]:
@@ -230,6 +209,43 @@ def _ae_sidecar_atomic_write(path: str, payload: dict) -> None:
         except OSError:
             pass
         raise
+
+
+def _ae_sidecar_stored_key(path: str):
+    """Key stored in the sidecar at ``path``; None if missing/unreadable."""
+    import os
+    import pickle
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, 'rb') as f:
+            payload = pickle.load(f)
+        return payload.get('key')
+    except Exception:
+        return None
+
+
+def _ae_sidecar_exclusive_write(path: str, payload: dict) -> bool:
+    """Create ``path`` ONLY if it does not exist (temp file + ``os.link``,
+    which fails atomically if the target appeared meanwhile). Returns True if
+    this call created it, False if another writer got there first."""
+    import os
+    import pickle
+    import tempfile
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or '.', suffix='.tmp')
+    try:
+        with os.fdopen(fd, 'wb') as f:
+            pickle.dump(payload, f, protocol=pickle.HIGHEST_PROTOCOL)
+        try:
+            os.link(tmp, path)
+        except FileExistsError:
+            return False
+        return True
+    finally:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
 
 
 class MCMCRunner:
@@ -410,20 +426,7 @@ class MCMCRunner:
         n = len(structures)
 
         # Collect all requested frequency labels from observables + bounds.
-        requested_labels: set = set(bound_labels)
-        for k in observables:
-            if k.startswith('Ae_') and k.endswith('_real'):
-                requested_labels.add(k[len('Ae_'):-len('_real')])
-            elif k.startswith('Ae_') and k.endswith('_imag'):
-                requested_labels.add(k[len('Ae_'):-len('_imag')])
-            elif k.startswith('BiAmp_'):
-                requested_labels.add(k[len('BiAmp_'):])
-            elif k.startswith('BiPhase_') and k.endswith('_deg'):
-                requested_labels.add(k[len('BiPhase_'):-len('_deg')])
-            else:
-                parsed = _parse_bind_channel(k)
-                if parsed is not None:
-                    requested_labels.add(parsed[0])
+        requested_labels = _requested_ae_labels(observables, bound_labels)
 
         # Persistent sidecar: the mpmath Ae solve costs seconds per node, and
         # this precompute runs at EVERY runner construction (each GUI
@@ -447,14 +450,13 @@ class MCMCRunner:
                 _cp = _cand if _os.path.exists(_cand) else _cp
             if _os.path.exists(_cp):
                 sidecar_path = _cp + '.ae_sidecar.pkl'
-                sidecar_key = {
-                    'labels': tuple(sorted(requested_labels)),
-                    'n': n,
+                sidecar_key = _ae_sidecar_key(
+                    requested_labels, n,
                     # File size, not mtime: survives the deploy rsync so a
                     # shipped sidecar is reused on the public app. A rebuilt
                     # cache changes size (different node count / contents).
-                    'cache_size': _os.path.getsize(_cp),
-                }
+                    _os.path.getsize(_cp))
+
         # Never overwrite a sidecar whose key differs from ours (two configs
         # with different label sets share one cache; alternating them used to
         # recompute and rewrite a tracked file from the constructor). The
@@ -479,13 +481,27 @@ class MCMCRunner:
 
         if sidecar_path:
             payload = {'key': sidecar_key, 'ae_grid': self._ae_grid_cache}
-            # Legacy name only when nothing is there yet; otherwise the
-            # keyed sibling (an existing mismatching file is never touched).
-            target = (sidecar_path if not _os.path.exists(sidecar_path)
-                      else keyed_path)
+            # Legacy name: created exclusively when nothing is there (two
+            # concurrent runners with different keys cannot both claim it);
+            # refreshed atomically when it is a stale leftover from a
+            # rebuilt cache (same labels, different cache size / node count);
+            # never touched when its labels differ or it is unreadable (the
+            # keyed sibling is used instead).
             try:
-                _ae_sidecar_atomic_write(target, payload)
-                log.info(f"Saved Ae grid sidecar: {target}")
+                wrote = None
+                if not _os.path.exists(sidecar_path):
+                    if _ae_sidecar_exclusive_write(sidecar_path, payload):
+                        wrote = sidecar_path
+                elif _ae_sidecar_is_stale(
+                        _ae_sidecar_stored_key(sidecar_path), sidecar_key):
+                    _ae_sidecar_atomic_write(sidecar_path, payload)
+                    log.info("Refreshed stale legacy Ae sidecar (cache was "
+                             "rebuilt).")
+                    wrote = sidecar_path
+                if wrote is None:
+                    _ae_sidecar_atomic_write(keyed_path, payload)
+                    wrote = keyed_path
+                log.info(f"Saved Ae grid sidecar: {wrote}")
             except Exception as _exc:
                 log.warning(f"Could not save Ae sidecar ({_exc}); continuing "
                             "with the in-memory grid (it will recompute next "

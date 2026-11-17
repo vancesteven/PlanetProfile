@@ -130,3 +130,92 @@ def test_keyed_path_helpers():
     a, b = _ae_sidecar_keyed_path(p, k1), _ae_sidecar_keyed_path(p, k2)
     assert a != b and a != p and a.startswith('/x/c.pkl.ae_sidecar.')
     assert a == _ae_sidecar_keyed_path(p, dict(k1))   # deterministic
+
+
+# ---------------------------------------------------------------------------
+# Review fixes (2026-11-17): legacy sidecar lifecycle
+# ---------------------------------------------------------------------------
+
+def _legacy_key(env):
+    with open(env['legacy'], 'rb') as f:
+        return pickle.load(f)['key']
+
+
+def test_legacy_absent_is_written_to_legacy_name(env):
+    env['legacy'].unlink()
+    r = env['make'](CFG1)
+    assert env['calls']['compute'] == 1
+    assert env['legacy'].exists()
+    assert _siblings(env['dir']) == []
+    assert not list(env['dir'].glob('*.tmp'))
+    assert _legacy_key(env)['labels'] == ('synodic',)
+    env['make'](CFG1)                       # now reused, no recompute
+    assert env['calls']['compute'] == 1
+    assert len(r._ae_grid_cache) > 0
+
+
+def test_corrupt_legacy_is_left_alone_and_keyed_sibling_used(env):
+    env['legacy'].write_bytes(b'not a pickle')
+    env['make'](CFG1)
+    assert env['calls']['compute'] == 1
+    assert env['legacy'].read_bytes() == b'not a pickle'
+    assert len(_siblings(env['dir'])) == 1
+    env['make'](CFG1)
+    assert env['calls']['compute'] == 1     # keyed sibling reused
+
+
+def test_legacy_stale_by_cache_size_is_overwritten_atomically(env):
+    cache = env['dir'] / CACHE_NAME
+    old_key = _legacy_key(env)
+    with open(cache, 'ab') as f:            # "rebuilt" cache: size changes
+        f.write(b'\0')
+    env['make'](CFG1)
+    assert env['calls']['compute'] == 1
+    new_key = _legacy_key(env)
+    assert new_key['labels'] == old_key['labels']
+    assert new_key['cache_size'] == old_key['cache_size'] + 1
+    assert _siblings(env['dir']) == []
+    assert not list(env['dir'].glob('*.tmp'))
+    env['make'](CFG1)                       # fresh legacy now reused
+    assert env['calls']['compute'] == 1
+
+
+def test_stale_by_size_but_different_labels_is_never_touched(env):
+    cache = env['dir'] / CACHE_NAME
+    with open(cache, 'ab') as f:
+        f.write(b'\0')
+    before = env['legacy'].read_bytes()
+    env['make'](CFG3)                       # 3 labels vs legacy's 1 label
+    assert env['legacy'].read_bytes() == before
+    assert len(_siblings(env['dir'])) == 1
+
+
+def test_legacy_creation_is_exclusive_when_a_racing_writer_wins(
+        env, monkeypatch):
+    """Two runners with different keys both see 'no legacy file'; the loser
+    must not clobber the winner's file and falls back to its keyed path."""
+    from PlanetProfile.Inference import mcmc_runner
+    env['legacy'].unlink()
+    real = mcmc_runner._ae_sidecar_exclusive_write
+    foreign = {'key': {'labels': ('orbital',), 'n': 1, 'cache_size': 1},
+               'ae_grid': {}}
+
+    def racing(path, payload):
+        with open(path, 'wb') as f:             # the other runner wins first
+            pickle.dump(foreign, f)
+        return real(path, payload)
+    monkeypatch.setattr(mcmc_runner, '_ae_sidecar_exclusive_write', racing)
+    env['make'](CFG1)
+    with open(env['legacy'], 'rb') as f:
+        assert pickle.load(f) == foreign
+    assert len(_siblings(env['dir'])) == 1
+
+
+def test_exclusive_write_helper_never_overwrites(tmp_path):
+    from PlanetProfile.Inference.mcmc_runner import _ae_sidecar_exclusive_write
+    t = str(tmp_path / 'x.ae_sidecar.pkl')
+    assert _ae_sidecar_exclusive_write(t, {'key': 1}) is True
+    assert _ae_sidecar_exclusive_write(t, {'key': 2}) is False
+    with open(t, 'rb') as f:
+        assert pickle.load(f) == {'key': 1}
+    assert not list(tmp_path.glob('*.tmp'))

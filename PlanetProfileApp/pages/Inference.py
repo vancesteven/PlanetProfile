@@ -10,6 +10,7 @@ Supports:
 Author: PlanetProfile Team
 Date: 2026-04-29
 """
+import copy
 import os
 import sys
 import warnings
@@ -246,7 +247,8 @@ _EUROPA_PUBLISHED_CMR2_COLORS = {
 # rerun, so a config load must clear these for the loaded values to show
 # (same reseed pattern as the amortized slot switch).
 _OBS_WIDGET_KEYS = ('Re_k2_value', 'Re_k2_unc', 'Im_k2_value', 'Im_k2_unc',
-                    'CMR2_value', 'CMR2_unc', 'use_k2_obs', 'use_cmr2_obs')
+                    'CMR2_value', 'CMR2_unc', 'use_k2_obs', 'use_cmr2_obs',
+                    'use_re_k2_obs', 'use_im_k2_obs')
 
 
 def render_config_file_selector():
@@ -347,6 +349,21 @@ _FORM_WIDGET_KEYS = ('param_multiselect', 'n_eff_slider', 'n_reeval_slider',
                      'clathrate_checkbox')
 
 
+def _gk(name):
+    """Widget key for the CURRENT config-load generation.
+
+    Streamlit 1.59 computes these widgets' identity from the key alone (not
+    value=/default=), so after a config is applied the browser keeps the old
+    widget's value and re-sends it on the next interaction (the AppTest
+    harness has no frontend, so popping the key looked sufficient there).
+    A new generation suffix makes every loader-reset widget a NEW widget
+    that renders from the loaded values. Generation 0 (no config loaded)
+    uses the bare name.
+    """
+    g = st.session_state.get('inference_load_gen', 0)
+    return name if not g else f"{name}__g{g}"
+
+
 def _apply_config_to_session_state(cfg, path=None):
     """Populate inference session-state keys from a loaded config dict.
 
@@ -364,6 +381,12 @@ def _apply_config_to_session_state(cfg, path=None):
     """
     import copy as _copy
     from PlanetProfile.Inference.gui_config import gui_info
+    st.session_state.inference_prior_origin = {}
+    st.session_state.inference_load_gen = st.session_state.get(
+        'inference_load_gen', 0) + 1
+    for _k in [k for k in st.session_state.keys()
+               if isinstance(k, str) and k.startswith('prior_notice_')]:
+        del st.session_state[_k]
     st.session_state.inference_loaded_config = _copy.deepcopy(cfg)
     st.session_state.inference_loaded_config_path = path
     st.session_state.inference_loaded_config_gui = gui_info(cfg)
@@ -375,63 +398,53 @@ def _apply_config_to_session_state(cfg, path=None):
     for _k in _FORM_WIDGET_KEYS:
         st.session_state.pop(_k, None)
 
+    # Every form block is reset UNCONDITIONALLY: a config whose block is
+    # empty/missing must not inherit the previous config's values (they
+    # would otherwise count as user edits and leak into the run).
+    from PlanetProfile.Inference.gui_config import (
+        SAMPLER_FORM_DEFAULTS, SAMPLER_EDIT_FIELDS, observable_pair)
+
     # --- param_space and selected_params ---
-    param_space = cfg.get("param_space", {})
-    if param_space:
-        import copy as _copy2
-        st.session_state.inference_param_space = _copy2.deepcopy(param_space)
-        st.session_state.inference_selected_params = list(param_space.keys())
+    param_space = cfg.get("param_space") or {}
+    st.session_state.inference_param_space = _copy.deepcopy(param_space)
+    st.session_state.inference_selected_params = list(param_space.keys())
 
     # --- observables (normalise key names) ---
-    raw_obs = cfg.get("observables", {})
-    if raw_obs:
-        normalised = {}
-        for key, val in raw_obs.items():
-            # Ensure value is a list/tuple of two floats
-            if isinstance(val, (list, tuple)) and len(val) == 2:
-                pair = (float(val[0]), float(val[1]))
-            else:
-                continue
-
-            # Normalise Im_k2 -> abs_Im_k2
-            if key == "Im_k2":
-                normalised["abs_Im_k2"] = pair
-            else:
-                normalised[key] = pair
-        if normalised:
-            st.session_state.inference_observables = normalised
-            # Clear the instantiated observable widgets so the loaded
-            # config's values actually DISPLAY (keyed-widget-state wins
-            # over value= — without this, e.g. Titan k2 defaults kept
-            # showing after loading a Europa config; user 2026-07-20).
-            for wk in _OBS_WIDGET_KEYS:
-                st.session_state.pop(wk, None)
+    # Only [value, sigma] pairs are rendered by the form; any other loaded
+    # observable (e.g. a 3-element list) is not shown and passes through
+    # to the run unchanged (gui_config.merge_observables).
+    normalised = {}
+    for key, val in (cfg.get("observables") or {}).items():
+        pair = observable_pair(val)
+        if pair is None:
+            continue
+        # Normalise Im_k2 -> abs_Im_k2
+        normalised["abs_Im_k2" if key == "Im_k2" else key] = pair
+    st.session_state.inference_observables = normalised
+    # Clear the instantiated observable widgets so the loaded config's
+    # values actually DISPLAY (keyed-widget-state wins over value=).
+    for wk in _OBS_WIDGET_KEYS:
+        st.session_state.pop(wk, None)
 
     # Record the body for mission-appropriate observable fallbacks.
     if cfg.get('bodyname'):
         st.session_state.inference_bodyname = str(cfg['bodyname'])
 
-    # --- sampler settings (merge with existing defaults) ---
-    raw_sampler = cfg.get("sampler_settings", {})
-    if raw_sampler:
-        from PlanetProfile.Inference.gui_config import SAMPLER_FORM_DEFAULTS
-        current = dict(SAMPLER_FORM_DEFAULTS)
-        for field in ("n_effective", "n_reeval", "random_state",
-                      "checkpoint_interval", "max_iterations"):
-            if field in raw_sampler:
-                current[field] = raw_sampler[field]
-        st.session_state.inference_sampler_settings = current
-
+    # --- sampler settings (defaults overlaid with the config's own) ---
+    raw_sampler = cfg.get("sampler_settings") or {}
+    current = dict(SAMPLER_FORM_DEFAULTS)
+    for field in SAMPLER_EDIT_FIELDS:
+        if field in raw_sampler:
+            current[field] = raw_sampler[field]
     # Also honour top-level random_state
-    if "random_state" in cfg and "random_state" not in cfg.get("sampler_settings", {}):
-        s = dict(st.session_state.inference_sampler_settings)
-        s["random_state"] = cfg["random_state"]
-        st.session_state.inference_sampler_settings = s
+    if "random_state" in cfg and "random_state" not in raw_sampler:
+        current["random_state"] = cfg["random_state"]
+    st.session_state.inference_sampler_settings = current
 
     # --- structure cache path ---
-    cache_path = cfg.get("structure_cache_path", "")
+    cache_path = cfg.get("structure_cache_path") or ""
+    st.session_state.inference_structure_cache_path = cache_path
     if cache_path:
-        st.session_state.inference_structure_cache_path = cache_path
         # Re-derive the clathrate toggle from the loaded path.
         st.session_state.inference_use_clathrate = '_noclath.pkl' not in cache_path
 
@@ -467,7 +480,7 @@ def _apply_config_to_session_state(cfg, path=None):
     # just loaded (value= is only honored when the key is absent).
     for wkey in ('Re_k2_value', 'Re_k2_unc', 'Im_k2_value', 'Im_k2_unc',
                  'CMR2_value', 'CMR2_unc', 'use_cmr2_obs', 'use_k2_obs',
-                 'cache_path_input'):
+                 'use_re_k2_obs', 'use_im_k2_obs', 'cache_path_input'):
         st.session_state.pop(wkey, None)
 
 
@@ -510,7 +523,7 @@ def render_parameter_config(PARAMETER_REGISTRY, CATEGORY_LABELS, CATEGORY_ORDER,
         options=list(param_options.keys()),
         default=st.session_state.inference_selected_params,
         format_func=lambda x: param_options[x],
-        key='param_multiselect'
+        key=_gk('param_multiselect')
     )
 
     # Update session state
@@ -570,17 +583,13 @@ def render_prior_config(PARAMETER_REGISTRY):
 
     space = st.session_state.inference_param_space
 
-    # Tiny-magnitude parameters (non-hydrostatic Stokes offsets,
-    # O(1e-5)-O(1e-4)) are unreadable in fixed decimal — the
-    # %.4f display rounds their whole prior range to ±0.0000/1
-    # (user 2026-07-24). Pick the format from the values shown.
-    def _prior_fmt(*vals):
-        mags = [abs(float(v)) for v in vals
-                if v is not None and np.isfinite(float(v))
-                and float(v) != 0.0]
-        if mags and (max(mags) < 1e-2 or max(mags) >= 1e5):
-            return "%.3e"
-        return "%.4f"
+    # Number-input format: lossless for the values shown (>= 4 decimals, as
+    # many more as the values need up to 12; scientific for tiny/huge
+    # magnitudes) so the browser neither displays nor submits a truncated
+    # bound (e.g. 1.845098 -> "1.845098", not "1.8451").
+    from PlanetProfile.Inference.gui_config import (
+        prior_number_format, retype_prior_entry)
+    _prior_fmt = prior_number_format
 
     _TYPE_NOTE = {
         'log-uniform': "Bounds are log10 EXPONENTS: the prior is "
@@ -623,12 +632,19 @@ def render_prior_config(PARAMETER_REGISTRY):
                 "Prior type:",
                 options=type_options,
                 index=type_options.index(existing['prior_type']),
-                key=f'prior_type_{param_id}'
+                key=_gk(f'prior_type_{param_id}')
             )
+            _origins = st.session_state.setdefault('inference_prior_origin', {})
             if prior_type != existing['prior_type']:
-                existing = default_prior_entry(param_def, prior_type,
-                                               from_entry=existing)
+                _origins.setdefault(param_id, copy.deepcopy(existing))
+                existing, _notice = retype_prior_entry(
+                    param_def, prior_type, from_entry=existing,
+                    origin=_origins.get(param_id))
                 space[param_id] = existing
+                st.session_state[f'prior_notice_{param_id}'] = _notice
+            _notice = st.session_state.get(f'prior_notice_{param_id}')
+            if _notice:
+                st.warning(_notice)
             if prior_type in _TYPE_NOTE:
                 st.caption(_TYPE_NOTE[prior_type])
 
@@ -643,11 +659,11 @@ def render_prior_config(PARAMETER_REGISTRY):
                 with col1:
                     new['mean'] = st.number_input(
                         "Mean:", value=float(existing['mean']),
-                        format=_fmt, key=f'mean_{kt}')
+                        format=_fmt, key=_gk(f'mean_{kt}'))
                 with col2:
                     new['std'] = st.number_input(
                         "Std. deviation:", value=float(existing['std']),
-                        format=_fmt, key=f'std_{kt}')
+                        format=_fmt, key=_gk(f'std_{kt}'))
             if 'bounds' in fields:
                 exp_note = " (log10 exponent)" if prior_type in (
                     'log-uniform', 'uniform-in-linear') else ""
@@ -656,12 +672,12 @@ def render_prior_config(PARAMETER_REGISTRY):
                     low = st.number_input(
                         f"Lower bound{exp_note}:",
                         value=float(existing['bounds'][0]),
-                        format=_fmt, key=f'lower_{kt}')
+                        format=_fmt, key=_gk(f'lower_{kt}'))
                 with col2:
                     high = st.number_input(
                         f"Upper bound{exp_note}:",
                         value=float(existing['bounds'][1]),
-                        format=_fmt, key=f'upper_{kt}')
+                        format=_fmt, key=_gk(f'upper_{kt}'))
                 new['bounds'] = [low, high]
 
             changed = {
@@ -688,57 +704,79 @@ def render_observables_config():
     # Titan display defaults to such a run would silently change its
     # likelihood, so absence of any k2 channel unchecks the box.
     _obs_now = st.session_state.inference_observables
+    _has_re = 'Re_k2' in _obs_now
+    _has_im = 'abs_Im_k2' in _obs_now or 'Im_k2' in _obs_now
     use_k2 = st.checkbox(
         "Include k₂ tidal-Love-number constraints",
-        value=('Re_k2' in _obs_now or 'abs_Im_k2' in _obs_now
-               or 'Im_k2' in _obs_now),
-        key='use_k2_obs',
-        help="Gaussian χ² terms for Re(k₂) and |Im(k₂)|."
+        value=(_has_re or _has_im),
+        key=_gk('use_k2_obs'),
+        help="Gaussian χ² terms for Re(k₂) and |Im(k₂)|; each channel has "
+             "its own checkbox so a config carrying only one channel is "
+             "not given the other."
     )
-    Re_k2_value = Re_k2_uncertainty = None
     _body_defaults = BODY_OBS_DEFAULTS.get(
         st.session_state.get('inference_bodyname', 'Titan'),
         BODY_OBS_DEFAULTS['Titan'])
-    re_k2_default = _obs_now.get('Re_k2', _body_defaults['Re_k2'])
-    if use_k2:
-        col1, col2 = st.columns(2)
-        with col1:
-            Re_k2_value = st.number_input(
-                "Re(k₂) — Real part:",
-                value=re_k2_default[0],
-                format="%.4f",
-                key='Re_k2_value'
-            )
-        with col2:
-            Re_k2_uncertainty = st.number_input(
-                "± Uncertainty:",
-                value=re_k2_default[1],
-                format="%.4f",
-                key='Re_k2_unc'
-            )
+    _loaded_obs = (st.session_state.get('inference_loaded_config') or {}
+                   ).get('observables') or {}
 
-    # Im(k2) input - handle both old 'Im_k2' and new 'abs_Im_k2' keys for backward compatibility
-    observables = st.session_state.inference_observables
-    im_k2_default = observables.get(
-        'abs_Im_k2', observables.get('Im_k2', _body_defaults['abs_Im_k2']))
+    def _k2_default(*keys, body_key):
+        # current form value -> the loaded config's own value -> body default
+        for src in (_obs_now, _loaded_obs):
+            for k in keys:
+                v = src.get(k)
+                if isinstance(v, (list, tuple)) and len(v) == 2:
+                    return v
+        return _body_defaults[body_key]
 
+    Re_k2_value = Re_k2_uncertainty = None
     Im_k2_value = Im_k2_uncertainty = None
+    use_re = use_im = False
     if use_k2:
-        col1, col2 = st.columns(2)
-        with col1:
-            Im_k2_value = st.number_input(
-                "Im(k₂) — Imaginary part:",
-                value=im_k2_default[0],
-                format="%.4f",
-                key='Im_k2_value'
-            )
-        with col2:
-            Im_k2_uncertainty = st.number_input(
-                "± Uncertainty:",
-                value=im_k2_default[1],
-                format="%.4f",
-                key='Im_k2_unc'
-            )
+        # A channel defaults to included only when it is already part of the
+        # run; when neither is (user ticked the master box on a config with
+        # no k2) both are offered, i.e. an explicit add.
+        _neither = not (_has_re or _has_im)
+        use_re = st.checkbox("Re(k₂)", value=(_has_re or _neither),
+                             key=_gk('use_re_k2_obs'))
+        if use_re:
+            re_k2_default = _k2_default('Re_k2', body_key='Re_k2')
+            col1, col2 = st.columns(2)
+            with col1:
+                Re_k2_value = st.number_input(
+                    "Re(k₂) — Real part:",
+                    value=re_k2_default[0],
+                    format="%.4f",
+                    key=_gk('Re_k2_value')
+                )
+            with col2:
+                Re_k2_uncertainty = st.number_input(
+                    "± Uncertainty:",
+                    value=re_k2_default[1],
+                    format="%.4f",
+                    key=_gk('Re_k2_unc')
+                )
+        # handle both old 'Im_k2' and canonical 'abs_Im_k2' keys
+        use_im = st.checkbox("|Im(k₂)|", value=(_has_im or _neither),
+                             key=_gk('use_im_k2_obs'))
+        if use_im:
+            im_k2_default = _k2_default('abs_Im_k2', 'Im_k2',
+                                        body_key='abs_Im_k2')
+            col1, col2 = st.columns(2)
+            with col1:
+                Im_k2_value = st.number_input(
+                    "Im(k₂) — Imaginary part:",
+                    value=im_k2_default[0],
+                    format="%.4f",
+                    key=_gk('Im_k2_value')
+                )
+            with col2:
+                Im_k2_uncertainty = st.number_input(
+                    "± Uncertainty:",
+                    value=im_k2_default[1],
+                    format="%.4f",
+                    key=_gk('Im_k2_unc')
+                )
 
     # C/MR² (optional, checkbox-gated). No fallback tuple here: absence of the
     # key must leave the checkbox unchecked, so presets without a CMR2 term
@@ -747,7 +785,7 @@ def render_observables_config():
     use_cmr2 = st.checkbox(
         "Include C/MR² moment-of-inertia constraint",
         value=cmr2_default is not None,
-        key='use_cmr2_obs',
+        key=_gk('use_cmr2_obs'),
         help="Adds a Gaussian χ² term for the axial moment of inertia computed from the structure profile."
     )
     cmr2_obs = None
@@ -758,14 +796,14 @@ def render_observables_config():
                 "C/MR² — Moment of inertia:",
                 value=float(cmr2_default[0]) if cmr2_default else 0.343,
                 format="%.4f",
-                key='CMR2_value'
+                key=_gk('CMR2_value')
             )
         with col2:
             cmr2_uncertainty = st.number_input(
                 "± Uncertainty:",
                 value=float(cmr2_default[1]) if cmr2_default else 0.001,
                 format="%.5f",
-                key='CMR2_unc'
+                key=_gk('CMR2_unc')
             )
         cmr2_obs = (cmr2_value, cmr2_uncertainty)
 
@@ -775,11 +813,13 @@ def render_observables_config():
     # of being silently dropped from the run.
     new_observables = dict(st.session_state.inference_observables)
     new_observables.pop('Im_k2', None)  # superseded by canonical abs_Im_k2
-    if use_k2:
+    if use_re:
         new_observables['Re_k2'] = (Re_k2_value, Re_k2_uncertainty)
-        new_observables['abs_Im_k2'] = (Im_k2_value, Im_k2_uncertainty)
     else:
         new_observables.pop('Re_k2', None)
+    if use_im:
+        new_observables['abs_Im_k2'] = (Im_k2_value, Im_k2_uncertainty)
+    else:
         new_observables.pop('abs_Im_k2', None)
     if cmr2_obs is not None:
         new_observables['CMR2'] = cmr2_obs
@@ -810,7 +850,7 @@ def render_sampler_settings():
         max_value=max(5000, int(_ss['n_effective'])),
         value=_ss['n_effective'],
         step=100,
-        key='n_eff_slider',
+        key=_gk('n_eff_slider'),
         help="Number of independent samples to collect. Higher = better convergence, longer runtime."
     )
 
@@ -821,7 +861,7 @@ def render_sampler_settings():
         max_value=max(1000, int(_ss['n_reeval'])),
         value=_ss['n_reeval'],
         step=100,
-        key='n_reeval_slider',
+        key=_gk('n_reeval_slider'),
         help="Number of posterior samples to re-compute full heating for."
     )
 
@@ -831,14 +871,14 @@ def render_sampler_settings():
             "Random seed:",
             value=st.session_state.inference_sampler_settings['random_state'],
             format="%d",
-            key='random_seed'
+            key=_gk('random_seed')
         )
 
         checkpoint_interval = st.number_input(
             "Checkpoint interval (samples):",
             value=st.session_state.inference_sampler_settings['checkpoint_interval'],
             format="%d",
-            key='checkpoint_interval',
+            key=_gk('checkpoint_interval'),
             help="Save progress every N samples (for long runs)."
         )
 
@@ -846,7 +886,7 @@ def render_sampler_settings():
             "Max iterations:",
             value=st.session_state.inference_sampler_settings['max_iterations'],
             format="%d",
-            key='max_iterations',
+            key=_gk('max_iterations'),
             help="Maximum MCMC steps before stopping (safety limit)."
         )
 
@@ -875,9 +915,21 @@ def _render_cache_report():
     selected = st.session_state.inference_selected_params
     space = {k: v for k, v in st.session_state.inference_param_space.items()
              if k in selected}
-    rep = check_structure_cache(
-        space, loaded.get('fixed_params'),
-        st.session_state.inference_structure_cache_path, cfg_path)
+    from PlanetProfile.Inference.gui_config import axes_cached
+    from PlanetProfile.Inference.gui_config import resolve_check_path
+    _cp = resolve_check_path(st.session_state.inference_structure_cache_path
+                             or '')
+    # The check unpickles the whole cache once, then is memoized on
+    # (resolved path, mtime, size); only that first read shows a spinner.
+    if _cp.is_file() and not axes_cached(_cp):
+        with st.spinner("Reading structure cache (first time only)..."):
+            rep = check_structure_cache(
+                space, loaded.get('fixed_params'),
+                st.session_state.inference_structure_cache_path, cfg_path)
+    else:
+        rep = check_structure_cache(
+            space, loaded.get('fixed_params'),
+            st.session_state.inference_structure_cache_path, cfg_path)
     if rep['status'] == 'unset':
         return
     if rep['status'] == 'missing':
@@ -890,11 +942,25 @@ def _render_cache_report():
                  f"{rep.get('error')}")
         return
     size_kb = Path(rep['resolved']).stat().st_size / 1024
-    spans = "; ".join(f"{p} {i['range'][0]:.6g} to {i['range'][1]:.6g} "
-                      f"({i['n']} pts)" for p, i in rep['axes'].items())
+    spans = "; ".join(
+        f"{p} {i['range'][0]:.6g} to {i['range'][1]:.6g} ({i['n']} pts"
+        + ("; w=0 node excluded from range" if i.get('zero_node') else "")
+        + ")" + (" [frozen-branch axis, separate]" if p == 'frozen_zb_km'
+                 else "")
+        for p, i in rep['axes'].items())
     st.success(f"✅ Cache file found ({size_kb:.1f} KB)"
                + (f" — grid axes: {spans}" if spans else
                   " — no Tb/salinity/zb grid axes recorded"))
+    q = rep.get('quality') or {}
+    if q.get('n_none'):
+        st.warning(f"⚠️ {q['n_none']} of {q['n_nodes']} cache nodes are "
+                   "missing (None); draws landing on them cannot be served.")
+    if q.get('n_inconsistent'):
+        st.warning(
+            f"⚠️ {q['n_inconsistent']} of {q['n_nodes']} cache nodes have "
+            "per-node profile arrays of unequal length (e.g. P_MPa vs r_m; "
+            f"first nodes: {q['inconsistent_examples']}); the cache may be "
+            "malformed.")
     for issue in rep['issues']:
         st.warning(
             f"⚠️ Prior for `{issue['param']}` extends outside the cached "
@@ -922,7 +988,7 @@ def render_structure_cache_input():
     use_clathrate = st.checkbox(
         clathrate_label,
         value=st.session_state.inference_use_clathrate,
-        key='clathrate_checkbox',
+        key=_gk('clathrate_checkbox'),
         help="Checked: *_clath.pkl | Unchecked: *_noclath.pkl"
     )
 
@@ -996,7 +1062,7 @@ def render_structure_cache_input():
             "Path to structure cache (relative to project root):",
             value=st.session_state.inference_structure_cache_path,
             placeholder="titan_cache/titan_structure_clath.pkl",
-            key='cache_path_input',
+            key=_gk('cache_path_input'),
             help="Pre-computed planetary structure cache (see MCMC_INFERENCE_GUIDE.md)"
         )
 

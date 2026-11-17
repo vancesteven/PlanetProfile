@@ -11,10 +11,10 @@ reaches the runner unchanged.
 from __future__ import annotations
 
 import copy
-import functools
 import json
 import math
 import pickle
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -97,6 +97,17 @@ def _pair(v) -> tuple:
     return (float(v[0]), float(v[1]))
 
 
+def observable_pair(v) -> Optional[tuple]:
+    """``(value, sigma)`` floats if ``v`` is a 2-element numeric sequence
+    (the only shape the form renders), else None."""
+    if isinstance(v, (list, tuple)) and len(v) == 2:
+        try:
+            return _pair(v)
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
 def merge_observables(loaded_obs: Dict[str, Any],
                       form_obs: Dict[str, Any]) -> Dict[str, Any]:
     """Loaded observables with the form's edits applied.
@@ -104,7 +115,9 @@ def merge_observables(loaded_obs: Dict[str, Any],
     Entries whose (value, sigma) match the loaded ones keep the loaded
     object verbatim (so the loaded key spelling, e.g. ``Im_k2``, and list
     type are preserved); edited ones keep the loaded key; keys the form
-    removed are dropped; keys the form added are appended as [value, sigma].
+    added are appended as [value, sigma]. A loaded observable the form
+    could not render (not a 2-element [value, sigma]) is passed through
+    unchanged; only a rendered observable the user removed is dropped.
     """
     out: Dict[str, Any] = {}
     for key, val in form_obs.items():
@@ -112,13 +125,14 @@ def merge_observables(loaded_obs: Dict[str, Any],
         if key not in loaded_obs and key == "abs_Im_k2" and "Im_k2" in loaded_obs:
             orig = "Im_k2"
         if orig in loaded_obs:
-            try:
-                same = _pair(loaded_obs[orig]) == _pair(val)
-            except (TypeError, ValueError, IndexError):
-                same = False
+            same = observable_pair(loaded_obs[orig]) == observable_pair(val) \
+                and observable_pair(val) is not None
             out[orig] = loaded_obs[orig] if same else [val[0], val[1]]
         else:
             out[key] = [val[0], val[1]]
+    for key, val in loaded_obs.items():
+        if observable_pair(val) is None and key not in out:
+            out[key] = val              # not rendered by the form: untouched
     # preserve the loaded ordering
     ordered = {k: out[k] for k in loaded_obs if k in out}
     ordered.update({k: v for k, v in out.items() if k not in ordered})
@@ -196,18 +210,76 @@ def run_config_from_state(state, fallback_bodyname: str = "Custom"
 # Prior editing helpers
 # --------------------------------------------------------------------------
 
-def default_prior_entry(param_def, prior_type: str,
-                        from_entry: Optional[Dict[str, Any]] = None
-                        ) -> Dict[str, Any]:
-    """Fresh prior dict of ``prior_type`` for a newly added/retyped parameter."""
+# Prior types whose bounds are log10 EXPONENTS (see mcmc_runner._build_prior).
+EXPONENT_TYPES = ("log-uniform", "uniform-in-linear")
+_RT_REL, _RT_ABS = 1e-9, 1e-12
+
+
+def _close(a, b) -> bool:
+    return abs(a - b) <= _RT_ABS + _RT_REL * max(abs(a), abs(b))
+
+
+def retype_prior_entry(param_def, prior_type: str,
+                       from_entry: Optional[Dict[str, Any]] = None,
+                       origin: Optional[Dict[str, Any]] = None):
+    """Prior dict of ``prior_type`` for a newly added/retyped parameter.
+
+    Returns ``(entry, notice)``; ``notice`` is None or a sentence for the UI.
+
+    Conversion preserves the SAMPLED RANGE of the parameter exactly as
+    ``mcmc_runner._build_prior`` builds it:
+
+    - ``uniform`` / ``truncated_gaussian``: bounds are linear values.
+    - ``log-uniform``: ``loguniform(10**lo, 10**hi)``, so the sampled range
+      is ``[10**lo, 10**hi]``; uniform<->log-uniform converts with
+      ``log10`` / ``10**``.
+    - ``uniform-in-linear``: the sampled variable is ``x = log10(v)`` and its
+      bounds ``[lo, hi]`` are the range of x itself, so to/from the linear
+      types the bounds are unchanged; to/from ``log-uniform`` (both are
+      exponent-valued) they are also unchanged.
+
+    A linear -> log-uniform conversion needs both bounds > 0; otherwise the
+    registry default for the new type is used and the notice says so.
+    ``origin`` (the entry before the first retype, if any) is restored
+    exactly when converting back to its type reproduces it within float
+    tolerance, so a round trip is not an edit.
+    """
     entry: Dict[str, Any] = {"prior_type": prior_type}
     fields = PRIOR_FIELDS[prior_type]
-    bounds = list(from_entry["bounds"]) if (from_entry and "bounds" in from_entry
-                                            ) else list(param_def.default_bounds)
-    if prior_type == "log-uniform" and not (from_entry and from_entry.get(
-            "prior_type") in ("log-uniform", "uniform-in-linear")):
-        if bounds[0] > 0 and bounds[1] > 0:
-            bounds = [math.log10(bounds[0]), math.log10(bounds[1])]
+    notice = None
+    src_type = (from_entry or {}).get("prior_type")
+    linear_types = ("uniform", "truncated_gaussian")
+    pname = getattr(param_def, "id", None) or getattr(param_def, "label", "")
+    bounds = None
+    if from_entry and "bounds" in from_entry:
+        lo, hi = float(from_entry["bounds"][0]), float(from_entry["bounds"][1])
+        if src_type == "log-uniform" and prior_type in linear_types:
+            try:
+                bounds = [10.0 ** lo, 10.0 ** hi]
+            except OverflowError:
+                notice = (f"`{pname}`: the exponent bounds are too large to "
+                          "convert to linear values; the registry default "
+                          f"for {prior_type} was used instead.")
+        elif src_type in linear_types and prior_type == "log-uniform":
+            if lo > 0 and hi > 0:
+                bounds = [math.log10(lo), math.log10(hi)]
+            else:
+                notice = (f"`{pname}` has a non-positive bound, which a "
+                          "log-uniform prior cannot represent; the registry "
+                          "default for log-uniform was used instead.")
+        else:
+            bounds = [lo, hi]   # same meaning (linear<->linear, exponent<->exponent, uniform-in-linear<->linear)
+    if bounds is None:
+        bounds = list(param_def.default_bounds)
+        if prior_type == "log-uniform":
+            if bounds[0] > 0 and bounds[1] > 0:
+                bounds = [math.log10(bounds[0]), math.log10(bounds[1])]
+            else:
+                bounds = [-1.0, 1.0]
+                notice = ((notice or "") + " The registry default bounds are "
+                          "non-positive too, so placeholder exponents "
+                          "[-1, 1] (i.e. 0.1 to 10) are shown; set the "
+                          "bounds manually.").strip()
     if "bounds" in fields:
         entry["bounds"] = [float(bounds[0]), float(bounds[1])]
     if "mean" in fields:
@@ -219,36 +291,157 @@ def default_prior_entry(param_def, prior_type: str,
             std = 0.25 * abs(bounds[1] - bounds[0]) or 1.0
         entry["mean"] = float(mean)
         entry["std"] = float(std)
-    return entry
+    if origin and origin.get("prior_type") == prior_type and notice is None:
+        keys = [k for k in ("bounds", "mean", "std") if k in entry]
+        try:
+            same = all(
+                _close(float(x), float(y))
+                for k in keys for x, y in zip(
+                    entry[k] if k == "bounds" else [entry[k]],
+                    origin[k] if k == "bounds" else [origin[k]]))
+        except (KeyError, TypeError, ValueError):
+            same = False
+        if same:
+            return copy.deepcopy(origin), None
+    return entry, notice
+
+
+def default_prior_entry(param_def, prior_type: str,
+                        from_entry: Optional[Dict[str, Any]] = None
+                        ) -> Dict[str, Any]:
+    """``retype_prior_entry`` without the notice."""
+    return retype_prior_entry(param_def, prior_type, from_entry)[0]
+
+
+def prior_number_format(*vals) -> str:
+    """printf format (for st.number_input) that shows every given value
+    without losing digits: fixed notation with at least 4 decimals and as
+    many more as the values need (up to 12), or scientific with enough
+    mantissa digits for tiny/huge magnitudes."""
+    mags = []
+    for v in vals:
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(f) and f != 0.0:
+            mags.append(abs(f))
+    sci = bool(mags) and (max(mags) < 1e-2 or max(mags) >= 1e5)
+    n = 4 if not sci else 3
+    for v in vals:
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(f) or f == 0.0:
+            continue
+        if sci:
+            mant = format(f, ".12e").split("e")[0].rstrip("0").rstrip(".")
+            digits = len(mant.split(".")[1]) if "." in mant else 0
+            n = max(n, min(digits, 12))
+        else:
+            dec = format(f, ".12f").rstrip("0")
+            digits = len(dec.split(".")[1]) if "." in dec else 0
+            n = max(n, min(digits, 12))
+    return f"%.{n}{'e' if sci else 'f'}"
 
 
 # --------------------------------------------------------------------------
 # Structure-grid check
 # --------------------------------------------------------------------------
 
-@functools.lru_cache(maxsize=8)
-def _read_axes(path: str, mtime: float, size: int) -> Dict[str, Any]:
+# Per-node 1-D profile arrays that must share one length in a valid node.
+_NODE_PROFILE_KEYS = ("r_m", "rho", "K_Pa", "mu_Pa", "T_K", "P_MPa")
+
+_AXES_CACHE: "OrderedDict[tuple, Dict[str, Any]]" = OrderedDict()
+_AXES_CACHE_MAX = 8
+
+
+def _axis_info(grid, fn, axis_key):
+    vals = [float(v) for v in grid]
+    zero = any(v <= 0.0 for v in vals) and fn is math.log10
+    if fn is math.log10:
+        vals = [v for v in vals if v > 0.0]
+    if not vals:
+        return None
+    info = {"axis": axis_key, "range": (fn(min(vals)), fn(max(vals))),
+            "n": len(grid)}
+    if zero:
+        info["zero_node"] = True     # w = 0 has no log10; excluded from range
+    return info
+
+
+def _load_axes(path: str) -> Dict[str, Any]:
     with open(path, "rb") as fh:
         data = pickle.load(fh)
-    axes = {}
+    axes: Dict[str, Any] = {}
+    quality = {"n_nodes": 0, "n_none": 0, "n_inconsistent": 0,
+               "inconsistent_examples": []}
     if isinstance(data, dict):
         for axis_key, param, fn in _GRID_AXES:
             grid = data.get(axis_key)
             if grid is None or len(grid) == 0:
                 continue
-            vals = [float(v) for v in grid]
-            lo, hi = min(vals), max(vals)
-            if axis_key == "zb_km_grid" and data.get("frozen_zb_km_grid") is not None \
-                    and len(data["frozen_zb_km_grid"]):
-                hi = max(hi, float(max(data["frozen_zb_km_grid"])))
-            axes[param] = {"axis": axis_key, "range": (fn(lo), fn(hi)),
-                           "n": len(vals)}
-    return axes
+            info = _axis_info(grid, fn, axis_key)
+            if info is not None:
+                axes[param] = info
+        # The frozen branch's zb axis (zb > ocean-branch maximum) is its own
+        # axis: a sampled zb_km prior is range-checked against the ocean
+        # axis only.
+        fz = data.get("frozen_zb_km_grid")
+        if fz is not None and len(fz):
+            info = _axis_info(fz, lambda v: v, "frozen_zb_km_grid")
+            if info is not None:
+                axes["frozen_zb_km"] = info
+        nodes = data.get("structures")
+        if nodes is not None:
+            try:
+                quality["n_nodes"] = len(nodes)
+                for i, node in enumerate(nodes):
+                    if node is None:
+                        quality["n_none"] += 1
+                    elif isinstance(node, dict):
+                        lens = {len(node[k]) for k in _NODE_PROFILE_KEYS
+                                if k in node and hasattr(node[k], "__len__")}
+                        if len(lens) > 1:
+                            quality["n_inconsistent"] += 1
+                            if len(quality["inconsistent_examples"]) < 3:
+                                quality["inconsistent_examples"].append(i)
+            except TypeError:
+                pass
+    return {"axes": axes, "quality": quality}
+
+
+def _cache_key(path: Path) -> tuple:
+    st = path.stat()
+    return (str(path), st.st_mtime, st.st_size)
+
+
+def axes_cached(path: Path) -> bool:
+    """True when ``cache_axes(path)`` will not re-read the pickle."""
+    try:
+        return _cache_key(path) in _AXES_CACHE
+    except OSError:
+        return False
+
+
+def cache_report(path: Path) -> Dict[str, Any]:
+    """``{'axes', 'quality'}`` for the cache pickle, memoized on (resolved
+    path, mtime, size): Streamlit reruns never re-unpickle a large cache."""
+    key = _cache_key(path)
+    hit = _AXES_CACHE.get(key)
+    if hit is None:
+        hit = _load_axes(str(path))
+        _AXES_CACHE[key] = hit
+        while len(_AXES_CACHE) > _AXES_CACHE_MAX:
+            _AXES_CACHE.popitem(last=False)
+    else:
+        _AXES_CACHE.move_to_end(key)
+    return hit
 
 
 def cache_axes(path: Path) -> Dict[str, Any]:
-    st = path.stat()
-    return _read_axes(str(path), st.st_mtime, st.st_size)
+    return cache_report(path)["axes"]
 
 
 def _prior_extent(spec: Dict[str, Any]) -> Optional[tuple]:
@@ -262,6 +455,14 @@ def _prior_extent(spec: Dict[str, Any]) -> Optional[tuple]:
     return None
 
 
+def resolve_check_path(cache_path: str) -> Path:
+    """The file ``check_structure_cache`` will read for ``cache_path``."""
+    resolved = resolve_cache_path(cache_path)
+    if not resolved.is_absolute() and not resolved.exists():
+        resolved = REPO_ROOT / resolved
+    return resolved
+
+
 def check_structure_cache(param_space: Dict[str, Any],
                           fixed_params: Optional[Dict[str, Any]],
                           cache_path: Optional[str],
@@ -270,16 +471,15 @@ def check_structure_cache(param_space: Dict[str, Any],
     """Real structure-grid validation.
 
     Returns ``{'status': 'unset'|'missing'|'unreadable'|'ok', 'resolved',
-    'axes', 'issues', 'command'}``. ``issues`` lists each sampled/fixed
+    'axes', 'quality', 'issues', 'command'}``. ``quality`` counts None and
+    internally inconsistent nodes (profile arrays of unequal length). ``issues`` lists each sampled/fixed
     parameter whose prior (or fixed value) extends outside the cached axis,
     as ``{'param', 'prior_range', 'cache_range'}``.
     """
     if not cache_path:
         return {"status": "unset", "resolved": None, "axes": {}, "issues": [],
                 "command": None}
-    resolved = resolve_cache_path(cache_path)
-    if not resolved.is_absolute() and not resolved.exists():
-        resolved = REPO_ROOT / resolved
+    resolved = resolve_check_path(cache_path)
     needs_w = "log10_wOcean_ppt" in (param_space or {})
     cfg_ref = config_path or "<config.json>"
     command = BUILD_COMMAND.format(
@@ -289,12 +489,14 @@ def check_structure_cache(param_space: Dict[str, Any],
     if not resolved.exists():
         return out
     try:
-        axes = cache_axes(resolved)
+        rep = cache_report(resolved)
+        axes = rep["axes"]
     except Exception as exc:  # corrupt / unreadable pickle
         out.update(status="unreadable", error=str(exc))
         return out
     out["status"] = "ok"
     out["axes"] = axes
+    out["quality"] = rep["quality"]
     extents = {k: _prior_extent(v) for k, v in (param_space or {}).items()}
     for k, v in (fixed_params or {}).items():
         try:
@@ -302,6 +504,8 @@ def check_structure_cache(param_space: Dict[str, Any],
         except (TypeError, ValueError):
             pass
     for param, info in axes.items():
+        if param == "frozen_zb_km":     # reported separately, never checked
+            continue
         ext = extents.get(param)
         if ext is None:
             continue
