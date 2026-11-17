@@ -176,7 +176,8 @@ def test_enceladus_config_enables_flag_others_do_not():
     # Every other campaign config (Titan / Europa clairaut, Callisto, ...)
     # must not carry the flag.
     for p in sorted(CFG_DIR.glob('*.json')):
-        if p in (CANDIDATE, CFG_DIR / 'enceladus_cassini_isostasy_ocean6D_rhorock.json'):
+        if p in (CANDIDATE, CFG_DIR / 'enceladus_cassini_isostasy_ocean6D_rhorock.json',
+                 CFG_DIR / 'enceladus_cassini_isostasy_ocean6D_rhorock_sbi_frozenconv.json'):
             continue
         txt = p.read_text()
         assert 'stack_mass_closure' not in txt, p.name

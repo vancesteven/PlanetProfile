@@ -382,6 +382,7 @@ def _apply_config_to_session_state(cfg, path=None):
     import copy as _copy
     from PlanetProfile.Inference.gui_config import gui_info
     st.session_state.inference_prior_origin = {}
+    st.session_state.inference_prior_auto = {}
     st.session_state.inference_load_gen = st.session_state.get(
         'inference_load_gen', 0) + 1
     for _k in [k for k in st.session_state.keys()
@@ -635,11 +636,19 @@ def render_prior_config(PARAMETER_REGISTRY):
                 key=_gk(f'prior_type_{param_id}')
             )
             _origins = st.session_state.setdefault('inference_prior_origin', {})
+            _auto = st.session_state.setdefault('inference_prior_auto', {})
             if prior_type != existing['prior_type']:
-                _origins.setdefault(param_id, copy.deepcopy(existing))
-                existing, _notice = retype_prior_entry(
-                    param_def, prior_type, from_entry=existing,
-                    origin=_origins.get(param_id))
+                _origin = _origins.setdefault(param_id, copy.deepcopy(existing))
+                if (prior_type == _origin['prior_type']
+                        and _auto.get(param_id) == existing):
+                    # Untouched since an automatic retype (possibly a lossy
+                    # fallback): going back restores the loaded entry.
+                    existing, _notice = copy.deepcopy(_origin), None
+                else:
+                    existing, _notice = retype_prior_entry(
+                        param_def, prior_type, from_entry=existing,
+                        origin=_origin)
+                _auto[param_id] = copy.deepcopy(existing)
                 space[param_id] = existing
                 st.session_state[f'prior_notice_{param_id}'] = _notice
             _notice = st.session_state.get(f'prior_notice_{param_id}')

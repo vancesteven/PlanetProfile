@@ -645,6 +645,16 @@ def test_retype_round_trip_in_page_is_not_an_edit_and_notice_is_visible(fx):
     at.run()
     _ok(at)
     assert any("non-positive" in str(w.value) for w in at.warning)
+    # the lossy fallback must not destroy the loaded bounds: switching back
+    # without editing restores them, and it is not an edit
+    _w(at, "selectbox", "prior_type_log10_zeta").select("uniform")
+    at.run()
+    at.run()
+    _ok(at)
+    assert at.session_state["inference_param_space"]["log10_zeta"] == \
+        data["param_space"]["log10_zeta"]
+    diff, _ = _built_diff(at, data)
+    assert diff == []
 
 
 # -- finding 3: k2 channel leakage -------------------------------------------
